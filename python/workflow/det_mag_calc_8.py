@@ -106,8 +106,8 @@ def temp_det_dict_shifts(cat, temp_cat, det_dir, ccs_thresh, shift_len, plot=Fal
         for evid, ev_dict in det_dict.iteritems():
             if evid != 'temp_mag' and evid != 'temp_ind':
                 for tr in ev_dict['stream']:
-                    tr.trim(starttime=tr.stats.starttime + 2.5,
-                            endtime=tr.stats.endtime - 3)
+                    tr.trim(starttime=tr.stats.starttime + 2.7,
+                            endtime=tr.stats.endtime - 5)
     # Variable of random keys for plotting
     samp_ids = [id for i, id in enumerate(template_dict.keys())
                 if i in np.random.choice(range(len(template_dict)),
@@ -184,15 +184,12 @@ def relative_mag_calc(cat, template_dict, n_SVs=4, plot=False, debug=1):
                                 for i, ev_ind in enumerate(svd_dict[stachan]['events']):
                                     data_tr = stream_list[ev_ind].select(station=stachan.split('.')[0],
                                                                          channel=stachan.split('.')[1])[0]
-                                    # TODO Also, add U weight text.
                                     samp_rate = data_tr.stats.sampling_rate
                                     SV_y = first_SV * first_SVal
                                     SV_x = np.arange(len(SV_y))
                                     SV_x = SV_x / samp_rate
                                     dat_y = data_tr.data
                                     U_wt = np.matrix(copy.deepcopy(svd_dict[stachan]['uvectors']))
-                                    # TODO Does something need to happen to the amplitudes of the streams
-                                    # TODO in stream_list??
                                     svd_wts = np.array(U_wt[:, 0]).reshape(-1).tolist()
                                     axes[i, 0].plot(SV_x, SV_y * svd_wts[i], color='r')
                                     axes[i, 0].plot(SV_x, dat_y, color='k')

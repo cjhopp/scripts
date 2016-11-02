@@ -248,6 +248,7 @@ def plot_location_changes(cat, bbox, show=True):
         fig.show()
     return fig
 
+######## RATE-RELATED FUNCTIONS ########
 
 def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cumulative=False, detection_rate=False):
     """
@@ -321,7 +322,6 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
             elif temp_list == 'all':
                 det_times.append(det_time_list)
                 temp_names.append(temp_name)
-        print(det_times)
         if cumulative:
             fig = plotting.cumulative_detections(dates=det_times, template_names=temp_names,
                                                  plot_grouped=True, show=False, plot_legend=False)
@@ -360,7 +360,11 @@ def mrp_2_flow_dict(flow_csv, well_list=None):
         well_list = [well for well in well_list if well != 'Date' and well != 'LP Brine']
     flow_dict = {datetime.datetime.strptime(row[('Date', 'Time')], "%m/%d/%Y %H:%M"):
                      {index[0]: flow for index, flow in row.iteritems() if index[0] != 'Date'
-                      and index[0] != 'LP Brine' and index[0] in well_list}
+                      and index[0] != 'LP Brine' and index[0] in well_list and index[1] == 'Flow'}
+                 for index, row in flows.iterrows()}
+    whp_dict = {datetime.datetime.strptime(row[('Date', 'Time')], "%m/%d/%Y %H:%M"):
+                     {index[0]: whp for index, whp in row.iteritems() if index[0] != 'Date'
+                      and index[0] != 'LP Brine' and index[0] in well_list and index[1] == 'WHP'}
                  for index, row in flows.iterrows()}
     # Sum the flows and add to the dto dict
     for dto, well_dict in flow_dict.iteritems(): # Convert nans to 0.0
@@ -368,10 +372,11 @@ def mrp_2_flow_dict(flow_csv, well_list=None):
             if np.isnan(flow):
                 well_dict[well] = 0.0
         well_dict['total'] = sum([flow for well, flow in well_dict.iteritems() if well != 'LP Brine'])
-    return flow_dict
+    return flow_dict, whp_dict
 
 
-def plot_flow_rates(flow_dict, start_date, end_date, well_list='all', total=False, volume=False, fig=None):
+def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all', pressure=False,
+                    total=False, volume=False, fig=None):
     """
     Plotting function for injection flows for geothermal power production.
     :type flow_csv: str
@@ -394,17 +399,22 @@ def plot_flow_rates(flow_dict, start_date, end_date, well_list='all', total=Fals
     import pandas as pd
     import matplotlib.pyplot as plt
 
+    # Checks for plotting pressure or flow
+    if pressure:
+        plot_dict = pres_dict
+    else:
+        plot_dict = flow_dict
     # Date strings to datetime objects
     start = datetime.datetime.strptime(start_date, "%d/%m/%Y")
     end = datetime.datetime.strptime(end_date, "%d/%m/%Y")
     # Get flows into list of (dto, flow) for plotting
     if total:
         well_list = 'total'
-        plot_tups_dict = {'total':[(dto, well_dict['total']) for dto, well_dict in flow_dict.iteritems()
+        plot_tups_dict = {'total':[(dto, well_dict['total']) for dto, well_dict in plot_dict.iteritems()
                                    if dto > start and dto < end]}
     else:
         plot_tups_dict = {}
-        for dto, well_dict in flow_dict.iteritems():
+        for dto, well_dict in plot_dict.iteritems():
             if dto > start and dto < end:
                 for well in well_dict.keys():
                     if well in well_list or well_list == 'all':
@@ -413,10 +423,6 @@ def plot_flow_rates(flow_dict, start_date, end_date, well_list='all', total=Fals
                                 plot_tups_dict[well].append((dto, well_dict[well]))
                             else:
                                 plot_tups_dict[well] = [(dto, well_dict[well])]
-        # plot_tups_dict = {well: [(dto, well_dict[well])]
-        #                   for dto, well_dict in flow_dict.iteritems() if dto > start and dto < end
-        #                   for well in well_dict.keys()
-        #                   if well in well_list or well_list == 'all'}
     # Sort the tuple lists by datetime object
     for well, list_tups in plot_tups_dict.iteritems():
         list_tups.sort(key=lambda x: x[0])
@@ -430,7 +436,10 @@ def plot_flow_rates(flow_dict, start_date, end_date, well_list='all', total=Fals
         axes = plt.gca()
     for t in axes.get_yticklabels():
         t.set_color('r')
-    axes.set_ylabel('flow rate (T/h)', color='r')
+    if pressure:
+        axes.set_ylabel('Wellhead Pressure', color='r')
+    else:
+        axes.set_ylabel('flow rate (T/h)', color='r')
     axes.set_xlabel('Date')
     for well, flow_list in plot_tups_dict.iteritems():
         if well in well_list or well_list:
@@ -455,10 +464,13 @@ def plot_flow_rates(flow_dict, start_date, end_date, well_list='all', total=Fals
                 axes.legend(lines + lines2, labels + labels2, loc=4, prop={'size': 8})
             else:
                 axes.legend(lines2, labels2, loc=4, prop={'size': 8})
-    axes.set_ylim([0, max([fl[1] for well, list_tups in plot_tups_dict.iteritems()
-                           for fl in list_tups])])
+    # TODO this should be re-enabled somehow
+    # axes.set_ylim([0, max([fl[1] for well, list_tups in plot_tups_dict.iteritems()
+    #                        for fl in list_tups])])
     return fig_final
 
+
+##### OTHER MISC FUNCTIONS #####
 
 def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=False):
     """
