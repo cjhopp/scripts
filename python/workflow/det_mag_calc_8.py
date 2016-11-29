@@ -58,7 +58,8 @@ def reassign_selfs(cat, det_cat, temp_dir):
 
 def temp_det_dict_shifts(cat, temp_cat, det_dir, ccs_thresh, shift_len, plot=False):
     """
-
+    Function to create a dictionary of {temp_id: {...relevant info...}}
+    including shift information
     :param cat: catalog of detections
     :param temp_cat: catalog of templates
     :param det_dir: directory of detection waveforms
@@ -78,28 +79,38 @@ def temp_det_dict_shifts(cat, temp_cat, det_dir, ccs_thresh, shift_len, plot=Fal
         det_rid = ResourceIdentifier('smi:local/' + filename.split('/')[-1].rstrip('.mseed'))
         if det_rid in ind_dict:
             if temp_rid not in template_dict and str(det_rid).split('/')[-1].split('_')[-1] == 'self':
-                template_dict[temp_rid] = {det_rid: {'stream': read(filename),
-                                                     'shifts': {},
-                                                     'ind': ind_dict[det_rid]},
+                template_dict[temp_rid] = {det_rid:
+                                               {'stream': read(filename),
+                                                'shifts': {},
+                                                'ind': ind_dict[det_rid],
+                                                'align_stream':
+                                                    read(filename)},
                                            'temp_mag': [ev.preferred_magnitude().mag for ev in temp_cat
                                                         if ev.resource_id == temp_rid][0],
                                            'temp_ind': ind_dict[det_rid]}
             elif temp_rid not in template_dict:
-                template_dict[temp_rid] = {det_rid: {'stream': read(filename),
-                                                     'shifts': {},
-                                                     'ind': ind_dict[det_rid]},
+                template_dict[temp_rid] = {det_rid:
+                                               {'stream': read(filename),
+                                                'shifts': {},
+                                                'ind': ind_dict[det_rid],
+                                                'align_stream':
+                                                    read(filename)},
                                            'temp_mag': None}
             elif str(det_rid).split('/')[-1].split('_')[-1] == 'self':
                 template_dict[temp_rid][det_rid] = {'stream': read(filename),
-                                                     'shifts': {},
-                                                     'ind': ind_dict[det_rid]}
+                                                    'shifts': {},
+                                                    'ind': ind_dict[det_rid],
+                                                    'align_stream':
+                                                        read(filename)}
                 template_dict[temp_rid]['temp_mag'] = [ev.preferred_magnitude().mag for ev in temp_cat
                                                         if ev.resource_id == temp_rid][0]
                 template_dict[temp_rid]['temp_ind'] = ind_dict[det_rid]
             else:
                 template_dict[temp_rid][det_rid] = {'stream': read(filename),
-                                                     'shifts': {},
-                                                     'ind': ind_dict[det_rid]}
+                                                    'shifts': {},
+                                                    'ind': ind_dict[det_rid],
+                                                    'align_stream':
+                                                        read(filename)}
     # Trim the waveforms to shorter lengths
     # Templates from /2015_det2cats/* are 3 sec pre-pick and 7 sec post-pick
     for tid, det_dict in template_dict.iteritems():
@@ -108,12 +119,15 @@ def temp_det_dict_shifts(cat, temp_cat, det_dir, ccs_thresh, shift_len, plot=Fal
                 for tr in ev_dict['stream']:
                     tr.trim(starttime=tr.stats.starttime + 2.7,
                             endtime=tr.stats.endtime - 5)
+                for tr in ev_dict['align_stream']:
+                    tr.trim(starttime=tr.stats.starttime + 2.9,
+                            endtime=tr.stats.endtime - 6)
     # Variable of random keys for plotting
     samp_ids = [id for i, id in enumerate(template_dict.keys())
                 if i in np.random.choice(range(len(template_dict)),
                                          len(template_dict) // 20,
                                          replace=False)]
-    # Now shift and
+    # Now shift and save shift value
     for tid, det_dict in template_dict.iteritems():
         design_set = []
         design_inds = []
@@ -124,7 +138,7 @@ def temp_det_dict_shifts(cat, temp_cat, det_dir, ccs_thresh, shift_len, plot=Fal
         else: plotvar=False
         for eid, ev_dict in det_dict.iteritems():
             if eid != 'temp_mag' and eid != 'temp_ind':
-                design_set.append(ev_dict['stream'])
+                design_set.append(ev_dict['align_stream'])
                 design_inds.append(ev_dict['ind'])
         aligned_streams = subspace.align_design(design_set,
                                                 reject=ccs_thresh,

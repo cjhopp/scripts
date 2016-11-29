@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def date_generator(start_date, end_date):
     # Generator for date looping
-    from datetime import timedelta, date
+    from datetime import timedelta
     for n in range(int ((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
@@ -65,16 +65,158 @@ def template_det_cats(cat, temp_list, outdir=False):
     return temp_det_dict
 
 
+def format_well_data(well_file):
+    """
+    Helper to format well txt files into (lat, lon, depth(km)) tups
+    :param well_file: Well txt file
+    :return: list of tuples
+    """
+    import csv
+    pts = []
+    with open(well_file) as f:
+        rdr = csv.reader(f, delimiter=' ')
+        for row in rdr:
+            if row[2] == '0':
+                pts.append((float(row[1]), float(row[0]),
+                            float(row[4]) / 1000.))
+            else:
+                pts.append((float(row[1]), float(row[0]),
+                            float(row[3]) / 1000.))
+    return pts
+
+
+def plot_mag_w_time(cat, show=True):
+    """
+    Plot earthquake magnitude as a function of time
+    :param cat: catalog of earthquakes with mag info
+    :param show: whether or not to show plot
+    :return: matplotlib.pyplot.Figure
+    """
+    import matplotlib
+    import matplotlib.pyplot as plt
+    matplotlib.rcParams['figure.dpi'] = 300
+    mag_tup = []
+    for ev in cat:
+        mag_tup.append((ev.origins[-1].time.datetime,
+                        ev.preferred_magnitude().mag))
+    dates, mags = zip(*mag_tup)
+    fig, ax = plt.subplots()
+    ax.set_ylabel('Magnitude')
+    ax.set_xlabel('Date')
+    ax.scatter(dates, mags)
+    if show:
+        fig.show()
+    return fig
+
+
+def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', show=True):
+    """
+    Function to plot events with distance from well as a function of time.
+    :param cat: catalog of events
+    :param well_file: text file of xyz well pts
+    :param temp_list: list of templates for which we'll plot detections
+    :param method: plot either the 'scatter' or daily 'average' distance
+    :return: matplotlib.pyplot.Figure
+    """
+    from eqcorrscan.utils.mag_calc import dist_calc
+    from obspy import Catalog
+    import matplotlib.pyplot as plt
+    import matplotlib
+    import numpy as np
+    from datetime import timedelta
+    matplotlib.rcParams['figure.dpi'] = 300
+    well_pts = format_well_data(well_file)
+    # Grab only templates in the list
+    cat = Catalog()
+    cat.events = [ev for ev in big_cat if
+                  str(ev.resource_id).split('/')[-1].split('_')[0] in
+                  temp_list or temp_list == 'all']
+    time_dist_tups = []
+    cat_start = min([ev.origins[-1].time.datetime for ev in cat])
+    cat_end = max([ev.origins[-1].time.datetime for ev in cat])
+    for ev in cat:
+        if ev.preferred_origin():
+            dist = min([dist_calc((ev.preferred_origin().latitude,
+                                   ev.preferred_origin().longitude,
+                                   ev.preferred_origin().depth / 1000.),
+                                  pt) for pt in well_pts])
+            time_dist_tups.append((ev.preferred_origin().time.datetime,
+                                  dist))
+    times, dists = zip(*time_dist_tups)
+    # Plot 'em up
+    fig, ax = plt.subplots()
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Distance (m)')
+    if method == 'scatter':
+        ax.scatter(times, dists)
+    elif method == 'average':
+        dates = []
+        day_avg_dist = []
+        for date in date_generator(cat_start, cat_end):
+            dates.append(date)
+            tdds = [tdd[1] for tdd in time_dist_tups if tdd[0] > date
+                    and tdd[0] < date + timedelta(days=1)]
+            day_avg_dist.append(np.mean(tdds))
+        ax.plot(dates, day_avg_dist)
+    elif method == 'both':
+        ax.scatter(times, dists)
+        dates = []
+        day_avg_dist = []
+        for date in date_generator(cat_start, cat_end):
+            dates.append(date)
+            tdds = [tdd[1] for tdd in time_dist_tups if tdd[0] > date
+                    and tdd[0] < date + timedelta(days=1)]
+            day_avg_dist.append(np.mean(tdds))
+        ax.plot(dates, day_avg_dist, color='r')
+    ax.set_ylim([0, max(dists)])
+    if show:
+        fig.show()
+    return fig
+
+
+def plot_detection_wavs(cat, temp_dict, det_dict, n_events):
+    """
+    Wrapper on detection_multiplot() for our dataset
+    :param cat: catalog of detections
+    :param temp_dir: template waveform dict
+    :param det_dir: detection waveform dict
+    :return: matplotlib.pyplot.Figure
+    """
+    import numpy as np
+    import matplotlib
+    from obspy.core.event import ResourceIdentifier
+    from eqcorrscan.utils.plotting import detection_multiplot
+    matplotlib.rcParams['figure.dpi'] = 300
+
+    rand_inds = np.random.choice(range(len(cat)), n_events, replace=False)
+    for i, ev in enumerate(cat):
+        if i in rand_inds:
+            det_st = det_dict[ev.resource_id].copy()
+            for tr in det_st:
+                tr.trim(tr.stats.starttime + 2, tr.stats.endtime - 4)
+            temp_id = ResourceIdentifier('smi:local/' +
+                                         str(ev.resource_id).split('/')[-1].split('_')[0] +
+                                         '_1sec')
+            temp_st = temp_dict[temp_id]
+            times = [min([tr.stats.starttime + 0.9 for tr in det_st])]
+            fig = detection_multiplot(det_st, temp_st, times, save=True,
+                                      savefile='/home/chet/figures/NZ/det_mulplt/%s.ps' %
+                                               str(ev.resource_id).split('/')[-1],
+                                      title='Detection for template %s' %
+                                            str(temp_id).split('/')[-1].split('_')[0])
+    return
+
+
 def bounding_box(cat, bbox, depth_thresh):
     from obspy import Catalog
     new_cat = Catalog()
-    new_cat.events = [ev for ev in cat if min(bbox[0]) <= ev.preferred_origin().longitude <= max(bbox[0])
-                      and min(bbox[1]) <= ev.preferred_origin().latitude <= max(bbox[1])
-                      and ev.preferred_origin().depth <= depth_thresh * 1000]
+    new_cat.events = [ev for ev in cat if min(bbox[0]) <= ev.origins[-1].longitude <= max(bbox[0])
+                      and min(bbox[1]) <= ev.origins[-1].latitude <= max(bbox[1])
+                      and ev.origins[-1].depth <= depth_thresh * 1000]
     return new_cat
 
 
-def plot_detections_map(cat, temp_cat, stations, bbox, temp_list='all', threeD=False, show=True):
+def plot_detections_map(cat, temp_cat, bbox, stations=None, temp_list='all', threeD=False, show=True):
     """
     Plot the locations of detections for select templates
     :type cat: obspy.core.Catalog
@@ -91,6 +233,8 @@ def plot_detections_map(cat, temp_cat, stations, bbox, temp_list='all', threeD=F
     from mpl_toolkits.basemap import Basemap
 
     dets_dict = template_det_cats(cat, temp_list)
+    if temp_list == 'all':
+        temp_list = [str(ev.resource_id).split('/')[-1] for ev in temp_cat]
     temp_dict = {str(ev.resource_id).split('/')[-1]: ev for ev in temp_cat
                  if str(ev.resource_id).split('/')[-1] in temp_list}
     # Remove keys which aren't common
@@ -120,14 +264,15 @@ def plot_detections_map(cat, temp_cat, stations, bbox, temp_list='all', threeD=F
             ax3d.set_zlim(bottom=10., top=-0.5)
         else:
             # Map
-            mp = Basemap(projection='merc', lat_0=bbox[1][1]-bbox[1][0], lon_0=bbox[0][1]-bbox[0][0],
-                         resolution='h', llcrnrlon=bbox[0][0], llcrnrlat=bbox[1][1],
-                         urcrnrlon=bbox[0][1], urcrnrlat=bbox[1][0])
-            mp.plot(det_lons, det_lats, s=1.5, color=cm(1. * i / temp_num))
-            # ax1.scatter(det_lons, det_lats, s=1.5, color=cm(1. * i / temp_num))
-            # ax1.scatter(temp_o.longitude, temp_o.latitude, s=2.0, color='k', marker='x')
-            # ax1.set_xticklabels([])
-            # ax1.set_yticklabels([])
+            # mp = Basemap(projection='merc', lat_0=bbox[1][1]-bbox[1][0], lon_0=bbox[0][1]-bbox[0][0],
+            #              resolution='h', llcrnrlon=bbox[0][0], llcrnrlat=bbox[1][1],
+            #              urcrnrlon=bbox[0][1], urcrnrlat=bbox[1][0])
+            # x, y = mp(det_lons, det_lats)
+            # mp.scatter(x, y, color=cm(1. * i / temp_num))
+            ax1.scatter(det_lons, det_lats, s=1.5, color=cm(1. * i / temp_num))
+            ax1.scatter(temp_o.longitude, temp_o.latitude, s=2.0, color='k', marker='x')
+            ax1.set_xticklabels([])
+            ax1.set_yticklabels([])
             if bbox:
                 ax1.set_xlim(left=bbox[0][0], right=bbox[0][1])
                 ax1.set_ylim(top=bbox[1][0], bottom=bbox[1][1])
@@ -281,7 +426,7 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
     if not det_cat[0].preferred_origin():
         det_cat.events.sort(key=lambda x: x.origins[0].time)
     else:
-        det_cat.events.sort(key=lambda x: x.preferred_origin().time)
+        det_cat.events.sort(key=lambda x: x.origins[-1].time)
     # Put times and names into sister lists
     if detection_rate and not cumulative:
         cat_start = min([ev.preferred_origin().time.datetime for ev in det_cat])
@@ -315,7 +460,6 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
             else:
                 temp_dict[temp_name].append(o.time.datetime)
         for temp_name, det_time_list in temp_dict.iteritems():
-            print(det_time_list)
             if temp_name in temp_list:
                 det_times.append(det_time_list)
                 temp_names.append(temp_name)
@@ -430,6 +574,8 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all',
     if fig:
         fig_final = fig
         lines, labels = fig_final.get_axes()[0].get_legend_handles_labels()
+        if fig_final.get_axes()[0].legend_:
+            fig_final.get_axes()[0].legend_.remove() # Clear old legend
         axes = fig_final.get_axes()[0].twinx()
     else:
         fig_final = plt.figure()
@@ -459,14 +605,16 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all',
             else:
                 label = well
                 axes.plot(dtos, flows, label=label)
-            lines2, labels2 = axes.get_legend_handles_labels()
-            if fig:
-                axes.legend(lines + lines2, labels + labels2, loc=4, prop={'size': 8})
-            else:
-                axes.legend(lines2, labels2, loc=4, prop={'size': 8})
-    # TODO this should be re-enabled somehow
-    # axes.set_ylim([0, max([fl[1] for well, list_tups in plot_tups_dict.iteritems()
-    #                        for fl in list_tups])])
+    lines2, labels2 = axes.get_legend_handles_labels()
+    if fig:
+        axes
+        axes.legend(lines + lines2, labels + labels2, loc=2,
+                    prop={'size': 8}, ncol=3)
+    else:
+        axes.legend(lines2, labels2, loc=2, prop={'size': 8}, ncol=3)
+    axes.set_ylim([0, max([fl[1] for well, list_tups in
+                           plot_tups_dict.iteritems() for fl in list_tups])
+                   + 200])
     return fig_final
 
 
