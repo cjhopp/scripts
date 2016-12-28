@@ -6,9 +6,9 @@ then write them to single xml to see if seishub will accept it
 """
 
 from glob import glob
-from obspy.core.event import readEvents, Catalog
+from obspy.core.event import read_events, Catalog
 
 xml_files = glob('/home/chet/data/GeoNet_catalog/20??p??????.xml')
 cat = Catalog()
 for file1 in xml_files:
-    cat = cat + readEvents(file1)
+    cat = cat + read_events(file1)

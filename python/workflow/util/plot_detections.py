@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import sys
 sys.path.insert(0, '/home/chet/EQcorrscan/')
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams['figure.dpi'] = 300
 
 def date_generator(start_date, end_date):
     # Generator for date looping
@@ -97,8 +99,11 @@ def plot_mag_w_time(cat, show=True):
     matplotlib.rcParams['figure.dpi'] = 300
     mag_tup = []
     for ev in cat:
-        mag_tup.append((ev.origins[-1].time.datetime,
-                        ev.preferred_magnitude().mag))
+        try:
+            mag_tup.append((ev.origins[-1].time.datetime,
+                            ev.preferred_magnitude().mag))
+        except AttributeError:
+            print('Event %s has no associated magnitude' % str(ev.resource_id))
     dates, mags = zip(*mag_tup)
     fig, ax = plt.subplots()
     ax.set_ylabel('Magnitude')
@@ -107,6 +112,58 @@ def plot_mag_w_time(cat, show=True):
     if show:
         fig.show()
     return fig
+
+
+def bval_plot(cat, bins=30, show=True):
+    """
+    Plotting the frequency-magnitude distribution on semilog axes
+    :param cat: Catalog of events with magnitudes
+    :param show: Plot flag
+    :return: matplotlib.pyplot.Figure
+    """
+    from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    mags = [ev.preferred_magnitude().mag for ev in cat
+            if ev.preferred_magnitude()]
+    # First calculate Mc using max curvature method
+    Mc = calc_max_curv(mags)
+    # Establish bin limits and spacing
+    bin_vals = np.linspace(min(mags), max(mags), bins)
+    non_cum_bins = []
+    cum_bins = []
+    bval_vals = []
+    bval_bins = []
+    for i, val in enumerate(bin_vals):
+        val_count = len([ev for ev in cat if ev.preferred_magnitude()
+                         and ev.preferred_magnitude().mag >= val])
+        if i != 0:
+            non_cum_bins.append(len([ev for ev in cat
+                                     if ev.preferred_magnitude()
+                                     and val > ev.preferred_magnitude().mag
+                                     and bin_vals[i - 1] <=
+                                     ev.preferred_magnitude().mag]))
+        cum_bins.append(val_count)
+        if val >= Mc:
+            bval_vals.append(val_count)
+            bval_bins.append(val)
+    b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1)
+    if show:
+        fig, ax = plt.subplots()
+        ax.plot(bval_bins, np.power([10],[a+b*aval for aval in bval_bins]),
+                color='r', linestyle='-', label='Trendline: log(N)=a - bM')
+        ax.set_yscale('log')
+        ax.scatter(bin_vals, cum_bins, label='Cumulative')
+        ax.scatter(bin_vals[1:], non_cum_bins, color='r', marker='^',
+                   label='Non-cumulative')
+        ax.set_ylim(bottom=1)
+        ax.set_ylabel('Number of events')
+        ax.set_xlabel('Magnitude')
+        ax.legend()
+        plt.show()
+        #XXX TODO Possibly add curve fitting with MLE? Look at Gabe's codes.
+    return non_cum_bins, cum_bins
 
 
 def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', show=True):
@@ -415,6 +472,7 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
     import matplotlib.pyplot as plt
     from eqcorrscan.utils import plotting
     from datetime import timedelta
+    import matplotlib.dates as mdates
     from obspy import Catalog
 
     # If specified, filter catalog to only events in geographic area
@@ -444,7 +502,12 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
                 det_rates.append(len([ev for ev in det_cat if ev.preferred_origin().time.datetime > date
                                        and ev.preferred_origin().time.datetime < date + timedelta(days=1)]))
         fig, ax1 = plt.subplots()
-        ax1.step(dates, det_rates, label='All templates', linewidth=2.0, color='black')
+        # ax1.step(dates, det_rates, label='All templates', linewidth=1.0, color='black')
+        ax1 = plt.subplot(111)
+        ax1.bar(dates, det_rates)
+        ax1.xaxis_date()
+        ax1.xaxis.set_major_locator(mdates.MonthLocator())
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
         ax1.set_xlabel('Date')
         ax1.set_ylabel('Cumulative detection rate (events/day)')
         plt.title('Cumulative detection rate for all templates')
@@ -505,17 +568,33 @@ def mrp_2_flow_dict(flow_csv, well_list=None):
     flow_dict = {datetime.datetime.strptime(row[('Date', 'Time')], "%m/%d/%Y %H:%M"):
                      {index[0]: flow for index, flow in row.iteritems() if index[0] != 'Date'
                       and index[0] != 'LP Brine' and index[0] in well_list and index[1] == 'Flow'}
-                 for index, row in flows.iterrows()}
+                 for ind, row in flows.iterrows()}
     whp_dict = {datetime.datetime.strptime(row[('Date', 'Time')], "%m/%d/%Y %H:%M"):
                      {index[0]: whp for index, whp in row.iteritems() if index[0] != 'Date'
                       and index[0] != 'LP Brine' and index[0] in well_list and index[1] == 'WHP'}
-                 for index, row in flows.iterrows()}
+                for ind, row in flows.iterrows()}
     # Sum the flows and add to the dto dict
     for dto, well_dict in flow_dict.iteritems(): # Convert nans to 0.0
         for well, flow in well_dict.iteritems():
-            if np.isnan(flow):
+            if type(flow) != float:
+                try:
+                    well_dict[well] = float(flow)
+                except ValueError:
+                    well_dict[well] = 0.0
+            elif np.isnan(flow):
                 well_dict[well] = 0.0
         well_dict['total'] = sum([flow for well, flow in well_dict.iteritems() if well != 'LP Brine'])
+    for dto, well_dict in whp_dict.iteritems(): # Convert nans to 0.0
+        for well, whp in well_dict.iteritems():
+            if type(whp) != float:
+                try:
+                    well_dict[well] = float(whp)
+                except ValueError:
+                    well_dict[well] = 0.0
+            elif np.isnan(whp):
+                well_dict[well] = 0.0
+        well_dict['total'] = sum([flow for well, flow in well_dict.iteritems() if well != 'LP Brine'])
+
     return flow_dict, whp_dict
 
 
@@ -539,8 +618,6 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all',
     """
     #TODO Generalize this so that flow_rate can be format agnostic?
     import datetime
-    import numpy as np
-    import pandas as pd
     import matplotlib.pyplot as plt
 
     # Checks for plotting pressure or flow
@@ -583,15 +660,15 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all',
     for t in axes.get_yticklabels():
         t.set_color('r')
     if pressure:
-        axes.set_ylabel('Wellhead Pressure', color='r')
+        axes.set_ylabel('Wellhead Pressure (bar-g)', color='r')
     else:
-        axes.set_ylabel('flow rate (T/h)', color='r')
+        axes.set_ylabel('Flow rate (T/h)', color='r')
     axes.set_xlabel('Date')
     for well, flow_list in plot_tups_dict.iteritems():
         if well in well_list or well_list:
             dtos, flows = zip(*flow_list)
             if well_list == 'total' and not volume:
-                label = 'Cumulative flow rate'
+                label = 'Total flow rate'
                 axes.plot(dtos, flows, label=label, color='r')
             elif well_list == 'total' and volume:
                 label = 'Cumulative injected volume'
@@ -607,14 +684,19 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all',
                 axes.plot(dtos, flows, label=label)
     lines2, labels2 = axes.get_legend_handles_labels()
     if fig:
-        axes
         axes.legend(lines + lines2, labels + labels2, loc=2,
-                    prop={'size': 8}, ncol=3)
+                    prop={'size': 12}, ncol=3)
     else:
         axes.legend(lines2, labels2, loc=2, prop={'size': 8}, ncol=3)
-    axes.set_ylim([0, max([fl[1] for well, list_tups in
-                           plot_tups_dict.iteritems() for fl in list_tups])
-                   + 200])
+    if not pressure:
+        try:
+            axes.set_ylim([min([fl[1] for well, list_tups in
+                                plot_tups_dict.iteritems() for fl in list_tups]),
+                           max([fl[1] for well, list_tups in
+                                   plot_tups_dict.iteritems() for fl in list_tups])
+                           + 200])
+        except ValueError:
+            print('Probably no flow data available for this time period')
     return fig_final
 
 
