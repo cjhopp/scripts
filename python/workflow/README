@@ -1,0 +1,24 @@
+This file details the uses of the files in the ~/scripts/python/workflow
+directory. On 1-4-2017 I undertook a restructure of my scripts directories
+in order to ease lookup of useful code and, most importantly, to transition
+my old code into functions capable of import into a python interpreter. I will
+update this file as new files are created but the idea here is to create
+fewer, over-arching files and instead add new functions to these files.
+
+A preliminary structure might look like this:
+
+data_prep.py: Functions to take raw miniseed and sc3ml files and output
+              usable QML and pyasdf files for use in main workflows. This
+              includes functionality for creating templates.
+
+relocate.py: Functions for relocating events in catalogs. This should be for
+             NLLoc as well as HypoDD (or better yet, TomoDD).
+
+mag_calc.py: Wrappers on magnitude calculation functions in EQcorrscan for
+             matched filter detections.
+
+Add more here as we need them.
+
+The obvious exception here are going to be the scripts for PAN which will
+probably stay as they are (wont convert them to functions). If it ain't
+broke, don't fix it.
