@@ -1,0 +1,12 @@
+This directory contains all of the files which were created as part of a
+workflow for the MRP/Mercury 2015 dataset. On 1-4-2017 I started restructuring
+my scripts directory structure for the following reasons:
+
+1. There were too many scripts and I was losing track of which contained what
+2. I was not using functions in my scripts, instead copying and pasting
+   into iPython.
+3. Filenames for most important workflow files started with numbers in an
+   attempt to order them in directory view but this makes it impossible to
+   import these files into a python interpreter.
+
+Use these files as reference when creating new functions from old codes.
