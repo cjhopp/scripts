@@ -154,6 +154,10 @@ def bval_plot(cat, bins=30, show=True):
         ax.plot(bval_bins, np.power([10],[a+b*aval for aval in bval_bins]),
                 color='r', linestyle='-', label='Trendline: log(N)=a - bM')
         ax.set_yscale('log')
+        # Put b-val on plot
+        text = 'b-val: %f' % (b * -1.)
+        ax.text(0.8, 0.6, text, transform=ax.transAxes,
+                horizontalalignment='center')
         ax.scatter(bin_vals, cum_bins, label='Cumulative')
         ax.scatter(bin_vals[1:], non_cum_bins, color='r', marker='^',
                    label='Non-cumulative')
@@ -163,7 +167,7 @@ def bval_plot(cat, bins=30, show=True):
         ax.legend()
         plt.show()
         #XXX TODO Possibly add curve fitting with MLE? Look at Gabe's codes.
-    return non_cum_bins, cum_bins
+    return b, a
 
 
 def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', show=True):
