@@ -66,21 +66,26 @@ def consolidate_qmls(directory, outfile=False):
     return cat
 
 
-def asdf_create(asdf_name, wav_dir, sta_dir):
+def asdf_create(asdf_name, wav_dirs, sta_dir):
     """
     Wrapper on ASDFDataSet to create a new HDF5 file which includes
     all waveforms in a directory and stationXML directory
     :param asdf_name: Full path to new asdf file
-    :param wav_dir: Directory of waveform files (will grab all files)
+    :param wav_dir: List of directories of waveform files (will grab all files)
     :param sta_dir: Directory of stationXML files (will grab all files)
     :return:
     """
     import pyasdf
-    from obspy import read
+    import os
     from glob import glob
+    from obspy import read
 
     with pyasdf.ASDFDataSet(asdf_name) as ds:
-        wav_files = glob('%s/*/*/*' % wav_dir)
+        wav_files = []
+        for wav_dir in wav_dirs:
+            wav_files.extend([os.path.join(root, a_file)
+                              for root, dirs, files in os.walk(wav_dir)
+                              for a_file in files])
         for _i, filename in enumerate(wav_files):
             print("Adding mseed file %i of %i..." % (_i+1, len(wav_files)))
             st = read(filename)
