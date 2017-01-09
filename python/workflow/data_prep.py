@@ -169,9 +169,16 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
         wav_read_stop = timer()
         print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                        - wav_read_start))
-        print('Merging stream and preprocessing...')
+        print('Merging stream...')
         st.merge(fill_value='interpolate')
-        # Cut the stream to a manageable size
+        print('Preprocessing...')
+        # Process the stream
+        # First check that all traces are len() == 1
+        if debug > 1:
+            tr_lens = ['%s.%s: %s' % (tr.stats.station, tr.stats.channel,
+                                      len(tr))
+                       for tr in st]
+            print(tr_lens)
         st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
                                      filt_order=f_order, samp_rate=samp_rate,
                                      starttime=dto, debug=debug)
