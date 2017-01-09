@@ -106,7 +106,7 @@ def asdf_create(asdf_name, wav_dirs, sta_dir):
 
 def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
                        highcut=None, lowcut=None, f_order=None,
-                       samp_rate=None, debug=0):
+                       samp_rate=None, debug=1):
     """
     Function to generate individual mseed files for each event in a catalog
     from a pyasdf file of continuous data.
@@ -174,7 +174,7 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
         # Cut the stream to a manageable size
         st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
                                      filt_order=f_order, samp_rate=samp_rate,
-                                     starttime=dto, debug=debug, parallel=True)
+                                     starttime=dto, debug=debug)
         print('Feeding stream to _template_gen...')
         for event in tmp_cat:
             print('Copying stream to keep away from the trim...')
