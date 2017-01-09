@@ -125,7 +125,7 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
     import pyasdf
     import copy
     from obspy import UTCDateTime, Stream, read_events
-    from eqcorrscan.core.template_gen import _template_gen
+    from eqcorrscan.core.template_gen import template_gen
     from eqcorrscan.utils import pre_processing
     from timeit import default_timer as timer
 
@@ -180,8 +180,8 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
         # Process the stream
         # First check that all traces are len() == 1
         if debug > 1:
-            tr_lens = ['%s.%s: \n%s\n%s' % (tr.stats.station, tr.stats.channel,
-                                            len(tr), type(tr))
+            tr_lens = ['%s.%s: %s %s' % (tr.stats.station, tr.stats.channel,
+                                         len(tr), type(tr))
                        for tr in st]
             print(tr_lens)
         st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
@@ -192,8 +192,8 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
             print('Copying stream to keep away from the trim...')
             trim_st = copy.deepcopy(st1)
             ev_name = str(event.resource_id).split('/')[-1]
-            template = _template_gen(event.picks, trim_st, length=length,
-                                     prepick=prepick)
+            template = template_gen(event.picks, trim_st, length=length,
+                                    prepick=prepick)
             # temp_list.append(template)
             print('Writing event %s to file...' % ev_name)
             template.write('%s/%s_raw.mseed' % (outdir, ev_name),
