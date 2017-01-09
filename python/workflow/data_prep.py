@@ -124,7 +124,7 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
     import pyasdf
     import copy
     from obspy import UTCDateTime, Stream
-    from eqcorrscan.core.template_gen import template_gen
+    from eqcorrscan.core.template_gen import _template_gen
     from eqcorrscan.utils import pre_processing
     from timeit import default_timer as timer
 
