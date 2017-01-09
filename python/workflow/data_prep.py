@@ -106,7 +106,7 @@ def asdf_create(asdf_name, wav_dirs, sta_dir):
 
 def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                        highcut=None, lowcut=None, f_order=None,
-                       samp_rate=None):
+                       samp_rate=None, debug=0):
     """
     Function to generate individual mseed files for each event in a catalog
     from a pyasdf file of continuous data.
