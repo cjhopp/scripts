@@ -104,14 +104,15 @@ def asdf_create(asdf_name, wav_dirs, sta_dir):
     return
 
 
-def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
+def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
                        highcut=None, lowcut=None, f_order=None,
                        samp_rate=None, debug=0):
     """
     Function to generate individual mseed files for each event in a catalog
     from a pyasdf file of continuous data.
     :param asdf_file: ASDF file with waveforms and stations
-    :param cat: Catalog of events for which we'll create templates
+    :param cat: path to xml of Catalog of events for which we'll create
+        templates
     :param outdir: output directory for miniseed files
     :param length: length of templates in seconds
     :param prepick: prepick time for waveform trimming
@@ -123,11 +124,13 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
     """
     import pyasdf
     import copy
-    from obspy import UTCDateTime, Stream
+    from obspy import UTCDateTime, Stream, read_events
     from eqcorrscan.core.template_gen import _template_gen
     from eqcorrscan.utils import pre_processing
     from timeit import default_timer as timer
 
+    # Read in catalog
+    cat = read_events(cat_path)
     # Establish date range for template creation
     cat.events.sort(key=lambda x: x.preferred_origin().time)
     cat_start = cat[0].origins[-1].time.datetime
@@ -177,8 +180,8 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
             print('Copying stream to keep away from the trim...')
             trim_st = copy.deepcopy(st1)
             ev_name = str(event.resource_id).split('/')[-1]
-            template = template_gen(event.picks, trim_st, length=length,
-                                    prepick=prepick)
+            template = _template_gen(event.picks, trim_st, length=length,
+                                     prepick=prepick)
             # temp_list.append(template)
             print('Writing event %s to file...' % ev_name)
             template.write('%s/%s_raw.mseed' % (outdir, ev_name),
