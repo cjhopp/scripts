@@ -133,8 +133,8 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
     cat = read_events(cat_path)
     # Establish date range for template creation
     cat.events.sort(key=lambda x: x.preferred_origin().time)
-    cat_start = cat[0].origins[-1].time.datetime
-    cat_end = cat[-1].origins[-1].time.datetime
+    cat_start = cat[0].origins[-1].time.date
+    cat_end = cat[-1].origins[-1].time.date
 
     for date in date_generator(cat_start, cat_end):
         dto = UTCDateTime(date)
