@@ -170,7 +170,11 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
         print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                        - wav_read_start))
         print('Merging stream...')
+        if debug > 1:
+            print('Length of st pre-merge: %d' % len(st))
         st.merge(fill_value='interpolate')
+        if debug > 1:
+            print('Length of st post-merge: %d' % len(st))
         print('Preprocessing...')
         # Process the stream
         # First check that all traces are len() == 1
