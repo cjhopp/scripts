@@ -175,12 +175,13 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
         st.merge(fill_value='interpolate')
         if debug > 1:
             print('Length of st post-merge: %d' % len(st))
+            print()
         print('Preprocessing...')
         # Process the stream
         # First check that all traces are len() == 1
         if debug > 1:
-            tr_lens = ['%s.%s: %s' % (tr.stats.station, tr.stats.channel,
-                                      len(tr))
+            tr_lens = ['%s.%s: \n%s\n%s' % (tr.stats.station, tr.stats.channel,
+                                            len(tr), type(tr))
                        for tr in st]
             print(tr_lens)
         st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
