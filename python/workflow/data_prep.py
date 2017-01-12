@@ -104,7 +104,7 @@ def asdf_create(asdf_name, wav_dirs, sta_dir):
     return
 
 
-def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
+def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                        highcut=None, lowcut=None, f_order=None,
                        samp_rate=None, debug=1):
     """
@@ -124,13 +124,11 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
     """
     import pyasdf
     import copy
-    from obspy import UTCDateTime, Stream, read_events
+    from obspy import UTCDateTime, Stream
     from eqcorrscan.core.template_gen import template_gen
     from eqcorrscan.utils import pre_processing
     from timeit import default_timer as timer
 
-    # Read in catalog
-    cat = read_events(cat_path)
     # Establish date range for template creation
     cat.events.sort(key=lambda x: x.preferred_origin().time)
     cat_start = cat[0].origins[-1].time.date
@@ -187,7 +185,7 @@ def pyasdf_2_templates(asdf_file, cat_path, outdir, length, prepick,
         st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
                                      filt_order=f_order, samp_rate=samp_rate,
                                      starttime=dto, debug=debug)
-        print('Feeding stream to _template_gen...')
+        print('Feeding stream to template_gen...')
         for event in tmp_cat:
             print('Copying stream to keep away from the trim...')
             trim_st = copy.deepcopy(st1)
