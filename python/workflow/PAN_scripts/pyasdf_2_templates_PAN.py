@@ -7,7 +7,7 @@ held in pyasdf.events and saves the templates as separate files
 """
 import sys
 sys.path.insert(0, "/projects/nesi00228/EQcorrscan")
-sys.path.insert(0, "/projects/nesi00228/scripts")
+sys.path.insert(0, "/projects/nesi00228/scripts/python/workflow")
 
 from datetime import datetime, timedelta
 from obspy import readEvents
