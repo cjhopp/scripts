@@ -158,7 +158,7 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
         # Be sure to go +/- 10 sec to account for GeoNet shit timing
         with pyasdf.ASDFDataSet(asdf_file) as ds:
             st = Stream()
-            for sta, chans in stachans.iteritems():
+            for sta, chans in iter(stachans.items()):
                 for station in ds.ifilter(ds.q.station == sta,
                                           ds.q.channel == chans,
                                           ds.q.starttime >= q_start,
