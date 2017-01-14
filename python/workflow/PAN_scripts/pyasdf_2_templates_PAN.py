@@ -9,10 +9,15 @@ import sys
 sys.path.insert(0, "/projects/nesi00228/EQcorrscan")
 sys.path.insert(0, "/projects/nesi00228/scripts")
 
-import datetime
+from datetime import datetime, timedelta
 from obspy import readEvents
 from data_prep import pyasdf_2_templates
 
+# Helper function for dividing catalog into --splits roughly-equal parts
+def partition(lst, n):
+    division = len(lst) / float(n)
+    return [lst[int(round(division * i)): int(round(division * (i + 1)))]
+            for i in xrange(n)]
 """
 Take input arguments --split and --instance from bash which specify slices of
 days to run
@@ -36,18 +41,23 @@ if '--instance' in args:
 cat = readEvents('/projects/nesi00228/data/catalogs/year_long/rotnga_raw_cat_2013.xml')
 
 # Establish date range for template creation
-# Establish date range for template creation
 cat.events.sort(key=lambda x: x.preferred_origin().time)
 cat_start = cat[0].origins[-1].time.date
 cat_end = cat[-1].origins[-1].time.date
-delta = cat_end - cat_start
-all_dates = [cat_end - datetime.timedelta(days=x) for x in range(0, delta)]
+delta = (cat_end - cat_start).days
+all_dates = [cat_end - timedelta(days=x) for x in range(0, delta)][::-1]
+# Sanity check. If splits > len(all_dates) overwrite splits to len(all_dates)
+if splits > len(all_dates):
+    print('Splits > # dates in catalog. Splits will now equal len(all_dates)')
+    splits = len(all_dates)
 if split:
+    split_dates = partition(all_dates, splits)
     #Determine date range
-    split_size = len(all_dates) // splits
-    instance_dates = [all_dates[i:i + split_size]
-                      for i in range(0, len(all_dates), split_size)]
-    inst_dats = instance_dates[instance]
+    try:
+        inst_dats = split_dates[instance]
+    except IndexError:
+        print('Instance no longer needed. Downsize --splits for this job')
+        sys.exit()
     inst_start = min(inst_dats)
     inst_end = max(inst_dats)
     print('This instance will run from %s to %s'
@@ -56,8 +66,10 @@ if split:
 else:
     inst_dats = all_dates
 # Establish which events are in this range
-sch_str_start = 'time >= %s' % inst_start
-sch_str_end = 'time < %s' % (inst_end + datetime.timedelta(days=1)).strftime('%Y/%m/%d')
+sch_str_start = 'time >= %s' % (str(datetime.combine(inst_start,
+                                                     datetime.min.time())))
+sch_str_end = 'time < %s' % (str(datetime.combine(inst_end + timedelta(days=1),
+                                                  datetime.min.time())))
 day_cat = cat.filter(sch_str_start, sch_str_end)
 # Call template generating function
 pyasdf_2_templates('/projects/nesi00228/data/pyasdf/rotnga_2013.h5', day_cat,
