@@ -10,7 +10,7 @@ sys.path.insert(0, "/projects/nesi00228/EQcorrscan")
 sys.path.insert(0, "/projects/nesi00228/scripts/python/workflow")
 
 from datetime import datetime, timedelta
-from obspy import readEvents
+from obspy import read_events
 from data_prep import pyasdf_2_templates
 
 # Helper function for dividing catalog into --splits roughly-equal parts
