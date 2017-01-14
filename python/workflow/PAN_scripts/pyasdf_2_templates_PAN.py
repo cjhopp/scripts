@@ -17,7 +17,7 @@ from data_prep import pyasdf_2_templates
 def partition(lst, n):
     division = len(lst) / float(n)
     return [lst[int(round(division * i)): int(round(division * (i + 1)))]
-            for i in xrange(n)]
+            for i in range(n)]
 """
 Take input arguments --split and --instance from bash which specify slices of
 days to run
@@ -38,7 +38,7 @@ if '--instance' in args:
             splits = int(args[i + 1])
             print('I will divide the days into %d chunks' % splits)
 # Read in dat catalog
-cat = readEvents('/projects/nesi00228/data/catalogs/year_long/rotnga_raw_cat_2013.xml')
+cat = read_events('/projects/nesi00228/data/catalogs/year_long/rotnga_raw_cat_2013.xml')
 
 # Establish date range for template creation
 cat.events.sort(key=lambda x: x.preferred_origin().time)
