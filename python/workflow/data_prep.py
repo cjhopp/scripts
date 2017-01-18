@@ -120,7 +120,7 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
     :param lowcut: Filter lowcut (if desired)
     :param f_order: Filter order
     :param samp_rate: Sampling rate for the templates
-    :param start: start date as %d/%m/%Y if desired
+    :param start: start date as %Y/%m/%d if desired
     :param end: same as above. Defaults to full length of catalog.
     :return:
     """
@@ -135,8 +135,8 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
     # Establish date range for template creation
     cat.events.sort(key=lambda x: x.preferred_origin().time)
     if start:
-        cat_start = datetime.strptime(start, '%d/%m/%Y')
-        cat_end = datetime.strptime(end, '%d/%m/%Y')
+        cat_start = datetime.datetime.strptime(start, '%d/%m/%Y')
+        cat_end = datetime.datetime.strptime(end, '%d/%m/%Y')
     else:
         cat_start = cat[0].origins[-1].time.date
         cat_end = cat[-1].origins[-1].time.date
