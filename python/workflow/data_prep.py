@@ -106,7 +106,7 @@ def asdf_create(asdf_name, wav_dirs, sta_dir):
 
 def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                        highcut=None, lowcut=None, f_order=None,
-                       samp_rate=None, debug=1):
+                       samp_rate=None, start=None, end=None, debug=1):
     """
     Function to generate individual mseed files for each event in a catalog
     from a pyasdf file of continuous data.
@@ -120,10 +120,13 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
     :param lowcut: Filter lowcut (if desired)
     :param f_order: Filter order
     :param samp_rate: Sampling rate for the templates
+    :param start: start date as %d/%m/%Y if desired
+    :param end: same as above. Defaults to full length of catalog.
     :return:
     """
     import pyasdf
     import copy
+    import datetime
     from obspy import UTCDateTime, Stream
     from eqcorrscan.core.template_gen import template_gen
     from eqcorrscan.utils import pre_processing
@@ -131,9 +134,12 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
 
     # Establish date range for template creation
     cat.events.sort(key=lambda x: x.preferred_origin().time)
-    cat_start = cat[0].origins[-1].time.date
-    cat_end = cat[-1].origins[-1].time.date
-
+    if start:
+        cat_start = datetime.strptime(start, '%d/%m/%Y')
+        cat_end = datetime.strptime(end, '%d/%m/%Y')
+    else:
+        cat_start = cat[0].origins[-1].time.date
+        cat_end = cat[-1].origins[-1].time.date
     for date in date_generator(cat_start, cat_end):
         dto = UTCDateTime(date)
         print('Processing templates for: %s' % str(dto))
