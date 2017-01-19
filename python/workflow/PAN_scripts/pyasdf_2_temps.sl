@@ -2,11 +2,11 @@
 #SBATCH -J CJH_pyasdf2temps_2013
 #SBATCH -A nesi00228
 #SBATCH --time=06:00:00
-#SBATCH --mem=50000
+#SBATCH --mem=80000
 #SBATCH --nodes=1
 #SBATCH --output=pyasdf2temps_2013__out_%a.txt
 #SBATCH --error=pyasdf2temps_2013_err_%a.txt
-#SBATCH --cpus-per-task=6
+#SBATCH --cpus-per-task=4
 #SBATCH --array=0-99
 
 module load OpenCV/3.1.0-foss-2015a-Python-3.5.1
