@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH -J CJH_pyasdf2temps_2013
+#SBATCH -J CJH_pyasdf2temps_2014
 #SBATCH -A nesi00228
 #SBATCH --time=06:00:00
 #SBATCH --mem=80000
 #SBATCH --nodes=1
-#SBATCH --output=pyasdf2temps_2013__out_%a.txt
-#SBATCH --error=pyasdf2temps_2013_err_%a.txt
+#SBATCH --output=pyasdf2temps_2014__out_%a.txt
+#SBATCH --error=pyasdf2temps_2014_err_%a.txt
 #SBATCH --cpus-per-task=4
 #SBATCH --array=0-99
 
