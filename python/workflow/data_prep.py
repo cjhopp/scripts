@@ -4,7 +4,7 @@
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
-    for n in range(int ((end_date - start_date).days)):
+    for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
 
 
