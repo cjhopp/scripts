@@ -2,7 +2,7 @@
 #SBATCH -J CJH_pyasdf2temps_2013
 #SBATCH -A nesi00228
 #SBATCH --time=04:00:00
-#SBATCH --mem-per-cpu=7500
+#SBATCH --mem=16000
 #SBATCH --nodes=1
 #SBATCH --output=pyasdf2temps_2013__out_%a.txt
 #SBATCH --error=pyasdf2temps_2013_err_%a.txt
