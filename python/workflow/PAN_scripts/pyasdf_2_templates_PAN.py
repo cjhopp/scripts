@@ -38,7 +38,7 @@ if '--instance' in args:
             splits = int(args[i + 1])
             print('I will divide the days into %d chunks' % splits)
 # Read in dat catalog
-cat = read_events('/projects/nesi00228/data/catalogs/year_long/rotnga_raw_cat_2013.xml')
+cat = read_events('/projects/nesi00228/data/catalogs/year_long/rotnga_raw_cat_2014.xml')
 
 # Establish date range for template creation
 cat.events.sort(key=lambda x: x.preferred_origin().time)
@@ -72,7 +72,7 @@ sch_str_end = 'time < %s' % (str(datetime.combine(inst_end + timedelta(days=1),
                                                   datetime.min.time())))
 day_cat = cat.filter(sch_str_start, sch_str_end)
 # Call template generating function
-pyasdf_2_templates('/projects/nesi00228/data/pyasdf/rotnga_2013.h5', day_cat,
-                   '/projects/nesi00228/data/templates/2013/30s_raw',
+pyasdf_2_templates('/projects/nesi00228/data/pyasdf/rotnga_2014.h5', day_cat,
+                   '/projects/nesi00228/data/templates/2014/30s_raw',
                    length=30, prepick=5, highcut=None, lowcut=None,
                    f_order=None, samp_rate=100, debug=1)
