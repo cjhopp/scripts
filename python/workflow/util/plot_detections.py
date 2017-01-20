@@ -114,7 +114,7 @@ def plot_mag_w_time(cat, show=True):
     return fig
 
 
-def bval_plot(cat, bins=30, show=True):
+def bval_plot(cat, bins=30, MC=None, title=None, show=True):
     """
     Plotting the frequency-magnitude distribution on semilog axes
     :param cat: Catalog of events with magnitudes
@@ -127,28 +127,36 @@ def bval_plot(cat, bins=30, show=True):
 
     mags = [ev.preferred_magnitude().mag for ev in cat
             if ev.preferred_magnitude()]
-    # First calculate Mc using max curvature method
-    Mc = calc_max_curv(mags)
+    # Calculate Mc using max curvature method if not specified
+    if not MC:
+        Mc = calc_max_curv(mags)
+    else:
+        Mc = MC
     # Establish bin limits and spacing
     bin_vals = np.linspace(min(mags), max(mags), bins)
     non_cum_bins = []
     cum_bins = []
     bval_vals = []
     bval_bins = []
+    bval_wts = []
     for i, val in enumerate(bin_vals):
-        val_count = len([ev for ev in cat if ev.preferred_magnitude()
+        cum_val_count = len([ev for ev in cat if ev.preferred_magnitude()
                          and ev.preferred_magnitude().mag >= val])
-        if i != 0:
-            non_cum_bins.append(len([ev for ev in cat
-                                     if ev.preferred_magnitude()
-                                     and val > ev.preferred_magnitude().mag
-                                     and bin_vals[i - 1] <=
-                                     ev.preferred_magnitude().mag]))
-        cum_bins.append(val_count)
+        if i < len(bin_vals) - 1:
+            non_cum_val_cnt = len([ev for ev in cat
+                                   if ev.preferred_magnitude()
+                                   and val < ev.preferred_magnitude().mag
+                                   and bin_vals[i + 1] >=
+                                   ev.preferred_magnitude().mag])
+            non_cum_bins.append(non_cum_val_cnt)
+        cum_bins.append(cum_val_count)
         if val >= Mc:
-            bval_vals.append(val_count)
+            bval_vals.append(cum_val_count)
             bval_bins.append(val)
-    b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1)
+            bval_wts.append(non_cum_val_cnt / float(len(mags)))
+    # Tack 0 on end of non_cum_bins representing bin above max mag
+    non_cum_bins.append(0)
+    b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1, w=bval_wts)
     if show:
         fig, ax = plt.subplots()
         ax.plot(bval_bins, np.power([10],[a+b*aval for aval in bval_bins]),
@@ -158,12 +166,18 @@ def bval_plot(cat, bins=30, show=True):
         text = 'b-val: %f' % (b * -1.)
         ax.text(0.8, 0.6, text, transform=ax.transAxes,
                 horizontalalignment='center')
+        ax.text(0.8, 0.65, 'Mc=%.2f' % Mc, transform=ax.transAxes,
+                horizontalalignment='center')
         ax.scatter(bin_vals, cum_bins, label='Cumulative')
-        ax.scatter(bin_vals[1:], non_cum_bins, color='r', marker='^',
+        ax.scatter(bin_vals, non_cum_bins, color='r', marker='^',
                    label='Non-cumulative')
         ax.set_ylim(bottom=1)
         ax.set_ylabel('Number of events')
         ax.set_xlabel('Magnitude')
+        if title:
+            ax.set_title(title)
+        else:
+            ax.set_title('B-value plot')
         ax.legend()
         plt.show()
         #XXX TODO Possibly add curve fitting with MLE? Look at Gabe's codes.
