@@ -188,9 +188,15 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                                          len(tr), type(tr))
                        for tr in st]
             print(tr_lens)
-        st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
-                                     filt_order=f_order, samp_rate=samp_rate,
-                                     starttime=dto, debug=debug)
+        try:
+            st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
+                                         filt_order=f_order, samp_rate=samp_rate,
+                                         starttime=dto, debug=debug)
+        except NotImplementedError or Exception:
+            print('Found error in dayproc, noting date and continuing')
+            with open('%s/dayproc_errors.txt' % outdir, mode='a') as fo:
+                fo.write('%s\n' % str(date))
+            continue
         print('Feeding stream to template_gen...')
         for event in tmp_cat:
             print('Copying stream to keep away from the trim...')
