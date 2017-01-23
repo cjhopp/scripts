@@ -114,6 +114,70 @@ def plot_mag_w_time(cat, show=True):
     return fig
 
 
+def Mc_test(cat, n_bins, test_cutoff, maxcurv_bval, fig, start_mag=None):
+    """
+    Test the reliability of predetermined Mc
+    :param cat: Catalog of events
+    :param n_bins: Number of bins
+    :param test_mag: Pre-calculated mag to test
+    :param start_mag: Magnitude to start test from
+    :param show: Plotting flag
+    :return: (matplotlib.pyplot.Figure, best bval, cutoff mag)
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from operator import itemgetter
+    mags = [round(ev.magnitudes[-1].mag, 1)
+            for ev in cat if len(ev.magnitudes) > 0]
+    mags.sort()
+    bin_vals, bins = np.histogram(mags, bins=n_bins) # Count mags in each bin
+    inds = np.digitize(mags, bins) # Get bin index for each mag in mags
+    bin_cents = bins - ((bins[1] - bins[0]) / 2.)
+    avg_mags = []
+    for i, bin in enumerate(bins):
+        avg_mags.append(np.mean([mag for mag, ind in zip(mags, inds)
+                                 if ind >= i + 1]))
+    bvals = [np.log10(np.exp(1)) / (avg_mag - bin_cents[i])
+             for i, avg_mag in enumerate(avg_mags)]
+    # Errors for each bin
+    errs = [2 * bval / np.sqrt(sum(bin_vals[i:]))
+            for i, bval in enumerate(bvals)]
+    # Error ranges for bins above start_mag
+    err_rangs = [(cent, bval - err, bval + err)
+                 for bval, err, cent in zip(bvals, errs, bin_cents)
+                 if cent > start_mag]
+    # Now to test input mag against "best-fitting" bval within these errors
+    bval_hits = [] # Count how many bins each value hits
+    for test_bval in np.linspace(0, 2, 40):
+        hits = [rang[0] for rang in err_rangs if rang[1] <= test_bval and
+                rang[2] >= test_bval]
+        # bval_hits is a tup: ((bval, cutoff mag), total number of matches)
+        bval_hits.append(((test_bval, min(hits)), len(hits)))
+    # Find max bval_hits and corresponding cuttoff mag
+    best_bval_cut = max(bval_hits, key=itemgetter(1))[0]
+    # Now plotting from premade fig from bval_plot
+    ax = fig.add_subplot(212, aspect=1.)
+    ax.set_ylim([0, 2])
+    ax.errorbar(bin_cents, bvals, yerr=errs, fmt='-o')
+    plt.axhline(best_bval_cut[0], linestyle='--', color='r')
+    plt.axhline(maxcurv_bval, linestyle='--', color='m')
+    plt.axvline(test_cutoff, linestyle='--', color='g')
+    plt.axvline(best_bval_cut[1], linestyle='--', color='k')
+    ax.text(0.4, 0.65, 'Max-curv B-value: %f' % maxcurv_bval, color='m',
+            transform=ax.transAxes, horizontalalignment='center')
+    ax.text(0.4, 0.7, 'Max-curv Mc: %f' % test_cutoff, color='g',
+            transform=ax.transAxes, horizontalalignment='center')
+    ax.text(0.4, 0.8, 'Cut-off mag: %f' % best_bval_cut[1],
+            transform=ax.transAxes, horizontalalignment='center')
+    ax.text(0.4, 0.75, 'B-value: %f' % best_bval_cut[0], color='r',
+            transform=ax.transAxes, horizontalalignment='center')
+    ax.set_title('B-values v. cut-off magnitude')
+    ax.set_xlabel('Cut-off magnitude')
+    ax.set_ylabel('B-value')
+    fig.show()
+    return fig, best_bval_cut[0], best_bval_cut[1]
+
+
 def bval_plot(cat, bins=30, MC=None, title=None, show=True):
     """
     Plotting the frequency-magnitude distribution on semilog axes
@@ -158,18 +222,21 @@ def bval_plot(cat, bins=30, MC=None, title=None, show=True):
     non_cum_bins.append(0)
     b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1, w=bval_wts)
     if show:
-        fig, ax = plt.subplots()
+        bval = b * -1.
+        fig = plt.figure(figsize=(5, 10))
+        ax = fig.add_subplot(211, aspect=1.)
         ax.plot(bval_bins, np.power([10],[a+b*aval for aval in bval_bins]),
                 color='r', linestyle='-', label='Trendline: log(N)=a - bM')
         ax.set_yscale('log')
         # Put b-val on plot
-        text = 'b-val: %f' % (b * -1.)
+        text = 'b-val: %f' % bval
         ax.text(0.8, 0.6, text, transform=ax.transAxes,
                 horizontalalignment='center')
         ax.text(0.8, 0.65, 'Mc=%.2f' % Mc, transform=ax.transAxes,
                 horizontalalignment='center')
         ax.scatter(bin_vals, cum_bins, label='Cumulative')
-        ax.scatter(bin_vals, non_cum_bins, color='r', marker='^',
+        ax.scatter(bin_vals + ((bin_vals[1] - bin_vals[0]) / 2.),
+                   non_cum_bins, color='r', marker='^',
                    label='Non-cumulative')
         ax.set_ylim(bottom=1)
         ax.set_ylabel('Number of events')
@@ -179,7 +246,11 @@ def bval_plot(cat, bins=30, MC=None, title=None, show=True):
         else:
             ax.set_title('B-value plot')
         ax.legend()
-        plt.show()
+        fig, bval_test, M_cut = Mc_test(cat, n_bins=bins, test_cutoff=Mc,
+                                        maxcurv_bval=bval, fig=fig,
+                                        start_mag=Mc)
+        fig.show()
+        # fig2.show()
         #XXX TODO Possibly add curve fitting with MLE? Look at Gabe's codes.
     return b, a
 
