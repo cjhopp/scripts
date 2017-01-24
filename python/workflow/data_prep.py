@@ -169,7 +169,7 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                                           ds.q.channel == chans,
                                           ds.q.starttime >= q_start,
                                           ds.q.endtime <= q_end):
-                    st += station.raw_recording
+                    st += station.raw_recording.resample(sampling_rate=100.)
         wav_read_stop = timer()
         print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                        - wav_read_start))
