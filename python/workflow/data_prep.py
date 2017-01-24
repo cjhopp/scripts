@@ -173,6 +173,8 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
         wav_read_stop = timer()
         print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                        - wav_read_start))
+        print('Resampling un-merged stream')
+        st.resample(sampling_rate=100.)
         print('Merging stream...')
         if debug > 1:
             print('Length of st pre-merge: %d' % len(st))
