@@ -169,35 +169,34 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                                           ds.q.channel == chans,
                                           ds.q.starttime >= q_start,
                                           ds.q.endtime <= q_end):
-                    st += station.raw_recording.resample(sampling_rate=100.)
+                    st += station.raw_recording
         wav_read_stop = timer()
         print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                        - wav_read_start))
-        print('Resampling un-merged stream')
-        st.resample(sampling_rate=100.)
-        print('Merging stream...')
-        if debug > 1:
-            print('Length of st pre-merge: %d' % len(st))
+        print('Looping through stachans to merge/resamp')
+        stachans = [(tr.stats.station, tr.stats.channel) for tr in st]
+        for stachan in list(set(stachans)):
+            tmp_st = st.select(station=stachan[0], channel=stachan[1])
+            if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate for tr in tmp_st])) > 1:
+                print('Traces from %s.%s have differing samp rates' % (stachan[0], stachan[1]))
+                for tr in tmp_st:
+                    st.remove(tr)
+                tmp_st.resample(sampling_rate=50.)
+                st += tmp_st
         st.merge(fill_value='interpolate')
-        if debug > 1:
-            print('Length of st post-merge: %d' % len(st))
-            print()
+        resamp_stop = timer()
+        print('Resample/merge took %s secs' % str(resamp_stop - wav_read_stop))
         print('Preprocessing...')
         # Process the stream
-        # First check that all traces are len() == 1
-        if debug > 1:
-            tr_lens = ['%s.%s: %s %s' % (tr.stats.station, tr.stats.channel,
-                                         len(tr), type(tr))
-                       for tr in st]
-            print(tr_lens)
         try:
             st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
                                          filt_order=f_order, samp_rate=samp_rate,
-                                         starttime=dto, debug=debug)
-        except NotImplementedError or Exception:
+                                         starttime=dto, debug=debug, ignore_length=True)
+        except NotImplementedError or Exception as e:
             print('Found error in dayproc, noting date and continuing')
+            print(e)
             with open('%s/dayproc_errors.txt' % outdir, mode='a') as fo:
-                fo.write('%s\n' % str(date))
+                fo.write('%s\n%s\n' % (str(date), e))
             continue
         print('Feeding stream to template_gen...')
         for event in tmp_cat:
