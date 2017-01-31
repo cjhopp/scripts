@@ -86,6 +86,8 @@ def format_well_data(well_file):
                             float(row[3]) / 1000.))
     return pts
 
+###############################################################################
+"""Magnitude and b-val functions"""
 
 def plot_mag_w_time(cat, show=True):
     """
@@ -114,7 +116,7 @@ def plot_mag_w_time(cat, show=True):
     return fig
 
 
-def Mc_test(cat, n_bins, test_cutoff, maxcurv_bval, fig, start_mag=None):
+def Mc_test(cat, n_bins, test_cutoff, maxcurv_bval, start_mag=None):
     """
     Test the reliability of predetermined Mc
     :param cat: Catalog of events
@@ -156,39 +158,19 @@ def Mc_test(cat, n_bins, test_cutoff, maxcurv_bval, fig, start_mag=None):
     # Find max bval_hits and corresponding cuttoff mag
     best_bval_cut = max(bval_hits, key=itemgetter(1))[0]
     # Now plotting from premade fig from bval_plot
-    ax = fig.add_subplot(212, aspect=1.)
-    ax.set_ylim([0, 2])
-    ax.errorbar(bin_cents, bvals, yerr=errs, fmt='-o')
-    plt.axhline(best_bval_cut[0], linestyle='--', color='r')
-    plt.axhline(maxcurv_bval, linestyle='--', color='m')
-    plt.axvline(test_cutoff, linestyle='--', color='g')
-    plt.axvline(best_bval_cut[1], linestyle='--', color='k')
-    ax.text(0.4, 0.65, 'Max-curv B-value: %f' % maxcurv_bval, color='m',
-            transform=ax.transAxes, horizontalalignment='center')
-    ax.text(0.4, 0.7, 'Max-curv Mc: %f' % test_cutoff, color='g',
-            transform=ax.transAxes, horizontalalignment='center')
-    ax.text(0.4, 0.8, 'Cut-off mag: %f' % best_bval_cut[1],
-            transform=ax.transAxes, horizontalalignment='center')
-    ax.text(0.4, 0.75, 'B-value: %f' % best_bval_cut[0], color='r',
-            transform=ax.transAxes, horizontalalignment='center')
-    ax.set_title('B-values v. cut-off magnitude')
-    ax.set_xlabel('Cut-off magnitude')
-    ax.set_ylabel('B-value')
-    fig.show()
-    return fig, best_bval_cut[0], best_bval_cut[1]
+    return {'best_bval':best_bval_cut[0], 'M_cut': best_bval_cut[1],
+            'bin_cents': bin_cents, 'bvals': bvals, 'errs': errs}
 
 
-def bval_plot(cat, bins=30, MC=None, title=None, show=True):
+def bval_calc(cat, bins, MC):
     """
-    Plotting the frequency-magnitude distribution on semilog axes
-    :param cat: Catalog of events with magnitudes
-    :param show: Plot flag
-    :return: matplotlib.pyplot.Figure
+    Helper function to run the calculation loop
+    :param mags: list of magnitudes
+    :param bins: int number of bins for calculation
+    :return: (non_cum_bins, cum_bins, bval_vals, bval_bins, bval_wts)
     """
-    from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
-    import matplotlib.pyplot as plt
     import numpy as np
-
+    from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
     mags = [ev.preferred_magnitude().mag for ev in cat
             if ev.preferred_magnitude()]
     # Calculate Mc using max curvature method if not specified
@@ -221,22 +203,66 @@ def bval_plot(cat, bins=30, MC=None, title=None, show=True):
     # Tack 0 on end of non_cum_bins representing bin above max mag
     non_cum_bins.append(0)
     b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1, w=bval_wts)
+    return {'bin_vals':bin_vals, 'non_cum_bins':non_cum_bins,
+            'cum_bins':cum_bins, 'bval_vals':bval_vals,
+            'bval_bins':bval_bins, 'bval_wts':bval_wts,
+            'b': b*-1., 'a': a, 'Mc': Mc}
+
+
+def bval_plot(cat, bins=30, MC=None, title=None, show=True):
+    """
+    Plotting the frequency-magnitude distribution on semilog axes
+    :param cat: Catalog of events with magnitudes
+    :param show: Plot flag
+    :return: matplotlib.pyplot.Figure
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib
+    import seaborn.apionly as sns
+    matplotlib.rcParams['figure.dpi'] = 300
+    import numpy as np
+
+    b_dict = bval_calc(cat, bins, MC)
+    test_dict = Mc_test(cat, n_bins=bins, test_cutoff=b_dict['Mc'],
+                       maxcurv_bval=b_dict['b'], start_mag=b_dict['Mc'])
+    # Now re-compute b-value for new Mc if difference larger than bin size
+    mag_diff = test_dict['M_cut'] - b_dict['Mc']
+    bin_interval = b_dict['bin_vals'][1] - b_dict['bin_vals'][0]
+    if abs(mag_diff) > bin_interval:
+        b_dict2 = bval_calc(cat, bins, MC=test_dict['M_cut'])
     if show:
-        bval = b * -1.
-        fig = plt.figure(figsize=(5, 10))
-        ax = fig.add_subplot(211, aspect=1.)
-        ax.plot(bval_bins, np.power([10],[a+b*aval for aval in bval_bins]),
-                color='r', linestyle='-', label='Trendline: log(N)=a - bM')
+        fig = plt.figure(figsize=(12, 5))
+        ax = fig.add_subplot(121, aspect=1.)
+        # Plotting first bval line
+        ax.plot(b_dict['bval_bins'],
+                np.power([10],[b_dict['a']-b_dict['b']*aval
+                               for aval in b_dict['bval_bins']]),
+                color='r', linestyle='-', label='Max-curv: log(N)=a - bM')
+        if 'b_dict2' in locals():
+            ax.plot(b_dict2['bval_bins'],
+                    np.power([10],[b_dict2['a']-b_dict2['b']*aval
+                                   for aval in b_dict2['bval_bins']]),
+                    color='b', linestyle='-',
+                    label='Modified Mc: log(N)=a - bM')
         ax.set_yscale('log')
         # Put b-val on plot
-        text = 'b-val: %f' % bval
-        ax.text(0.8, 0.6, text, transform=ax.transAxes,
-                horizontalalignment='center')
-        ax.text(0.8, 0.65, 'Mc=%.2f' % Mc, transform=ax.transAxes,
-                horizontalalignment='center')
-        ax.scatter(bin_vals, cum_bins, label='Cumulative')
-        ax.scatter(bin_vals + ((bin_vals[1] - bin_vals[0]) / 2.),
-                   non_cum_bins, color='r', marker='^',
+        text = 'B-val via max-curv: %.3f' % b_dict['b']
+        ax.text(0.8, 0.7, text, transform=ax.transAxes, color='r',
+                horizontalalignment='center', fontsize=8.)
+        ax.text(0.8, 0.75, 'Mc via max-curv=%.2f' % b_dict['Mc'], color='r',
+                transform=ax.transAxes, horizontalalignment='center',
+                fontsize=8.)
+        if 'b_dict2' in locals():
+            text = 'Modified Mc b-val: %.3f' % b_dict2['b']
+            ax.text(0.8, 0.6, text, transform=ax.transAxes, color='b',
+                    horizontalalignment='center', fontsize=8.)
+            ax.text(0.8, 0.65, 'Modified Mc: %.2f' % b_dict2['Mc'],
+                    color='b', transform=ax.transAxes,
+                    horizontalalignment='center', fontsize=8.)
+        ax.scatter(b_dict['bin_vals'], b_dict['cum_bins'], label='Cumulative',
+                   color='k')
+        ax.scatter(b_dict['bin_vals'] + (bin_interval / 2.),
+                   b_dict['non_cum_bins'], color='m', marker='^',
                    label='Non-cumulative')
         ax.set_ylim(bottom=1)
         ax.set_ylabel('Number of events')
@@ -245,15 +271,76 @@ def bval_plot(cat, bins=30, MC=None, title=None, show=True):
             ax.set_title(title)
         else:
             ax.set_title('B-value plot')
-        ax.legend()
-        fig, bval_test, M_cut = Mc_test(cat, n_bins=bins, test_cutoff=Mc,
-                                        maxcurv_bval=bval, fig=fig,
-                                        start_mag=Mc)
+        ax.legend(fontsize=9., markerscale=0.7)
+        ax2 = fig.add_subplot(122)
+        ax2.set_ylim([0, 3])
+        ax2.errorbar(test_dict['bin_cents'], test_dict['bvals'],
+                     yerr=test_dict['errs'], fmt='-o', color='k')
+        ax2.axhline(test_dict['best_bval'], linestyle='--', color='b')
+        ax2.axhline(b_dict['b'], linestyle='--', color='r')
+        ax2.axvline(b_dict['Mc'], linestyle='--', color='b')
+        ax2.axvline(test_dict['M_cut'], linestyle='--', color='r')
+        ax2.text(0.5, 0.8, 'Max-curv B-value: %.3f' % b_dict['b'], color='r',
+                 transform=ax2.transAxes, horizontalalignment='center',
+                 fontsize=8.)
+        ax2.text(0.5, 0.85, 'Max-curv Mc: %.2f' % b_dict['Mc'], color='r',
+                 transform=ax2.transAxes, horizontalalignment='center',
+                 fontsize=8.)
+        ax2.text(0.5, 0.95, 'Modified Mc: %.2f' % test_dict['M_cut'],
+                 transform=ax2.transAxes, horizontalalignment='center',
+                 fontsize=8., color='b')
+        ax2.text(0.5, 0.9, 'Modified b-value: %.3f' % test_dict['best_bval'],
+                 color='b', transform=ax2.transAxes,
+                 horizontalalignment='center', fontsize=8.)
+        ax2.set_title('B-values v. cut-off magnitude')
+        ax2.set_xlabel('Cut-off magnitude')
+        ax2.set_ylabel('B-value')
+        # Plot magnitude histogram underneath ax2
+        ax3 = ax2.twinx()
+        mags = [ev.preferred_magnitude().mag for ev in cat
+                if ev.preferred_magnitude()]
+        sns.distplot(mags, kde=False, ax=ax3, hist_kws={"alpha": 0.2})
+        ax3.set_ylabel('Number of events')
+        fig.tight_layout()
         fig.show()
-        # fig2.show()
-        #XXX TODO Possibly add curve fitting with MLE? Look at Gabe's codes.
-    return b, a
+    return
 
+
+def plot_mag_v_lat(cat, method='all'):
+    """
+    Plotting magnitude vs latitude of events in fields
+    :param cat: obspy Catalog
+    :param method: 'all' or 'avg'
+    :return: matplotlib.pyplot.Figure
+    """
+    import numpy as np
+    data = [(ev.origins[-1].latitude, ev.preferred_magnitude().mag)
+            for ev in cat if ev.preferred_magnitude()]
+    lats, mags = zip(*data)
+    fig, ax = plt.subplots()
+    if method == 'all':
+        ax.scatter(lats, mags)
+        ax.set_ylabel('Magnitude')
+        ax.set_xlabel('Latitude (deg)')
+        ax.set_xlim(min(lats), max(lats))
+        ax.set_title('Magnitude vs Latitude')
+    elif method == 'avg':
+        avgs = []
+        bins = np.linspace(min(lats), max(lats), 100)
+        for i, bin in enumerate(bins):
+            if i < len(bins) - 1:
+                avgs.append(np.mean([tup[1] for tup in data
+                                     if tup[0] <= bins[i + 1]
+                                     and tup[0] > bin]))
+        ax.plot(bins[:-1], avgs, marker='o')
+        ax.set_ylabel('Magnitude')
+        ax.set_xlabel('Latitude (deg)')
+        ax.set_xlim(min(lats), max(lats))
+        ax.set_title('Magnitude vs Latitude')
+    fig.show()
+
+
+###############################################################################
 
 def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', show=True):
     """
@@ -281,12 +368,12 @@ def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', sh
     cat_start = min([ev.origins[-1].time.datetime for ev in cat])
     cat_end = max([ev.origins[-1].time.datetime for ev in cat])
     for ev in cat:
-        if ev.preferred_origin():
-            dist = min([dist_calc((ev.preferred_origin().latitude,
-                                   ev.preferred_origin().longitude,
-                                   ev.preferred_origin().depth / 1000.),
+        if ev.origins[-1]:
+            dist = min([dist_calc((ev.origins[-1].latitude,
+                                   ev.origins[-1].longitude,
+                                   ev.origins[-1].depth / 1000.),
                                   pt) for pt in well_pts])
-            time_dist_tups.append((ev.preferred_origin().time.datetime,
+            time_dist_tups.append((ev.origins[-1].time.datetime,
                                   dist))
     times, dists = zip(*time_dist_tups)
     # Plot 'em up
@@ -398,10 +485,10 @@ def plot_detections_map(cat, temp_cat, bbox, stations=None, temp_list='all', thr
         fig3d = plt.figure()
         ax3d = fig3d.add_subplot(111, projection='3d')
     for i, temp_str in enumerate(temp_dict):
-        temp_o = temp_dict[temp_str].preferred_origin()
-        det_lons = [ev.preferred_origin().longitude for ev in dets_dict[temp_str]]
-        det_lats = [ev.preferred_origin().latitude for ev in dets_dict[temp_str]]
-        det_depths = [ev.preferred_origin().depth / 1000. for ev in dets_dict[temp_str]]
+        temp_o = temp_dict[temp_str].origins[-1]
+        det_lons = [ev.origins[-1].longitude for ev in dets_dict[temp_str]]
+        det_lats = [ev.origins[-1].latitude for ev in dets_dict[temp_str]]
+        det_depths = [ev.origins[-1].depth / 1000. for ev in dets_dict[temp_str]]
         if threeD:
             ax3d.scatter(det_lons, det_lats, det_depths, s=3.0, color=cm(1. * i / temp_num))
             ax3d.scatter(temp_o.longitude, temp_o.latitude, temp_o.depth, s=2.0, color='k', marker='x')
@@ -471,12 +558,12 @@ def template_extents(cat, temp_cat, temp_list='all', param='avg_dist', show=True
             del temp_dict[key]
     param_dict = {}
     for key, ev in temp_dict.iteritems():
-        temp_o = ev.preferred_origin()
+        temp_o = ev.origins[-1]
         if param == 'avg_dist':
             param_dict[key] = np.mean([dist_calc((temp_o.latitude, temp_o.longitude, temp_o.depth / 1000.0),
-                                                 (det.preferred_origin().latitude,
-                                                  det.preferred_origin().longitude,
-                                                  det.preferred_origin().depth / 1000.0)) for det in dets_dict[key]])
+                                                 (det.origins[-1].latitude,
+                                                  det.origins[-1].longitude,
+                                                  det.origins[-1].depth / 1000.0)) for det in dets_dict[key]])
     ax = sns.distplot([avg for key, avg in param_dict.iteritems()])
     ax.set_title('')
     ax.set_xlabel('Average template-detection distance per template (km)')
@@ -570,17 +657,17 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
     # Sort det_cat by origin time
     else:
         det_cat = cat
-    if not det_cat[0].preferred_origin():
+    if not det_cat[0].origins[-1]:
         det_cat.events.sort(key=lambda x: x.origins[0].time)
     else:
         det_cat.events.sort(key=lambda x: x.origins[-1].time)
     # Put times and names into sister lists
     if detection_rate and not cumulative:
-        cat_start = min([ev.preferred_origin().time.datetime for ev in det_cat])
-        cat_end = max([ev.preferred_origin().time.datetime for ev in det_cat])
+        cat_start = min([ev.origins[-1].time.datetime for ev in det_cat])
+        cat_end = max([ev.origins[-1].time.datetime for ev in det_cat])
         det_rates = []
         dates = []
-        if not det_cat[0].preferred_origin():
+        if not det_cat[0].origins[-1]:
             for date in date_generator(cat_start, cat_end):
                 dates.append(date)
                 det_rates.append(len([ev for ev in det_cat if ev.origins[0].time.datetime > date
@@ -588,8 +675,8 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
         else:
             for date in date_generator(cat_start, cat_end):
                 dates.append(date)
-                det_rates.append(len([ev for ev in det_cat if ev.preferred_origin().time.datetime > date
-                                       and ev.preferred_origin().time.datetime < date + timedelta(days=1)]))
+                det_rates.append(len([ev for ev in det_cat if ev.origins[-1].time.datetime > date
+                                       and ev.origins[-1].time.datetime < date + timedelta(days=1)]))
         fig, ax1 = plt.subplots()
         # ax1.step(dates, det_rates, label='All templates', linewidth=1.0, color='black')
         ax1 = plt.subplot(111)
@@ -606,7 +693,7 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
         temp_dict = {}
         for ev in det_cat:
             temp_name = str(ev.resource_id).split('/')[-1].split('_')[0]
-            o = ev.preferred_origin() or ev.origins[0]
+            o = ev.origins[-1] or ev.origins[0]
             if temp_name not in temp_dict:
                 temp_dict[temp_name] = [o.time.datetime]
             else:
@@ -623,14 +710,14 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
                                                  plot_grouped=True, show=False, plot_legend=False)
             if detection_rate:
                 ax2 = fig.get_axes()[0].twinx()
-                cat_start = min([ev.preferred_origin().time.datetime for ev in det_cat])
-                cat_end = max([ev.preferred_origin().time.datetime for ev in det_cat])
+                cat_start = min([ev.origins[-1].time.datetime for ev in det_cat])
+                cat_end = max([ev.origins[-1].time.datetime for ev in det_cat])
                 det_rates = []
                 dates = []
                 for date in date_generator(cat_start, cat_end):
                     dates.append(date)
-                    det_rates.append(len([ev for ev in det_cat if ev.preferred_origin().time.datetime > date
-                                          and ev.preferred_origin().time.datetime < date + timedelta(days=1)]))
+                    det_rates.append(len([ev for ev in det_cat if ev.origins[-1].time.datetime > date
+                                          and ev.origins[-1].time.datetime < date + timedelta(days=1)]))
                 ax2.step(dates, det_rates, label='All templates', linewidth=2.0, color='black')
                 ax2.set_ylabel('Cumulative detection rate (events/day)')
         else:
@@ -805,22 +892,29 @@ def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=Fa
     from matplotlib.patches import Ellipse
     from pyproj import Proj, transform
 
+    #kwarg sanity check
+    if uncertainty_ellipse:
+        RMS=False
     #Do a check on kwargs
     if RMS and uncertainty_ellipse:
         print('Will not plot RMS on top of uncertainty ellipse, choosing only RMS')
         uncertainty_ellipse=False
     # Sort the catalogs by time, in case we'd like to compare identical events with differing picks
-    cat1.events.sort(key=lambda x: x.preferred_origin().time)
+    cat1.events.sort(key=lambda x: x.origins[-1].time)
     if cat2:
-        cat2.events.sort(key=lambda x: x.preferred_origin().time)
+        cat2.events.sort(key=lambda x: x.origins[-1].time)
     if RMS:
-        ax1 = sns.distplot([ev.preferred_origin().quality.standard_error for ev in cat1],
+        ax1 = sns.distplot([ev.origins[-1].quality.standard_error for ev in cat1],
                            label='Catalog 1', kde=False)
         if cat2:
-            ax1 = sns.distplot([ev.preferred_origin().quality.standard_error for ev in cat2],
+            ax1 = sns.distplot([ev.origins[-1].quality.standard_error for ev in cat2],
                                label='Catalog 2', ax=ax1, kde=False)
         ax1.legend()
+        ax1.set_xlabel('RMS (sec)')
+        ax1.set_title('Catalog RMS')
+        ax1.set_ylabel('Number of events')
         plt.show()
+        return
     if uncertainty_ellipse:
         # Set input and output projections
         inProj = Proj(init='epsg:4326')
@@ -828,18 +922,18 @@ def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=Fa
         ax1 = plt.subplot2grid((3,3), (0,0), colspan=2, rowspan=2)
         # Lets try just a flat cartesian coord system
         # First, pyproj coordinates into meters, so that we can plot the ellipses in same units
-        dict1 = {ev.resource_id: {'coords': transform(inProj, outProj, ev.preferred_origin().longitude, ev.preferred_origin().latitude),
-                                  'depth': ev.preferred_origin().depth,
-                                  'ellps_max': ev.preferred_origin().origin_uncertainty.max_horizontal_uncertainty,
-                                  'ellps_min': ev.preferred_origin().origin_uncertainty.min_horizontal_uncertainty,
-                                  'ellps_az': ev.preferred_origin().origin_uncertainty.azimuth_max_horizontal_uncertainty}
+        dict1 = {ev.resource_id: {'coords': transform(inProj, outProj, ev.origins[-1].longitude, ev.origins[-1].latitude),
+                                  'depth': ev.origins[-1].depth,
+                                  'ellps_max': ev.origins[-1].origin_uncertainty.max_horizontal_uncertainty,
+                                  'ellps_min': ev.origins[-1].origin_uncertainty.min_horizontal_uncertainty,
+                                  'ellps_az': ev.origins[-1].origin_uncertainty.azimuth_max_horizontal_uncertainty}
                  for ev in cat1}
         if cat2:
-            dict2 = {ev.resource_id: {'coords': transform(inProj, outProj, ev.preferred_origin().longitude, ev.preferred_origin().latitude),
-                                      'depth': ev.preferred_origin().depth,
-                                      'ellps_max': ev.preferred_origin().origin_uncertainty.max_horizontal_uncertainty,
-                                      'ellps_min': ev.preferred_origin().origin_uncertainty.min_horizontal_uncertainty,
-                                      'ellps_az': ev.preferred_origin().origin_uncertainty.azimuth_max_horizontal_uncertainty}
+            dict2 = {ev.resource_id: {'coords': transform(inProj, outProj, ev.origins[-1].longitude, ev.origins[-1].latitude),
+                                      'depth': ev.origins[-1].depth,
+                                      'ellps_max': ev.origins[-1].origin_uncertainty.max_horizontal_uncertainty,
+                                      'ellps_min': ev.origins[-1].origin_uncertainty.min_horizontal_uncertainty,
+                                      'ellps_az': ev.origins[-1].origin_uncertainty.azimuth_max_horizontal_uncertainty}
                      for ev in cat2}
         for eid, ev_dict in dict1.iteritems():
             ax1.add_artist(Ellipse(xy=ev_dict['coords'], width=ev_dict['ellps_min'],
@@ -854,7 +948,6 @@ def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=Fa
                      max(subdict['coords'][0] for subdict in dict1.values()))
         ax1.set_ylim(min(subdict['coords'][1] for subdict in dict1.values()),
                      max(subdict['coords'][1] for subdict in dict1.values()))
-        # TODO In theory, we could also plot depth ellipses, but an ellipse can be a poor representation of a location pdf
         ax2 = plt.subplot2grid((3,3), (0,2), rowspan=2)
         # Lots of trig in here somewhere
         ax3 = plt.subplot2grid((3,3), (2,0), colspan=2)
@@ -877,7 +970,7 @@ def make_residuals_dict(cat):
     stas = set([pk.waveform_id.station_code for ev in cat for pk in ev.picks])
     residual_dict = {sta: {'P': [], 'S': []} for sta in stas}
     for ev in cat:
-        for arr in ev.preferred_origin().arrivals:
+        for arr in ev.origins[-1].arrivals:
             pk = arr.pick_id.get_referred_object()
             residual_dict[pk.waveform_id.station_code][pk.phase_hint].append(arr.time_residual)
     return residual_dict
@@ -964,9 +1057,9 @@ def event_diff_dict(cat1, cat2):
 
     diff_dict = {}
     for ev1 in cat1:
-        ev1_o = ev1.preferred_origin()
+        ev1_o = ev1.origins[-1]
         ev2 = [ev for ev in cat2 if ev.resource_id == ev1.resource_id][0]
-        ev2_o = ev2.preferred_origin()
+        ev2_o = ev2.origins[-1]
         diff_dict[ev1.resource_id] = {'dist': dist_calc((ev1_o.latitude,
                                                          ev1_o.longitude,
                                                          ev1_o.depth / 1000.00),
@@ -1054,9 +1147,9 @@ def bbox_two_cat(cat1, cat2, bbox, depth_thresh):
     new_cat1 = Catalog()
     new_cat2 = Catalog()
     for i, ev in enumerate(cat1):
-        if min(bbox[0]) <= ev.preferred_origin().longitude <= max(bbox[0]) \
-                and min(bbox[1]) <= ev.preferred_origin().latitude <= max(bbox[1]) \
-                and ev.preferred_origin().depth <= depth_thresh * 1000:
+        if min(bbox[0]) <= ev.origins[-1].longitude <= max(bbox[0]) \
+                and min(bbox[1]) <= ev.origins[-1].latitude <= max(bbox[1]) \
+                and ev.origins[-1].depth <= depth_thresh * 1000:
             new_cat1.events.append(ev)
             new_cat2.events.append(cat2[i])
     return new_cat1, new_cat2
