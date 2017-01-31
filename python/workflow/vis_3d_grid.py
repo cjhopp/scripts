@@ -28,6 +28,7 @@ def plot_grid(grid_dict, var='b'):
     :param var: Which variable are we plotting. 'b' or 'z' at the moment
     :return:
     """
+    import mayavi
     # Flip the matrices so that positive z is down
     if var == 'b':
         data = np.flip(grid_dict['bvg'], 2)
@@ -39,6 +40,7 @@ def plot_grid(grid_dict, var='b'):
         raise NotImplementedError('Only supports b and z grids currently')
     m = VolumeSlicer(data=data)
     m.configure_traits()
+    return m
 
 
 # The object implementing the dialog
@@ -100,13 +102,18 @@ class VolumeSlicer(HasTraits):
     #---------------------------------------------------------------------------
     @on_trait_change('scene3d.activated')
     def display_scene3d(self):
+        from numpy import array
         outline = mlab.pipeline.outline(self.data_src3d,
                         figure=self.scene3d.mayavi_scene,
                         )
-        self.scene3d.mlab.view(40, 50)
-        self.scene3d.mlab.xlabel('Longitude')
-        self.scene3d.mlab.ylabel('Latitude')
-        self.scene3d.mlab.zlabel('Depth')
+        self.scene3d.mlab.view(220, 50)
+        self.scene3d.mlab.xlabel('Longitude (deg)')
+        self.scene3d.mlab.ylabel('Latitude (deg)')
+        self.scene3d.mlab.zlabel('Depth (km)')
+        self.scene3d.mlab.axes(ranges=[176.144, 176.249,
+                                       -38.68,  -38.493,
+                                       7.,  0.],
+                               nb_labels=8)
         # Interaction properties can only be changed after the scene
         # has been created, and thus the interactor exists
         for ipw in (self.ipw_3d_x, self.ipw_3d_y, self.ipw_3d_z):
@@ -166,6 +173,22 @@ class VolumeSlicer(HasTraits):
                      )
         scene.mlab.view(*views[axis_name])
         # 2D interaction: only pan and zoom
+        if axis_name =='y':
+            scene.mlab.xlabel('Longitude (deg)')
+            scene.mlab.zlabel('Depth (km)')
+            scene.mlab.axes(z_axis_visibility=False)
+        elif axis_name == 'x':
+            scene.mlab.ylabel('Latitude (deg)')
+            scene.mlab.zlabel('Depth (km)')
+            scene.mlab.axes(z_axis_visibility=False)
+        elif axis_name == 'z':
+            scene.mlab.xlabel('Longitude (deg)')
+            scene.mlab.ylabel('Latitude (deg)')
+            scene.mlab.axes(z_axis_visibility=False)
+        scene.mlab.axes(ranges=[176.144, 176.249,
+                                -38.68,  -38.493,
+                                7.,  0.],
+                        nb_labels=8)
         scene.scene.interactor.interactor_style = \
                                  tvtk.InteractorStyleImage()
         scene.scene.background = (0, 0, 0)

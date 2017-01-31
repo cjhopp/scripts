@@ -212,3 +212,24 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                            format="MSEED")
             del trim_st
         del tmp_cat, st1, st
+
+
+def template_spectrograms(temp_dir, num_evs):
+    """
+    Visualize spectrograms of template events to determine best
+    passband for filters
+    :param temp_dir: Directory where raw temp waveforms live
+    :param num_evs: How many events to randomly select from all temps
+    :return:
+    """
+    from glob import glob
+    import numpy as np
+    from obspy import read
+
+    files = glob('%s/*' % temp_dir)
+    rands = np.random.choice(range(len(files)), num_evs, replace=False)
+    rand_files = [fl for i, fl in enumerate(files) if i in rands]
+    for fl in rand_files:
+        st = read(fl)
+        for tr in st:
+            tr.spectrogram()
