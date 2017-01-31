@@ -35,12 +35,12 @@ def relocate(cat, root_name, in_file):
     :param outfiles: Output directory for location files
     :type in_file: str
     :param in_file: NLLoc input file
-    :return:
+    :return: same catalog with new origins appended to each event
     """
     # root_name = '/media/chet/hdd/seismic/NZ/NLLoc/mrp/2015_Rawlinson_spicks/obs/'
     for ev in cat:
-        if len(ev.picks) < 6:
-            print('Fewer than 8 picks for %s. Will not locate.' % str(ev.resource_id))
+        if len(ev.picks) < 5:
+            print('Fewer than 5 picks for %s. Will not locate.' % str(ev.resource_id))
             continue
         id_str = str(ev.resource_id).split('/')[-1]
         filename = root_name + 'obs/' + id_str + '.nll'
