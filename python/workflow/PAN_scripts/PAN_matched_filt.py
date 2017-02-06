@@ -17,14 +17,19 @@ from glob import glob
 from timeit import default_timer as timer
 import pyasdf
 import csv
+from datetime import datetime, timedelta
 import itertools
 
+# Helper function for dividing catalog into --splits roughly-equal parts
+def partition(lst, n):
+    division = len(lst) / float(n)
+    return [lst[int(round(division * i)): int(round(division * (i + 1)))]
+            for i in range(n)]
 # Time this script
 script_start = timer()
-
 """
 Take input arguments --split and --instance from bash which specify slices of
-days to run
+days to run and which days to slice up.
 """
 split = False
 instance = False
@@ -41,9 +46,36 @@ if '--instance' in args:
         elif arg == '--splits':
             splits = int(args[i+1]) - 1
             print('I will divide the days into %d chunks' % splits)
-
+        elif arg == '--start':
+            cat_start = datetime.strptime(str(args[i + 1]), '%d/%m/%Y')
+        elif arg == '--end':
+            cat_end = datetime.strptime(str(args[i + 1]), '%d/%m/%Y')
+        else:
+            NotImplementedError('Argument %s not supported' % str(arg))
+delta = (cat_end - cat_start).days + 1
+all_dates = [cat_end - timedelta(days=x) for x in range(0, delta)][::-1]
+# Sanity check. If splits > len(all_dates) overwrite splits to len(all_dates)
+if splits > len(all_dates):
+    print(
+    'Splits > # dates in catalog. Splits will now equal len(all_dates)')
+    splits = len(all_dates)
+if split:
+    split_dates = partition(all_dates, splits)
+    # Determine date range
+    try:
+        inst_dats = split_dates[instance]
+    except IndexError:
+        print('Instance no longer needed. Downsize --splits for this job')
+        sys.exit()
+    inst_start = min(inst_dats)
+    inst_end = max(inst_dats)
+    print('This instance will run from %s to %s'
+          % (inst_start.strftime('%Y/%m/%d'),
+             inst_end.strftime('%Y/%m/%d')))
+else:
+    inst_dats = all_dates
 #Read in templates and names
-temp_dir = '/projects/nesi00228/data/templates/nlloc_reloc/corr_groups/*'
+temp_dir = '/projects/nesi00228/data/templates/2013/1sec_3-20Hz/*'
 temp_files = glob(temp_dir)
 templates = [read(temp_file) for temp_file in temp_files]
 template_names = [temp_file.split('/')[-1].rstrip('.mseed')
@@ -51,85 +83,79 @@ template_names = [temp_file.split('/')[-1].rstrip('.mseed')
 # Extract the station info from the templates
 stachans = {tr.stats.station: [] for template in templates
             for tr in template}
-for template in templates:
-    for tr in template:
+for temp in templates:
+    for tr in temp:
         # Don't hard code vertical channels!!
         chan_code = 'EH' + tr.stats.channel[1]
-        # chan_code = 'EHZ'
         if chan_code not in stachans[tr.stats.station]:
             stachans[tr.stats.station].append(chan_code)
-# Establish date range for this match filter run
-start_day = UTCDateTime(2015, 01, 01)
-end_day = UTCDateTime(2015, 12, 31)
-all_dates = range(start_day.julday, end_day.julday+1)
-ndays = len(all_dates)
-if split:
-    #Determine date range
-    split_size = ndays // splits
-    instance_dates = [all_dates[i:i+split_size]
-                      for i in range(0, ndays, split_size)]
-    inst_dats = instance_dates[instance]
-    print('This instance will run from day %03d to %03d' % (min(inst_dats),
-                                                            max(inst_dats)))
-else:
-    inst_dats = all_dates
-out_name = '/projects/nesi00228/data/%d_%03d-%03d_corr.csv' % (start_day.year,
-                                                               min(inst_dats),
-                                                               max(inst_dats))
-# Set plot directory
-plot_dir = '/projects/nesi00228/data/plots/'
-with open(out_name, 'wb') as out_file:
-    # Create the csv writer object for detections
-    det_writer = csv.writer(out_file)
-    for day in inst_dats:
-        dto = UTCDateTime('2015' + str('%03d' % day))
-        q_start = dto - 10
-        q_end = dto + 86410
-        wav_read_start = timer()
-        # Be sure to go +/- 10 sec to account for GeoNet shit timing
-        with pyasdf.ASDFDataSet('/projects/nesi00228/data/pyasdf/mrp_rotnga.h5') as ds:
-            for sta, chans in stachans.iteritems():
-                for station in ds.ifilter(ds.q.station == sta,
-                                          ds.q.channel == chans,
-                                          ds.q.starttime >= q_start,
-                                          ds.q.endtime <= q_end):
-                    if not 'st' in locals():
-                        st = station.raw_recording
-                    else:
-                        st += station.raw_recording
-        wav_read_stop = timer()
-        print('Reading waveforms took %.3f seconds' % (wav_read_stop
-                                                       - wav_read_start))
-        merg_strt = timer()
-        st.merge(fill_value='interpolate')
-        merg_stp = timer()
-        print('Merging took %.3f seconds' % (merg_stp - merg_strt))
-        proc_strt = timer()
-        st1 = pre_processing.dayproc(st, lowcut=1.0, highcut=20.0,
+# out_name = '/projects/nesi00228/data/%d_%03d-%03d_corr.csv' % (start_day.year,
+#                                                                min(inst_dats),
+#                                                                max(inst_dats))
+# # Set plot directory
+# plot_dir = '/projects/nesi00228/data/plots/'
+for day in inst_dats:
+    dto = UTCDateTime(day)
+    q_start = dto - 10
+    q_end = dto + 86410
+    wav_read_start = timer()
+    # Be sure to go +/- 10 sec to account for GeoNet shit timing
+    with pyasdf.ASDFDataSet('/projects/nesi00228/data/pyasdf/rotnga_%d.h5'
+                            % dto.year) as ds:
+        for sta, chans in iter(stachans.items()):
+            for station in ds.ifilter(ds.q.station == sta,
+                                      ds.q.channel == chans,
+                                      ds.q.starttime >= q_start,
+                                      ds.q.endtime <= q_end):
+                if not 'st' in locals():
+                    st = station.raw_recording
+                else:
+                    st += station.raw_recording
+    wav_read_stop = timer()
+    print('Reading waveforms took %.3f seconds' % (wav_read_stop
+                                                   - wav_read_start))
+    merg_strt = timer()
+    st.merge(fill_value='interpolate')
+    merg_stp = timer()
+    print('Merging took %.3f seconds' % (merg_stp - merg_strt))
+    proc_strt = timer()
+    try:
+        st1 = pre_processing.dayproc(st, lowcut=3.0, highcut=20.0,
                                      filt_order=3, samp_rate=50.0,
-                                     starttime=dto, debug=2, parallel=True,
-                                     as_float32=True)
-        del st
-        proc_stp = timer()
-        print('Pre-processing took %.3f seconds' % (proc_stp - proc_strt))
-        # RUN MATCH FILTER (looping through chunks of templates due to RAM)
-        chunk_size = len(templates) // 40
-        chunk_temps = [templates[i:i+chunk_size]
-                       for i in range(0, len(templates), chunk_size)]
-        chunk_temp_names = [template_names[i:i+chunk_size]
-                            for i in range(0, len(template_names), chunk_size)]
-        for temps, temp_names in itertools.izip(chunk_temps, chunk_temp_names):
-            detections = match_filter.match_filter(temp_names, temps, st1,
+                                     starttime=dto, debug=2, parallel=True)
+    except NotImplementedError or Exception:
+        print('Found error in dayproc, noting date and continuing')
+        with open('%s/dayproc_errors.txt' % outdir, mode='a') as fo:
+            fo.write('%s\n' % str(date))
+        continue
+
+    del st
+    proc_stp = timer()
+    print('Pre-processing took %.3f seconds' % (proc_stp - proc_strt))
+    # RUN MATCH FILTER (looping through chunks of templates due to RAM)
+    chunk_size = len(templates) // 40
+    chunk_temps = [templates[i:i+chunk_size]
+                   for i in range(0, len(templates), chunk_size)]
+    chunk_temp_names = [template_names[i:i+chunk_size]
+                        for i in range(0, len(template_names), chunk_size)]
+    for temps, temp_names in itertools.izip(chunk_temps, chunk_temp_names):
+        dets, cat, sts = match_filter.match_filter(temp_names, temps, st1,
                                                    threshold=8.0,
                                                    threshold_type='MAD',
-                                                   trig_int=6.0, plotvar=False,
-                                                   cores='all', debug=2)
-            # Write detections to a file to check later
-            for detection in detections:
-                det_writer.writerow([detection.template_name,
-                                     detection.detect_time, detection.detect_val,
-                                     detection.threshold, detection.no_chans])
-            del detections
+                                                   trig_int=6.0,
+                                                   plotvar=False,
+                                                   cores=8,
+                                                   output_cat=True,
+                                                   extract_detections=True,
+                                                   debug=2)
+        # Write detections to a file to check later
+        with open(outname, mode='a') as fo:
+            det_writer = csv.writer(out_file)
+            for det in dets:
+                det_writer.writerow([det.template_name,
+                                     det.detect_time, det.detect_val,
+                                     det.threshold, det.no_chans])
+        del dets
 #Print out runtime
 script_end = timer()
 print('Instance took %.3f seconds' % (script_end - script_start))
