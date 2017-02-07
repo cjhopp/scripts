@@ -89,7 +89,6 @@ for temp in templates:
         if chan_code not in stachans[tr.stats.station]:
             stachans[tr.stats.station].append(chan_code)
 # Create a catalog for this instance which gets added to then written
-inst_cat = Catalog()
 for day in inst_dats:
     dto = UTCDateTime(day)
     q_start = dto - 10
