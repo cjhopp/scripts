@@ -158,10 +158,10 @@ for day in inst_dats:
                                      det.threshold, det.no_chans])
                 st.write('/projects/nesi00228/data/detections/raw_det_wavs/' +
                          '%d/%s_%s.mseed' % (dto.year, det.template_name,
-                                             det.detect_time))
+                                             det.detect_time), format='MSEED')
         # Write the catalog
         cat.write('/projects/nesi00228/data/catalogs/raw_det_cats/%d/%d_dets.xml'
-                  % (dto.year, instance))
+                  % (dto.year, instance), format='QUAKEML')
         del dets, cat, sts
 #Print out runtime
 script_end = timer()
