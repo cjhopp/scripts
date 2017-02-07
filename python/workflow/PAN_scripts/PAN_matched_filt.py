@@ -132,7 +132,7 @@ for day in inst_dats:
     proc_stp = timer()
     print('Pre-processing took %.3f seconds' % (proc_stp - proc_strt))
     # RUN MATCH FILTER (looping through chunks of templates due to RAM)
-    chunk_size = len(templates) // 40
+    chunk_size = len(templates) // 100
     chunk_temps = [templates[i:i + chunk_size]
                    for i in range(0, len(templates), chunk_size)]
     chunk_temp_names = [template_names[i:i + chunk_size]
