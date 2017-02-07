@@ -519,8 +519,8 @@ def mrp_2_flow_dict(flow_csv, well_list=None):
     return flow_dict, whp_dict
 
 
-def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all', pressure=False,
-                    total=False, volume=False, fig=None):
+def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
+                    method='flows', fig=None):
     """
     Plotting function for injection flows for geothermal power production.
     :type flow_csv: str
@@ -537,12 +537,11 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all',
     :param fig: Input figure with detections already plotted
     :return: class matplotlib.figure
     """
-    #TODO Generalize this so that flow_rate can be format agnostic?
     import datetime
     import matplotlib.pyplot as plt
 
     # Checks for plotting pressure or flow
-    if pressure:
+    if method == 'pressure':
         plot_dict = pres_dict
     else:
         plot_dict = flow_dict
@@ -550,23 +549,26 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all',
     start = datetime.datetime.strptime(start_date, "%d/%m/%Y")
     end = datetime.datetime.strptime(end_date, "%d/%m/%Y")
     # Get flows into list of (dto, flow) for plotting
-    if total:
+    if method == 'total_flow' or method == 'volume':
         well_list = 'total'
-        plot_tups_dict = {'total':[(dto, well_dict['total']) for dto, well_dict in plot_dict.iteritems()
+        plot_tups_dict = {'total':[(dto, well_dict['total'])
+                                   for dto, well_dict in iter(plot_dict.items())
                                    if dto > start and dto < end]}
     else:
+        if well_list is None:
+            Exception('Must designate either a list of wells to plot or set' +
+                      'well_list equal to "all"')
         plot_tups_dict = {}
-        for dto, well_dict in plot_dict.iteritems():
+        for dto, well_dict in iter(plot_dict.items()):
             if dto > start and dto < end:
                 for well in well_dict.keys():
                     if well in well_list or well_list == 'all':
-                        if well != 'total':
-                            if well in plot_tups_dict:
-                                plot_tups_dict[well].append((dto, well_dict[well]))
-                            else:
-                                plot_tups_dict[well] = [(dto, well_dict[well])]
+                        if well in plot_tups_dict:
+                            plot_tups_dict[well].append((dto, well_dict[well]))
+                        else:
+                            plot_tups_dict[well] = [(dto, well_dict[well])]
     # Sort the tuple lists by datetime object
-    for well, list_tups in plot_tups_dict.iteritems():
+    for well, list_tups in iter(plot_tups_dict.items()):
         list_tups.sort(key=lambda x: x[0])
     # Set up figure object
     if fig:
@@ -580,41 +582,42 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list='all',
         axes = plt.gca()
     for t in axes.get_yticklabels():
         t.set_color('r')
-    if pressure:
+    if method == 'pressure':
         axes.set_ylabel('Wellhead Pressure (bar-g)', color='r')
+    elif method == 'volume':
+        axes.set_ylabel('Total injected Volume (m^3)', color='r')
     else:
         axes.set_ylabel('Flow rate (T/h)', color='r')
     axes.set_xlabel('Date')
-    for well, flow_list in plot_tups_dict.iteritems():
-        if well in well_list or well_list:
-            dtos, flows = zip(*flow_list)
-            if well_list == 'total' and not volume:
-                label = 'Total flow rate'
-                axes.plot(dtos, flows, label=label, color='r')
-            elif well_list == 'total' and volume:
-                label = 'Cumulative injected volume'
-                cum_vols = []
-                for i, flow in enumerate(flows):
-                    if i == 0:
-                        cum_vols = [flow * 24]
-                    else:
-                        cum_vols.append((flow * 24) + cum_vols[i-1])
-                axes.plot(list(dtos), cum_vols, label=label)
-            else:
-                label = well
-                axes.plot(dtos, flows, label=label)
+    # Plotting relevant data
+    for well, flow_list in iter(plot_tups_dict.items()):
+        dtos, flows = zip(*flow_list)
+        if method == 'total_flow':
+            label = 'Total flow rate'
+            axes.plot(dtos, flows, label=label, color='r')
+        elif method == 'volume':
+            label = 'Cumulative injected volume'
+            for i, flow in enumerate(flows):
+                if i == 0:
+                    cum_vols = [flow * 24]
+                else:
+                    cum_vols.append((flow * 24) + cum_vols[i-1])
+            axes.plot(list(dtos), cum_vols, label=label)
+        else:
+            label = well
+            axes.plot(dtos, flows, label=label)
     lines2, labels2 = axes.get_legend_handles_labels()
     if fig:
         axes.legend(lines + lines2, labels + labels2, loc=2,
                     prop={'size': 12}, ncol=3)
     else:
         axes.legend(lines2, labels2, loc=2, prop={'size': 8}, ncol=3)
-    if not pressure:
+    if method != 'pressure' and method != 'volume':
         try:
             axes.set_ylim([min([fl[1] for well, list_tups in
-                                plot_tups_dict.iteritems() for fl in list_tups]),
+                                iter(plot_tups_dict.items()) for fl in list_tups]),
                            max([fl[1] for well, list_tups in
-                                   plot_tups_dict.iteritems() for fl in list_tups])
+                                   iter(plot_tups_dict.items()) for fl in list_tups])
                            + 200])
         except ValueError:
             print('Probably no flow data available for this time period')

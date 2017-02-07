@@ -264,9 +264,40 @@ def plot_mag_v_lat(cat, method='all'):
     fig.show()
 
 
+def convert_frac_year(number):
+    from datetime import timedelta, datetime
+    year = int(number)
+    d = timedelta(days=(number - year) * 365)
+    day_one = datetime(year,1,1)
+    date = d + day_one
+    return date
+
+
 def plot_zmap_b_w_time(mat_file):
     """
     Take a .mat file created by ZMAP and plot it in python
     :param mat_file: Path to .mat file
     :return: matplotlib.pyplot.Figure
     """
+    from scipy.io import loadmat
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
+    bval_mat = loadmat(mat_file)['mResult']
+    # First, deal with time decimals
+    time_decs = bval_mat[:,[0]]
+    dtos = [convert_frac_year(dec[0]) for dec in time_decs]
+    bvals = bval_mat[:,[3]]
+    stds = bval_mat[:,[2]]
+    sigma_top = [bval + std for bval, std in zip(bvals, stds)]
+    sigma_bottom = [bval - std for bval, std in zip(bvals, stds)]
+    fig, ax = plt.subplots()
+    ax.plot(dtos, bvals, color='k')
+    ax.plot(dtos, sigma_top, linestyle='--', color='0.60')
+    ax.plot(dtos, sigma_bottom, linestyle='--', color='0.60')
+    ax.xaxis_date()
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.set_xlabel('Date')
+    ax.set_ylabel('b-value')
+    return fig
