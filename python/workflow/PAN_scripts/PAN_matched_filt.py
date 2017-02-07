@@ -143,7 +143,7 @@ for day in inst_dats:
                                                    threshold_type='MAD',
                                                    trig_int=1.0,
                                                    plotvar=False,
-                                                   cores=8,
+                                                   cores=12,
                                                    output_cat=True,
                                                    extract_detections=True,
                                                    debug=2)
