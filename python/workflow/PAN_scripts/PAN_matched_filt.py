@@ -130,9 +130,14 @@ for day in inst_dats:
     proc_stp = timer()
     print('Pre-processing took %.3f seconds' % (proc_stp - proc_strt))
     # RUN MATCH FILTER (looping through chunks of templates due to RAM)
-    chunk_temps = partition(templates, 200)
-    chunk_temp_names = partition(template_names, 200)
+    chunk_temps = partition(templates, 120)
+    chunk_temp_names = partition(template_names, 120)
+    print('Starting correlation runs for %s' % str(day))
+    i = 0
     for temps, temp_names in zip(chunk_temps, chunk_temp_names):
+        i += 1 # Silly counter for debug
+        grp_corr_st = timer()
+        print('On template group %d of %d' % (i, len(chunk_temps)))
         dets, cat, sts = match_filter.match_filter(temp_names, temps, st1,
                                                    threshold=8.0,
                                                    threshold_type='MAD',
@@ -143,10 +148,15 @@ for day in inst_dats:
                                                    extract_detections=True,
                                                    debug=2)
         # Append detections to a file for this instance to check later
+        print('Correlations for group %d took %.3f sec, now extracting them'
+              % (i, timer() - grp_corr_st))
+        extrct_st = timer()
         with open('/projects/nesi00228/data/detections/raw_det_txt/%s/%d_dets.txt'
                   % (str(dto.year), instance), mode='a') as fo:
             det_writer = csv.writer(fo)
             for det, st in zip(dets, sts):
+                print('Writing %s_%s.mseed to files' % (det.template_name,
+                                                        det.detect_time))
                 det_writer.writerow([det.template_name,
                                      det.detect_time, det.detect_val,
                                      det.threshold, det.no_chans])
@@ -154,10 +164,11 @@ for day in inst_dats:
                 st.write('/projects/nesi00228/data/detections/raw_det_wavs/' +
                          '%d/%s_%s.mseed' % (dto.year, det.template_name,
                                              det.detect_time), format='MSEED')
+        print('Extracting wavs took %.3f seconds' % (timer() - extrct_st))
         inst_cat += cat
         del dets, cat, sts
 inst_cat.write('/projects/nesi00228/data/catalogs/raw_det_cats/%d/%d_dets.xml'
-          % (dto.year, instance), format='QUAKEML')
+               % (dto.year, instance), format='QUAKEML')
 #Print out runtime
 script_end = timer()
 print('Instance took %.3f seconds' % (script_end - script_start))

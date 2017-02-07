@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -J CJH_Match_2013
 #SBATCH -A nesi00228
-#SBATCH --time=08:00:00
+#SBATCH --time=20:00:00
 #SBATCH --mem=90000
 #SBATCH --nodes=1
 #SBATCH --exclude=compute-chem-001
