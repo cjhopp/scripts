@@ -122,7 +122,8 @@ for day in inst_dats:
     try:
         st1 = pre_processing.dayproc(st, lowcut=3.0, highcut=20.0,
                                      filt_order=3, samp_rate=50.0,
-                                     starttime=dto, debug=2, parallel=True)
+                                     starttime=dto, debug=2, parallel=True,
+                                     num_cores=6)
     except NotImplementedError or Exception:
         print('Found error in dayproc, noting date and continuing')
         with open('/projects/nesi00228/logs/dayproc_errors.txt', mode='a') as fo:
