@@ -10,7 +10,7 @@ matplotlib.use('Agg')
 import sys
 sys.path.insert(0, "/projects/nesi00228/EQcorrscan")
 
-from obspy import read, UTCDateTime
+from obspy import read, UTCDateTime, Catalog
 from eqcorrscan.core import match_filter
 from eqcorrscan.utils import pre_processing
 from glob import glob
@@ -89,11 +89,8 @@ for temp in templates:
         chan_code = 'EH' + tr.stats.channel[1]
         if chan_code not in stachans[tr.stats.station]:
             stachans[tr.stats.station].append(chan_code)
-# out_name = '/projects/nesi00228/data/%d_%03d-%03d_corr.csv' % (start_day.year,
-#                                                                min(inst_dats),
-#                                                                max(inst_dats))
-# # Set plot directory
-# plot_dir = '/projects/nesi00228/data/plots/'
+# Create a catalog for this instance which gets added to then written
+inst_cat = Catalog()
 for day in inst_dats:
     dto = UTCDateTime(day)
     q_start = dto - 10
@@ -145,7 +142,7 @@ for day in inst_dats:
                                                    output_cat=True,
                                                    extract_detections=True,
                                                    debug=2)
-        # Write detections and wavs to a file to check later
+        # Append detections to a file for this instance to check later
         with open('/projects/nesi00228/data/detections/raw_det_txt/%s/%d_dets.txt'
                   % (str(dto.year), instance), mode='a') as fo:
             det_writer = csv.writer(fo)
@@ -153,13 +150,14 @@ for day in inst_dats:
                 det_writer.writerow([det.template_name,
                                      det.detect_time, det.detect_val,
                                      det.threshold, det.no_chans])
+                # Write wav for each detection
                 st.write('/projects/nesi00228/data/detections/raw_det_wavs/' +
                          '%d/%s_%s.mseed' % (dto.year, det.template_name,
                                              det.detect_time), format='MSEED')
-        # Write the catalog
-        cat.write('/projects/nesi00228/data/catalogs/raw_det_cats/%d/%d_dets.xml'
-                  % (dto.year, instance), format='QUAKEML')
+        inst_cat += cat
         del dets, cat, sts
+inst_cat.write('/projects/nesi00228/data/catalogs/raw_det_cats/%d/%d_dets.xml'
+          % (dto.year, instance), format='QUAKEML')
 #Print out runtime
 script_end = timer()
 print('Instance took %.3f seconds' % (script_end - script_start))
