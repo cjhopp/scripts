@@ -125,37 +125,43 @@ for day in inst_dats:
                                      starttime=dto, debug=2, parallel=True)
     except NotImplementedError or Exception:
         print('Found error in dayproc, noting date and continuing')
-        with open('%s/dayproc_errors.txt' % outdir, mode='a') as fo:
-            fo.write('%s\n' % str(date))
+        with open('/projects/nesi00228/logs/dayproc_errors.txt', mode='a') as fo:
+            fo.write('%s\n' % str(day))
         continue
-
     del st
     proc_stp = timer()
     print('Pre-processing took %.3f seconds' % (proc_stp - proc_strt))
     # RUN MATCH FILTER (looping through chunks of templates due to RAM)
     chunk_size = len(templates) // 40
-    chunk_temps = [templates[i:i+chunk_size]
+    chunk_temps = [templates[i:i + chunk_size]
                    for i in range(0, len(templates), chunk_size)]
-    chunk_temp_names = [template_names[i:i+chunk_size]
+    chunk_temp_names = [template_names[i:i + chunk_size]
                         for i in range(0, len(template_names), chunk_size)]
-    for temps, temp_names in itertools.izip(chunk_temps, chunk_temp_names):
+    for temps, temp_names in zip(chunk_temps, chunk_temp_names):
         dets, cat, sts = match_filter.match_filter(temp_names, temps, st1,
                                                    threshold=8.0,
                                                    threshold_type='MAD',
-                                                   trig_int=6.0,
+                                                   trig_int=1.0,
                                                    plotvar=False,
                                                    cores=8,
                                                    output_cat=True,
                                                    extract_detections=True,
                                                    debug=2)
-        # Write detections to a file to check later
-        with open(outname, mode='a') as fo:
-            det_writer = csv.writer(out_file)
-            for det in dets:
+        # Write detections and wavs to a file to check later
+        with open('/projects/nesi00228/data/detections/raw_det_txt/%s/%d_dets.txt'
+                  % (str(dto.year), instance), mode='a') as fo:
+            det_writer = csv.writer(fo)
+            for det, st in zip(dets, sts):
                 det_writer.writerow([det.template_name,
                                      det.detect_time, det.detect_val,
                                      det.threshold, det.no_chans])
-        del dets
+                st.write('/projects/nesi00228/data/detections/raw_det_wavs/' +
+                         '%d/%s_%s.mseed' % (dto.year, det.template_name,
+                                             det.detect_time))
+        # Write the catalog
+        cat.write('/projects/nesi00228/data/catalogs/raw_det_cats/%d/%d_dets.xml'
+                  % (dto.year, instance))
+        del dets, cat, sts
 #Print out runtime
 script_end = timer()
 print('Instance took %.3f seconds' % (script_end - script_start))
