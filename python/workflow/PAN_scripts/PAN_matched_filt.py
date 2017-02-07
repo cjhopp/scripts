@@ -18,7 +18,6 @@ from timeit import default_timer as timer
 import pyasdf
 import csv
 from datetime import datetime, timedelta
-import itertools
 
 # Helper function for dividing catalog into --splits roughly-equal parts
 def partition(lst, n):
@@ -165,10 +164,9 @@ for day in inst_dats:
                          '%d/%s_%s.mseed' % (dto.year, det.template_name,
                                              det.detect_time), format='MSEED')
         print('Extracting wavs took %.3f seconds' % (timer() - extrct_st))
-        inst_cat += cat
+        cat.write('/projects/nesi00228/data/catalogs/raw_det_cats/%d/inst%d_group%d_dets.xml'
+                  % (dto.year, instance, i), format='QUAKEML')
         del dets, cat, sts
-inst_cat.write('/projects/nesi00228/data/catalogs/raw_det_cats/%d/%d_dets.xml'
-               % (dto.year, instance), format='QUAKEML')
 #Print out runtime
 script_end = timer()
 print('Instance took %.3f seconds' % (script_end - script_start))
