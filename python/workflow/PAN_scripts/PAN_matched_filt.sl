@@ -5,8 +5,8 @@
 #SBATCH --mem=90000
 #SBATCH --nodes=1
 #SBATCH --exclude=compute-chem-001
-#SBATCH --output=match2013_%a.txt
-#SBATCH --error=match2013_%a.txt
+#SBATCH --output=match_2013_out_%a.txt
+#SBATCH --error=match_2013_err_%a.txt
 #SBATCH --cpus-per-task=12
 #SBATCH --array=0-364
 
