@@ -621,6 +621,11 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
                            + 200])
         except ValueError:
             print('Probably no flow data available for this time period')
+    if fig:
+        # Put injection info behind data of interest
+        fig_final.get_axes()[0].set_zorder(axes.get_zorder() + 1)
+        fig_final.get_axes()[0].patch.set_visible(False)
+        fig_final.set_facecolor('w')
     return fig_final
 
 

@@ -292,12 +292,110 @@ def plot_zmap_b_w_time(mat_file):
     sigma_top = [bval + std for bval, std in zip(bvals, stds)]
     sigma_bottom = [bval - std for bval, std in zip(bvals, stds)]
     fig, ax = plt.subplots()
-    ax.plot(dtos, bvals, color='k')
-    ax.plot(dtos, sigma_top, linestyle='--', color='0.60')
-    ax.plot(dtos, sigma_bottom, linestyle='--', color='0.60')
+    ax.plot(dtos, sigma_top, linestyle='--', color='0.60', linewidth=1)
+    ax.plot(dtos, sigma_bottom, linestyle='--', color='0.60', linewidth=1)
+    ax.plot(dtos, bvals, color='k', linewidth=2)
     ax.xaxis_date()
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.set_xlabel('Date')
     ax.set_ylabel('b-value')
+    ax.set_ylim([0.5, 2.])
     return fig
+
+
+def plot_max_mag(cat, bins='monthly', fig=None):
+    """
+    Scatter plot of the maximum magnitude
+    :param cat:
+    :return:
+    """
+    from dateutil import rrule
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    from matplotlib.dates import date2num
+    import numpy as np
+
+    cat.events.sort(key=lambda x: x.origins[0].time)
+    start = cat[0].origins[-1].time.datetime.replace(day=1, hour=0, minute=0,
+                                                     second=0)
+    end = cat[-1].origins[-1].time.datetime
+    month_maxs = []
+    month_no = []
+    firsts = list(rrule.rrule(rrule.MONTHLY, dtstart=start,
+                              until=end, bymonthday=1))
+    # Loop over first day of each month
+    for i, dt in enumerate(firsts):
+        if i < len(firsts) - 2:
+            mags = [ev.magnitudes[-1].mag for ev in cat
+                    if ev.origins[-1].time.datetime >= dt and
+                    ev.origins[-1].time.datetime
+                    < firsts[i + 1] and len(ev.magnitudes) > 0]
+            month_no.append(len(mags))
+            if len(mags) > 0:
+                month_maxs.append(max(mags))
+            else:
+                month_maxs.append(np.nan)
+    mids = [fst + ((firsts[i + 1] - fst) / 2) for i, fst in enumerate(firsts)
+            if i < len(firsts) - 2]
+    if fig:
+        ax_max = fig.get_axes()[0].twinx()
+    else:
+        fig, ax_max = plt.subplots()
+        ax_hist = ax_max.twinx()
+    ax_max.scatter(mids, month_maxs, label='Max magnitude')
+    ax_max.set_ylabel('M')
+    ax_max.xaxis_date()
+    ax_max.legend()
+    ax_max.set_xlabel('Date')
+    ax_max.xaxis.set_major_locator(mdates.YearLocator())
+    ax_max.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax_max.set_ylim([0, 4])
+    ax_hist.bar(mids, month_no, width=13, color='k',
+                alpha=0.5, label='Number of events')
+    ax_hist.set_ylabel('# events')
+    fig.show()
+    return fig
+
+
+def plot_cum_moment(mat_file):
+    """
+    Plotting cumulative moment from zmap .mat file
+    :param cat: catalog of events
+    :param method: path to file
+    :return:
+    """
+    from scipy.io import loadmat
+    return
+
+
+def plot_Mc(mat_file):
+    """
+    Plotting Mc with time from zmap .mat file
+    :param mat_file: path to file
+    :return:
+    """
+    from scipy.io import loadmat
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
+    bval_mat = loadmat(mat_file)['mResult']
+    # First, deal with time decimals
+    time_decs = bval_mat[:,[0]]
+    dtos = [convert_frac_year(dec[0]) for dec in time_decs]
+    Mcs = bval_mat[:,[1]]
+    stds = bval_mat[:,[2]]
+    sigma_top = [bval + std for bval, std in zip(Mcs, stds)]
+    sigma_bottom = [bval - std for bval, std in zip(Mcs, stds)]
+    fig, ax = plt.subplots()
+    ax.plot(dtos, sigma_top, linestyle='--', color='0.60', linewidth=1)
+    ax.plot(dtos, sigma_bottom, linestyle='--', color='0.60', linewidth=1)
+    ax.plot(dtos, Mcs, color='k', linewidth=2)
+    ax.xaxis_date()
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Magnitude of completeness')
+    ax.set_ylim([0., 1.5])
+    return fig
+
