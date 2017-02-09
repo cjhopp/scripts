@@ -195,7 +195,8 @@ def bval_plot(cat, bins=30, MC=None, title=None, show=True):
             ax.set_title(title)
         else:
             ax.set_title('B-value plot')
-        ax.legend(fontsize=9., markerscale=0.7)
+        leg = ax.legend(fontsize=9., markerscale=0.7)
+        leg.get_frame().set_alpha(0.5)
         ax2 = fig.add_subplot(122)
         ax2.set_ylim([0, 3])
         ax2.errorbar(test_dict['bin_cents'], test_dict['bvals'],
@@ -273,9 +274,10 @@ def convert_frac_year(number):
     return date
 
 
-def plot_zmap_b_w_time(mat_file):
+def plot_zmap_b_w_time(mat_file, ax_in=None, color='b',
+                       overwrite=False, show=True):
     """
-    Take a .mat file created by ZMAP and plot it in python
+    Take a .mat workspace created by ZMAP and plot it in python
     :param mat_file: Path to .mat file
     :return: matplotlib.pyplot.Figure
     """
@@ -283,28 +285,46 @@ def plot_zmap_b_w_time(mat_file):
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
-    bval_mat = loadmat(mat_file)['mResult']
+    """
+    Wkspace must contain variables 'mResult', 'mB' and 'mBstd1' which are
+    created when ZMAP is asked to plot b-value with time
+    """
+
+    wkspace = loadmat(mat_file)
     # First, deal with time decimals
-    time_decs = bval_mat[:,[0]]
+    time_decs = wkspace['mResult'][:,[0]]
     dtos = [convert_frac_year(dec[0]) for dec in time_decs]
-    bvals = bval_mat[:,[3]]
-    stds = bval_mat[:,[2]]
+    bvals = wkspace['mB']
+    stds = wkspace['mBstd1']
     sigma_top = [bval + std for bval, std in zip(bvals, stds)]
     sigma_bottom = [bval - std for bval, std in zip(bvals, stds)]
-    fig, ax = plt.subplots()
+    if ax_in and not overwrite:
+        ax = ax_in.twinx()
+    elif ax_in and overwrite:
+        ax = ax_in
+    else:
+        fig, ax = plt.subplots()
     ax.plot(dtos, sigma_top, linestyle='--', color='0.60', linewidth=1)
     ax.plot(dtos, sigma_bottom, linestyle='--', color='0.60', linewidth=1)
-    ax.plot(dtos, bvals, color='k', linewidth=2)
+    ax.plot(dtos, bvals, color=color, linewidth=2)
+    for t in ax.get_yticklabels():
+        t.set_color(color)
     ax.xaxis_date()
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.set_xlabel('Date')
     ax.set_ylabel('b-value')
     ax.set_ylim([0.5, 2.])
-    return fig
+    if show:
+        fig.show()
+    if ax_in:
+        return [ax, ax_in]
+    else:
+        return ax
 
 
-def plot_max_mag(cat, bins='monthly', fig=None):
+def plot_max_mag(cat, bins='monthly', ax_in=None, color='k',
+                 overwrite=False, show=True):
     """
     Scatter plot of the maximum magnitude
     :param cat:
@@ -321,6 +341,61 @@ def plot_max_mag(cat, bins='monthly', fig=None):
                                                      second=0)
     end = cat[-1].origins[-1].time.datetime
     month_maxs = []
+    firsts = list(rrule.rrule(rrule.MONTHLY, dtstart=start,
+                              until=end, bymonthday=1))
+    # Loop over first day of each month
+    for i, dt in enumerate(firsts):
+        if i < len(firsts) - 2:
+            mags = [ev.magnitudes[-1].mag for ev in cat
+                    if ev.origins[-1].time.datetime >= dt and
+                    ev.origins[-1].time.datetime
+                    < firsts[i + 1] and len(ev.magnitudes) > 0]
+            if len(mags) > 0:
+                month_maxs.append(max(mags))
+            else:
+                month_maxs.append(np.nan)
+    mids = [fst + ((firsts[i + 1] - fst) / 2) for i, fst in enumerate(firsts)
+            if i < len(firsts) - 2]
+    if ax_in and not overwrite:
+        ax = ax_in.twinx()
+    elif ax_in and overwrite:
+        ax = ax_in
+    else:
+        fig, ax = plt.subplots()
+    ax.scatter(mids, month_maxs, color=color, label='Max magnitude')
+    for t in ax.get_yticklabels():
+        t.set_color(color)
+    ax.set_ylabel('Maximum Mag')
+    ax.xaxis_date()
+    leg = ax.legend()
+    leg.get_frame().set_alpha(0.5)
+    ax.set_xlabel('Date')
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.set_ylim([0, 4])
+    if show:
+        plt.show()
+    if ax_in:
+        return [ax, ax_in]
+    else:
+        return ax
+
+
+def plot_mag_bins(cat, bin_size='monthly', ax_in=None, color='k',
+                  overwrite=False, show=True):
+    """
+    Scatter plot of the maximum magnitude
+    :param cat:
+    :return:
+    """
+    from dateutil import rrule
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
+    cat.events.sort(key=lambda x: x.origins[0].time)
+    start = cat[0].origins[-1].time.datetime.replace(day=1, hour=0, minute=0,
+                                                     second=0)
+    end = cat[-1].origins[-1].time.datetime
     month_no = []
     firsts = list(rrule.rrule(rrule.MONTHLY, dtstart=start,
                               until=end, bymonthday=1))
@@ -332,33 +407,33 @@ def plot_max_mag(cat, bins='monthly', fig=None):
                     ev.origins[-1].time.datetime
                     < firsts[i + 1] and len(ev.magnitudes) > 0]
             month_no.append(len(mags))
-            if len(mags) > 0:
-                month_maxs.append(max(mags))
-            else:
-                month_maxs.append(np.nan)
     mids = [fst + ((firsts[i + 1] - fst) / 2) for i, fst in enumerate(firsts)
             if i < len(firsts) - 2]
-    if fig:
-        ax_max = fig.get_axes()[0].twinx()
+    if ax_in and not overwrite:
+        ax = ax_in.twinx()
+    elif ax_in and overwrite:
+        ax = ax_in
     else:
-        fig, ax_max = plt.subplots()
-        ax_hist = ax_max.twinx()
-    ax_max.scatter(mids, month_maxs, label='Max magnitude')
-    ax_max.set_ylabel('M')
-    ax_max.xaxis_date()
-    ax_max.legend()
-    ax_max.set_xlabel('Date')
-    ax_max.xaxis.set_major_locator(mdates.YearLocator())
-    ax_max.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax_max.set_ylim([0, 4])
-    ax_hist.bar(mids, month_no, width=13, color='k',
-                alpha=0.5, label='Number of events')
-    ax_hist.set_ylabel('# events')
-    fig.show()
-    return fig
+        fig, ax = plt.subplots()
+    ax.bar(mids, month_no, width=13, color=color,
+           alpha=0.2, label='Number of events')
+    for t in ax.get_yticklabels():
+        t.set_color(color)
+    ax.set_ylabel('# events')
+    ax.xaxis_date()
+    ax.set_xlabel('Date')
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    if show:
+        plt.show()
+    if ax_in:
+        return [ax, ax_in]
+    else:
+        return ax
 
 
-def plot_cum_moment(mat_file):
+def plot_cum_moment(mat_file, ax_in=None, color='m', overwrite=False,
+                    show=True):
     """
     Plotting cumulative moment from zmap .mat file
     :param cat: catalog of events
@@ -366,10 +441,42 @@ def plot_cum_moment(mat_file):
     :return:
     """
     from scipy.io import loadmat
-    return
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
+    wkspace = loadmat(mat_file)
+    time_decs = wkspace['s']
+    dtos = [convert_frac_year(dec[0]) for dec in time_decs]
+    cum_mo = wkspace['c']
+    if ax_in and not overwrite:
+        ax = ax_in.twinx()
+    elif ax_in and overwrite:
+        ax = ax_in
+    else:
+        fig, ax = plt.subplots()
+    ax.plot(dtos, cum_mo, color=color)
+    for t in ax.get_yticklabels():
+        t.set_color(color)
+    ax.xaxis_date()
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.set_xlabel('Date')
+    # yticks
+    # First get the maximum exponent of scientific not
+    locs, labels = plt.yticks()
+    exp = int(str(max(locs)).split('+')[-1])
+    plt.yticks(locs, map(lambda x: "%.2f" % x, locs / (10 ** exp)))
+    math_str = r'$\sum M_0 x 10^{%d}$' % exp
+    ax.set_ylabel(math_str)
+    if show:
+        plt.show()
+    if ax_in:
+        return [ax, ax_in]
+    else:
+        return ax
 
 
-def plot_Mc(mat_file):
+def plot_Mc(mat_file, ax_in=None, color='r', overwrite=False, show=True):
     """
     Plotting Mc with time from zmap .mat file
     :param mat_file: path to file
@@ -379,23 +486,75 @@ def plot_Mc(mat_file):
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
-    bval_mat = loadmat(mat_file)['mResult']
+    wkspace = loadmat(mat_file)
     # First, deal with time decimals
-    time_decs = bval_mat[:,[0]]
+    time_decs = wkspace['mResult'][:,[0]]
     dtos = [convert_frac_year(dec[0]) for dec in time_decs]
-    Mcs = bval_mat[:,[1]]
-    stds = bval_mat[:,[2]]
+    Mcs = wkspace['mMc']
+    stds = wkspace['mMcstd1']
     sigma_top = [bval + std for bval, std in zip(Mcs, stds)]
     sigma_bottom = [bval - std for bval, std in zip(Mcs, stds)]
-    fig, ax = plt.subplots()
+    if ax_in and not overwrite:
+        ax = ax_in.twinx()
+    elif ax_in and overwrite:
+        ax = ax_in
+    else:
+        fig, ax = plt.subplots()
     ax.plot(dtos, sigma_top, linestyle='--', color='0.60', linewidth=1)
     ax.plot(dtos, sigma_bottom, linestyle='--', color='0.60', linewidth=1)
-    ax.plot(dtos, Mcs, color='k', linewidth=2)
+    ax.plot(dtos, Mcs, color=color, linewidth=2)
+    for t in ax.get_yticklabels():
+        t.set_color(color)
     ax.xaxis_date()
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.set_xlabel('Date')
-    ax.set_ylabel('Magnitude of completeness')
+    ax.set_ylabel(r'$M_c$')
     ax.set_ylim([0., 1.5])
+    if show:
+        plt.show()
+    if ax_in:
+        return [ax, ax_in]
+    else:
+        return ax
+
+
+def make_big_plot(matfile, cat, flow_dict, pres_dict, well_list='all',method='flows',
+                  show=False, savefig=False):
+    """
+    Combining all the above plotting functions into something resembling
+    Martinez-Garzon Fig 6
+    :param matfile:
+    :param cat:
+    :return:
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    from plot_detections import plot_flow_rates
+
+    # # Grab axes from plot to duplicate
+    # ax_test = plot_zmap_b_w_time(matfile, show=False)
+    # lims = [mdates.num2date(ax_test.get_xlim()[0]),
+    #         mdates.num2date(ax_test.get_xlim()[1])]
+    # print(ax_test.get_xlim())
+    fig, axes = plt.subplots(3, 1, sharex=True, figsize=(9.,13.), dpi=400)
+    # Top subplot is flow rate and ev no per month
+    plot_mag_bins(cat, ax_in=axes[0], overwrite=True, show=False)
+    plot_flow_rates(flow_dict, pres_dict, '1/1/2012', '18/11/2015',
+                    method=method, well_list=well_list,
+                    ax_in=axes[0])
+    # Next is max mag and cumulative moment
+    plot_max_mag(cat, ax_in=axes[1], overwrite=True, show=False)
+    plot_cum_moment(matfile, ax_in=axes[1], show=False)
+    # Last axis
+    plot_zmap_b_w_time(matfile, ax_in=axes[2], overwrite=True, show=False)
+    plot_Mc(matfile, ax_in=axes[2], show=False)
+    if show:
+        fig.show()
+    if savefig:
+        fig.savefig(savefig)
     return fig
+
+
+
 

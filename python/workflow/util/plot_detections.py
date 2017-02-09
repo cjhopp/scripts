@@ -520,7 +520,7 @@ def mrp_2_flow_dict(flow_csv, well_list=None):
 
 
 def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
-                    method='flows', fig=None):
+                    method='flows', ax_in=None, order='front'):
     """
     Plotting function for injection flows for geothermal power production.
     :type flow_csv: str
@@ -571,8 +571,8 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
     for well, list_tups in iter(plot_tups_dict.items()):
         list_tups.sort(key=lambda x: x[0])
     # Set up figure object
-    if fig:
-        fig_final = fig
+    if ax_in:
+        fig_final = ax_in.get_figure()
         lines, labels = fig_final.get_axes()[0].get_legend_handles_labels()
         if fig_final.get_axes()[0].legend_:
             fig_final.get_axes()[0].legend_.remove() # Clear old legend
@@ -580,14 +580,17 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
     else:
         fig_final = plt.figure()
         axes = plt.gca()
-    for t in axes.get_yticklabels():
-        t.set_color('r')
     if method == 'pressure':
-        axes.set_ylabel('Wellhead Pressure (bar-g)', color='r')
+        color='r'
+        axes.set_ylabel('Wellhead Pressure (bar-g)', color=color)
     elif method == 'volume':
-        axes.set_ylabel('Total injected Volume (m^3)', color='r')
+        color='r'
+        axes.set_ylabel('Total injected Volume (m^3)', color=color)
     else:
-        axes.set_ylabel('Flow rate (T/h)', color='r')
+        color='k'
+        axes.set_ylabel('Flow rate (T/h)', color=color)
+    for t in axes.get_yticklabels():
+        t.set_color(color)
     axes.set_xlabel('Date')
     # Plotting relevant data
     for well, flow_list in iter(plot_tups_dict.items()):
@@ -607,11 +610,13 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
             label = well
             axes.plot(dtos, flows, label=label)
     lines2, labels2 = axes.get_legend_handles_labels()
-    if fig:
-        axes.legend(lines + lines2, labels + labels2, loc=2,
-                    prop={'size': 12}, ncol=3)
+    if ax_in:
+        leg = axes.legend(lines + lines2, labels + labels2, loc=2,
+                          prop={'size': 12}, ncol=3)
+        leg.get_frame().set_alpha(0.5)
     else:
-        axes.legend(lines2, labels2, loc=2, prop={'size': 8}, ncol=3)
+        leg = axes.legend(lines2, labels2, loc=2, prop={'size': 8}, ncol=3)
+        leg.get_frame().set_alpha(0.5)
     if method != 'pressure' and method != 'volume':
         try:
             axes.set_ylim([min([fl[1] for well, list_tups in
@@ -621,12 +626,12 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
                            + 200])
         except ValueError:
             print('Probably no flow data available for this time period')
-    if fig:
+    if ax_in and order == 'back':
         # Put injection info behind data of interest
         fig_final.get_axes()[0].set_zorder(axes.get_zorder() + 1)
         fig_final.get_axes()[0].patch.set_visible(False)
         fig_final.set_facecolor('w')
-    return fig_final
+    return fig_final.axes
 
 
 ##### OTHER MISC FUNCTIONS #####
@@ -662,7 +667,8 @@ def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=Fa
         if cat2:
             ax1 = sns.distplot([ev.origins[-1].quality.standard_error for ev in cat2],
                                label='Catalog 2', ax=ax1, kde=False)
-        ax1.legend()
+        leg = ax1.legend()
+        leg.get_frame().set_alpha(0.5)
         ax1.set_xlabel('RMS (sec)')
         ax1.set_title('Catalog RMS')
         ax1.set_ylabel('Number of events')
@@ -781,7 +787,8 @@ def plot_station_residuals(cat1, sta_list='all', plot_type='bar',
         barsS = ax.bar(ind + width, S_avgs, width, color='b')
         # ax.set_xticks(ind + width)
         # ax.set_xticklabels(sta_chans_P)
-        ax.legend((barsP[0], barsS[0]), ('P picks', 'S-picks'))
+        leg = ax.legend((barsP[0], barsS[0]), ('P picks', 'S-picks'))
+        leg.get_frame().set_alpha(0.5)
         ax.set_title('Average arrival residual by station and phase')
         ax.set_ylabel('Arrival residual (s)')
         for barP, barS, stachan in zip(barsP, barsS, sta_chans_P):
