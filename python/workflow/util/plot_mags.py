@@ -86,7 +86,7 @@ def Mc_test(cat, n_bins, test_cutoff, maxcurv_bval, start_mag=None):
             'bin_cents': bin_cents, 'bvals': bvals, 'errs': errs}
 
 
-def bval_calc(cat, bins, MC):
+def bval_calc(cat, bins, MC, method='wt_lsqr'):
     """
     Helper function to run the calculation loop
     :param mags: list of magnitudes
@@ -264,6 +264,7 @@ def plot_mag_v_lat(cat, method='all'):
         ax.set_title('Magnitude vs Latitude')
     fig.show()
 
+############## vv Plotting of ZMAP .mat output vv ###################
 
 def convert_frac_year(number):
     from datetime import timedelta, datetime
@@ -323,7 +324,7 @@ def plot_zmap_b_w_time(mat_file, ax_in=None, color='b',
         return ax
 
 
-def plot_max_mag(cat, bins='monthly', ax_in=None, color='k',
+def plot_max_mag(mat_file, bins='monthly', ax_in=None, color='k',
                  overwrite=False, show=True):
     """
     Scatter plot of the maximum magnitude
@@ -333,25 +334,25 @@ def plot_max_mag(cat, bins='monthly', ax_in=None, color='k',
     from dateutil import rrule
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
-    from matplotlib.dates import date2num
+    from scipy.io import loadmat
     import numpy as np
 
-    cat.events.sort(key=lambda x: x.origins[0].time)
-    start = cat[0].origins[-1].time.datetime.replace(day=1, hour=0, minute=0,
-                                                     second=0)
-    end = cat[-1].origins[-1].time.datetime
+    wkspace = loadmat(mat_file)
+    time_decs = wkspace['s'] # Decimal years
+    mags = list(wkspace['newt2'][:,5]) # 6th col holds magnitudes
+    dtos = [convert_frac_year(dec[0]) for dec in time_decs]
+    start = min(dtos).replace(day=1, hour=0, minute=0, second=0)
+    end = max(dtos).replace(day=1, hour=0, minute=0, second=0)
     month_maxs = []
     firsts = list(rrule.rrule(rrule.MONTHLY, dtstart=start,
                               until=end, bymonthday=1))
     # Loop over first day of each month
     for i, dt in enumerate(firsts):
         if i < len(firsts) - 2:
-            mags = [ev.magnitudes[-1].mag for ev in cat
-                    if ev.origins[-1].time.datetime >= dt and
-                    ev.origins[-1].time.datetime
-                    < firsts[i + 1] and len(ev.magnitudes) > 0]
-            if len(mags) > 0:
-                month_maxs.append(max(mags))
+            mags_tmp = [mag for mag, dto in zip(mags, dtos)
+                        if dto >= dt and dto < firsts[i + 1]]
+            if len(mags_tmp) > 0:
+                month_maxs.append(max(mags_tmp))
             else:
                 month_maxs.append(np.nan)
     mids = [fst + ((firsts[i + 1] - fst) / 2) for i, fst in enumerate(firsts)
@@ -381,32 +382,34 @@ def plot_max_mag(cat, bins='monthly', ax_in=None, color='k',
         return ax
 
 
-def plot_mag_bins(cat, bin_size='monthly', ax_in=None, color='k',
+def plot_mag_bins(mat_file, bin_size='monthly', ax_in=None, color='k',
                   overwrite=False, show=True):
     """
     Scatter plot of the maximum magnitude
     :param cat:
     :return:
     """
+    from scipy.io import loadmat
     from dateutil import rrule
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
-    cat.events.sort(key=lambda x: x.origins[0].time)
-    start = cat[0].origins[-1].time.datetime.replace(day=1, hour=0, minute=0,
-                                                     second=0)
-    end = cat[-1].origins[-1].time.datetime
+    # Read vars from matlab file
+    wkspace = loadmat(mat_file)
+    time_decs = wkspace['s'] # Decimal years
+    mags = list(wkspace['newt2'][:,5]) # 6th col holds magnitudes
+    dtos = [convert_frac_year(dec[0]) for dec in time_decs]
+    start = min(dtos).replace(day=1, hour=0, minute=0, second=0)
+    end = max(dtos).replace(day=1, hour=0, minute=0, second=0)
     month_no = []
     firsts = list(rrule.rrule(rrule.MONTHLY, dtstart=start,
                               until=end, bymonthday=1))
     # Loop over first day of each month
     for i, dt in enumerate(firsts):
         if i < len(firsts) - 2:
-            mags = [ev.magnitudes[-1].mag for ev in cat
-                    if ev.origins[-1].time.datetime >= dt and
-                    ev.origins[-1].time.datetime
-                    < firsts[i + 1] and len(ev.magnitudes) > 0]
-            month_no.append(len(mags))
+            mags_tmp = [mag for mag, dto in zip(mags, dtos)
+                        if dto >= dt and dto < firsts[i + 1]]
+            month_no.append(len(mags_tmp))
     mids = [fst + ((firsts[i + 1] - fst) / 2) for i, fst in enumerate(firsts)
             if i < len(firsts) - 2]
     if ax_in and not overwrite:
@@ -519,7 +522,7 @@ def plot_Mc(mat_file, ax_in=None, color='r', overwrite=False, show=True):
         return ax
 
 
-def make_big_plot(matfile, cat, flow_dict, pres_dict, well_list='all',method='flows',
+def make_big_plot(matfile, flow_dict, pres_dict, well_list='all',method='flows',
                   show=False, savefig=False):
     """
     Combining all the above plotting functions into something resembling
@@ -532,19 +535,14 @@ def make_big_plot(matfile, cat, flow_dict, pres_dict, well_list='all',method='fl
     import matplotlib.dates as mdates
     from plot_detections import plot_flow_rates
 
-    # # Grab axes from plot to duplicate
-    # ax_test = plot_zmap_b_w_time(matfile, show=False)
-    # lims = [mdates.num2date(ax_test.get_xlim()[0]),
-    #         mdates.num2date(ax_test.get_xlim()[1])]
-    # print(ax_test.get_xlim())
     fig, axes = plt.subplots(3, 1, sharex=True, figsize=(9.,13.), dpi=400)
     # Top subplot is flow rate and ev no per month
-    plot_mag_bins(cat, ax_in=axes[0], overwrite=True, show=False)
-    plot_flow_rates(flow_dict, pres_dict, '1/1/2012', '18/11/2015',
+    plot_mag_bins(matfile, ax_in=axes[0], overwrite=True, show=False)
+    plot_flow_rates(flow_dict, pres_dict, '1/5/2012', '18/11/2015',
                     method=method, well_list=well_list,
                     ax_in=axes[0])
     # Next is max mag and cumulative moment
-    plot_max_mag(cat, ax_in=axes[1], overwrite=True, show=False)
+    plot_max_mag(matfile, ax_in=axes[1], overwrite=True, show=False)
     plot_cum_moment(matfile, ax_in=axes[1], show=False)
     # Last axis
     plot_zmap_b_w_time(matfile, ax_in=axes[2], overwrite=True, show=False)
@@ -556,5 +554,99 @@ def make_big_plot(matfile, cat, flow_dict, pres_dict, well_list='all',method='fl
     return fig
 
 
+def plot_2D_bval_grid(matfile, savefig=None, show=True):
+    """
+    Take ZMAP generated bvalue workspace and plot 2-D geographic grid in python
+    :param matfile: path to matlab .mat workspace
+    :return:
+    """
+    from scipy.io import loadmat
+    import numpy as np
+    from mpl_toolkits.basemap import Basemap
+    from matplotlib.collections import PatchCollection
+    from matplotlib.patches import Polygon
+
+    # Establish figure and axes
+    fig, ax = plt.subplots()
+
+    workspace = loadmat(matfile)
+    bval_grid = workspace['mBvalue']
+    bval_mask = np.ma.masked_invalid(bval_grid)
+    lats = workspace['yvect']
+    lons = workspace['xvect']
+    x, y = np.meshgrid(lons, lats)
+    mp = Basemap(projection='cyl',
+                 urcrnrlon=np.max(lons),
+                 urcrnrlat=np.max(lats),
+                 llcrnrlon=np.min(lons),
+                 llcrnrlat=np.min(lats),
+                 resolution='h',
+                 epsg=4326)
+    mp.drawmapboundary(fill_color='white', zorder=-1)
+    mp.fillcontinents(color='beige', lake_color='white', zorder=0)
+    mp.drawcoastlines(color='0.6', linewidth=0.5)
+    mp.drawcountries(color='0.6', linewidth=0.5)
+    mp.pcolormesh(x, y, bval_mask, vmin=0.8,vmax=1.5, cmap='cool',
+                  edgecolor='0.6', linewidth=0, latlon=True)
+    # Fixup grid spacing params
+    meridians = np.arange((np.min(lons) + (np.max(lons) - np.min(lons)) * 0.1),
+                          np.max(lons), 0.1)
+    parallels = np.arange((np.min(lats) + (np.max(lats) - np.min(lats)) * 0.1),
+                          np.max(lats), 0.1)
+    mp.drawmeridians(meridians,
+                     fmt='%.2f',
+                     labelstyle='+/-',
+                     labels=[1,0,0,1],
+                     linewidth=0.,
+                     xoffset=2)
+    mp.drawparallels(parallels,
+                     fmt='%.2f',
+                     labelstyle='+/-',
+                     labels=[1,0,0,1],
+                     linewidth=0.,
+                     yoffset=2)
+    cbar = mp.colorbar()
+    cbar.solids.set_edgecolor("face")
+    cbar.set_label('b-value', rotation=270, labelpad=15)
+    cbar.set_ticks(np.arange(0.8, 1.5, 0.1))
+    plt.title("B-value map")
+    # Shapefiles!
+    # Wells
+    mp.readshapefile('/home/chet/gmt/data/NZ/RK_tracks_injection', name='rki',
+                     color='blue', linewidth=1.)
+    mp.readshapefile('/home/chet/gmt/data/NZ/NM_tracks_injection', name='nmi',
+                     color='blue', linewidth=1.)
+    mp.readshapefile('/home/chet/gmt/data/NZ/NZ_faults_clipped', name='faults',
+                     color='k', linewidth=0.75)
+    mp.readshapefile('/home/chet/gmt/data/NZ/NM_tracks_production_wgs84',
+                     name='nmp', color='firebrick', linewidth=1.)
+    mp.readshapefile('/home/chet/gmt/data/NZ/RK_tracks_production', name='rkp',
+                     color='firebrick', linewidth=1.)
+
+    # Water
+    mp.readshapefile('/home/chet/gmt/data/NZ/taupo_lakes', name='lakes',
+                     color='steelblue', linewidth=0.2)
+    mp.readshapefile('/home/chet/gmt/data/NZ/taupo_river_poly', name='rivers',
+                     color='steelblue', linewidth=0.2)
+    # Bullshit filling part
+    lakes = []
+    for info, shape in zip(mp.lakes_info, mp.lakes):
+        lakes.append(Polygon(np.array(shape), True))
+    ax.add_collection(
+        PatchCollection(lakes, facecolor='steelblue', edgecolor='steelblue',
+                        linewidths=0.2,
+                        zorder=2))
+    rivers = []
+    for info, shape in zip(mp.rivers_info, mp.rivers):
+        rivers.append(Polygon(np.array(shape), True))
+    ax.add_collection(
+        PatchCollection(rivers, facecolor='steelblue', edgecolor='steelblue',
+                        linewidths=0.2,
+                        zorder=2))
+    if show:
+        fig.show()
+    if savefig:
+        fig.savefig(savefig, dpi=720)
+    return
 
 

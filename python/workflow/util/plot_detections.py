@@ -619,10 +619,10 @@ def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
         leg.get_frame().set_alpha(0.5)
     if method != 'pressure' and method != 'volume':
         try:
-            axes.set_ylim([min([fl[1] for well, list_tups in
-                                iter(plot_tups_dict.items()) for fl in list_tups]),
+            axes.set_ylim([0.,
                            max([fl[1] for well, list_tups in
-                                   iter(plot_tups_dict.items()) for fl in list_tups])
+                                iter(plot_tups_dict.items())
+                                for fl in list_tups])
                            + 200])
         except ValueError:
             print('Probably no flow data available for this time period')
