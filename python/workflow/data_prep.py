@@ -125,6 +125,7 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
     :return:
     """
     import pyasdf
+    import collections
     import copy
     import datetime
     from obspy import UTCDateTime, Stream
@@ -203,6 +204,16 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
             print('Copying stream to keep away from the trim...')
             trim_st = copy.deepcopy(st1)
             ev_name = str(event.resource_id).split('/')[-1]
+            pk_stachans = ['%s.%s' % (pk.waveform_id.station_code,
+                                      pk.waveform_id.channel_code)
+                           for pk in event.picks]
+            # Run check to ensure that there is only one pick for each channel
+            dups = [pk for pk, count
+                    in collections.Counter(pk_stachans).items() if count > 1]
+            if len(dups) > 0:
+                for dup in dups:
+                    NotImplementedError('More than one pick on a channel: ' +
+                                        '%s: %s' % (ev_name, dup))
             template = template_gen(event.picks, trim_st, length=length,
                                     prepick=prepick)
             # temp_list.append(template)
@@ -232,3 +243,27 @@ def template_spectrograms(temp_dir, num_evs):
         st = read(fl)
         for tr in st:
             tr.spectrogram()
+
+
+def remove_temp_overlaps(templates, temp_files):
+    """
+    Used to remove traces in template on same channel. Will keep earliest
+    pick unless Steve Sherb says otherwise
+    :param templates: list of Stream objects
+    :return:
+    """
+    import collections
+
+    for temp, temp_file in zip(templates, temp_files):
+        stachans = [(tr.stats.station, tr.stats.channel)
+                    for tr in temp]
+        dups = [tr for tr, count
+                in collections.Counter(stachans).items() if count > 1]
+        if len(dups) > 1:
+            for dup in dups:
+                perps = temp.select(station=dup[0],
+                                    channel=dup[1]).sort('starttime')
+                temp.remove(perps[-1])
+            temp.write(temp_file.rstrip('.mseed') + '_nodups.mseed',
+                       format='MSEED')
+    return

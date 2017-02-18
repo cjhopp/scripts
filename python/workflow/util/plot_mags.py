@@ -11,6 +11,11 @@ def date_generator(start_date, end_date):
     for n in range(int ((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
+def avg_dto(dto_list):
+    import numpy as np
+    srt_list = sorted(dto_list)
+    return srt_list[0] + np.mean([dt - srt_list[0] for dt in srt_list])
+
 """Magnitude and b-val functions"""
 
 def plot_mag_w_time(cat, show=True):
@@ -40,7 +45,7 @@ def plot_mag_w_time(cat, show=True):
     return fig
 
 
-def Mc_test(cat, n_bins, test_cutoff, maxcurv_bval, start_mag=None):
+def Mc_test(cat, n_bins, start_mag=None):
     """
     Test the reliability of predetermined Mc
     :param cat: Catalog of events
@@ -58,19 +63,19 @@ def Mc_test(cat, n_bins, test_cutoff, maxcurv_bval, start_mag=None):
     mags.sort()
     bin_vals, bins = np.histogram(mags, bins=n_bins) # Count mags in each bin
     inds = np.digitize(mags, bins) # Get bin index for each mag in mags
-    bin_cents = bins - ((bins[1] - bins[0]) / 2.)
+    # bin_cents = bins - ((bins[1] - bins[0]) / 2.)
     avg_mags = []
     for i, bin in enumerate(bins):
         avg_mags.append(np.mean([mag for mag, ind in zip(mags, inds)
                                  if ind >= i + 1]))
-    bvals = [np.log10(np.exp(1)) / (avg_mag - bin_cents[i])
+    bvals = [np.log10(np.exp(1)) / (avg_mag - bins[i])
              for i, avg_mag in enumerate(avg_mags)]
     # Errors for each bin
     errs = [2 * bval / np.sqrt(sum(bin_vals[i:]))
             for i, bval in enumerate(bvals)]
     # Error ranges for bins above start_mag
     err_rangs = [(cent, bval - err, bval + err)
-                 for bval, err, cent in zip(bvals, errs, bin_cents)
+                 for bval, err, cent in zip(bvals, errs, bins)
                  if cent > start_mag]
     # Now to test input mag against "best-fitting" bval within these errors
     bval_hits = [] # Count how many bins each value hits
@@ -83,14 +88,15 @@ def Mc_test(cat, n_bins, test_cutoff, maxcurv_bval, start_mag=None):
     best_bval_cut = max(bval_hits, key=itemgetter(1))[0]
     # Now plotting from premade fig from bval_plot
     return {'best_bval':best_bval_cut[0], 'M_cut': best_bval_cut[1],
-            'bin_cents': bin_cents, 'bvals': bvals, 'errs': errs}
+            'bins': bins, 'bvals': bvals, 'errs': errs}
 
 
-def bval_calc(cat, bins, MC, method='wt_lsqr'):
+def bval_calc(cat, n_bins, MC):
     """
     Helper function to run the calculation loop
     :param mags: list of magnitudes
     :param bins: int number of bins for calculation
+    :param method: whether to use weighted lsqr regression or MLE
     :return: (non_cum_bins, cum_bins, bval_vals, bval_bins, bval_wts)
     """
     import numpy as np
@@ -103,7 +109,7 @@ def bval_calc(cat, bins, MC, method='wt_lsqr'):
     else:
         Mc = MC
     # Establish bin limits and spacing
-    bin_vals = np.linspace(min(mags), max(mags), bins)
+    bin_vals = np.linspace(min(mags), max(mags), n_bins)
     non_cum_bins = []
     cum_bins = []
     bval_vals = []
@@ -111,7 +117,7 @@ def bval_calc(cat, bins, MC, method='wt_lsqr'):
     bval_wts = []
     for i, val in enumerate(bin_vals):
         cum_val_count = len([ev for ev in cat if ev.preferred_magnitude()
-                         and ev.preferred_magnitude().mag >= val])
+                             and ev.preferred_magnitude().mag >= val])
         if i < len(bin_vals) - 1:
             non_cum_val_cnt = len([ev for ev in cat
                                    if ev.preferred_magnitude()
@@ -127,13 +133,15 @@ def bval_calc(cat, bins, MC, method='wt_lsqr'):
     # Tack 0 on end of non_cum_bins representing bin above max mag
     non_cum_bins.append(0)
     b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1, w=bval_wts)
+    b *= -1.
     return {'bin_vals':bin_vals, 'non_cum_bins':non_cum_bins,
             'cum_bins':cum_bins, 'bval_vals':bval_vals,
             'bval_bins':bval_bins, 'bval_wts':bval_wts,
-            'b': b*-1., 'a': a, 'Mc': Mc}
+            'b': b, 'a': a, 'Mc': Mc}
 
 
-def bval_plot(cat, bins=30, MC=None, title=None, show=True):
+def bval_plot(cat, bins=30, MC=None, title=None,
+              show=True, savefig=None):
     """
     Plotting the frequency-magnitude distribution on semilog axes
     :param cat: Catalog of events with magnitudes
@@ -147,87 +155,92 @@ def bval_plot(cat, bins=30, MC=None, title=None, show=True):
     import numpy as np
 
     b_dict = bval_calc(cat, bins, MC)
-    test_dict = Mc_test(cat, n_bins=bins, test_cutoff=b_dict['Mc'],
-                       maxcurv_bval=b_dict['b'], start_mag=b_dict['Mc'])
+    test_dict = Mc_test(cat, n_bins=bins, start_mag=b_dict['Mc'])
     # Now re-compute b-value for new Mc if difference larger than bin size
-    mag_diff = test_dict['M_cut'] - b_dict['Mc']
     bin_interval = b_dict['bin_vals'][1] - b_dict['bin_vals'][0]
-    if abs(mag_diff) > bin_interval:
-        b_dict2 = bval_calc(cat, bins, MC=test_dict['M_cut'])
+    b_dict2 = bval_calc(cat, bins, MC=test_dict['M_cut'])
+    fig = plt.figure(figsize=(12, 5))
+    ax = fig.add_subplot(121, aspect=1.)
+    # Plotting first bval line
+    ax.plot(b_dict['bval_bins'],
+            np.power([10],[b_dict['a']-b_dict['b']*aval
+                           for aval in b_dict['bval_bins']]),
+            color='r', linestyle='-', label='Weighted lsqr: $log(N)=a - bM$')
+    # if 'b_dict2' in locals():
+    # Now plotting the modified b-value on plot 1
+    # Grab a value diff between orig and modified line at same a value
+    correction = (b_dict2['a'] - test_dict['best_bval']
+                  * b_dict2['bval_bins'][0]) - (b_dict2['a']
+                                                - b_dict2['b']
+                                                * b_dict2['bval_bins'][0])
+    ax.plot(b_dict2['bval_bins'],
+            np.power([10],[b_dict2['a'] - (test_dict['best_bval']*aval)
+                           for aval in b_dict2['bval_bins']] - correction),
+            color='b', linestyle='-',
+            label='Best MLE: $log(N)=a - bM$')
+    ax.set_yscale('log')
+    # Put b-val on plot
+    text = 'B-val via weighted lsqr: %.3f' % b_dict['b']
+    ax.text(0.75, 0.6, text, transform=ax.transAxes, color='r',
+            horizontalalignment='center', fontsize=10.)
+    ax.text(0.75, 0.65, 'Mc via max-curv=%.2f' % b_dict['Mc'], color='r',
+            transform=ax.transAxes, horizontalalignment='center',
+            fontsize=10.)
+    # if 'b_dict2' in locals():
+    text = 'Best MLE b-value: %.3f' % test_dict['best_bval']
+    ax.text(0.75, 0.5, text, transform=ax.transAxes, color='b',
+            horizontalalignment='center', fontsize=10.)
+    ax.text(0.75, 0.55, 'Modified Mc: %.2f' % b_dict2['Mc'],
+            color='b', transform=ax.transAxes,
+            horizontalalignment='center', fontsize=10.)
+    ax.scatter(b_dict['bin_vals'], b_dict['cum_bins'], label='Cumulative',
+               color='k')
+    ax.scatter(b_dict['bin_vals'] + (bin_interval / 2.),
+               b_dict['non_cum_bins'], color='m', marker='^',
+               label='Non-cumulative')
+    ax.set_ylim(bottom=1)
+    ax.set_ylabel('Number of events')
+    ax.set_xlabel('Magnitude')
+    if title:
+        ax.set_title(title)
+    else:
+        ax.set_title('B-value plot')
+    leg = ax.legend(fontsize=12., markerscale=0.7)
+    leg.get_frame().set_alpha(0.5)
+    ax2 = fig.add_subplot(122)
+    ax2.set_ylim([0, 3])
+    ax2.errorbar(test_dict['bins'], test_dict['bvals'],
+                 yerr=test_dict['errs'], fmt='-o', color='k')
+    ax2.axhline(test_dict['best_bval'], linestyle='--', color='b')
+    ax2.axhline(b_dict['b'], linestyle='--', color='r')
+    ax2.axvline(b_dict['Mc'], linestyle='--', color='r')
+    ax2.axvline(test_dict['M_cut'], linestyle='--', color='b')
+    # ax2.text(0.5, 0.9, 'B-value (wt-lsqr): %.3f' % b_dict['b'], color='r',
+    #          transform=ax2.transAxes, horizontalalignment='center',
+    #          fontsize=10.)
+    # ax2.text(0.5, 0.95, 'Mc via max-curv: %.2f' % b_dict['Mc'], color='r',
+    #          transform=ax2.transAxes, horizontalalignment='center',
+    #          fontsize=10.)
+    # ax2.text(0.5, 0.85, 'Modified Mc: %.2f' % test_dict['M_cut'],
+    #          transform=ax2.transAxes, horizontalalignment='center',
+    #          fontsize=10., color='b')
+    # ax2.text(0.5, 0.8, 'Best MLE b-value: %.3f' % test_dict['best_bval'],
+    #          color='b', transform=ax2.transAxes,
+    #          horizontalalignment='center', fontsize=10.)
+    ax2.set_title('MLE b-values v. Mc')
+    ax2.set_xlabel('Mc')
+    ax2.set_ylabel('B-value')
+    # Plot magnitude histogram underneath ax2
+    ax3 = ax2.twinx()
+    mags = [ev.preferred_magnitude().mag for ev in cat
+            if ev.preferred_magnitude()]
+    sns.distplot(mags, kde=False, ax=ax3, hist_kws={"alpha": 0.2})
+    ax3.set_ylabel('Number of events')
+    fig.tight_layout()
     if show:
-        fig = plt.figure(figsize=(12, 5))
-        ax = fig.add_subplot(121, aspect=1.)
-        # Plotting first bval line
-        ax.plot(b_dict['bval_bins'],
-                np.power([10],[b_dict['a']-b_dict['b']*aval
-                               for aval in b_dict['bval_bins']]),
-                color='r', linestyle='-', label='Max-curv: log(N)=a - bM')
-        if 'b_dict2' in locals():
-            ax.plot(b_dict2['bval_bins'],
-                    np.power([10],[b_dict2['a']-b_dict2['b']*aval
-                                   for aval in b_dict2['bval_bins']]),
-                    color='b', linestyle='-',
-                    label='Modified Mc: log(N)=a - bM')
-        ax.set_yscale('log')
-        # Put b-val on plot
-        text = 'B-val via max-curv: %.3f' % b_dict['b']
-        ax.text(0.8, 0.7, text, transform=ax.transAxes, color='r',
-                horizontalalignment='center', fontsize=8.)
-        ax.text(0.8, 0.75, 'Mc via max-curv=%.2f' % b_dict['Mc'], color='r',
-                transform=ax.transAxes, horizontalalignment='center',
-                fontsize=8.)
-        if 'b_dict2' in locals():
-            text = 'Modified Mc b-val: %.3f' % b_dict2['b']
-            ax.text(0.8, 0.6, text, transform=ax.transAxes, color='b',
-                    horizontalalignment='center', fontsize=8.)
-            ax.text(0.8, 0.65, 'Modified Mc: %.2f' % b_dict2['Mc'],
-                    color='b', transform=ax.transAxes,
-                    horizontalalignment='center', fontsize=8.)
-        ax.scatter(b_dict['bin_vals'], b_dict['cum_bins'], label='Cumulative',
-                   color='k')
-        ax.scatter(b_dict['bin_vals'] + (bin_interval / 2.),
-                   b_dict['non_cum_bins'], color='m', marker='^',
-                   label='Non-cumulative')
-        ax.set_ylim(bottom=1)
-        ax.set_ylabel('Number of events')
-        ax.set_xlabel('Magnitude')
-        if title:
-            ax.set_title(title)
-        else:
-            ax.set_title('B-value plot')
-        leg = ax.legend(fontsize=9., markerscale=0.7)
-        leg.get_frame().set_alpha(0.5)
-        ax2 = fig.add_subplot(122)
-        ax2.set_ylim([0, 3])
-        ax2.errorbar(test_dict['bin_cents'], test_dict['bvals'],
-                     yerr=test_dict['errs'], fmt='-o', color='k')
-        ax2.axhline(test_dict['best_bval'], linestyle='--', color='b')
-        ax2.axhline(b_dict['b'], linestyle='--', color='r')
-        ax2.axvline(b_dict['Mc'], linestyle='--', color='b')
-        ax2.axvline(test_dict['M_cut'], linestyle='--', color='r')
-        ax2.text(0.5, 0.8, 'Max-curv B-value: %.3f' % b_dict['b'], color='r',
-                 transform=ax2.transAxes, horizontalalignment='center',
-                 fontsize=8.)
-        ax2.text(0.5, 0.85, 'Max-curv Mc: %.2f' % b_dict['Mc'], color='r',
-                 transform=ax2.transAxes, horizontalalignment='center',
-                 fontsize=8.)
-        ax2.text(0.5, 0.95, 'Modified Mc: %.2f' % test_dict['M_cut'],
-                 transform=ax2.transAxes, horizontalalignment='center',
-                 fontsize=8., color='b')
-        ax2.text(0.5, 0.9, 'Modified b-value: %.3f' % test_dict['best_bval'],
-                 color='b', transform=ax2.transAxes,
-                 horizontalalignment='center', fontsize=8.)
-        ax2.set_title('B-values v. cut-off magnitude')
-        ax2.set_xlabel('Cut-off magnitude')
-        ax2.set_ylabel('B-value')
-        # Plot magnitude histogram underneath ax2
-        ax3 = ax2.twinx()
-        mags = [ev.preferred_magnitude().mag for ev in cat
-                if ev.preferred_magnitude()]
-        sns.distplot(mags, kde=False, ax=ax3, hist_kws={"alpha": 0.2})
-        ax3.set_ylabel('Number of events')
-        fig.tight_layout()
         fig.show()
+    if savefig:
+        fig.savefig(savefig, dpi=720)
     return
 
 
@@ -402,8 +415,17 @@ def plot_mag_bins(mat_file, bin_size='monthly', ax_in=None, color='k',
     start = min(dtos).replace(day=1, hour=0, minute=0, second=0)
     end = max(dtos).replace(day=1, hour=0, minute=0, second=0)
     month_no = []
-    firsts = list(rrule.rrule(rrule.MONTHLY, dtstart=start,
-                              until=end, bymonthday=1))
+    if bin_size == 'monthly':
+        firsts = list(rrule.rrule(rrule.MONTHLY, dtstart=start,
+                                  until=end, bymonthday=1))
+        width = 15.
+    elif bin_size == 'weekly':
+        firsts = list(rrule.rrule(rrule.WEEKLY, dtstart=start,
+                                  until=end))
+        width=5.
+    elif bin_size == 'daily':
+        firsts = list(rrule.rrule(rrule.DAILY, dtstart=start,
+                                  until=end))
     # Loop over first day of each month
     for i, dt in enumerate(firsts):
         if i < len(firsts) - 2:
@@ -418,8 +440,8 @@ def plot_mag_bins(mat_file, bin_size='monthly', ax_in=None, color='k',
         ax = ax_in
     else:
         fig, ax = plt.subplots()
-    ax.bar(mids, month_no, width=13, color=color,
-           alpha=0.2, label='Number of events')
+    ax.bar(mids, month_no, width=width, color=color, linewidth=0,
+           alpha=0.4, label='Number of events')
     for t in ax.get_yticklabels():
         t.set_color(color)
     ax.set_ylabel('# events')
@@ -522,7 +544,8 @@ def plot_Mc(mat_file, ax_in=None, color='r', overwrite=False, show=True):
         return ax
 
 
-def make_big_plot(matfile, flow_dict, pres_dict, well_list='all',method='flows',
+def make_big_plot(matfile, flow_dict, pres_dict, well_list='all',
+                  method='flows', bar_bin='monthly',
                   show=False, savefig=False):
     """
     Combining all the above plotting functions into something resembling
@@ -532,12 +555,11 @@ def make_big_plot(matfile, flow_dict, pres_dict, well_list='all',method='flows',
     :return:
     """
     import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
     from plot_detections import plot_flow_rates
 
     fig, axes = plt.subplots(3, 1, sharex=True, figsize=(9.,13.), dpi=400)
     # Top subplot is flow rate and ev no per month
-    plot_mag_bins(matfile, ax_in=axes[0], overwrite=True, show=False)
+    plot_mag_bins(matfile, bin_size=bar_bin, ax_in=axes[0], overwrite=True, show=False)
     plot_flow_rates(flow_dict, pres_dict, '1/5/2012', '18/11/2015',
                     method=method, well_list=well_list,
                     ax_in=axes[0])
@@ -550,6 +572,7 @@ def make_big_plot(matfile, flow_dict, pres_dict, well_list='all',method='flows',
     if show:
         fig.show()
     if savefig:
+        fig.tight_layout()
         fig.savefig(savefig)
     return fig
 
@@ -575,6 +598,8 @@ def plot_2D_bval_grid(matfile, savefig=None, show=True):
     lats = workspace['yvect']
     lons = workspace['xvect']
     x, y = np.meshgrid(lons, lats)
+    ev_lons = workspace['a'][:,0]
+    ev_lats = workspace['a'][:,1]
     mp = Basemap(projection='cyl',
                  urcrnrlon=np.max(lons),
                  urcrnrlat=np.max(lats),
@@ -610,6 +635,8 @@ def plot_2D_bval_grid(matfile, savefig=None, show=True):
     cbar.set_label('b-value', rotation=270, labelpad=15)
     cbar.set_ticks(np.arange(0.8, 1.5, 0.1))
     plt.title("B-value map")
+    # Plot epicenters
+    mp.plot(ev_lons, ev_lats, '.', color='k', markersize=1)
     # Shapefiles!
     # Wells
     mp.readshapefile('/home/chet/gmt/data/NZ/RK_tracks_injection', name='rki',
@@ -646,6 +673,7 @@ def plot_2D_bval_grid(matfile, savefig=None, show=True):
     if show:
         fig.show()
     if savefig:
+        fig.tight_layout()
         fig.savefig(savefig, dpi=720)
     return
 

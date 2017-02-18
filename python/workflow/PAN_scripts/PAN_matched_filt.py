@@ -74,8 +74,13 @@ if split:
 else:
     inst_dats = all_dates
 #Read in templates and names
-temp_dir = '/projects/nesi00228/data/templates/2013/1sec_3-20Hz/*'
-temp_files = glob(temp_dir)
+temp_dirs = ['/projects/nesi00228/data/templates/2012/1sec_3-20Hz/*',
+             '/projects/nesi00228/data/templates/2013/1sec_3-20Hz/*',
+             '/projects/nesi00228/data/templates/2014/1sec_3-20Hz/*',
+             '/projects/nesi00228/data/templates/2015/1sec_3-20Hz/*']
+temp_files = []
+for dir in temp_dirs:
+    temp_files += glob(dir)
 templates = [read(temp_file) for temp_file in temp_files]
 template_names = [temp_file.split('/')[-1].rstrip('.mseed')
                   for temp_file in temp_files]
@@ -89,6 +94,7 @@ for temp in templates:
         if chan_code not in stachans[tr.stats.station]:
             stachans[tr.stats.station].append(chan_code)
 # Create a catalog for this instance which gets added to then written
+tmp_time = timer()
 for day in inst_dats:
     dto = UTCDateTime(day)
     q_start = dto - 10
