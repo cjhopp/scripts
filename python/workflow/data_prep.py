@@ -104,12 +104,13 @@ def asdf_create(asdf_name, wav_dirs, sta_dir):
     return
 
 
-def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
-                       highcut=None, lowcut=None, f_order=None,
-                       samp_rate=None, start=None, end=None, debug=1):
+def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
+                      highcut=None, lowcut=None, f_order=None,
+                      samp_rate=None, start=None, end=None,
+                      miniseed=True, asdf_file=False, debug=1):
     """
     Function to generate individual mseed files for each event in a catalog
-    from a pyasdf file of continuous data.
+    from a pyasdf file or continuous data.
     :param asdf_file: ASDF file with waveforms and stations
     :param cat: path to xml of Catalog of events for which we'll create
         templates
@@ -125,10 +126,13 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
     :return:
     """
     import pyasdf
+    import os
+    import fnmatch
+    from itertools import chain
     import collections
     import copy
     import datetime
-    from obspy import UTCDateTime, Stream
+    from obspy import UTCDateTime, Stream, read
     from eqcorrscan.core.template_gen import template_gen
     from eqcorrscan.utils import pre_processing
     from timeit import default_timer as timer
@@ -163,14 +167,28 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                     stachans[pk.waveform_id.station_code].append(chan_code)
         wav_read_start = timer()
         # Be sure to go +/- 10 sec to account for GeoNet shit timing
-        with pyasdf.ASDFDataSet(asdf_file) as ds:
+        if asdf_file:
+            with pyasdf.ASDFDataSet(asdf_file) as ds:
+                st = Stream()
+                for sta, chans in iter(stachans.items()):
+                    for station in ds.ifilter(ds.q.station == sta,
+                                              ds.q.channel == chans,
+                                              ds.q.starttime >= q_start,
+                                              ds.q.endtime <= q_end):
+                        st += station.raw_recording
+        elif miniseed:
             st = Stream()
-            for sta, chans in iter(stachans.items()):
-                for station in ds.ifilter(ds.q.station == sta,
-                                          ds.q.channel == chans,
-                                          ds.q.starttime >= q_start,
-                                          ds.q.endtime <= q_end):
-                    st += station.raw_recording
+            wav_files = []
+            for path, dirs, files in chain.from_iterable(os.walk(path)
+                                                         for path in wav_dirs):
+                for sta, chans in iter(stachans.items()):
+                    for chan in chans:
+                        for filename in fnmatch.filter(files,
+                                                       '*.%s.*.%s*%03d'
+                                                       % (sta, chan, dto.julday)):
+                            wav_files.append(os.path.join(path, filename))
+            for wav in wav_files:
+                st += read(wav)
         wav_read_stop = timer()
         print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                        - wav_read_start))
@@ -182,7 +200,7 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                 print('Traces from %s.%s have differing samp rates' % (stachan[0], stachan[1]))
                 for tr in tmp_st:
                     st.remove(tr)
-                tmp_st.resample(sampling_rate=50.)
+                tmp_st.resample(sampling_rate=samp_rate)
                 st += tmp_st
         st.merge(fill_value='interpolate')
         resamp_stop = timer()
@@ -218,7 +236,7 @@ def pyasdf_2_templates(asdf_file, cat, outdir, length, prepick,
                                     prepick=prepick)
             # temp_list.append(template)
             print('Writing event %s to file...' % ev_name)
-            template.write('%s/%s_raw.mseed' % (outdir, ev_name),
+            template.write('%s/%s.mseed' % (outdir, ev_name),
                            format="MSEED")
             del trim_st
         del tmp_cat, st1, st
@@ -266,4 +284,40 @@ def remove_temp_overlaps(templates, temp_files):
                 temp.remove(perps[-1])
             temp.write(temp_file.rstrip('.mseed') + '_nodups.mseed',
                        format='MSEED')
+    return
+
+
+def remove_duplicate_picks(cat, outfile=None):
+    """
+    Search through a catalog and remove duplicate picks
+    :param cat:
+    :param outfile: path to new catalog file
+    :return:
+    """
+    import collections
+
+    write_flag=False
+    for ev in cat:
+        stachans = [(pk.waveform_id.station_code,
+                     pk.waveform_id.channel_code,
+                     pk.phase_hint) for pk in ev.picks]
+        dups = [pk for pk, count
+                in collections.Counter(stachans).items() if count > 1]
+        if len(dups) > 1:
+            write_flag=True
+            print('Fixing event %s' % str(ev.resource_id))
+            for dup in dups:
+                perp_pks = [pk for pk in ev.picks
+                            if pk.waveform_id.station_code == dup[0]
+                            and pk.waveform_id.channel_code == dup[1]
+                            and pk.phase_hint == dup[2]]
+                # Sort by time and remove all but first dup
+                srtd_perps = sorted(perp_pks, key=lambda x: x.time)
+                for perp in srtd_perps[1:]:
+                    ev.picks.remove(perp)
+    if write_flag:
+        if outfile:
+            cat.write(outfile, format='QUAKEML')
+    else:
+        print('No duplicate picks in this catalog.')
     return
