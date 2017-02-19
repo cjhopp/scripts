@@ -184,8 +184,9 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
                 for sta, chans in iter(stachans.items()):
                     for chan in chans:
                         for filename in fnmatch.filter(files,
-                                                       '*.%s.*.%s*%03d'
-                                                       % (sta, chan, dto.julday)):
+                                                       '*.%s.*.%s*%d.%03d'
+                                                       % (sta, chan, dto.year,
+                                                          dto.julday)):
                             wav_files.append(os.path.join(path, filename))
             for wav in wav_files:
                 st += read(wav)
