@@ -53,8 +53,9 @@ stachans = {tr.stats.station: [] for template in templates
             for tr in template}
 for template in templates:
     for tr in template:
-        # chan_code = 'EH' + tr.stats.channel[1]
-        chan_code = 'EHZ'
+        # Don't hard code vertical channels!!
+        chan_code = 'EH' + tr.stats.channel[1]
+        # chan_code = 'EHZ'
         if chan_code not in stachans[tr.stats.station]:
             stachans[tr.stats.station].append(chan_code)
 # Establish date range for this match filter run

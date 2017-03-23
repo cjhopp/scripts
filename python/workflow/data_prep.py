@@ -54,6 +54,23 @@ def sc3ml2qml(zipdir, outdir, stylesheet, prog='xalan'):
     return
 
 
+def run_qml_with_obspy(dir, outdir):
+    """
+    Trying to address schema validation issues in seishub by reading qml from
+    above funtion into obspy, then rewriting to new qml
+    :param dir: Directory of qmls
+    :param outdir: Output directory for new events
+    :return:
+    """
+    from glob import glob
+    from obspy import read_events
+    qmls = glob(dir)
+    for qml in qmls:
+        ev_name = qml.split('/')[-1].split('.')[1].rstrip('_QML')
+        ev_cat = read_events(qml)
+        ev_cat.write('%s/%s.xml' % (outdir, ev_name), format='QUAKEML')
+
+
 def consolidate_qmls(directory, outfile=False):
     """
     Take directory of single-event qmls from above function and consolidate
@@ -181,13 +198,14 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
             wav_files = []
             for path, dirs, files in chain.from_iterable(os.walk(path)
                                                          for path in wav_dirs):
-                for sta, chans in iter(stachans.items()):
-                    for chan in chans:
-                        for filename in fnmatch.filter(files,
-                                                       '*.%s.*.%s*%d.%03d'
-                                                       % (sta, chan, dto.year,
-                                                          dto.julday)):
-                            wav_files.append(os.path.join(path, filename))
+                if str(dto.year) in path.split('/'):
+                    for sta, chans in iter(stachans.items()):
+                        for chan in chans:
+                            for filename in fnmatch.filter(files,
+                                                           '*.%s.*.%s*%d.%03d'
+                                                           % (sta, chan, dto.year,
+                                                              dto.julday)):
+                                wav_files.append(os.path.join(path, filename))
             for wav in wav_files:
                 st += read(wav)
         wav_read_stop = timer()
@@ -264,28 +282,75 @@ def template_spectrograms(temp_dir, num_evs):
             tr.spectrogram()
 
 
-def remove_temp_overlaps(templates, temp_files):
+def remove_temp_dups(templates, cat, bad_list):
     """
-    Used to remove traces in template on same channel. Will keep earliest
-    pick unless Steve Sherb says otherwise
-    :param templates: list of Stream objects
+    Used to remove traces in template on same channel. Will keep pick closest
+    to the average pick time for the other picks of the same phase
+    :param templates: list of template files
+    :param cat: catalog with duplicate picks removed
+    :param bad_list: list of eid's for events to throw out
     :return:
     """
+    from obspy import read
     import collections
 
-    for temp, temp_file in zip(templates, temp_files):
-        stachans = [(tr.stats.station, tr.stats.channel)
-                    for tr in temp]
-        dups = [tr for tr, count
-                in collections.Counter(stachans).items() if count > 1]
-        if len(dups) > 1:
+    for ev in cat:
+        if str(ev.resource_id).split('/')[-1] not in bad_list:
+            temp = read([temp for temp in templates
+                         if temp.split('/')[-1].rstrip('.mseed')
+                         == str(ev.resource_id).split('/')[-1]][0])
+            ev_stachans = [(pk.waveform_id.station_code,
+                            pk.waveform_id.channel_code)
+                           for pk in ev.picks]
+            temp_stachans = [(tr.stats.station,
+                              tr.stats.channel)
+                             for tr in temp]
+            # Find which stachans are duplicates
+            dups = [t_stachan for t_stachan, count
+                    in collections.Counter(temp_stachans).items() if
+                    count > 1]
             for dup in dups:
-                perps = temp.select(station=dup[0],
-                                    channel=dup[1]).sort('starttime')
-                temp.remove(perps[-1])
-            temp.write(temp_file.rstrip('.mseed') + '_nodups.mseed',
-                       format='MSEED')
+                temp.traces.remove()
+            if len(dups) > 1:
+                for dup in dups:
+                    perps = temp.select(station=dup[0],
+                                        channel=dup[1]).sort('starttime')
+                    temp.remove(perps[-1])
+                temp.write(temp_file.rstrip('.mseed') + '_nodups.mseed',
+                           format='MSEED')
     return
+
+
+def remove_dups_TauP(cat, input):
+    """
+    Taking stefan's TauP arrivals and chosing only the arrival closest to
+    them
+    :param cat: obspy.core.Catalog
+    :param input: stefan's text file
+    :return: 'Fixed' catalog
+    """
+    import csv
+    from obspy import UTCDateTime, Catalog
+
+    fixed_cat = cat.copy()
+    with open(input, 'r') as f:
+        lines = csv.reader(f)
+        next(lines, None) # Skipping header
+        eid = None # For keeping track of which event we're on
+        for line in lines:
+            if line[0] != eid:
+                eid = line[0]
+                ev = [ev for ev in fixed_cat
+                      if str(ev.resource_id).split('/')[-1] == line[0]][0]
+            picks = [pk for pk in ev.picks
+                     if pk.waveform_id.station_code == line[1]
+                     and pk.phase_hint == 'P']
+            while len(picks) > 1:
+                # If there are duplicates, remove them
+                tauP_time = UTCDateTime(line[4])
+                picks.remove(max(picks, lambda p: abs((p.time - tauP_time)))[0])
+                ev.picks.remove(max(picks, lambda p: abs((p.time - tauP_time)))[0])
+    return fixed_cat
 
 
 def remove_duplicate_picks(cat, outfile=None):
@@ -296,26 +361,32 @@ def remove_duplicate_picks(cat, outfile=None):
     :return:
     """
     import collections
+    import csv
 
     write_flag=False
-    for ev in cat:
-        stachans = [(pk.waveform_id.station_code,
-                     pk.waveform_id.channel_code,
-                     pk.phase_hint) for pk in ev.picks]
-        dups = [pk for pk, count
-                in collections.Counter(stachans).items() if count > 1]
-        if len(dups) > 1:
-            write_flag=True
-            print('Fixing event %s' % str(ev.resource_id))
-            for dup in dups:
-                perp_pks = [pk for pk in ev.picks
-                            if pk.waveform_id.station_code == dup[0]
-                            and pk.waveform_id.channel_code == dup[1]
-                            and pk.phase_hint == dup[2]]
-                # Sort by time and remove all but first dup
-                srtd_perps = sorted(perp_pks, key=lambda x: x.time)
-                for perp in srtd_perps[1:]:
-                    ev.picks.remove(perp)
+    with open('events_w_multiple_picks.txt', 'w') as f:
+        writer = csv.writer(f)
+        for ev in cat:
+            stachans = [(pk.waveform_id.station_code,
+                         pk.waveform_id.channel_code,
+                         pk.phase_hint) for pk in ev.picks]
+            dups = [pk for pk, count
+                    in collections.Counter(stachans).items() if count > 1]
+            if len(dups) > 1:
+                write_flag=True
+                print('Fixing event %s' % str(ev.resource_id))
+                writer.writerow([str(ev.resource_id).split('/')[-1],
+                                             str(ev.origins[0].time)])
+                for dup in dups:
+                    writer.writerow([dup[0], dup[1]])
+                    perp_pks = [pk for pk in ev.picks
+                                if pk.waveform_id.station_code == dup[0]
+                                and pk.waveform_id.channel_code == dup[1]
+                                and pk.phase_hint == dup[2]]
+                    # Sort by time and remove all but first dup
+                    srtd_perps = sorted(perp_pks, key=lambda x: x.time)
+                    for perp in srtd_perps[1:]:
+                        ev.picks.remove(perp)
     if write_flag:
         if outfile:
             cat.write(outfile, format='QUAKEML')
