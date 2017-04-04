@@ -3,6 +3,12 @@
 """
 Wrapper functions for obspyck and seishub
 """
+def date_generator(start_date, end_date):
+    # Generator for date looping
+    from datetime import timedelta
+    for n in range(int((end_date - start_date).days) + 1):
+        yield start_date + timedelta(n)
+
 
 def pick_event(event):
     """
@@ -54,53 +60,68 @@ def pick_catalog(catalog, rand_choice=False, ev_ids=False):
     return
 
 
-def obspyck_from_local(wav_dirs, inv_dir, catalog):
+def obspyck_from_local(wav_dirs, inv_dir, catalog, start=False, end=False):
     """
-    Function to take local files instead of seishub Inv/wavs
+    Function to take local files instead of seishub inv/wavs
     :return:
     """
     import fnmatch
+    import datetime
     import os
     from subprocess import call
     from glob import glob
     from itertools import chain
+    from obspy import UTCDateTime
 
     # Grab all stationxml files
     inv_files = glob(inv_dir)
     catalog.events.sort(key=lambda x: x.origins[-1].time)
-    for ev in catalog:
-        if not os.path.isdir('tmp'):
-            os.mkdir('tmp')
-        tmp_name = 'tmp/%s' % str(ev.resource_id).split('/')[-1]
-        ev.write(tmp_name, format='QUAKEML')
-        dto = ev.origins[-1].time
-        # Create stachan dict
-        stachans = {pk.waveform_id.station_code: [] for pk in ev.picks}
-        for pk in ev.picks:
-            chan_code = pk.waveform_id.channel_code
-            if chan_code not in stachans[pk.waveform_id.station_code]:
-                stachans[pk.waveform_id.station_code].append(chan_code)
-        wav_files = []
-        print('Finding waveform files')
-        # Limit wav_dirs
+    if start:
+        cat_start = datetime.datetime.strptime(start, '%d/%m/%Y')
+        cat_end = datetime.datetime.strptime(end, '%d/%m/%Y')
+    else:
+        cat_start = catalog[0].origins[-1].time.date
+        cat_end = catalog[-1].origins[-1].time.date
+    for date in date_generator(cat_start, cat_end):
+        dto = UTCDateTime(date)
+        print('Running for date: %s' % str(dto))
+        sch_str_start = 'time >= %s' % str(dto)
+        sch_str_end = 'time <= %s' % str(dto + 86400)
+        tmp_cat = catalog.filter(sch_str_start, sch_str_end)
+        if len(tmp_cat) == 0:
+            print('No events on: %s' % str(dto))
+            continue
+        else:
+            print('%d events for this day' % len(tmp_cat))
+        stas = list(set([pk.waveform_id.station_code for ev in tmp_cat
+                         for pk in ev.picks]))
+        # Grab day's wav files
         wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
+        wav_files = []
         for path, dirs, files in chain.from_iterable(os.walk(path)
                                                      for path in wav_ds):
             print('Looking in %s' % path)
-            for sta, chans in iter(stachans.items()):
-                for chan in chans:
-                    for filename in fnmatch.filter(files,
-                                                   '*.%s.*.%s*%d.%03d'
-                                                           % (sta, chan,
-                                                              dto.year,
-                                                              dto.julday)):
-                        wav_files.append(os.path.join(path, filename))
-        print('Launching obspyck for ev: %s' %
-              str(ev.resource_id).split('/')[-1])
-        input_file = '/home/chet/obspyck/hoppch.obspyckrc17'
-        root = ['obspyck -c %s -t %s -s NS --event %s' % (input_file,
-                                                          str(dto - 20),
-                                                          tmp_name)]
-        cmd = ' '.join(root + wav_files + inv_files)
-        call(cmd, shell=True)
+            for sta in stas:
+                for filename in fnmatch.filter(files,
+                                               '*.%s.*%d.%03d'
+                                                       % (sta, dto.year,
+                                                          dto.julday)):
+                    wav_files.append(os.path.join(path, filename))
+        if not os.path.isdir('tmp'):
+            os.mkdir('tmp')
+        for ev in tmp_cat:
+            tmp_name = 'tmp/%s' % str(ev.resource_id).split('/')[-1]
+            ev.write(tmp_name, format='QUAKEML')
+            utc_dt = ev.origins[-1].time
+            print('Finding waveform files')
+            # Limit wav_dirs
+            print('Launching obspyck for ev: %s' %
+                  str(ev.resource_id).split('/')[-1])
+            input_file = '/home/chet/obspyck/hoppch_local.obspyckrc17'
+            root = ['obspyck -c %s -t %s -s NS --event %s' % (input_file,
+                                                              str(utc_dt - 20),
+                                                              tmp_name)]
+            cmd = ' '.join(root + wav_files + inv_files)
+            call(cmd, shell=True)
+    return
 

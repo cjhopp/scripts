@@ -90,6 +90,64 @@ def consolidate_qmls(directory, outfile=False):
     return cat
 
 
+def remove_staxml_end_date(inv):
+    """
+    Loop through Merc inventory and remove end date of latest channel
+    They appear to be incorrect anyways.
+    :param inv:
+    :return:
+    """
+    for net in inv:
+        for sta in net:
+            if len(sta.channels) > 3:
+                # Find chan with latest end date, and remove it
+                for chan in set([chan.code for chan in sta.channels]):
+                    max(sta.select(channel=chan).channels,
+                        lambda c: c.end_time)[0].end_date = None
+    return
+
+
+def make_franny_symlinks(src_dirs, out_dir):
+    """
+    Make symlinks for NS12, NS13, NS14 with correct component naming for
+    horizontal components
+    :param src_dir:
+    :param out_dir:
+    :return:
+    """
+    import os
+    import fnmatch
+    import string
+    from itertools import chain
+
+    for path, dirs, files in chain.from_iterable(os.walk(path)
+                                                 for path in src_dirs):
+        print('Looking in %s' % path)
+        for sta in ['NS12', 'NS13', 'NS14']:
+            for filename in fnmatch.filter(files, '*.%s*' % sta):
+                net = filename.split('.')[-7]
+                chan = filename.split('.')[-4]
+                if chan[-1] == 'N':
+                    new_chan = 'EH1'
+                elif chan[-1] == 'E':
+                    new_chan = 'EH2'
+                else:
+                    continue
+                mseed_nm = filename.split('/')[-1]
+                new_mseed = string.replace(mseed_nm, chan, new_chan)
+                old_path = os.path.join(path, filename)
+                new_path = '%s/%s/%s/%s.D/%s' % (out_dir, net,
+                                                 sta, new_chan, new_mseed)
+
+                print('Creating symlink for file %s at %s'
+                      % (old_path, new_path))
+                spwd = '*blackmore89'
+                cmnd = 'sudo -S ln %s %s' % (old_path, new_path)
+                os.system('echo %s | %s' % (spwd, cmnd))
+    return
+
+
+
 def asdf_create(asdf_name, wav_dirs, sta_dir):
     """
     Wrapper on ASDFDataSet to create a new HDF5 file which includes
