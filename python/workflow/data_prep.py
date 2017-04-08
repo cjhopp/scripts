@@ -324,7 +324,7 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
     from timeit import default_timer as timer
 
     # Establish date range for template creation
-    cat.events.sort(key=lambda x: x.preferred_origin().time)
+    cat.events.sort(key=lambda x: x.origins[-1].time)
     if start:
         cat_start = datetime.datetime.strptime(start, '%d/%m/%Y')
         cat_end = datetime.datetime.strptime(end, '%d/%m/%Y')
