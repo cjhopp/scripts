@@ -411,7 +411,7 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
             template = template_gen(event.picks, trim_st, length=length,
                                     prepick=prepick, min_snr=min_snr)
             if len([tr for tr in template
-                    if tr.stats.channel_code[-1] == 'Z']) < 6:
+                    if tr.stats.channel[-1] == 'Z']) < 6:
                 print('Skipping template with fewer than 6 Z-comp traces')
                 continue
             # temp_list.append(template)
