@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+from __future__ import division
 
 def date_generator(start_date, end_date):
     # Generator for date looping
@@ -7,6 +7,32 @@ def date_generator(start_date, end_date):
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
 
+def grab_day_wavs(wav_dirs, dto, stachans):
+    # Helper to recursively crawl paths searching for waveforms for a dict of
+    # stachans for one day
+    import os
+    import fnmatch
+    from itertools import chain
+    from obspy import read, Stream
+
+    st = Stream()
+    wav_files = []
+    for path, dirs, files in chain.from_iterable(os.walk(path)
+                                                 for path in wav_dirs):
+        print('Looking in %s' % path)
+        if str(dto.year) in path.split('/'):
+            for sta, chans in iter(stachans.items()):
+                for chan in chans:
+                    for filename in fnmatch.filter(files,
+                                                   '*.%s.*.%s*%d.%03d'
+                                                           % (
+                                                   sta, chan, dto.year,
+                                                   dto.julday)):
+                        wav_files.append(os.path.join(path, filename))
+    print('Reading into memory')
+    for wav in wav_files:
+        st += read(wav)
+    return st
 
 def sc3ml2qml(zipdir, outdir, stylesheet, prog='xalan'):
     """
@@ -147,7 +173,6 @@ def make_franny_symlinks(src_dirs, out_dir):
     return
 
 
-
 def asdf_create(asdf_name, wav_dirs, sta_dir):
     """
     Wrapper on ASDFDataSet to create a new HDF5 file which includes
@@ -179,10 +204,99 @@ def asdf_create(asdf_name, wav_dirs, sta_dir):
     return
 
 
+def test_snr_distribution(cat, wav_dirs, prepick=0.05, length=1.0,
+                          start=False, end=False):
+    """
+    Get a feel for what the distribution of SNRs for events in a catalog is.
+    This should give us an idea of what our ideal threshold should be in
+    generating templates
+    :param cat: Catalog of interest
+    :param wav_dirs: Waveform directories
+    :return:
+    """
+    import datetime
+    from obspy import UTCDateTime
+    from eqcorrscan.utils import pre_processing
+    from eqcorrscan.core.bright_lights import _rms
+
+    # Establish date range for template creation
+    cat.events.sort(key=lambda x: x.origins[-1].time)
+    if start:
+        cat_start = datetime.datetime.strptime(start, '%d/%m/%Y')
+        cat_end = datetime.datetime.strptime(end, '%d/%m/%Y')
+    else:
+        cat_start = cat[0].origins[-1].time.date
+        cat_end = cat[-1].origins[-1].time.date
+    # Preallocate snr dict
+    snrs = {}
+    for date in date_generator(cat_start, cat_end):
+        dto = UTCDateTime(date)
+        print('Processing templates for: %s' % str(dto))
+        q_start = dto - 10
+        q_end = dto + 86410
+        # Establish which events are in this day
+        sch_str_start = 'time >= %s' % str(dto)
+        sch_str_end = 'time <= %s' % str(dto + 86400)
+        tmp_cat = cat.filter(sch_str_start, sch_str_end)
+        if len(tmp_cat) == 0:
+            print('No events on: %s' % str(dto))
+            continue
+        # Which stachans we got?
+        stachans = {pk.waveform_id.station_code: [] for ev in tmp_cat
+                    for pk in ev.picks}
+        for ev in tmp_cat:
+            for pk in ev.picks:
+                chan_code = pk.waveform_id.channel_code
+                if chan_code not in stachans[pk.waveform_id.station_code]:
+                    stachans[pk.waveform_id.station_code].append(chan_code)
+        print('Reading waveforms')
+        wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
+        st = grab_day_wavs(wav_ds, dto, stachans)
+        print('Merging')
+        st.merge(fill_value='interpolate')
+        print('Preprocessing')
+        try:
+            st1 = pre_processing.dayproc(st, lowcut=1., highcut=20.,
+                                         filt_order=3, samp_rate=100.,
+                                         num_cores=6, starttime=dto,
+                                         ignore_length=True)
+        except NotImplementedError or Exception as e:
+            print('Found error in dayproc, noting date and continuing')
+            print(e)
+            continue
+        for tr in st1:
+            stachan = '%s.%s' % (tr.stats.station, tr.stats.channel)
+            print('Working on %s' % stachan)
+            if stachan not in snrs.keys():
+                snrs[stachan] = []
+            noise_amp = _rms(tr.data)
+            for ev in tmp_cat:
+                for pk in ev.picks:
+                    if pk.waveform_id.station_code == tr.stats.station and \
+                            pk.waveform_id.channel_code == tr.stats.channel:
+                        starttime = pk.time - prepick
+                        tr_cut = tr.copy().trim(starttime=starttime,
+                                                endtime=starttime + length,
+                                                nearest_sample=False)
+                        if len(tr_cut.data) == 0:
+                            print('No data provided for %s.%s starting at %s' %
+                                  (tr.stats.station, tr.stats.channel,
+                                   str(starttime)))
+                            continue
+                        # Ensure that the template is the correct length
+                        if len(tr_cut.data) == (tr_cut.stats.sampling_rate *
+                                                    length) + 1:
+                            tr_cut.data = tr_cut.data[0:-1]
+                        snr = max(tr_cut.data) / noise_amp
+                        snrs[stachan].append(snr)
+    return snrs
+
+
 def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
                       highcut=None, lowcut=None, f_order=None,
-                      samp_rate=None, start=None, end=None,
-                      miniseed=True, asdf_file=False, debug=1):
+                      samp_rate=None, min_snr=2.,
+                      start=None, end=None, miniseed=True,
+                      asdf_file=False, debug=1):
     """
     Function to generate individual mseed files for each event in a catalog
     from a pyasdf file or continuous data.
@@ -201,9 +315,6 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
     :return:
     """
     import pyasdf
-    import os
-    import fnmatch
-    from itertools import chain
     import collections
     import copy
     import datetime
@@ -252,20 +363,8 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
                                               ds.q.endtime <= q_end):
                         st += station.raw_recording
         elif miniseed:
-            st = Stream()
-            wav_files = []
-            for path, dirs, files in chain.from_iterable(os.walk(path)
-                                                         for path in wav_dirs):
-                if str(dto.year) in path.split('/'):
-                    for sta, chans in iter(stachans.items()):
-                        for chan in chans:
-                            for filename in fnmatch.filter(files,
-                                                           '*.%s.*.%s*%d.%03d'
-                                                           % (sta, chan, dto.year,
-                                                              dto.julday)):
-                                wav_files.append(os.path.join(path, filename))
-            for wav in wav_files:
-                st += read(wav)
+            wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
+            st = grab_day_wavs(wav_ds, dto, stachans)
         wav_read_stop = timer()
         print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                        - wav_read_start))
@@ -310,7 +409,11 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
                     NotImplementedError('More than one pick on a channel: ' +
                                         '%s: %s' % (ev_name, dup))
             template = template_gen(event.picks, trim_st, length=length,
-                                    prepick=prepick)
+                                    prepick=prepick, min_snr=min_snr)
+            if len([tr for tr in template
+                    if tr.stats.channel_code[-1] == 'Z']) < 6:
+                print('Skipping template with fewer than 6 Z-comp traces')
+                continue
             # temp_list.append(template)
             print('Writing event %s to file...' % ev_name)
             template.write('%s/%s.mseed' % (outdir, ev_name),
@@ -450,4 +553,34 @@ def remove_duplicate_picks(cat, outfile=None):
             cat.write(outfile, format='QUAKEML')
     else:
         print('No duplicate picks in this catalog.')
+    return
+
+
+def replace_dup_events(orig_cat, replacement_cat, bad_cat):
+    """
+    Take the original catalog and replace events with duplicate picks with
+    the same events reviewed and corrected (via obspyck or otherwise)
+    :param orig_cat: Original catalog
+    :param replacement_cat: Catalog of corrected events
+    :param bad_cat: Catalog of all events which had duplicate events
+    :return:
+    """
+    from obspy import Catalog
+
+    rev_ids = [str(ev.resource_id).split('/')[-1]
+               for ev in replacement_cat.events]
+    bad_ids = [str(ev.resource_id).split('/')[-1]
+               for ev in bad_cat.events]
+    remove_ids = list(set(bad_ids) - set(rev_ids))
+    for ev in orig_cat:
+        eid = str(ev.resource_id).split('/')[-1]
+        if eid in rev_ids:
+            rev_ev = [evnt for evnt in replacement_cat.events
+                      if str(evnt.resource_id).split('/')[-1] == eid][0]
+            ev.picks = rev_ev.picks
+            ev.origins = rev_ev.origins
+    for id in remove_ids:
+        orig_cat.events.remove([ev for ev in orig_cat
+                                if str(ev.resource_id).split('/')[-1]
+                                == id][0])
     return
