@@ -66,7 +66,7 @@ if '--instance' in args:
             instance = int(args[i+1])
             print('I will run this for instance %d' % instance)
         elif arg == '--splits':
-            splits = int(args[i+1]) - 1
+            splits = int(args[i+1])
             print('I will divide the days into %d chunks' % splits)
         elif arg == '--start':
             cat_start = datetime.strptime(str(args[i + 1]), '%d/%m/%Y')
@@ -125,7 +125,11 @@ for day in inst_dats:
     print('Starting correlation runs for %s' % str(day))
     inst_partay += tribe.detect(stream=st, threshold=8.0, threshold_type='MAD',
                                 trig_int=2., plotvar=False, daylong=True,
-                                group_size=200)
+                                group_size=50)
+# Write out the Party object
+print('Writing instance party object to file')
+inst_partay.write('/projects/nesi00228/data/detetions/parties_12-15/Party_%d_12-15.tgz'
+                  % instance)
 #Print out runtime
 script_end = timer()
 print('Instance took %.3f seconds' % (script_end - script_start))

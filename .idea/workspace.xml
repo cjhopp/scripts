@@ -3,6 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
       <change type="NEW" beforePath="" afterPath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_grp50_24hr.sl" />
       <change type="DELETED" beforePath="$USER_HOME$/obspyck/new_events/2014sora912831.xml" afterPath="" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" afterPath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" afterPath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" />
@@ -12,6 +13,8 @@
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/obspyck/obspyck.py" afterPath="$USER_HOME$/obspyck/obspyck/obspyck.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl" />
     </list>
     <ignored path="scripts.iws" />
@@ -37,8 +40,8 @@
           <file leaf-file-name="PAN_MF_mseed.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="2639">
-                  <caret line="127" column="45" selection-start-line="127" selection-start-column="45" selection-end-line="127" selection-end-column="45" />
+                <state relative-caret-position="986">
+                  <caret line="82" column="27" selection-start-line="82" selection-start-column="27" selection-end-line="82" selection-end-column="27" />
                   <folding />
                 </state>
               </provider>
@@ -64,11 +67,21 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="PAN_MF_mseed_test_200_24hr.sl" pinned="false" current-in-tab="true">
+          <file leaf-file-name="PAN_MF_mseed_test_200_24hr.sl" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="435">
-                  <caret line="15" column="96" selection-start-line="15" selection-start-column="96" selection-end-line="15" selection-end-column="96" />
+                  <caret line="15" column="97" selection-start-line="15" selection-start-column="97" selection-end-line="15" selection-end-column="97" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="PAN_MF_mseed_test_grp50_24hr.sl" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_grp50_24hr.sl">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="435">
+                  <caret line="15" column="97" selection-start-line="15" selection-start-column="97" selection-end-line="15" selection-end-column="97" />
                   <folding />
                 </state>
               </provider>
@@ -77,7 +90,7 @@
           <file leaf-file-name="data_prep.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1421">
+                <state relative-caret-position="10556">
                   <caret line="364" column="46" selection-start-line="364" selection-start-column="0" selection-end-line="366" selection-end-column="0" />
                   <folding />
                 </state>
@@ -117,7 +130,7 @@
           <file leaf-file-name="match_filter.py" pinned="false" current-in-tab="true">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-9820">
+                <state relative-caret-position="29">
                   <caret line="1785" column="63" selection-start-line="1785" selection-start-column="59" selection-end-line="1785" selection-end-column="63" />
                   <folding>
                     <element signature="e#2405#28416#0" expanded="false" />
@@ -159,7 +172,7 @@
           <file leaf-file-name="pre_processing.py" pinned="false" current-in-tab="false">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/pre_processing.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="593">
+                <state relative-caret-position="5452">
                   <caret line="204" column="18" selection-start-line="204" selection-start-column="16" selection-end-line="204" selection-end-column="18" />
                   <folding>
                     <marker date="1489969137011" expanded="false" signature="1042:1131" ph="import ..." />
@@ -207,7 +220,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/python/workflow/cat2hypDD_PAN.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/indices2hypoDD.py" />
         <option value="$PROJECT_DIR$/python/workflow/8_det_mag_calc.py" />
         <option value="$USER_HOME$/obspy/obspy/clients/seishub/client.py" />
@@ -255,17 +267,18 @@
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
         <option value="$PROJECT_DIR$/python/workflow/data_prep.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.sl" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl" />
+        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
+        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_grp50_24hr.sl" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
     <option name="x" value="3840" />
-    <option name="y" value="48" />
+    <option name="y" value="-8" />
     <option name="width" value="3840" />
-    <option name="height" value="2112" />
+    <option name="height" value="2168" />
   </component>
   <component name="ProjectInspectionProfilesVisibleTreeState">
     <entry key="Project Default">
@@ -311,8 +324,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
-      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -425,6 +436,8 @@
           </PATH>
         </subPane>
       </pane>
+      <pane id="Scratches" />
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -434,16 +447,16 @@
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
   </component>
   <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015" />
+      <recent name="$PROJECT_DIR$/python/old_scripts_4-1" />
+    </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts" />
       <recent name="$USER_HOME$/obspyck" />
       <recent name="$PROJECT_DIR$/python/workflow/util" />
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts/" />
       <recent name="$PROJECT_DIR$/python/workflow" />
-    </key>
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015" />
-      <recent name="$PROJECT_DIR$/python/old_scripts_4-1" />
     </key>
   </component>
   <component name="RunManager" selected="Python tests.Doctests in plotting">
@@ -661,7 +674,7 @@
     </history-entry>
   </component>
   <component name="ToolWindowManager">
-    <frame x="3840" y="48" width="3840" height="2112" extended-state="6" />
+    <frame x="3840" y="-8" width="3840" height="2168" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.13880208" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -708,13 +721,6 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/python/workflow/old_util_2015/cats2stefan.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/old_util_2015/map_ccval2weight.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="4735">
@@ -985,13 +991,12 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="203">
           <caret line="90" column="19" selection-start-line="90" selection-start-column="19" selection-end-line="90" selection-end-column="19" />
-          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1421">
+        <state relative-caret-position="10556">
           <caret line="364" column="46" selection-start-line="364" selection-start-column="0" selection-end-line="366" selection-end-column="0" />
           <folding />
         </state>
@@ -999,7 +1004,7 @@
     </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/pre_processing.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="593">
+        <state relative-caret-position="5452">
           <caret line="204" column="18" selection-start-line="204" selection-start-column="16" selection-end-line="204" selection-end-column="18" />
           <folding>
             <marker date="1489969137011" expanded="false" signature="1042:1131" ph="import ..." />
@@ -1015,7 +1020,7 @@
     </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-9820">
+        <state relative-caret-position="29">
           <caret line="1785" column="63" selection-start-line="1785" selection-start-column="59" selection-end-line="1785" selection-end-column="63" />
           <folding>
             <element signature="e#2405#28416#0" expanded="false" />
@@ -1057,15 +1062,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="493">
           <caret line="17" column="0" selection-start-line="17" selection-start-column="0" selection-end-line="17" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2639">
-          <caret line="127" column="45" selection-start-line="127" selection-start-column="45" selection-end-line="127" selection-end-column="45" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -1073,6 +1069,14 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="232">
           <caret line="8" column="33" selection-start-line="8" selection-start-column="33" selection-end-line="8" selection-end-column="33" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="435">
+          <caret line="15" column="97" selection-start-line="15" selection-start-column="97" selection-end-line="15" selection-end-column="97" />
           <folding />
         </state>
       </provider>
@@ -1085,10 +1089,18 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl">
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="986">
+          <caret line="82" column="27" selection-start-line="82" selection-start-column="27" selection-end-line="82" selection-end-column="27" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_grp50_24hr.sl">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="435">
-          <caret line="15" column="96" selection-start-line="15" selection-start-column="96" selection-end-line="15" selection-end-column="96" />
+          <caret line="15" column="97" selection-start-line="15" selection-start-column="97" selection-end-line="15" selection-end-column="97" />
           <folding />
         </state>
       </provider>
