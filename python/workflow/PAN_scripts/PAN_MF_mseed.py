@@ -125,7 +125,7 @@ for day in inst_dats:
     print('Starting correlation runs for %s' % str(day))
     inst_partay += tribe.detect(stream=st, threshold=8.0, threshold_type='MAD',
                                 trig_int=2., plotvar=False, daylong=True,
-                                group_size=50)
+                                group_size=30)
 # Write out the Party object
 print('Writing instance party object to file')
 inst_partay.write('/projects/nesi00228/data/detetions/parties_12-15/Party_%d_12-15.tgz'
