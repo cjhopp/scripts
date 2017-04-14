@@ -125,7 +125,7 @@ for day in inst_dats:
     print('Starting correlation runs for %s' % str(day))
     inst_partay += tribe.detect(stream=st, threshold=8.0, threshold_type='MAD',
                                 trig_int=2., plotvar=False, daylong=True,
-                                group_size=50)
+                                group_size=200)
 #Print out runtime
 script_end = timer()
 print('Instance took %.3f seconds' % (script_end - script_start))
