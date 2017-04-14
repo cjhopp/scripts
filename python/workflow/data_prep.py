@@ -20,15 +20,14 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     for path, dirs, files in chain.from_iterable(os.walk(path)
                                                  for path in wav_dirs):
         print('Looking in %s' % path)
-        if str(dto.year) in path.split('/'):
-            for sta, chans in iter(stachans.items()):
-                for chan in chans:
-                    for filename in fnmatch.filter(files,
-                                                   '*.%s.*.%s*%d.%03d'
-                                                           % (
-                                                   sta, chan, dto.year,
-                                                   dto.julday)):
-                        wav_files.append(os.path.join(path, filename))
+        for sta, chans in iter(stachans.items()):
+            for chan in chans:
+                for filename in fnmatch.filter(files,
+                                               '*.%s.*.%s*%d.%03d'
+                                                       % (
+                                               sta, chan, dto.year,
+                                               dto.julday)):
+                    wav_files.append(os.path.join(path, filename))
     print('Reading into memory')
     for wav in wav_files:
         st += read(wav)
@@ -406,6 +405,7 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
                     in collections.Counter(pk_stachans).items() if count > 1]
             if len(dups) > 0:
                 for dup in dups:
+                    event.picks.remove(dup)
                     NotImplementedError('More than one pick on a channel: ' +
                                         '%s: %s' % (ev_name, dup))
             template = template_gen(event.picks, trim_st, length=length,
@@ -442,6 +442,8 @@ def template_spectrograms(temp_dir, num_evs):
         for tr in st:
             tr.spectrogram()
 
+##############################################################################
+# vv Duplicate pick related BS vv #
 
 def remove_temp_dups(templates, cat, bad_list):
     """
@@ -471,7 +473,7 @@ def remove_temp_dups(templates, cat, bad_list):
                     in collections.Counter(temp_stachans).items() if
                     count > 1]
             for dup in dups:
-                temp.traces.remove()
+                temp.traces.remove(dup)
             if len(dups) > 1:
                 for dup in dups:
                     perps = temp.select(station=dup[0],
@@ -525,29 +527,29 @@ def remove_duplicate_picks(cat, outfile=None):
     import csv
 
     write_flag=False
-    with open('events_w_multiple_picks.txt', 'w') as f:
-        writer = csv.writer(f)
-        for ev in cat:
-            stachans = [(pk.waveform_id.station_code,
-                         pk.waveform_id.channel_code,
-                         pk.phase_hint) for pk in ev.picks]
-            dups = [pk for pk, count
-                    in collections.Counter(stachans).items() if count > 1]
-            if len(dups) > 1:
-                write_flag=True
-                print('Fixing event %s' % str(ev.resource_id))
-                writer.writerow([str(ev.resource_id).split('/')[-1],
-                                             str(ev.origins[0].time)])
-                for dup in dups:
-                    writer.writerow([dup[0], dup[1]])
-                    perp_pks = [pk for pk in ev.picks
-                                if pk.waveform_id.station_code == dup[0]
-                                and pk.waveform_id.channel_code == dup[1]
-                                and pk.phase_hint == dup[2]]
-                    # Sort by time and remove all but first dup
-                    srtd_perps = sorted(perp_pks, key=lambda x: x.time)
-                    for perp in srtd_perps[1:]:
-                        ev.picks.remove(perp)
+    # with open('events_w_multiple_picks.txt', 'w') as f:
+    # writer = csv.writer(f)
+    for ev in cat:
+        stachans = [(pk.waveform_id.station_code,
+                     pk.waveform_id.channel_code,
+                     pk.phase_hint) for pk in ev.picks]
+        dups = [pk for pk, count
+                in collections.Counter(stachans).items() if count > 1]
+        if len(dups) > 1:
+            write_flag=True
+            print('Fixing event %s' % str(ev.resource_id))
+                # writer.writerow([str(ev.resource_id).split('/')[-1],
+                #                              str(ev.origins[0].time)])
+                # for dup in dups:
+                #     writer.writerow([dup[0], dup[1]])
+                #     perp_pks = [pk for pk in ev.picks
+                #                 if pk.waveform_id.station_code == dup[0]
+                #                 and pk.waveform_id.channel_code == dup[1]
+                #                 and pk.phase_hint == dup[2]]
+                #     # Sort by time and remove all but first dup
+                #     srtd_perps = sorted(perp_pks, key=lambda x: x.time)
+                #     for perp in srtd_perps[1:]:
+                #         ev.picks.remove(perp)
     if write_flag:
         if outfile:
             cat.write(outfile, format='QUAKEML')
@@ -584,3 +586,47 @@ def replace_dup_events(orig_cat, replacement_cat, bad_cat):
                                 if str(ev.resource_id).split('/')[-1]
                                 == id][0])
     return
+
+##############################################################################
+
+def sync_temps_catalogs(cat, temp_dir):
+    # Remove the events from catalog which didn't get made into temps due
+    # to low SNR
+    from glob import glob
+
+    temp_files = glob(temp_dir)
+    temp_names = [nm.split('/')[-1].split('.')[0] for nm in temp_files]
+    rm_evs = []
+    for ev in cat:
+        if str(ev.resource_id).split('/')[-1] not in temp_names:
+            rm_evs.append(ev)
+    for rm_ev in rm_evs:
+        cat.events.remove(rm_ev)
+    return
+
+
+def mseed_2_Tribe(temp_dir, cat, tar_name=None):
+    """
+    Take a directory of templates and make them into a Tribe object
+    :param temp_dir: Directory containing templates
+    :param cat: catalog coresponding to templates
+    :return:
+    """
+    from eqcorrscan.core.match_filter import Template, Tribe
+    from glob import glob
+    from obspy import read
+
+    temp_files = glob('%s/*' % temp_dir)
+    Tribe = Tribe()
+    for ev in cat:
+        eid = str(ev.resource_id).split('/')[-1]
+        print('Adding event: %s' % eid)
+        temp = [read(temp_file) for temp_file in temp_files
+                if temp_file.split('/')[-1].split('.')[0] == eid][0]
+        T_o = Template(name=eid, st=temp, lowcut=3., highcut=20.,
+                       samp_rate=50., filt_order=3, process_length=86400,
+                       prepick=0.1, event=ev)
+        Tribe += T_o
+    if tar_name:
+        Tribe.write(tar_name)
+    return Tribe
