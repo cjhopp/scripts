@@ -123,7 +123,7 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                 rel_origin_t = ev_time - work_st[0].stats.starttime
                 # Grab stationXML
                 sta_inv = inv.select(station=pick.waveform_id.station_code)
-                for tr in st:
+                for tr in work_st:
                     stachan = '%s.%s' % (tr.stats.station, tr.stats.channel)
                     print('Populating SAC header for ' + stachan)
                     # For each trace manually set the ref time to origin
