@@ -30,7 +30,7 @@ def grab_day_wavs(wav_dirs, dto, stations):
         st += read(wav)
     return st
 
-def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start, end):
+def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
     """
     Temp gen function for Stefan SAC files
     :param cat:
@@ -92,7 +92,7 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start, end):
         # Process the stream
         try:
             st1 = pre_processing.dayproc(st, lowcut=None, highcut=None,
-                                         filt_order=None, samp_rate=None,
+                                         filt_order=None, samp_rate=100.,
                                          starttime=dto, debug=0,
                                          ignore_length=True)
         except NotImplementedError or Exception as e:
