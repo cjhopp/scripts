@@ -8,7 +8,7 @@ def date_generator(start_date, end_date):
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
 
-def grab_day_wavs(wav_dirs, dto, stachans):
+def grab_day_wavs(wav_dirs, dto, stations):
     # Helper to recursively crawl paths searching for waveforms for a dict of
     # stachans for one day
     import os
@@ -21,14 +21,10 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     for path, dirs, files in chain.from_iterable(os.walk(path)
                                                  for path in wav_dirs):
         print('Looking in %s' % path)
-        for sta, chans in iter(stachans.items()):
-            for chan in chans:
-                for filename in fnmatch.filter(files,
-                                               '*.%s.*.%s*%d.%03d'
-                                                       % (
-                                               sta, chan, dto.year,
-                                               dto.julday)):
-                    wav_files.append(os.path.join(path, filename))
+        for sta in stations:
+            for filename in fnmatch.filter(files, '*.%s.*%d.%03d'
+                                           % (sta, dto.year, dto.julday)):
+                wav_files.append(os.path.join(path, filename))
     print('Reading into memory')
     for wav in wav_files:
         st += read(wav)
@@ -68,16 +64,11 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start, end):
             print('No events on: %s' % str(dto))
             continue
         # Which stachans we got?
-        stachans = {pk.waveform_id.station_code: [] for ev in tmp_cat
-                    for pk in ev.picks}
-        for ev in tmp_cat:
-            for pk in ev.picks:
-                chan_code = pk.waveform_id.channel_code
-                if chan_code not in stachans[pk.waveform_id.station_code]:
-                    stachans[pk.waveform_id.station_code].append(chan_code)
+        stations = [pk.waveform_id.station_code for ev in tmp_cat
+                    for pk in ev.picks if pk.phase_hint == 'P']
         wav_read_start = timer()
         wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
-        st = grab_day_wavs(wav_ds, dto, stachans)
+        st = grab_day_wavs(wav_ds, dto, stations)
         wav_read_stop = timer()
         print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                        - wav_read_start))
@@ -85,15 +76,18 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start, end):
         stachans = [(tr.stats.station, tr.stats.channel) for tr in st]
         for stachan in list(set(stachans)):
             tmp_st = st.select(station=stachan[0], channel=stachan[1])
-            if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate for tr in tmp_st])) > 1:
-                print('Traces from %s.%s have differing samp rates' % (stachan[0], stachan[1]))
+            if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate
+                                            for tr in tmp_st])) > 1:
+                print('Traces from %s.%s have differing samp rates'
+                      % (stachan[0], stachan[1]))
                 for tr in tmp_st:
                     st.remove(tr)
                 tmp_st.resample(sampling_rate=100.)
                 st += tmp_st
         st.merge(fill_value='interpolate')
         resamp_stop = timer()
-        print('Resample/merge took %s secs' % str(resamp_stop - wav_read_stop))
+        print('Resample/merge took %s secs'
+              % str(resamp_stop - wav_read_stop))
         print('Preprocessing...')
         # Process the stream
         try:
@@ -107,7 +101,6 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start, end):
             with open('%s/dayproc_errors.txt' % outdir, mode='a') as fo:
                 fo.write('%s\n%s\n' % (str(date), e))
             continue
-        temp_list = []
         for event in tmp_cat:
             ev_name = str(event.resource_id).split('/')[-1]
             os.mkdir('%s/%s' % (outdir, ev_name))
@@ -115,7 +108,6 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start, end):
             ev_time = big_o.time
             tr_starttime = ev_time - 5
             tr_endtime = ev_time + 25
-            ev_date = UTCDateTime(ev_time.date)
             used_stachans = []
             for pick in event.picks:
                 # Only take waveforms for stations with P-picks
@@ -125,18 +117,12 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start, end):
                     continue
                 print('Processing data: %s' % pick.waveform_id.station_code)
                 sta_st = st1.select(station=pick.waveform_id.station_code)
-                sta_st.copy().trim(tr_starttime, tr_endtime)
-                if len(tmp_st) == 0:
+                work_st = sta_st.copy().trim(tr_starttime, tr_endtime)
+                if len(work_st) == 0:
                     continue
-                rel_origin_t = ev_time - tmp_st[0].stats.starttime
+                rel_origin_t = ev_time - work_st[0].stats.starttime
                 # Grab stationXML
                 sta_inv = inv.select(station=pick.waveform_id.station_code)
-                if 'st' not in locals():
-                    st = tmp_st
-                else:
-                    st += tmp_st
-                del tmp_st
-                print('st contains ' + str(len(st)) + ' channels')
                 for tr in st:
                     stachan = '%s.%s' % (tr.stats.station, tr.stats.channel)
                     print('Populating SAC header for ' + stachan)
@@ -149,7 +135,8 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start, end):
                     tr.stats['sac']['nzhour'] = tr_starttime.hour
                     tr.stats['sac']['nzmin'] = tr_starttime.minute
                     tr.stats['sac']['nzsec'] = tr_starttime.second
-                    tr.stats['sac']['nzmsec'] = int(tr_starttime.microsecond // 1000)
+                    tr.stats['sac']['nzmsec'] = int(tr_starttime.microsecond
+                                                    // 1000)
                     # Origin time in relation to relative time
                     tr.stats['sac']['o'] = rel_origin_t
                     tr.stats['sac']['iztype'] = 9

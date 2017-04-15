@@ -7,33 +7,67 @@ held in pyasdf.events and saves the templates as separate files
 """
 from __future__ import division
 
-import pyasdf
-import os
-from obspy import UTCDateTime, read_events
 
-# Make list of catalog parts
-cat = read_events('/Users/home/hoppche/data/2015_dets_nlloc_Sherburn_filt_Stefan_ccval0.5_pks9.xml')
-with pyasdf.ASDFDataSet('/media/rotnga_data/pyasdf/mrp_rotnga.h5') as ds:
-    # For each event and station/channel, cut around arrival times
-    temp_list = []
-    for event in cat:
-        ev_name = str(event.resource_id).split('/')[-1]
-        os.mkdir('/media/rotnga_data/templates/stefan_30sec/2015_dets_sac/' +
-                 ev_name)
-        big_o = event.preferred_origin()
-        ev_time = big_o.time
-        tr_starttime = ev_time - 5
-        tr_endtime = ev_time + 25
-        ev_date = UTCDateTime(ev_time.date)
-        print('Reading event ' + ev_name + ' from pyasdf...')
-        used_stachans = []
-        for pick in event.picks:
-            for station in ds.ifilter(ds.q.station == pick.waveform_id.station_code,
-                                      ds.q.starttime >= UTCDateTime(pick.time.date) - 10,
-                                      ds.q.endtime <= UTCDateTime(pick.time.date) + 86410):
-                tmp_st = station.raw_recording
+def cat_2_stefan_SAC(cat, wav_dirs, outdir, start, end):
+    """
+    Temp gen function for Stefan SAC files
+    :param cat:
+    :param wav_dirs:
+    :param outdir:
+    :param start:
+    :param end:
+    :return:
+    """
+    import os
+    from obspy import UTCDateTime
+    import datetime
+
+
+    cat.events.sort(key=lambda x: x.origins[-1].time)
+    if start:
+        cat_start = datetime.datetime.strptime(start, '%d/%m/%Y')
+        cat_end = datetime.datetime.strptime(end, '%d/%m/%Y')
+    else:
+        cat_start = cat[0].origins[-1].time.date
+        cat_end = cat[-1].origins[-1].time.date
+    for date in date_generator(cat_start, cat_end):
+        dto = UTCDateTime(date)
+        print('Processing templates for: %s' % str(dto))
+        q_start = dto - 10
+        q_end = dto + 86410
+        # Establish which events are in this day
+        sch_str_start = 'time >= %s' % str(dto)
+        sch_str_end = 'time <= %s' % str(dto + 86400)
+        tmp_cat = cat.filter(sch_str_start, sch_str_end)
+        if len(tmp_cat) == 0:
+            print('No events on: %s' % str(dto))
+            continue
+        # Which stachans we got?
+        stachans = {pk.waveform_id.station_code: [] for ev in tmp_cat
+                    for pk in ev.picks}
+        for ev in tmp_cat:
+            for pk in ev.picks:
+                chan_code = pk.waveform_id.channel_code
+                if chan_code not in stachans[pk.waveform_id.station_code]:
+                    stachans[pk.waveform_id.station_code].append(chan_code)
+        wav_read_start = timer()
+        # Be sure to go +/- 10 sec to account for GeoNet shit timing
+        wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
+        st = grab_day_wavs(wav_ds, dto, stachans)
+        wav_read_stop = timer()
+        print('Reading waveforms took %.3f seconds' % (wav_read_stop
+                                                       - wav_read_start))
+
+        temp_list = []
+        for event in tmp_cat:
+            ev_name = str(event.resource_id).split('/')[-1]
+            os.mkdir('%s/%s' % (outdir, ev_name))
+            big_o = event.preferred_origin()
+            ev_time = big_o.time
+            ev_date = UTCDateTime(ev_time.date)
+            used_stachans = []
+            for pick in event.picks:
                 print('Processing data: ' + tmp_st[0].stats.station)
-                print(tmp_st)
                 tmp_st.merge(fill_value='interpolate')
                 tmp_st.trim(tr_starttime, tr_endtime)
                 if len(tmp_st) == 0:
@@ -110,8 +144,9 @@ with pyasdf.ASDFDataSet('/media/rotnga_data/pyasdf/mrp_rotnga.h5') as ds:
                         tr.write(filename, format="SAC")
                         used_stachans.append(stachan)
                 del st
-        del used_stachans
-    del cat
+            del used_stachans
+        del cat
+    return
 
 # Correct channel names in the catalog to len(3)
 for ev in cat:
