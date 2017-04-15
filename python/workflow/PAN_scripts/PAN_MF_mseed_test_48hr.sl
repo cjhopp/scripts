@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH -J CJH_Match_2014
+#SBATCH -J CJH_Match_2013
 #SBATCH -A nesi00228
 #SBATCH --time=48:00:00
 #SBATCH --mem=90000
 #SBATCH --nodes=1
 #SBATCH --exclude=compute-chem-001
-#SBATCH --output=match_12-15_test_out_%a.txt
-#SBATCH --error=match_12-15_test_err_%a.txt
+#SBATCH --output=match_13_test_out_%a.txt
+#SBATCH --error=match_13_test_err_%a.txt
 #SBATCH --cpus-per-task=12
 #SBATCH --array=0-2
 
