@@ -77,7 +77,7 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                 pk_sta = pick.waveform_id.station_code
                 if pick.phase_hint != 'P':
                     continue
-                wav_ds = ['%s%d/%s' % (d, dto.year, pk_sta) for d in wav_dirs]
+                wav_ds = ['%s%d/NZ/%s' % (d, dto.year, pk_sta) for d in wav_dirs]
                 sta_st = grab_day_wavs(wav_ds, dto, [pk_sta])
                 print('Processing data: %s' % pk_sta)
                 sta_st.merge(fill_value='interpolate')
