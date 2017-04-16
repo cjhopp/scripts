@@ -27,7 +27,7 @@ def grab_day_wavs(wav_dirs, dto, stations):
                 wav_files.append(os.path.join(path, filename))
     print('Reading into memory')
     for wav in wav_files:
-        st += read(wav)
+        st += read(wav).merge(fill_value='interpolate').resample(sampling_rate=100.)
     return st
 
 def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
