@@ -108,7 +108,6 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
             ev_time = big_o.time
             tr_starttime = ev_time - 5
             tr_endtime = ev_time + 25
-            used_stachans = []
             for pick in event.picks:
                 # Only take waveforms for stations with P-picks
                 # Take all channels for these stations
@@ -165,7 +164,7 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                                 tr.stats['sac']['lpspol'] = True
                             else:
                                 tr.stats['sac']['cmpinc'] = 90.0
-                    # Assign the pick time and type if
+                    # Assign the pick time and type if exists
                     if tr.stats.channel == pick.waveform_id.channel_code and \
                             pick.phase_hint == 'P':
                         print('Writing pick to "a" header')
@@ -175,16 +174,13 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                             pick.phase_hint == 'S':
                         tr.stats['sac']['t0'] = pick.time - tr.stats.starttime
                         tr.stats['sac']['kt0'] = pick.phase_hint
+                    else:
+                        print('No pick on %s' % stachan)
                     filename = '%s/%s/%s%s_%s_%s.sac' % (outdir, ev_name,
                                                          ev_name,
                                                          tr.stats.network,
                                                          tr.stats.station,
                                                          tr.stats.channel)
                     print('Writing event ' + filename + ' to file...')
-                    if stachan not in used_stachans:
-                        tr.write(filename, format="SAC")
-                        used_stachans.append(stachan)
-                del st
-            del used_stachans
-        del cat
+                    tr.write(filename, format="SAC")
     return
