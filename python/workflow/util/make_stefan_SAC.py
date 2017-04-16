@@ -27,7 +27,7 @@ def grab_day_wavs(wav_dirs, dto, stations):
                 wav_files.append(os.path.join(path, filename))
     print('Reading into memory')
     for wav in wav_files:
-        st += read(wav).merge(fill_value='interpolate').resample(sampling_rate=100.)
+        st += read(wav)
     return st
 
 def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
@@ -43,7 +43,6 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
     import os
     from obspy import UTCDateTime
     import datetime
-    from timeit import default_timer as timer
     from eqcorrscan.utils import pre_processing
 
     cat.events.sort(key=lambda x: x.origins[-1].time)
@@ -63,45 +62,6 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
         if len(tmp_cat) == 0:
             print('No events on: %s' % str(dto))
             continue
-        # Which stachans we got?
-        stations = [pk.waveform_id.station_code for ev in tmp_cat
-                    for pk in ev.picks if pk.phase_hint == 'P']
-        wav_read_start = timer()
-        wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
-        st = grab_day_wavs(wav_ds, dto, stations)
-        wav_read_stop = timer()
-        print('Reading waveforms took %.3f seconds' % (wav_read_stop
-                                                       - wav_read_start))
-        print('Looping through stachans to merge/resamp')
-        stachans = [(tr.stats.station, tr.stats.channel) for tr in st]
-        for stachan in list(set(stachans)):
-            tmp_st = st.select(station=stachan[0], channel=stachan[1])
-            if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate
-                                            for tr in tmp_st])) > 1:
-                print('Traces from %s.%s have differing samp rates'
-                      % (stachan[0], stachan[1]))
-                for tr in tmp_st:
-                    st.remove(tr)
-                tmp_st.resample(sampling_rate=100.)
-                st += tmp_st
-        st.merge(fill_value='interpolate')
-        resamp_stop = timer()
-        print('Resample/merge took %s secs'
-              % str(resamp_stop - wav_read_stop))
-        print('Preprocessing...')
-        # Process the stream
-        try:
-            st1 = pre_processing.dayproc(st, lowcut=None, highcut=None,
-                                         filt_order=None, samp_rate=100.,
-                                         starttime=dto, debug=0,
-                                         ignore_length=True,
-                                         num_cores=2)
-        except NotImplementedError or Exception as e:
-            print('Found error in dayproc, noting date and continuing')
-            print(e)
-            with open('%s/dayproc_errors.txt' % outdir, mode='a') as fo:
-                fo.write('%s\n%s\n' % (str(date), e))
-            continue
         for event in tmp_cat:
             ev_name = str(event.resource_id).split('/')[-1]
             if not os.path.exists('%s/%s' % (outdir, ev_name)):
@@ -114,11 +74,30 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                 # Only take waveforms for stations with P-picks
                 # Take all channels for these stations
                 # Stefan will make S-picks himself
+                pk_sta = pick.waveform_id.station_code
                 if pick.phase_hint != 'P':
                     continue
-                print('Processing data: %s' % pick.waveform_id.station_code)
-                sta_st = st1.select(station=pick.waveform_id.station_code)
-                work_st = sta_st.copy().trim(tr_starttime, tr_endtime)
+                wav_ds = ['%s%d/%s' % (d, dto.year, pk_sta) for d in wav_dirs]
+                sta_st = grab_day_wavs(wav_ds, dto, [pk_sta])
+                print('Processing data: %s' % pk_sta)
+                sta_st.merge(fill_value='interpolate')
+                # Process the stream
+                try:
+                    st1 = pre_processing.dayproc(sta_st, lowcut=None,
+                                                 highcut=None,
+                                                 filt_order=None,
+                                                 samp_rate=100.,
+                                                 starttime=dto, debug=0,
+                                                 ignore_length=True,
+                                                 num_cores=2)
+                except NotImplementedError or Exception as e:
+                    print('Found error in dayproc, noting date and continuing')
+                    print(e)
+                    with open('%s/dayproc_errors.txt' % outdir,
+                              mode='a') as fo:
+                        fo.write('%s\n%s\n' % (str(date), e))
+                    continue
+                work_st = st1.copy().trim(tr_starttime, tr_endtime)
                 if len(work_st) == 0:
                     continue
                 rel_origin_t = ev_time - work_st[0].stats.starttime
