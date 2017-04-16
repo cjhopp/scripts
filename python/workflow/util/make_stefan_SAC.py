@@ -103,7 +103,8 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
             continue
         for event in tmp_cat:
             ev_name = str(event.resource_id).split('/')[-1]
-            os.mkdir('%s/%s' % (outdir, ev_name))
+            if not os.path.exists('%s/%s' % (outdir, ev_name)):
+                os.mkdir('%s/%s' % (outdir, ev_name))
             big_o = event.origins[-1]
             ev_time = big_o.time
             tr_starttime = ev_time - 5
