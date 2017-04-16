@@ -94,7 +94,8 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
             st1 = pre_processing.dayproc(st, lowcut=None, highcut=None,
                                          filt_order=None, samp_rate=100.,
                                          starttime=dto, debug=0,
-                                         ignore_length=True)
+                                         ignore_length=True,
+                                         num_cores=2)
         except NotImplementedError or Exception as e:
             print('Found error in dayproc, noting date and continuing')
             print(e)
