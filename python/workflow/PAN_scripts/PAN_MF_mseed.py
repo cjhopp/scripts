@@ -121,6 +121,17 @@ for day in inst_dats:
     wav_read_stop = timer()
     print('Reading waveforms took %.3f seconds' % (wav_read_stop
                                                    - wav_read_start))
+    print('Checking for trace length. Removing if too short')
+    rm_trs = []
+    for tr in st:
+        if len(tr.data) < (86400 * tr.stats.sampling_rate * 0.8):
+            rm_trs.append(tr)
+    if len(rm_trs) != 0:
+        print('Removing traces shorter than 0.8 * daylong')
+        for tr in rm_trs:
+            st.remove(tr)
+    else:
+        print('All traces long enough to proceed to dayproc')
     # RUN MATCH FILTER (looping through chunks of templates due to RAM)
     print('Starting correlation runs for %s' % str(day))
     inst_partay += tribe.detect(stream=st, threshold=8.0, threshold_type='MAD',
@@ -128,7 +139,7 @@ for day in inst_dats:
                                 group_size=30)
 # Write out the Party object
 print('Writing instance party object to file')
-inst_partay.write('/projects/nesi00228/data/detetions/parties_12-15/Party_%d_12-15.tgz'
+inst_partay.write('/projects/nesi00228/data/detections/parties_12-15/Party_%d_12-15'
                   % instance)
 #Print out runtime
 script_end = timer()
