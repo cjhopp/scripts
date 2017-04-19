@@ -44,6 +44,7 @@ def grab_day_wavs(wav_dirs, dto, stachans):
                     wav_files.append(os.path.join(path, filename))
     print('Reading into memory')
     for wav in wav_files:
+        print('Reading file: %s' % wav)
         st += read(wav)
     return st
 
@@ -126,6 +127,12 @@ for day in inst_dats:
     for tr in st:
         if len(tr.data) < (86400 * tr.stats.sampling_rate * 0.8):
             rm_trs.append(tr)
+        if tr.stats.starttime != dto:
+            print('Trimming trace %s.%s with starttime %s to %s'
+                  % (tr.stats.station, tr.stats.channel,
+                     str(tr.stats.starttime), str(dto)))
+            tr.trim(starttime=dto, endtime=dto + 86400,
+                    nearest_sample=False)
     if len(rm_trs) != 0:
         print('Removing traces shorter than 0.8 * daylong')
         for tr in rm_trs:
@@ -136,7 +143,7 @@ for day in inst_dats:
     print('Starting correlation runs for %s' % str(day))
     inst_partay += tribe.detect(stream=st, threshold=8.0, threshold_type='MAD',
                                 trig_int=2., plotvar=False, daylong=True,
-                                group_size=20)
+                                group_size=20, debug=1)
 # Write out the Party object
 print('Writing instance party object to file')
 inst_partay.write('/projects/nesi00228/data/detections/parties_12-15/Party_%s_%s'
