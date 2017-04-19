@@ -139,8 +139,9 @@ for day in inst_dats:
                                 group_size=30)
 # Write out the Party object
 print('Writing instance party object to file')
-inst_partay.write('/projects/nesi00228/data/detections/parties_12-15/Party_%d_12-15'
-                  % instance)
+inst_partay.write('/projects/nesi00228/data/detections/parties_12-15/Party_%s-%s'
+                  % (inst_start.strftime('%Y/%m/%d'),
+                     inst_end.strftime('%Y/%m/%d')))
 #Print out runtime
 script_end = timer()
 print('Instance took %.3f seconds' % (script_end - script_start))

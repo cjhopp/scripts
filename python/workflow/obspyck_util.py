@@ -75,7 +75,10 @@ def obspyck_from_local(wav_dirs, inv_dir, catalog, start=False, end=False):
 
     # Grab all stationxml files
     inv_files = glob(inv_dir)
-    catalog.events.sort(key=lambda x: x.origins[-1].time)
+    if len(catalog[0].origins) > 0:
+        catalog.events.sort(key=lambda x: x.origins[-1].time)
+    else:
+        catalog.events.sort(key=lambda x: x.picks[0].time)
     if start:
         cat_start = datetime.datetime.strptime(start, '%d/%m/%Y')
         cat_end = datetime.datetime.strptime(end, '%d/%m/%Y')
@@ -112,7 +115,10 @@ def obspyck_from_local(wav_dirs, inv_dir, catalog, start=False, end=False):
         for ev in tmp_cat:
             tmp_name = 'tmp/%s' % str(ev.resource_id).split('/')[-1]
             ev.write(tmp_name, format='QUAKEML')
-            utc_dt = ev.origins[-1].time
+            if len(ev.origins) > 0:
+                utc_dt = ev.origins[-1].time
+            else:
+                utc_dt = ev.picks[0].time
             print('Finding waveform files')
             # Limit wav_dirs
             print('Launching obspyck for ev: %s' %

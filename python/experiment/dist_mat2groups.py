@@ -75,15 +75,15 @@ MI = maxinconsts(Z, R)
 indices = fcluster(Z, t=1.0, criterion='inconsistent')
 
 # Visualize the distribution of correlation values
-# samp_inds = numpy.random.random_integers(0, len(dist_vec), 10000)
-# samp_corrs = []
-# for ind in samp_inds:
-#     samp_corrs.append(dist_vec[ind])
+samp_inds = numpy.random.random_integers(0, len(dist_vec), 10000)
+samp_corrs = []
+for ind in samp_inds:
+    samp_corrs.append(dist_vec[ind])
 
 # Plot the dendrogram...if it's not way too huge
-# dendrogram(Z, color_threshold=1 - corr_thresh,
-#            distance_sort='ascending')
-# plt.show()
+dendrogram(Z, color_threshold=1 - corr_thresh,
+           distance_sort='ascending')
+plt.show()
 
 group_ids = list(set(indices))
 indices = [(indices[i], i) for i in xrange(len(indices))]

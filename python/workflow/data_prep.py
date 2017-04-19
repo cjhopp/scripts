@@ -605,7 +605,7 @@ def sync_temps_catalogs(cat, temp_dir):
     return
 
 
-def mseed_2_Tribe(temp_dir, cat, tar_name=None):
+def mseed_2_Tribe(temp_dir, cat, swin='all', tar_name=None):
     """
     Take a directory of templates and make them into a Tribe object
     :param temp_dir: Directory containing templates
@@ -623,6 +623,10 @@ def mseed_2_Tribe(temp_dir, cat, tar_name=None):
         print('Adding event: %s' % eid)
         temp = [read(temp_file) for temp_file in temp_files
                 if temp_file.split('/')[-1].split('.')[0] == eid][0]
+        if swin == 'P':
+            for tr in temp.copy():
+                if tr.stats.channel[-1] != 'Z':
+                    temp.remove(tr)
         T_o = Template(name=eid, st=temp, lowcut=3., highcut=20.,
                        samp_rate=50., filt_order=3, process_length=86400,
                        prepick=0.1, event=ev)
