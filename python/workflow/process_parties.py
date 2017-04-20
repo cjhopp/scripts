@@ -33,8 +33,6 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     for wav in wav_files:
         st += read(wav)
     st.merge(fill_value='interpolate')
-    print('Reading waveforms took %.3f seconds' % (wav_read_stop
-                                                   - wav_read_start))
     print('Checking for trace length. Removing if too short')
     rm_trs = []
     for tr in st:
