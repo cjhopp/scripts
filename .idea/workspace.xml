@@ -11,6 +11,7 @@
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" afterPath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
     </list>
     <ignored path="scripts.iws" />
@@ -36,8 +37,8 @@
           <file leaf-file-name="PAN_MF_mseed.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1427">
-                  <caret line="145" column="45" selection-start-line="145" selection-start-column="45" selection-end-line="145" selection-end-column="45" />
+                <state relative-caret-position="1487">
+                  <caret line="145" column="44" selection-start-line="145" selection-start-column="44" selection-end-line="145" selection-end-column="44" />
                   <folding />
                 </state>
               </provider>
@@ -46,7 +47,7 @@
           <file leaf-file-name="PAN_matched_filt.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-3095">
+                <state relative-caret-position="290">
                   <caret line="10" column="52" selection-start-line="10" selection-start-column="52" selection-end-line="10" selection-end-column="52" />
                   <folding />
                 </state>
@@ -56,7 +57,7 @@
           <file leaf-file-name="data_prep.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="9657">
+                <state relative-caret-position="1856">
                   <caret line="333" column="0" selection-start-line="333" selection-start-column="0" selection-end-line="334" selection-end-column="0" />
                   <folding />
                 </state>
@@ -360,8 +361,8 @@
           </PATH>
         </subPane>
       </pane>
-      <pane id="Scratches" />
       <pane id="Scope" />
+      <pane id="Scratches" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -919,14 +920,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="9657">
-          <caret line="333" column="0" selection-start-line="333" selection-start-column="0" selection-end-line="334" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="667">
@@ -962,7 +955,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-3095">
+        <state relative-caret-position="290">
           <caret line="10" column="52" selection-start-line="10" selection-start-column="52" selection-end-line="10" selection-end-column="52" />
           <folding />
         </state>
@@ -972,7 +965,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="617">
           <caret line="296" column="12" selection-start-line="296" selection-start-column="12" selection-end-line="296" selection-end-column="12" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -980,7 +972,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="968">
           <caret line="4235" column="28" selection-start-line="4241" selection-start-column="26" selection-end-line="4242" selection-end-column="54" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -988,7 +979,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="464">
           <caret line="16" column="0" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -996,7 +986,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="464">
           <caret line="16" column="0" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -1037,10 +1026,18 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1856">
+          <caret line="333" column="0" selection-start-line="333" selection-start-column="0" selection-end-line="334" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1427">
-          <caret line="145" column="45" selection-start-line="145" selection-start-column="45" selection-end-line="145" selection-end-column="45" />
+        <state relative-caret-position="1487">
+          <caret line="145" column="44" selection-start-line="145" selection-start-column="44" selection-end-line="145" selection-end-column="44" />
           <folding />
         </state>
       </provider>
