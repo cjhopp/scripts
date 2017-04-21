@@ -5,16 +5,13 @@
       <change type="DELETED" beforePath="$USER_HOME$/obspyck/new_events/2014sora912831.xml" afterPath="" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" afterPath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" afterPath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" afterPath="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspy/obspy/clients/seishub/client.py" afterPath="$USER_HOME$/obspy/obspy/clients/seishub/client.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspy/obspy/clients/seishub/sftp_client.py" afterPath="$USER_HOME$/obspy/obspy/clients/seishub/sftp_client.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/build/lib.linux-x86_64-2.7/obspyck/obspyck.py" afterPath="$USER_HOME$/obspyck/build/lib.linux-x86_64-2.7/obspyck/obspyck.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" afterPath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
     </list>
     <ignored path="scripts.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -39,7 +36,7 @@
           <file leaf-file-name="PAN_MF_mseed.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="4205">
+                <state relative-caret-position="1427">
                   <caret line="145" column="45" selection-start-line="145" selection-start-column="45" selection-end-line="145" selection-end-column="45" />
                   <folding />
                 </state>
@@ -116,11 +113,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="match_filter.py" pinned="false" current-in-tab="false">
+          <file leaf-file-name="match_filter.py" pinned="false" current-in-tab="true">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="736">
-                  <caret line="3469" column="14" selection-start-line="3469" selection-start-column="14" selection-end-line="3469" selection-end-column="14" />
+                <state relative-caret-position="1606">
+                  <caret line="3490" column="40" selection-start-line="3490" selection-start-column="40" selection-end-line="3490" selection-end-column="40" />
                   <folding>
                     <element signature="e#49983#68947#0" expanded="false" />
                     <element signature="e#102222#102669#0" expanded="false" />
@@ -151,26 +148,6 @@
                     <marker date="1492742629152" expanded="true" signature="72686:72781" ph="..." />
                     <marker date="1492742629152" expanded="true" signature="73462:73557" ph="..." />
                   </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="PAN_MF_mseed_12-15.sl" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_12-15.sl">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="464">
-                  <caret line="16" column="0" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="PAN_MF_mseed_test.sl" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="290">
-                  <caret line="10" column="20" selection-start-line="10" selection-start-column="20" selection-end-line="10" selection-end-column="20" />
-                  <folding />
                 </state>
               </provider>
             </entry>
@@ -294,8 +271,8 @@
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
         <option value="$PROJECT_DIR$/python/workflow/process_parties.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
+        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
       </list>
     </option>
   </component>
@@ -991,14 +968,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_12-15.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="464">
-          <caret line="16" column="0" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/obspyck/obspyck/util.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="617">
@@ -1015,10 +984,26 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="464">
+          <caret line="16" column="0" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_12-15.sl">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="464">
+          <caret line="16" column="0" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="736">
-          <caret line="3469" column="14" selection-start-line="3469" selection-start-column="14" selection-end-line="3469" selection-end-column="14" />
+        <state relative-caret-position="1606">
+          <caret line="3490" column="40" selection-start-line="3490" selection-start-column="40" selection-end-line="3490" selection-end-column="40" />
           <folding>
             <element signature="e#49983#68947#0" expanded="false" />
             <element signature="e#102222#102669#0" expanded="false" />
@@ -1054,16 +1039,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4205">
+        <state relative-caret-position="1427">
           <caret line="145" column="45" selection-start-line="145" selection-start-column="45" selection-end-line="145" selection-end-column="45" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="290">
-          <caret line="10" column="20" selection-start-line="10" selection-start-column="20" selection-end-line="10" selection-end-column="20" />
           <folding />
         </state>
       </provider>
