@@ -37,7 +37,7 @@
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="1487">
-                  <caret line="145" column="40" selection-start-line="145" selection-start-column="40" selection-end-line="145" selection-end-column="40" />
+                  <caret line="145" column="55" selection-start-line="145" selection-start-column="55" selection-end-line="145" selection-end-column="55" />
                   <folding />
                 </state>
               </provider>
@@ -126,7 +126,7 @@
           <file leaf-file-name="match_filter.py" pinned="false" current-in-tab="true">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="36232">
+                <state relative-caret-position="37363">
                   <caret line="3490" column="40" selection-start-line="3490" selection-start-column="40" selection-end-line="3490" selection-end-column="40" />
                   <folding>
                     <element signature="e#49983#68947#0" expanded="false" />
@@ -1057,7 +1057,7 @@
     </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="36232">
+        <state relative-caret-position="37363">
           <caret line="3490" column="40" selection-start-line="3490" selection-start-column="40" selection-end-line="3490" selection-end-column="40" />
           <folding>
             <element signature="e#49983#68947#0" expanded="false" />
@@ -1111,7 +1111,7 @@
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1487">
-          <caret line="145" column="40" selection-start-line="145" selection-start-column="40" selection-end-line="145" selection-end-column="40" />
+          <caret line="145" column="55" selection-start-line="145" selection-start-column="55" selection-end-line="145" selection-end-column="55" />
           <folding />
         </state>
       </provider>
