@@ -11,8 +11,7 @@
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" afterPath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
     </list>
     <ignored path="scripts.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -34,11 +33,21 @@
     <splitter split-orientation="horizontal" split-proportion="0.48215947">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="600">
-          <file leaf-file-name="PAN_MF_mseed.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="PAN_MF_mseed.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="1487">
                   <caret line="145" column="44" selection-start-line="145" selection-start-column="44" selection-end-line="145" selection-end-column="44" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="PAN_MF_mseed_test.sl" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="435">
+                  <caret line="15" column="28" selection-start-line="15" selection-start-column="28" selection-end-line="15" selection-end-column="28" />
                   <folding />
                 </state>
               </provider>
@@ -272,15 +281,15 @@
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
         <option value="$PROJECT_DIR$/python/workflow/process_parties.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
+        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="3840" />
+    <option name="x" value="130" />
     <option name="y" value="48" />
-    <option name="width" value="3840" />
+    <option name="width" value="3710" />
     <option name="height" value="2112" />
   </component>
   <component name="ProjectInspectionProfilesVisibleTreeState">
@@ -356,6 +365,70 @@
             </PATH_ELEMENT>
             <PATH_ELEMENT>
               <option name="myItemId" value="obspyck" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="python" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="python" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="workflow" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="python" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="workflow" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="PAN_scripts" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
@@ -599,10 +672,10 @@
     </history-entry>
   </component>
   <component name="ToolWindowManager">
-    <frame x="3840" y="48" width="3840" height="2112" extended-state="6" />
+    <frame x="130" y="48" width="3710" height="2112" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.14348958" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.14851752" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32977644" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
@@ -975,13 +1048,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="464">
-          <caret line="16" column="0" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_12-15.sl">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="464">
@@ -1038,6 +1104,14 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1487">
           <caret line="145" column="44" selection-start-line="145" selection-start-column="44" selection-end-line="145" selection-end-column="44" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="435">
+          <caret line="15" column="28" selection-start-line="15" selection-start-column="28" selection-end-line="15" selection-end-column="28" />
           <folding />
         </state>
       </provider>
