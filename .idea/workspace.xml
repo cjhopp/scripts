@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/python/testing/eqcorrscan_mem_profiling.py" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_250.sl" />
       <change type="DELETED" beforePath="$USER_HOME$/obspyck/new_events/2014sora912831.xml" afterPath="" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" afterPath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" afterPath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" />
@@ -11,7 +13,8 @@
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" afterPath="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
     </list>
     <ignored path="scripts.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -33,11 +36,11 @@
     <splitter split-orientation="horizontal" split-proportion="0.48215947">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="600">
-          <file leaf-file-name="PAN_MF_mseed.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="PAN_MF_mseed.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1487">
-                  <caret line="145" column="55" selection-start-line="145" selection-start-column="55" selection-end-line="145" selection-end-column="55" />
+                <state relative-caret-position="1516">
+                  <caret line="146" column="0" selection-start-line="142" selection-start-column="0" selection-end-line="146" selection-end-column="0" />
                   <folding />
                 </state>
               </provider>
@@ -46,18 +49,18 @@
           <file leaf-file-name="PAN_MF_mseed_test.sl" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="435">
-                  <caret line="15" column="28" selection-start-line="15" selection-start-column="28" selection-end-line="15" selection-end-column="28" />
+                <state relative-caret-position="290">
+                  <caret line="10" column="19" selection-start-line="10" selection-start-column="19" selection-end-line="10" selection-end-column="19" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="PAN_matched_filt.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.py">
+          <file leaf-file-name="PAN_MF_mseed_test_250.sl" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_250.sl">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="290">
-                  <caret line="10" column="52" selection-start-line="10" selection-start-column="52" selection-end-line="10" selection-end-column="52" />
+                <state relative-caret-position="0">
+                  <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
                   <folding />
                 </state>
               </provider>
@@ -66,18 +69,18 @@
           <file leaf-file-name="data_prep.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1856">
+                <state relative-caret-position="9657">
                   <caret line="333" column="0" selection-start-line="333" selection-start-column="0" selection-end-line="334" selection-end-column="0" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="plot_detections.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
+          <file leaf-file-name="eqcorrscan_mem_profiling.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/python/testing/eqcorrscan_mem_profiling.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="18009">
-                  <caret line="621" column="29" selection-start-line="621" selection-start-column="29" selection-end-line="621" selection-end-column="29" />
+                <state relative-caret-position="522">
+                  <caret line="18" column="41" selection-start-line="18" selection-start-column="41" selection-end-line="18" selection-end-column="41" />
                   <folding />
                 </state>
               </provider>
@@ -110,7 +113,7 @@
           <file leaf-file-name="template_gen.py" pinned="false" current-in-tab="false">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/template_gen.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="33176">
+                <state relative-caret-position="4822">
                   <caret line="1158" column="21" selection-start-line="1158" selection-start-column="20" selection-end-line="1158" selection-end-column="21" />
                   <folding>
                     <marker date="1489969136735" expanded="true" signature="4738:4807" ph="import ..." />
@@ -126,37 +129,37 @@
           <file leaf-file-name="match_filter.py" pinned="false" current-in-tab="true">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="37363">
-                  <caret line="3490" column="40" selection-start-line="3490" selection-start-column="40" selection-end-line="3490" selection-end-column="40" />
+                <state relative-caret-position="1026">
+                  <caret line="2254" column="49" selection-start-line="2254" selection-start-column="49" selection-end-line="2254" selection-end-column="49" />
                   <folding>
                     <element signature="e#49983#68947#0" expanded="false" />
                     <element signature="e#102222#102669#0" expanded="false" />
-                    <marker date="1492742629152" expanded="true" signature="3326:3421" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="3462:3557" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="4110:4205" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="4246:4341" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="4522:4617" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="4905:5000" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="5041:5136" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="8154:8335" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="8499:8680" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="9107:9215" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="9519:9627" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="33709:33964" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="34055:34315" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="34453:34969" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="35795:36050" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="36141:36395" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="36727:37243" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="37587:38103" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="38408:39185" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="39677:40455" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="40944:41460" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="42623:43401" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="45521:46299" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="71952:72047" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="72686:72781" ph="..." />
-                    <marker date="1492742629152" expanded="true" signature="73462:73557" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="3326:3421" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="3462:3557" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="4110:4205" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="4246:4341" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="4522:4617" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="4905:5000" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="5041:5136" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="8154:8335" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="8499:8680" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="9107:9215" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="9519:9627" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="33709:33964" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="34055:34315" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="34453:34969" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="35795:36050" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="36141:36395" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="36727:37243" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="37587:38103" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="38408:39185" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="39677:40455" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="40944:41460" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="42623:43401" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="45521:46299" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="71952:72047" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="72686:72781" ph="..." />
+                    <marker date="1492772352998" expanded="true" signature="73462:73557" ph="..." />
                   </folding>
                 </state>
               </provider>
@@ -232,7 +235,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/subspace.py" />
         <option value="$USER_HOME$/obspyck/obspyck.py" />
         <option value="$PROJECT_DIR$/python/workflow/det_mag_calc_8.py" />
         <option value="$PROJECT_DIR$/python/sherburn_cat_prep.py" />
@@ -281,15 +283,16 @@
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
         <option value="$PROJECT_DIR$/python/workflow/process_parties.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
+        <option value="$PROJECT_DIR$/python/testing/eqcorrscan_mem_profiling.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
+        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="130" />
+    <option name="x" value="3840" />
     <option name="y" value="48" />
-    <option name="width" value="3710" />
+    <option name="width" value="3840" />
     <option name="height" value="2112" />
   </component>
   <component name="ProjectInspectionProfilesVisibleTreeState">
@@ -432,10 +435,28 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="python" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="testing" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
         </subPane>
       </pane>
-      <pane id="Scope" />
       <pane id="Scratches" />
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -445,16 +466,16 @@
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
   </component>
   <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015" />
+      <recent name="$PROJECT_DIR$/python/old_scripts_4-1" />
+    </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts" />
       <recent name="$PROJECT_DIR$/python/workflow/util" />
       <recent name="$USER_HOME$/obspyck" />
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts/" />
       <recent name="$PROJECT_DIR$/python/workflow" />
-    </key>
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015" />
-      <recent name="$PROJECT_DIR$/python/old_scripts_4-1" />
     </key>
   </component>
   <component name="RunManager" selected="Python tests.Doctests in plotting">
@@ -672,14 +693,15 @@
     </history-entry>
   </component>
   <component name="ToolWindowManager">
-    <frame x="130" y="48" width="3710" height="2112" extended-state="6" />
+    <frame x="3840" y="48" width="3840" height="2112" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.14851752" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.1484375" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32977644" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
+      <window_info id="Thumbnails" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32977644" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
@@ -719,20 +741,6 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/slurm/6_run_match_slurm.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="290">
-          <caret line="10" column="21" selection-start-line="10" selection-start-column="21" selection-end-line="10" selection-end-column="21" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/pyasdf_2_temps.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="319">
-          <caret line="11" column="8" selection-start-line="11" selection-start-column="0" selection-end-line="13" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/pyasdf_2_templates_PAN.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1305">
@@ -853,20 +861,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-870">
           <caret line="9" column="0" selection-start-line="9" selection-start-column="0" selection-end-line="9" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/template_gen.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="33176">
-          <caret line="1158" column="21" selection-start-line="1158" selection-start-column="20" selection-end-line="1158" selection-end-column="21" />
-          <folding>
-            <marker date="1489969136735" expanded="true" signature="4738:4807" ph="import ..." />
-            <marker date="1489969136735" expanded="true" signature="8828:8897" ph="import ..." />
-            <marker date="1489969136735" expanded="true" signature="20950:21036" ph="import ..." />
-            <marker date="1489969136735" expanded="true" signature="34314:34412" ph="import ..." />
-            <marker date="1489969136735" expanded="true" signature="34532:34643" ph="..." />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -1026,14 +1020,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="290">
-          <caret line="10" column="52" selection-start-line="10" selection-start-column="52" selection-end-line="10" selection-end-column="52" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/obspyck/obspyck/util.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="617">
@@ -1055,63 +1041,101 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="37363">
-          <caret line="3490" column="40" selection-start-line="3490" selection-start-column="40" selection-end-line="3490" selection-end-column="40" />
-          <folding>
-            <element signature="e#49983#68947#0" expanded="false" />
-            <element signature="e#102222#102669#0" expanded="false" />
-            <marker date="1492742629152" expanded="true" signature="3326:3421" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="3462:3557" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="4110:4205" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="4246:4341" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="4522:4617" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="4905:5000" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="5041:5136" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="8154:8335" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="8499:8680" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="9107:9215" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="9519:9627" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="33709:33964" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="34055:34315" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="34453:34969" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="35795:36050" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="36141:36395" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="36727:37243" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="37587:38103" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="38408:39185" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="39677:40455" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="40944:41460" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="42623:43401" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="45521:46299" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="71952:72047" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="72686:72781" ph="..." />
-            <marker date="1492742629152" expanded="true" signature="73462:73557" ph="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1856">
+        <state relative-caret-position="9657">
           <caret line="333" column="0" selection-start-line="333" selection-start-column="0" selection-end-line="334" selection-end-column="0" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
+    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/template_gen.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="435">
-          <caret line="15" column="28" selection-start-line="15" selection-start-column="28" selection-end-line="15" selection-end-column="28" />
+        <state relative-caret-position="4822">
+          <caret line="1158" column="21" selection-start-line="1158" selection-start-column="20" selection-end-line="1158" selection-end-column="21" />
+          <folding>
+            <marker date="1489969136735" expanded="true" signature="4738:4807" ph="import ..." />
+            <marker date="1489969136735" expanded="true" signature="8828:8897" ph="import ..." />
+            <marker date="1489969136735" expanded="true" signature="20950:21036" ph="import ..." />
+            <marker date="1489969136735" expanded="true" signature="34314:34412" ph="import ..." />
+            <marker date="1489969136735" expanded="true" signature="34532:34643" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1026">
+          <caret line="2254" column="49" selection-start-line="2254" selection-start-column="49" selection-end-line="2254" selection-end-column="49" />
+          <folding>
+            <element signature="e#49983#68947#0" expanded="false" />
+            <element signature="e#102222#102669#0" expanded="false" />
+            <marker date="1492772352998" expanded="true" signature="3326:3421" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="3462:3557" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="4110:4205" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="4246:4341" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="4522:4617" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="4905:5000" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="5041:5136" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="8154:8335" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="8499:8680" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="9107:9215" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="9519:9627" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="33709:33964" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="34055:34315" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="34453:34969" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="35795:36050" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="36141:36395" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="36727:37243" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="37587:38103" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="38408:39185" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="39677:40455" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="40944:41460" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="42623:43401" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="45521:46299" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="71952:72047" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="72686:72781" ph="..." />
+            <marker date="1492772352998" expanded="true" signature="73462:73557" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/testing/eqcorrscan_mem_profiling.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="522">
+          <caret line="18" column="41" selection-start-line="18" selection-start-column="41" selection-end-line="18" selection-end-column="41" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-1450">
+          <caret line="10" column="52" selection-start-line="10" selection-start-column="52" selection-end-line="10" selection-end-column="52" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1487">
-          <caret line="145" column="55" selection-start-line="145" selection-start-column="55" selection-end-line="145" selection-end-column="55" />
+        <state relative-caret-position="1516">
+          <caret line="146" column="0" selection-start-line="142" selection-start-column="0" selection-end-line="146" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="290">
+          <caret line="10" column="19" selection-start-line="10" selection-start-column="19" selection-end-line="10" selection-end-column="19" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_250.sl">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding />
         </state>
       </provider>
