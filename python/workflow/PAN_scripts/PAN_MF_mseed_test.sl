@@ -8,7 +8,7 @@
 #SBATCH --output=match_12-15_test_out_%a.txt
 #SBATCH --error=match_12-15_test_err_%a.txt
 #SBATCH --cpus-per-task=12
-#SBATCH --array=250
+#SBATCH --array=1000
 
 module load ObsPy/1.0.2-foss-2015a-Python-3.5.1
 module load OpenCV/3.1.0-foss-2015a-Python-3.5.1
