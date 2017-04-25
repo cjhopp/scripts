@@ -80,6 +80,17 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                 wav_ds = ['%s%d/NZ/%s' % (d, dto.year, pk_sta) for d in wav_dirs]
                 sta_st = grab_day_wavs(wav_ds, dto, [pk_sta])
                 print('Processing data: %s' % pk_sta)
+                stachans = [(tr.stats.station, tr.stats.channel) for tr in sta_st]
+                for stachan in list(set(stachans)):
+                    tmp_st = sta_st.select(station=stachan[0], channel=stachan[1])
+                    if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate
+                                                    for tr in tmp_st])) > 1:
+                        print('Traces from %s.%s have differing samp rates'
+                              % (stachan[0], stachan[1]))
+                        for tr in tmp_st:
+                            sta_st.remove(tr)
+                        tmp_st.resample(sampling_rate=100.)
+                        sta_st += tmp_st
                 sta_st.merge(fill_value='interpolate')
                 # Process the stream
                 try:
