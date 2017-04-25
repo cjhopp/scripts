@@ -404,11 +404,9 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
             # Run check to ensure that there is only one pick for each channel
             dups = [pk for pk, count
                     in collections.Counter(pk_stachans).items() if count > 1]
-            if len(dups) > 0:
-                for dup in dups:
-                    event.picks.remove(dup)
-                    NotImplementedError('More than one pick on a channel: ' +
-                                        '%s: %s' % (ev_name, dup))
+            if len(dups > 1):
+                print('Event %s still has dup picks. Skipping' % ev_name)
+                continue
             template = template_gen(event.picks, trim_st, length=length,
                                     prepick=prepick, min_snr=min_snr)
             if len([tr for tr in template
