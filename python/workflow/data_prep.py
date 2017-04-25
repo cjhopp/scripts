@@ -385,7 +385,8 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
         try:
             st1 = pre_processing.dayproc(st, lowcut=lowcut, highcut=highcut,
                                          filt_order=f_order, samp_rate=samp_rate,
-                                         starttime=dto, debug=debug, ignore_length=True)
+                                         starttime=dto, debug=debug, ignore_length=True,
+                                         num_cores=8)
         except NotImplementedError or Exception as e:
             print('Found error in dayproc, noting date and continuing')
             print(e)
