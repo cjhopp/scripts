@@ -25,5 +25,3 @@ def plot_frac_capture(detector):
     ax.plot(avg, linecolor='red')
     plt.show()
     return
-
-d
