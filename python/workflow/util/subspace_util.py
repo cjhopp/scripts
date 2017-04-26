@@ -10,4 +10,20 @@ def plot_frac_capture(detector):
     :param detector:
     :return:
     """
-    for dim in len(detector.u):
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    A = detector.sigma*detector.v
+    fcs = np.array([len(A.T), detector.dimension])
+    for i, ai in enumerate(A.T):
+        for j in range(len(ai)):
+            fcs[i,j] = ai.T * ai
+    avg = [np.mean(dim) for dim in fcs.T]
+    fig, ax = plt.subplots()
+    for fc in fcs:
+        ax.plot(fc, linecolor='grey')
+    ax.plot(avg, linecolor='red')
+    plt.show()
+    return
+
+d

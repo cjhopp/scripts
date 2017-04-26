@@ -622,7 +622,8 @@ def make_dist_mat(directory, highcut, lowcut, samp_rate,
 
     temp_files = glob('%s/*' % directory)
     temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
-                            samp_rate=samp_rate, filt_order=filt_order),
+                            samp_rate=samp_rate, filt_order=filt_order,
+                            cores=cores),
                   tmp.split('/')[-1].split('.')[0])
                  for tmp in temp_files]
     front_clip = raw_prepick - corr_prepick
