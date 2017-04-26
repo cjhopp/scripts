@@ -515,48 +515,6 @@ def remove_dups_TauP(cat, input):
     return fixed_cat
 
 
-def remove_duplicate_picks(cat, outfile=None):
-    """
-    Search through a catalog and remove duplicate picks
-    :param cat:
-    :param outfile: path to new catalog file
-    :return:
-    """
-    import collections
-    import csv
-
-    write_flag=False
-    # with open('events_w_multiple_picks.txt', 'w') as f:
-    # writer = csv.writer(f)
-    for ev in cat:
-        stachans = [(pk.waveform_id.station_code,
-                     pk.waveform_id.channel_code,
-                     pk.phase_hint) for pk in ev.picks]
-        dups = [pk for pk, count
-                in collections.Counter(stachans).items() if count > 1]
-        if len(dups) > 1:
-            write_flag=True
-            print('Fixing event %s' % str(ev.resource_id))
-                # writer.writerow([str(ev.resource_id).split('/')[-1],
-                #                              str(ev.origins[0].time)])
-                # for dup in dups:
-                #     writer.writerow([dup[0], dup[1]])
-                #     perp_pks = [pk for pk in ev.picks
-                #                 if pk.waveform_id.station_code == dup[0]
-                #                 and pk.waveform_id.channel_code == dup[1]
-                #                 and pk.phase_hint == dup[2]]
-                #     # Sort by time and remove all but first dup
-                #     srtd_perps = sorted(perp_pks, key=lambda x: x.time)
-                #     for perp in srtd_perps[1:]:
-                #         ev.picks.remove(perp)
-    if write_flag:
-        if outfile:
-            cat.write(outfile, format='QUAKEML')
-    else:
-        print('No duplicate picks in this catalog.')
-    return
-
-
 def replace_dup_events(orig_cat, replacement_cat, bad_cat):
     """
     Take the original catalog and replace events with duplicate picks with
@@ -633,3 +591,101 @@ def mseed_2_Tribe(temp_dir, cat, swin='all', tar_name=None):
     if tar_name:
         Tribe.write(tar_name)
     return Tribe
+
+def make_dist_mat(directory, highcut, lowcut, samp_rate,
+                  filt_order, raw_prepick, corr_prepick,
+                  length, shift, outfile, method, cores):
+    """
+    Taking a directory of templates, processing wavs and computing correlation
+    clustering prior to creating subspace
+    :param directory: Directory of template mseeds
+    :param highcut: filter highcut
+    :param lowcut: filter lowcut
+    :param samp_rate: output sample rate
+    :param filt_order: filter corners
+    :param raw_prepick: Prepick time of template files
+    :param corr_prepick: Output prepick before correlations
+    :param length: Length of temp to be correlating
+    :param shift: Shift length in secs allowed during correlations
+    :param outfile: Filename for output distance matrix
+    :param method: Method for heirarchical clustering
+    :return:
+    """
+    from glob import glob
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    from obspy import read
+    from eqcorrscan.utils.pre_processing import shortproc
+    from eqcorrscan.utils.clustering import distance_matrix
+
+    temp_files = glob('%s/*' % directory)
+    temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
+                            samp_rate=samp_rate, filt_order=filt_order),
+                  tmp.split('/')[-1].split('.')[0])
+                 for tmp in temp_files]
+    front_clip = raw_prepick - corr_prepick
+    back_clip = front_clip + length
+    for temp in temp_list:
+        for tr in temp[0]:
+            tr.trim(starttime=tr.stats.starttime + front_clip,
+                    endtime=tr.stats.starttime + back_clip)
+    temp_sts = [x[0] for x in temp_list]
+    print('Starting distance matrix computations')
+    dist_mat = distance_matrix(temp_sts, allow_shift=True, shift_len=shift,
+                               cores=cores)
+    print('Saving matrix to %s' % outfile)
+    np.save(outfile, dist_mat)
+    dist_df = pd.DataFrame(dist_mat)
+    sns.clustermap(dist_df, method=method, vmin=0., vmax=1.)
+    plt.show()
+    return
+
+def cluster_temp_list(directory, dist_mat, method):
+    """
+    Do event clustering from pre-saved dist_mat
+    :param directory:
+    :param dist_mat:
+    :param method:
+    :return:
+    """
+    from glob import glob
+    from obspy import read
+    from scipy.cluster.hierarchy import fcluster
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    temp_files = glob('%s/*' % directory)
+    temp_list = [(read(tmp), tmp.split('/')[-1].split('.')[0])
+                 for tmp in temp_files]
+    dist_df = pd.DataFrame(np.load(dist_mat))
+    clust_grd = sns.clustermap(dist_df, method=method, vmin=0., vmax=1.)
+    plt.show()
+    Z = clust_grd.dendrogram_row.linkage
+    indices = fcluster(Z, t=1.0, criterion='inconsistent')
+    group_ids = list(set(indices))  # Unique list of group ids
+    if debug >= 1:
+        msg = ' '.join(['Found', str(len(group_ids)), 'groups'])
+        print(msg)
+    # Convert to tuple of (group id, stream id)
+    indices = [(indices[i], i) for i in range(len(indices))]
+    # Sort by group id
+    indices.sort(key=lambda tup: tup[0])
+    groups = []
+    for group_id in group_ids:
+        group = []
+        for ind in indices:
+            if ind[0] == group_id:
+                group.append(temp_list[ind[1]])
+            elif ind[0] > group_id:
+                # Because we have sorted by group id, when the index is greater
+                # than the group_id we can break the inner loop.
+                # Patch applied by CJC 05/11/2015
+                groups.append(group)
+                break
+    # Catch the final group
+    groups.append(group)
+    return clust_grd
