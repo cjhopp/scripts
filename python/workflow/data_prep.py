@@ -594,7 +594,7 @@ def mseed_2_Tribe(temp_dir, cat, swin='all', tar_name=None):
 
 def make_dist_mat(directory, highcut, lowcut, samp_rate,
                   filt_order, raw_prepick, corr_prepick,
-                  length, shift, outfile, method, cores):
+                  length, shift, outfile, cores):
     """
     Taking a directory of templates, processing wavs and computing correlation
     clustering prior to creating subspace
@@ -638,9 +638,6 @@ def make_dist_mat(directory, highcut, lowcut, samp_rate,
                                cores=cores)
     print('Saving matrix to %s' % outfile)
     np.save(outfile, dist_mat)
-    dist_df = pd.DataFrame(dist_mat)
-    sns.clustermap(dist_df, method=method, vmin=0., vmax=1.)
-    plt.show()
     return
 
 def cluster_temp_list(directory, dist_mat, method):
