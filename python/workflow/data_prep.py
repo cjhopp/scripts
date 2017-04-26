@@ -613,9 +613,6 @@ def make_dist_mat(directory, highcut, lowcut, samp_rate,
     """
     from glob import glob
     import numpy as np
-    import pandas as pd
-    import seaborn as sns
-    import matplotlib.pyplot as plt
     from obspy import read
     from eqcorrscan.utils.pre_processing import shortproc
     from eqcorrscan.utils.clustering import distance_matrix
