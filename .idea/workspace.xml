@@ -5,6 +5,7 @@
       <change type="DELETED" beforePath="$USER_HOME$/obspyck/new_events/2014sora912831.xml" afterPath="" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" afterPath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" afterPath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" />
+      <change type="MODIFICATION" beforePath="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" afterPath="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspy/obspy/clients/seishub/client.py" afterPath="$USER_HOME$/obspy/obspy/clients/seishub/client.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspy/obspy/clients/seishub/sftp_client.py" afterPath="$USER_HOME$/obspy/obspy/clients/seishub/sftp_client.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/build/lib.linux-x86_64-2.7/obspyck/obspyck.py" afterPath="$USER_HOME$/obspyck/build/lib.linux-x86_64-2.7/obspyck/obspyck.py" />
@@ -12,6 +13,7 @@
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/data_prep.py" afterPath="$PROJECT_DIR$/python/workflow/data_prep.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/util/subspace_util.py" afterPath="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
     </list>
     <ignored path="scripts.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -43,21 +45,21 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="data_prep.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="data_prep.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="704">
-                  <caret line="615" column="0" selection-start-line="615" selection-start-column="0" selection-end-line="615" selection-end-column="0" />
+                <state relative-caret-position="1748">
+                  <caret line="682" column="17" selection-start-line="682" selection-start-column="17" selection-end-line="682" selection-end-column="17" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="subspace_util.py" pinned="false" current-in-tab="false">
+          <file leaf-file-name="subspace_util.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="754">
-                  <caret line="26" column="10" selection-start-line="26" selection-start-column="10" selection-end-line="26" selection-end-column="10" />
+                <state relative-caret-position="609">
+                  <caret line="21" column="40" selection-start-line="21" selection-start-column="40" selection-end-line="21" selection-end-column="40" />
                   <folding />
                 </state>
               </provider>
@@ -129,18 +131,18 @@
           <file leaf-file-name="clustering.py" pinned="false" current-in-tab="true">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="6214">
-                  <caret line="224" column="0" selection-start-line="224" selection-start-column="0" selection-end-line="225" selection-end-column="0" />
+                <state relative-caret-position="1606">
+                  <caret line="400" column="42" selection-start-line="400" selection-start-column="42" selection-end-line="400" selection-end-column="42" />
                   <folding>
                     <element signature="e#215#253#0" expanded="true" />
-                    <marker date="1492570023202" expanded="true" signature="24159:24338" ph="import ..." />
-                    <marker date="1492570023202" expanded="true" signature="24421:24708" ph="..." />
-                    <marker date="1492570023202" expanded="true" signature="24875:24989" ph="..." />
-                    <marker date="1492570023202" expanded="true" signature="25012:25111" ph="..." />
-                    <marker date="1492570023202" expanded="true" signature="34070:34207" ph="import ..." />
-                    <marker date="1492570023202" expanded="true" signature="34526:34663" ph="import ..." />
-                    <marker date="1492570023202" expanded="true" signature="36770:36912" ph="import ..." />
-                    <marker date="1492570023202" expanded="true" signature="38776:38847" ph="import ..." />
+                    <marker date="1493269676054" expanded="true" signature="24234:24413" ph="import ..." />
+                    <marker date="1493269676054" expanded="true" signature="24496:24783" ph="..." />
+                    <marker date="1493269676054" expanded="true" signature="24950:25064" ph="..." />
+                    <marker date="1493269676054" expanded="true" signature="25087:25186" ph="..." />
+                    <marker date="1493269676054" expanded="true" signature="34145:34282" ph="import ..." />
+                    <marker date="1493269676054" expanded="true" signature="34601:34738" ph="import ..." />
+                    <marker date="1493269676054" expanded="true" signature="36845:36987" ph="import ..." />
+                    <marker date="1493269676054" expanded="true" signature="38851:38922" ph="import ..." />
                   </folding>
                 </state>
               </provider>
@@ -149,9 +151,11 @@
           <file leaf-file-name="subspace.py" pinned="false" current-in-tab="false">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/subspace.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1864">
-                  <caret line="230" column="0" selection-start-line="230" selection-start-column="0" selection-end-line="230" selection-end-column="0" />
-                  <folding />
+                <state relative-caret-position="871">
+                  <caret line="200" column="30" selection-start-line="200" selection-start-column="30" selection-end-line="200" selection-end-column="30" />
+                  <folding>
+                    <element signature="e#408#446#0" expanded="true" />
+                  </folding>
                 </state>
               </provider>
             </entry>
@@ -199,8 +203,8 @@
           <file leaf-file-name="pre_processing.py" pinned="false" current-in-tab="false">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/pre_processing.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-5618">
-                  <caret line="249" column="23" selection-start-line="249" selection-start-column="22" selection-end-line="249" selection-end-column="23" />
+                <state relative-caret-position="377">
+                  <caret line="25" column="0" selection-start-line="25" selection-start-column="0" selection-end-line="25" selection-end-column="0" />
                   <folding>
                     <marker date="1489969137011" expanded="false" signature="1042:1131" ph="import ..." />
                     <marker date="1489969137011" expanded="false" signature="3630:3714" ph="import ..." />
@@ -237,7 +241,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/python/workflow/det_mag_calc_8.py" />
         <option value="$PROJECT_DIR$/python/sherburn_cat_prep.py" />
         <option value="$PROJECT_DIR$/python/merge_xml_files.py" />
         <option value="$PROJECT_DIR$/python/workflow/sherburn_cat_prep.py" />
@@ -279,15 +282,16 @@
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_12-15.sl" />
         <option value="$PROJECT_DIR$/python/experiment/dist_mat2groups.py" />
         <option value="$PROJECT_DIR$/python/workflow/obspyck_util.py" />
-        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
         <option value="$PROJECT_DIR$/python/workflow/process_parties.py" />
         <option value="$PROJECT_DIR$/python/testing/eqcorrscan_mem_profiling.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/make_stefan_SAC.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
         <option value="$PROJECT_DIR$/python/workflow/data_prep.py" />
+        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/subspace.py" />
+        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
       </list>
     </option>
   </component>
@@ -1115,22 +1119,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/pre_processing.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-5618">
-          <caret line="249" column="23" selection-start-line="249" selection-start-column="22" selection-end-line="249" selection-end-column="23" />
-          <folding>
-            <marker date="1489969137011" expanded="false" signature="1042:1131" ph="import ..." />
-            <marker date="1489969137011" expanded="false" signature="3630:3714" ph="import ..." />
-            <marker date="1489969137011" expanded="false" signature="4135:4219" ph="import ..." />
-            <marker date="1489969137011" expanded="false" signature="4616:4700" ph="import ..." />
-            <marker date="1489969137011" expanded="true" signature="9490:9581" ph="..." />
-            <marker date="1489969137011" expanded="true" signature="10343:10434" ph="..." />
-            <marker date="1489969137011" expanded="true" signature="11199:11290" ph="..." />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="29">
@@ -1172,44 +1160,62 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/pre_processing.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="377">
+          <caret line="25" column="0" selection-start-line="25" selection-start-column="0" selection-end-line="25" selection-end-column="0" />
+          <folding>
+            <marker date="1489969137011" expanded="false" signature="1042:1131" ph="import ..." />
+            <marker date="1489969137011" expanded="false" signature="3630:3714" ph="import ..." />
+            <marker date="1489969137011" expanded="false" signature="4135:4219" ph="import ..." />
+            <marker date="1489969137011" expanded="false" signature="4616:4700" ph="import ..." />
+            <marker date="1489969137011" expanded="true" signature="9490:9581" ph="..." />
+            <marker date="1489969137011" expanded="true" signature="10343:10434" ph="..." />
+            <marker date="1489969137011" expanded="true" signature="11199:11290" ph="..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/subspace.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1864">
-          <caret line="230" column="0" selection-start-line="230" selection-start-column="0" selection-end-line="230" selection-end-column="0" />
-          <folding />
+        <state relative-caret-position="871">
+          <caret line="200" column="30" selection-start-line="200" selection-start-column="30" selection-end-line="200" selection-end-column="30" />
+          <folding>
+            <element signature="e#408#446#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="6214">
-          <caret line="224" column="0" selection-start-line="224" selection-start-column="0" selection-end-line="225" selection-end-column="0" />
+        <state relative-caret-position="1606">
+          <caret line="400" column="42" selection-start-line="400" selection-start-column="42" selection-end-line="400" selection-end-column="42" />
           <folding>
             <element signature="e#215#253#0" expanded="true" />
-            <marker date="1492570023202" expanded="true" signature="24159:24338" ph="import ..." />
-            <marker date="1492570023202" expanded="true" signature="24421:24708" ph="..." />
-            <marker date="1492570023202" expanded="true" signature="24875:24989" ph="..." />
-            <marker date="1492570023202" expanded="true" signature="25012:25111" ph="..." />
-            <marker date="1492570023202" expanded="true" signature="34070:34207" ph="import ..." />
-            <marker date="1492570023202" expanded="true" signature="34526:34663" ph="import ..." />
-            <marker date="1492570023202" expanded="true" signature="36770:36912" ph="import ..." />
-            <marker date="1492570023202" expanded="true" signature="38776:38847" ph="import ..." />
+            <marker date="1493269676054" expanded="true" signature="24234:24413" ph="import ..." />
+            <marker date="1493269676054" expanded="true" signature="24496:24783" ph="..." />
+            <marker date="1493269676054" expanded="true" signature="24950:25064" ph="..." />
+            <marker date="1493269676054" expanded="true" signature="25087:25186" ph="..." />
+            <marker date="1493269676054" expanded="true" signature="34145:34282" ph="import ..." />
+            <marker date="1493269676054" expanded="true" signature="34601:34738" ph="import ..." />
+            <marker date="1493269676054" expanded="true" signature="36845:36987" ph="import ..." />
+            <marker date="1493269676054" expanded="true" signature="38851:38922" ph="import ..." />
           </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="754">
-          <caret line="26" column="10" selection-start-line="26" selection-start-column="10" selection-end-line="26" selection-end-column="10" />
-          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="704">
-          <caret line="615" column="0" selection-start-line="615" selection-start-column="0" selection-end-line="615" selection-end-column="0" />
+        <state relative-caret-position="1748">
+          <caret line="682" column="17" selection-start-line="682" selection-start-column="17" selection-end-line="682" selection-end-column="17" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="609">
+          <caret line="21" column="40" selection-start-line="21" selection-start-column="40" selection-end-line="21" selection-end-column="40" />
           <folding />
         </state>
       </provider>

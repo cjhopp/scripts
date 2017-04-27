@@ -620,7 +620,7 @@ def make_dist_mat(directory, highcut, lowcut, samp_rate,
     temp_files = glob('%s/*' % directory)
     temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
                             samp_rate=samp_rate, filt_order=filt_order,
-                            cores=cores),
+                            parallel=True, num_cores=cores),
                   tmp.split('/')[-1].split('.')[0])
                  for tmp in temp_files]
     front_clip = raw_prepick - corr_prepick
@@ -662,9 +662,6 @@ def cluster_temp_list(directory, dist_mat, method):
     Z = clust_grd.dendrogram_row.linkage
     indices = fcluster(Z, t=1.0, criterion='inconsistent')
     group_ids = list(set(indices))  # Unique list of group ids
-    if debug >= 1:
-        msg = ' '.join(['Found', str(len(group_ids)), 'groups'])
-        print(msg)
     # Convert to tuple of (group id, stream id)
     indices = [(indices[i], i) for i in range(len(indices))]
     # Sort by group id
@@ -683,4 +680,4 @@ def cluster_temp_list(directory, dist_mat, method):
                 break
     # Catch the final group
     groups.append(group)
-    return clust_grd
+    return groups
