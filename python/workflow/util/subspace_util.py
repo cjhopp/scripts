@@ -19,11 +19,7 @@ def plot_frac_capture(detector):
     u = detector.u[0]
     sig = scipy.linalg.diagsvd(sigma, max(u.shape), max(v.shape))
     A = np.dot(sig, v)
-    print('U matrix has shape %s' % str(u.shape))
-    print('S matrix has shape %s' % str(sig.shape))
-    print('V matrix has shape %s' % str(v.shape))
-    print('A matrix has shape %s' % str(A.shape))
-    if detector.dimension > 30 or detector.dimension == np.inf:
+    if detector.dimension > max(v.shape) or detector.dimension == np.inf:
         dim = max(v.shape)
     else:
         dim = detector.dimension
@@ -38,4 +34,27 @@ def plot_frac_capture(detector):
     avg = [np.average(dim[1]) for dim in av_fc_dict.items()]
     ax.plot(avg, color='red', linewidth=3.)
     plt.show()
+    return
+
+def rewrite_subspace(detector, outfile):
+    """
+    Rewrite old subspace with U and V matrices switched
+    :param detector:
+    :return:
+    """
+    import copy
+    from eqcorrscan.core.subspace import Detector
+
+    new_u = copy.deepcopy(detector.v)
+    new_v = copy.deepcopy(detector.u)
+    final_u = [u.T for u in new_u]
+    final_v = [v.T for v in new_v]
+    final_data = copy.deepcopy(final_u)
+    new_det = Detector(name=detector.name, sampling_rate=detector.sampling_rate,
+                       multiplex=detector.multiplex, stachans=detector.stachans,
+                       lowcut=detector.lowcut, highcut=detector.highcut,
+                       filt_order=detector.filt_order, data=final_data,
+                       u=final_u,sigma=detector.sigma,v=final_v,
+                       dimension=detector.dimension)
+    new_det.write(outfile)
     return
