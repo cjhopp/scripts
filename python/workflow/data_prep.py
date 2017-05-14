@@ -592,6 +592,161 @@ def mseed_2_Tribe(temp_dir, cat, swin='all', tar_name=None):
         Tribe.write(tar_name)
     return Tribe
 
+
+def mseed_2_Party(wav_dir, cat, temp_cat, lowcut, highcut, filt_order,
+                  process_length, prepick):
+    """
+    Take waveforms and catalog and create a Party object
+    :param wav_dir:
+    :param cat:
+    :return:
+    """
+    from eqcorrscan.core.match_filter import Detection, Family, Party, Template
+    from obspy import read, UTCDateTime, Catalog
+
+    partay = Party()
+    # Get templates first
+    temp_tup = [(ev, str(ev.resource_id).split('/')[-1].split('_')[0])
+                for ev in cat
+                if str(ev.resource_id).split('/')[-1].split('_')[-1]=='self']
+    temp_evs, temp_ids = zip(*temp_tup)
+    temp_evs = list(temp_evs)
+    wav_files = ['%s/%s.mseed' % (wav_dir, str(ev.resource_id).split('/')[-1])
+                 for ev in temp_evs]
+    temp_wavs = [read(wav) for wav in wav_files]
+    for temp_wav, temp_ev in zip(temp_wavs, temp_evs):
+        #Create a Template object, assign it to Family and then to Party
+        tid = str(temp_ev.resource_id).split('/')[-1].split('_')[0]
+        if len([ev for ev in temp_cat
+                if str(ev.resource_id).split('/')[-1] == tid]) > 0:
+            temp_ev = [ev for ev in temp_cat
+                           if str(ev.resource_id).split('/')[-1] == tid][0]
+        tmp = Template(name=tid, st=temp_wav, lowcut=lowcut, highcut=highcut,
+                       samp_rate=temp_wav[0].stats.sampling_rate,
+                       filt_order=filt_order, process_length=process_length,
+                       prepick=prepick, event=temp_ev)
+        fam_det_evs = [ev for ev in cat
+                       if str(ev.resource_id).split('/')[-1].split('_')[-1]!='self'
+                       and str(ev.resource_id).split('/')[-1].split('_')[0]==tid]
+        fam_dets = [Detection(template_name=str(ev.resource_id).split('/')[-1].split('_')[0],
+                              detect_time=UTCDateTime([com.text.split('=')[-1]
+                                                       for com in ev.comments
+                                                       if com.text.split('=')[0]=='det_time'][0]),
+                              no_chans=len(ev.picks),
+                              chans=[pk.waveform_id.station_code
+                                     for pk in ev.picks],
+                              detect_val=float([com.text.split('=')[-1]
+                                                for com in ev.comments
+                                                if com.text.split('=')[0]=='detect_val'][0]),
+                              threshold=float([com.text.split('=')[-1]
+                                               for com in ev.comments
+                                               if com.text.split('=')[0]=='threshold'][0]),
+                              typeofdet='corr',
+                              threshold_type='MAD',
+                              threshold_input=8.0,
+                              event=ev, id=str(ev.resource_id).split('/')[-1])
+                    for ev in fam_det_evs]
+        fam_cat = Catalog(events=[det.event for det in fam_dets])
+        fam = Family(template=tmp, detections=fam_dets, catalog=fam_cat)
+        partay.families.append(fam)
+    return partay
+
+
+def party_svd_moments(party, shift_len, length, reject, wav_dir,
+                      calibrate=False):
+    """
+    Calculate the relative moments for detections in a Family using
+    mag_calc.svd_moments()
+
+    :type calibrate: bool
+    :param calibrate: If present, will scale moments to template magnitude
+    :return: Party
+    """
+    import copy
+    import numpy as np
+    from obspy import read, Catalog
+    from obspy.core.event import Magnitude
+    from eqcorrscan.core.subspace import _subspace_process
+    from eqcorrscan.utils.clustering import svd
+    from eqcorrscan.utils.mag_calc import svd_moments
+
+    for fam in party.families:
+        prepick = fam.template.prepick
+        events = [det.event for det in fam.detections]
+        wav_files = ['%s/%s.mseed' % (wav_dir,
+                                      str(ev.resource_id).split('/')[-1])
+                     for ev in events]
+        streams = [read(wav_file) for wav_file in wav_files]
+        streams.insert(0, fam.template.st)
+        front_clip = prepick - (shift_len / 2.) - 0.05
+        back_clip = prepick - 0.05 + length + (shift_len / 2.)
+        wrk_streams = copy.deepcopy(streams)
+        for st in wrk_streams:
+            for tr in st:
+                tr.trim(starttime=tr.stats.starttime + front_clip,
+                        endtime=tr.stats.starttime + back_clip)
+        tmp = fam.template
+        p_streams,stachans = _subspace_process(streams=copy.deepcopy(wrk_streams),
+                                               lowcut=tmp.lowcut,
+                                               highcut=tmp.highcut,
+                                               filt_order=tmp.filt_order,
+                                               sampling_rate=tmp.samp_rate,
+                                               multiplex=False, align=True,
+                                               shift_len=shift_len,
+                                               reject=reject)
+        # Remove zero-padded traces
+        for stream in p_streams:
+            for tr in stream.copy():
+                if np.count_nonzero(tr.data) == 0:
+                    stream.traces.remove(tr)
+        event_list = []
+        for stachan in stachans:
+            st_list = []
+            for i, st in enumerate(p_streams):
+                if len(st.select(station=stachan[0],
+                                 channel=stachan[-1])) > 0:
+                    st_list.append(i)
+            event_list.append(st_list)
+        # event_list = np.asarray(event_list).tolist()
+        u, sigma, v, stachans = svd(stream_list=p_streams, full=True)
+        try:
+            M, events_out = svd_moments(u, sigma, v, stachans, event_list)
+        except IOError as e:
+            print('Family %s raised error %s' % (fam.template.name, e))
+            continue
+        # If we have a Mag for template, calibrate moments
+        if calibrate and len(fam.template.event.magnitudes) > 0:
+            temp_mag = fam.template.event.preferred_magnitude().mag
+            #Normalize moments to template mag
+            M_normed = [m/M[0] for m in M]
+            M_calib = [temp_mag + ((2/3)*np.log10(m/M[0])) for m in M_normed]
+            # M_calib = [(temp_mag / M[0]) * m for m in M]
+            # Add calibrated mags to detection events
+            for i, eind in enumerate(events_out):
+                fam.detections[eind - 1].event.magnitudes.append(Magnitude(mag=M_calib[i]))
+            fam.catalog = Catalog(events=[det.event for det in fam.detections])
+    return party
+
+
+def shelly_mags(party, wav_dir):
+    """
+    Implementation of David Shelly's relative amplitude-based calculations
+    :param party:
+    :return:
+    """
+    from obspy import read
+
+    for fam in party:
+        prepick = fam.template.prepick
+        events = [det.event for det in fam.detections]
+        wav_files = ['%s/%s.mseed' % (wav_dir,
+                                      str(ev.resource_id).split('/')[-1])
+                     for ev in events]
+        streams = [read(wav_file) for wav_file in wav_files]
+
+    return
+
+
 def make_dist_mat(directory, highcut, lowcut, samp_rate,
                   filt_order, raw_prepick, corr_prepick,
                   length, shift, outfile, cores):

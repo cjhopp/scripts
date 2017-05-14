@@ -32,7 +32,7 @@ def plot_mag_w_time(cat, show=True):
     for ev in cat:
         try:
             mag_tup.append((ev.origins[-1].time.datetime,
-                            ev.preferred_magnitude().mag))
+                            ev.magnitudes[-1].mag))
         except AttributeError:
             print('Event %s has no associated magnitude' % str(ev.resource_id))
     dates, mags = zip(*mag_tup)
@@ -58,8 +58,9 @@ def Mc_test(cat, n_bins, start_mag=None):
     import numpy as np
     import matplotlib.pyplot as plt
     from operator import itemgetter
-    mags = [round(ev.magnitudes[-1].mag, 1)
-            for ev in cat if len(ev.magnitudes) > 0]
+    mags = np.array([round(ev.magnitudes[-1].mag, 1)
+                    for ev in cat if len(ev.magnitudes) > 0])
+    mags = mags[np.isfinite(mags)].tolist()
     mags.sort()
     bin_vals, bins = np.histogram(mags, bins=n_bins) # Count mags in each bin
     inds = np.digitize(mags, bins) # Get bin index for each mag in mags
@@ -101,8 +102,9 @@ def bval_calc(cat, n_bins, MC):
     """
     import numpy as np
     from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
-    mags = [ev.preferred_magnitude().mag for ev in cat
-            if ev.preferred_magnitude()]
+    mags = np.asarray([ev.magnitudes[-1].mag for ev in cat
+                       if len(ev.magnitudes) > 0])
+    mags = mags[np.isfinite(mags)].tolist()
     # Calculate Mc using max curvature method if not specified
     if not MC:
         Mc = calc_max_curv(mags)
@@ -116,14 +118,14 @@ def bval_calc(cat, n_bins, MC):
     bval_bins = []
     bval_wts = []
     for i, val in enumerate(bin_vals):
-        cum_val_count = len([ev for ev in cat if ev.preferred_magnitude()
-                             and ev.preferred_magnitude().mag >= val])
+        cum_val_count = len([ev for ev in cat if len(ev.magnitudes) > 0
+                             and ev.magnitudes[-1].mag >= val])
         if i < len(bin_vals) - 1:
             non_cum_val_cnt = len([ev for ev in cat
-                                   if ev.preferred_magnitude()
-                                   and val < ev.preferred_magnitude().mag
+                                   if len(ev.magnitudes) > 0
+                                   and val < ev.magnitudes[-1].mag
                                    and bin_vals[i + 1] >=
-                                   ev.preferred_magnitude().mag])
+                                   ev.magnitudes[-1].mag])
             non_cum_bins.append(non_cum_val_cnt)
         cum_bins.append(cum_val_count)
         if val >= Mc:
@@ -232,8 +234,9 @@ def bval_plot(cat, bins=30, MC=None, title=None,
     ax2.set_ylabel('B-value')
     # Plot magnitude histogram underneath ax2
     ax3 = ax2.twinx()
-    mags = [ev.preferred_magnitude().mag for ev in cat
-            if ev.preferred_magnitude()]
+    mags = np.asarray([ev.magnitudes[-1].mag for ev in cat
+                       if len(ev.magnitudes) > 0])
+    mags = mags[np.isfinite(mags)].tolist()
     sns.distplot(mags, kde=False, ax=ax3, hist_kws={"alpha": 0.2})
     ax3.set_ylabel('Number of events')
     fig.tight_layout()
@@ -252,8 +255,8 @@ def plot_mag_v_lat(cat, method='all'):
     :return: matplotlib.pyplot.Figure
     """
     import numpy as np
-    data = [(ev.origins[-1].latitude, ev.preferred_magnitude().mag)
-            for ev in cat if ev.preferred_magnitude()]
+    data = [(ev.origins[-1].latitude, ev.magnitudes[-1].mag)
+            for ev in cat if ev.magnitude[-1]]
     lats, mags = zip(*data)
     fig, ax = plt.subplots()
     if method == 'all':
