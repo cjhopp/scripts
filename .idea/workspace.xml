@@ -2,9 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl" />
       <change type="DELETED" beforePath="$USER_HOME$/obspyck/new_events/2014sora912831.xml" afterPath="" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" afterPath="$USER_HOME$/obspyck/dist/obspyck-0.4.1.post0-py2.7.egg" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" afterPath="$USER_HOME$/obspyck/plugin_dir/focmec/focmec__Linux__64bit" />
@@ -16,6 +13,7 @@
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/obspyck/obspyck.py" afterPath="$USER_HOME$/obspyck/obspyck/obspyck.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl" afterPath="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl" />
     </list>
     <ignored path="scripts.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -57,21 +55,21 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="PAN_MF_mseed_test.sl" pinned="false" current-in-tab="true">
+          <file leaf-file-name="PAN_MF_mseed_test.sl" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="493">
-                  <caret line="17" column="39" selection-start-line="17" selection-start-column="39" selection-end-line="17" selection-end-column="39" />
+                <state relative-caret-position="435">
+                  <caret line="15" column="113" selection-start-line="15" selection-start-column="113" selection-end-line="15" selection-end-column="113" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="PAN_MF_mseed_1core_test.sl" pinned="false" current-in-tab="false">
+          <file leaf-file-name="PAN_MF_mseed_1core_test.sl" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="0">
-                  <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+                <state relative-caret-position="435">
+                  <caret line="15" column="119" selection-start-line="15" selection-start-column="119" selection-end-line="15" selection-end-column="119" />
                   <folding />
                 </state>
               </provider>
@@ -250,7 +248,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/pyasdf_2_templates_PAN.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/pyasdf_2_temps.sl" />
         <option value="$USER_HOME$/pymap/pymap.py" />
         <option value="$USER_HOME$/pymap/Vagrantfile" />
@@ -301,6 +298,7 @@
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
+        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl" />
       </list>
     </option>
   </component>
@@ -1107,18 +1105,18 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl">
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        <state relative-caret-position="435">
+          <caret line="15" column="113" selection-start-line="15" selection-start-column="113" selection-end-line="15" selection-end-column="113" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="493">
-          <caret line="17" column="39" selection-start-line="17" selection-start-column="39" selection-end-line="17" selection-end-column="39" />
+        <state relative-caret-position="435">
+          <caret line="15" column="119" selection-start-line="15" selection-start-column="119" selection-end-line="15" selection-end-column="119" />
           <folding />
         </state>
       </provider>
