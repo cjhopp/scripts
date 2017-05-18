@@ -40,8 +40,8 @@
           <file leaf-file-name="PAN_MF_mseed.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1508">
-                  <caret line="145" column="44" selection-start-line="145" selection-start-column="44" selection-end-line="145" selection-end-column="44" />
+                <state relative-caret-position="1537">
+                  <caret line="146" column="32" selection-start-line="146" selection-start-column="32" selection-end-line="146" selection-end-column="32" />
                   <folding />
                 </state>
               </provider>
@@ -129,10 +129,10 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="match_filter.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="match_filter.py" pinned="false" current-in-tab="false">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-859">
+                <state relative-caret-position="98">
                   <caret line="3420" column="12" selection-start-line="3420" selection-start-column="4" selection-end-line="3420" selection-end-column="12" />
                   <folding>
                     <marker date="1495060686303" expanded="true" signature="3326:3421" ph="..." />
@@ -176,7 +176,7 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="PAN_MF_mseed_1core_test.sl" pinned="false" current-in-tab="false">
+          <file leaf-file-name="PAN_MF_mseed_1core_test.sl" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="348">
@@ -1132,17 +1132,9 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="348">
-          <caret line="12" column="47" selection-start-line="12" selection-start-column="47" selection-end-line="12" selection-end-column="47" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-859">
+        <state relative-caret-position="98">
           <caret line="3420" column="12" selection-start-line="3420" selection-start-column="4" selection-end-line="3420" selection-end-column="12" />
           <folding>
             <marker date="1495060686303" expanded="true" signature="3326:3421" ph="..." />
@@ -1175,10 +1167,18 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_1core_test.sl">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="348">
+          <caret line="12" column="47" selection-start-line="12" selection-start-column="47" selection-end-line="12" selection-end-column="47" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1508">
-          <caret line="145" column="44" selection-start-line="145" selection-start-column="44" selection-end-line="145" selection-end-column="44" />
+        <state relative-caret-position="1537">
+          <caret line="146" column="32" selection-start-line="146" selection-start-column="32" selection-end-line="146" selection-end-column="32" />
           <folding />
         </state>
       </provider>
