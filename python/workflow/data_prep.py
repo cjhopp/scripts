@@ -483,6 +483,41 @@ def remove_temp_dups(templates, cat, bad_list):
     return
 
 
+def remove_dups_Tribe(tribe):
+    """Address more dups. Gross."""
+    import collections
+    import copy
+
+    remove_evs = []
+    for temp in tribe.templates:
+        stachans = [(tr.stats.station, tr.stats.channel) for tr in
+                     temp.st]
+        dups = [stach for stach, count in
+                collections.Counter(stachans).items() if count > 1]
+        if len(dups) > 0:
+            dt = temp.st.select(station=dups[0][0],
+                                channel=dups[0][1])[0].stats.starttime - \
+                temp.st.select(station=dups[0][0],
+                               channel=dups[0][1])[1].stats.starttime
+            if abs(dt) < 0.1:
+                tr = temp.st.select(station=dups[0][0],
+                                    channel=dups[0][1])[0]
+                print('Removing duplicate trace %s' % str(dups[0]))
+                temp.st.remove(tr)
+                temp.event.picks.remove([pk for pk in temp.event.picks
+                                         if pk.waveform_id.station_code
+                                         == dups[0][0] and
+                                         pk.waveform_id.channel_code
+                                         == dups[0][1]][0])
+            else:
+                remove_evs.append(temp)
+            print(dt)
+            print(temp.name)
+    for temp in remove_evs:
+        tribe.templates.remove(temp)
+    return
+
+
 def remove_dups_TauP(cat, input):
     """
     Taking stefan's TauP arrivals and chosing only the arrival closest to

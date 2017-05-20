@@ -99,7 +99,7 @@ else:
     inst_dats = all_dates
 tribe_rd_strt = timer()
 # Reading tribe
-tribe = Tribe().read('/projects/nesi00228/data/templates/12-15/Tribe_12-15_P.tgz')
+tribe = Tribe().read('/projects/nesi00228/data/templates/12-15/Tribe_12-15_P_nodups.tgz')
 print('Reading Tribe tarball took %s seconds' % (timer() - tribe_rd_strt))
 # Extract the station info from the templates
 stachans = {tr.stats.station: [] for temp in tribe
