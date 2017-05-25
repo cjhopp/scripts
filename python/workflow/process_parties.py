@@ -104,20 +104,21 @@ def decluster_day_parties(party_dir, trig_int, max_n):
     party_files = glob('%s/*' % party_dir)
     party_files.sort()
     num = 0
-    while num < max_n:
-        for i, party_file in enumerate(party_files):
-            outfile = '%s_declust.tgz' % (party_file.split('.')[0])
-            if party_file.split('_')[-1] != 'declust.tgz'\
-                    and outfile not in party_files:
-                num += 1
-                strt = UTCDateTime()
-                print('Processing party %s at %02d:%02d:%02d' % (party_file,
-                                                                 strt.hour,
-                                                                 strt.minute,
-                                                                 strt.second))
-                party = Party()
-                party.read(party_file)
-                print('Party has length %d' % len(party))
-                party.decluster(trig_int)
-                party.write('%s_declust' % (party_file.split('.')[0]))
+    for i, party_file in enumerate(party_files):
+        outfile = '%s_declust.tgz' % (party_file.split('.')[0])
+        if party_file.split('_')[-1] != 'declust.tgz'\
+                and outfile not in party_files:
+            num += 1
+            strt = UTCDateTime()
+            print('Processing party %s at %02d:%02d:%02d' % (party_file,
+                                                             strt.hour,
+                                                             strt.minute,
+                                                             strt.second))
+            party = Party()
+            party.read(party_file)
+            print('Party has length %d' % len(party))
+            party.decluster(trig_int)
+            party.write('%s_declust' % (party_file.split('.')[0]))
+            if num == max_n:
+                break
     return
