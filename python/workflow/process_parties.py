@@ -90,3 +90,34 @@ def lag_calc_daylong(wav_dir, party_dir, start, end, outdir):
                                  min_cc=0.6, cores=1, debug=1)
         day_cat.write('%s/det_cat_%s.xml', format='QUAKEML')
     return
+
+def decluster_day_parties(party_dir, trig_int, max_n):
+    """
+    Take directory of day-long parties from PAN runs and decluster them
+    :param party_dir:
+    :return:
+    """
+    from glob import glob
+    from obspy import UTCDateTime
+    from eqcorrscan.core.match_filter import Party
+
+    party_files = glob('%s/*' % party_dir)
+    party_files.sort()
+    num = 0
+    while num < max_n:
+        for i, party_file in enumerate(party_files):
+            outfile = '%s_declust.tgz' % (party_file.split('.')[0])
+            if party_file.split('_')[-1] != 'declust.tgz'\
+                    and outfile not in party_files:
+                num += 1
+                strt = UTCDateTime()
+                print('Processing party %s at %02d:%02d:%02d' % (party_file,
+                                                                 strt.hour,
+                                                                 strt.minute,
+                                                                 strt.second))
+                party = Party()
+                party.read(party_file)
+                print('Party has length %d' % len(party))
+                party.decluster(trig_int)
+                party.write('%s_declust' % (party_file.split('.')[0]))
+    return
