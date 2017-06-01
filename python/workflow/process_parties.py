@@ -122,3 +122,21 @@ def decluster_day_parties(party_dir, trig_int, max_n):
             if num == max_n:
                 break
     return
+
+def combine_year_parties(party_dir):
+    """
+    Take declustered parties and the combine them into one year-long party
+    :param party_dir: Preferably a directory of day-long parties for a year
+    :return:
+    """
+    from glob import glob
+    from eqcorrscan.core.match_filter import Party
+    party_files = glob('%s/*declust*' % party_dir)
+    party_files.sort()
+    big_party = Party()
+    for party_file in party_files:
+        print('Adding %s to big_party' % party_file)
+        big_party += Party().read(party_file)
+    big_party.write('%s/Party_%s_declust'
+                    % (party_dir, party_file.split('_')[-2].split('-')[0]))
+    return
