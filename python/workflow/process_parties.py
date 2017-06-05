@@ -91,7 +91,7 @@ def lag_calc_daylong(wav_dirs, party_dir, start, end, outdir):
                       format='QUAKEML')
     return
 
-def decluster_day_parties(party_dir, trig_int, max_n):
+def decluster_day_parties(party_dir, trig_int, max_n, min_chan):
     """
     Take directory of day-long parties from PAN runs and decluster them
     :param party_dir:
@@ -117,10 +117,45 @@ def decluster_day_parties(party_dir, trig_int, max_n):
             party = Party()
             party.read(party_file)
             print('Party has length %d' % len(party))
+            party.min_chans(min_chan)
             party.decluster(trig_int)
             party.write('%s_declust' % (party_file.split('.')[0]))
             if num == max_n:
                 break
+    return
+
+def partition_party_by_tribe(party, tribe):
+    """
+    Take only families corresponding to given tribe
+    :param party:
+    :param tribe:
+    :return:
+    """
+    from eqcorrscan.core.match_filter import Party
+
+    new_party = Party()
+    names = [temp.name for temp in tribe]
+    for fam in party:
+        if fam.template.name in names:
+            new_party += fam
+    return new_party
+
+def remove_fams_low_snr(party, temp_dir):
+    """
+    Remove families with templates with low SNR
+    :param party:
+    :return:
+    """
+    from glob import glob
+
+    temp_files = glob('%s/*' % temp_dir)
+    temps = [temp.rstrip('.mseed').split('/')[-1] for temp in temp_files]
+    rm_fams = []
+    for fam in party:
+        if fam.template.name not in temps:
+            rm_fams.append(fam)
+    for rm_fam in rm_fams:
+        party.families.remove(rm_fam)
     return
 
 def combine_year_parties(party_dir):

@@ -400,9 +400,9 @@ def plot_non_cumulative(party):
         y = np.empty(len(d_list))
         y.fill(i)
         d_list.sort()
-        ax.plot(d_list, y, '--o', color='gray', linewidth=0.3,
+        ax.plot(d_list, y, '--o', color='gray', linewidth=0.2,
                 #markerfacecolor=colorsList[i - 1],
-                markersize=5,
+                markersize=2,
                 markeredgewidth=0, markeredgecolor='k',
                 label=temp_name)
     fig.autofmt_xdate()
