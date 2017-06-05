@@ -371,6 +371,43 @@ def plot_location_changes(cat, bbox, show=True):
         fig.show()
     return fig
 
+def plot_non_cumulative(party):
+    import numpy as np
+    from eqcorrscan.core.match_filter import Detection
+
+    detections = []
+    for fam in party:
+        detections.extend(fam.detections)
+    dates = []
+    template_names = []
+    for detection in detections:
+        if not type(detection) == Detection:
+            msg = 'detection not of type: ' + \
+                  'eqcorrscan.core.match_filter.Detection'
+            raise IOError(msg)
+        dates.append(detection.detect_time.datetime)
+        template_names.append(detection.template_name)
+    _dates = []
+    _template_names = []
+    for template_name in sorted(set(template_names)):
+        _template_names.append(template_name)
+        _dates.append([date for i, date in enumerate(dates)
+                       if template_names[i] == template_name])
+    dates = _dates
+    template_names = _template_names
+    fig, ax = plt.subplots()
+    for i, (d_list, temp_name) in enumerate(zip(dates, template_names)):
+        y = np.empty(len(d_list))
+        y.fill(i)
+        d_list.sort()
+        ax.plot(d_list, y, '--o', color='gray', linewidth=0.3,
+                #markerfacecolor=colorsList[i - 1],
+                markersize=5,
+                markeredgewidth=0, markeredgecolor='k',
+                label=temp_name)
+    fig.autofmt_xdate()
+    return ax
+
 ######## RATE-RELATED FUNCTIONS ########
 
 def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cumulative=False, detection_rate=False):
