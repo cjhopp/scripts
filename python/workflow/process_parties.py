@@ -52,7 +52,7 @@ def grab_day_wavs(wav_dirs, dto, stachans):
         print('All traces long enough to proceed to dayproc')
     return st
 
-def lag_calc_daylong(wav_dir, party_dir, start, end, outdir):
+def lag_calc_daylong(wav_dirs, party_dir, start, end, outdir):
     """
     Essentially just a day loop to grab the day's waveforms and the day's
     party and then perform the lag calc
@@ -73,8 +73,6 @@ def lag_calc_daylong(wav_dir, party_dir, start, end, outdir):
         party_file = glob('%s/*%s*' % (party_dir, dto.strftime('%Y-%m-%d')))[0]
         print('Reading file: %s' % party_file)
         party = Party().read(party_file)
-        print('Declustering...')
-        party.decluster(trig_int=2.0)
         stachans = {tr.stats.station: [] for family in party
                     for tr in family.template.st}
         for family in party:
@@ -84,11 +82,13 @@ def lag_calc_daylong(wav_dir, party_dir, start, end, outdir):
                 if chan_code not in stachans[tr.stats.station]:
                     stachans[tr.stats.station].append(chan_code)
         print('Reading waveforms')
-        st = grab_day_wavs(wav_dirs=wav_dir, dto=dto, stachans=stachans)
+        wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
+        st = grab_day_wavs(wav_dirs=wav_ds, dto=dto, stachans=stachans)
         print('Running lag calc')
-        day_cat = party.lag_calc(stream=st, pre_processed=False, shift_len=0.2,
-                                 min_cc=0.6, cores=1, debug=1)
-        day_cat.write('%s/det_cat_%s.xml', format='QUAKEML')
+        day_cat = party.lag_calc(stream=st, pre_processed=False, shift_len=0.1,
+                                 min_cc=0.3, cores=1, debug=1)
+        day_cat.write('%s/det_cat_%s.xml' % (outdir, dto.strftime('%Y-%m-%d')),
+                      format='QUAKEML')
     return
 
 def decluster_day_parties(party_dir, trig_int, max_n):
