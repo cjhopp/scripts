@@ -105,7 +105,7 @@ def decluster_day_parties(party_dir, trig_int, max_n, min_chan):
     party_files.sort()
     num = 0
     for i, party_file in enumerate(party_files):
-        outfile = '%s_min%02d_declust.tgz' % (party_file.split('.')[0],
+        outfile = '%s_min%02d_declust' % (party_file.split('.')[0],
                                               min_chan)
         num += 1
         strt = UTCDateTime()
