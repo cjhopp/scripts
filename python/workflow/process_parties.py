@@ -119,7 +119,8 @@ def decluster_day_parties(party_dir, trig_int, max_n, min_chan):
             print('Party has length %d' % len(party))
             party.min_chans(min_chan)
             party.decluster(trig_int)
-            party.write('%s_declust' % (party_file.split('.')[0]))
+            party.write('%s_declust_min%02d' %
+                        (party_file.split('.')[0], min_chan))
             if num == max_n:
                 break
     return
