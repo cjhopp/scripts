@@ -101,28 +101,27 @@ def decluster_day_parties(party_dir, trig_int, max_n, min_chan):
     from obspy import UTCDateTime
     from eqcorrscan.core.match_filter import Party
 
-    party_files = glob('%s/*' % party_dir)
+    party_files = glob('%s/*[0-9].tgz' % party_dir)
     party_files.sort()
     num = 0
     for i, party_file in enumerate(party_files):
-        outfile = '%s_declust.tgz' % (party_file.split('.')[0])
-        if party_file.split('_')[-1] != 'declust.tgz'\
-                and outfile not in party_files:
-            num += 1
-            strt = UTCDateTime()
-            print('Processing party %s at %02d:%02d:%02d' % (party_file,
-                                                             strt.hour,
-                                                             strt.minute,
-                                                             strt.second))
-            party = Party()
-            party.read(party_file)
-            print('Party has length %d' % len(party))
-            party.min_chans(min_chan)
-            party.decluster(trig_int)
-            party.write('%s_declust_min%02d' %
-                        (party_file.split('.')[0], min_chan))
-            if num == max_n:
-                break
+        outfile = '%s_min%02d_declust.tgz' % (party_file.split('.')[0],
+                                              min_chan)
+        num += 1
+        strt = UTCDateTime()
+        print('Processing party %s at %02d:%02d:%02d' % (party_file,
+                                                         strt.hour,
+                                                         strt.minute,
+                                                         strt.second))
+        party = Party()
+        party.read(party_file)
+        print('Party has length %d' % len(party))
+        party.min_chans(min_chan)
+        party.decluster(trig_int)
+        print('Writing party to %s' % outfile)
+        party.write(outfile)
+        if num == max_n:
+            break
     return
 
 def partition_party_by_tribe(party, tribe):
