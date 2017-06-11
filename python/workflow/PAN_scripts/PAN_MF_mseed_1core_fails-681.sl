@@ -4,7 +4,7 @@
 #SBATCH --time=72:00:00
 #SBATCH --mem=90000
 #SBATCH --nodes=1
-#SBATCH --exclude=bigmem-001,bigmem-003,bigmem-004
+#SBATCH --exclude=compute-bigmem-[001,003,004]
 #SBATCH --output=match_12-15_1core_nodups_fails-681_out_%a.txt
 #SBATCH --error=match_12-15_1core_nodups_fails-681_err_%a.txt
 #SBATCH --cpus-per-task=1
