@@ -102,11 +102,15 @@ def decluster_day_parties(party_dir, trig_int, max_n, min_chan):
     from eqcorrscan.core.match_filter import Party
 
     party_files = glob('%s/*[0-9].tgz' % party_dir)
+    all_files = glob('%s/*' % party_dir)
     party_files.sort()
     num = 0
     for i, party_file in enumerate(party_files):
         outfile = '%s_min%02d_declust' % (party_file.split('.')[0],
                                               min_chan)
+        if '%s.tgz' % outfile in all_files:
+            print('Already wrote %s.tgz' % outfile)
+            continue
         num += 1
         strt = UTCDateTime()
         print('Processing party %s at %02d:%02d:%02d' % (party_file,
