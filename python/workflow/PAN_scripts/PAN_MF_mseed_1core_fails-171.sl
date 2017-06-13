@@ -2,7 +2,7 @@
 #SBATCH -J CJH_Match_1core_fails-171
 #SBATCH -A nesi00228
 #SBATCH --time=60:00:00
-#SBATCH --mem=750000
+#SBATCH --mem=75000
 #SBATCH --nodes=1
 #SBATCH --exclude=compute-bigmem-[001,003,004]
 #SBATCH --output=match_12-15_1core_nodups_fails-171_out_%a.txt
