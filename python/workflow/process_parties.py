@@ -91,23 +91,33 @@ def lag_calc_daylong(wav_dirs, party_dir, start, end, outdir):
                       format='QUAKEML')
     return
 
-def decluster_day_parties(party_dir, trig_int, max_n, min_chan):
+def decluster_day_parties(party_dir, trig_int, min_chan, metric,
+                          start, end):
     """
-    Take directory of day-long parties from PAN runs and decluster them
-    :param party_dir:
+
+    :param party_dir: Directory houseing the Party files from match_filter
+    :param trig_int: Minimum separation dist between detections in secs
+    :param min_chan: Minimum number of channels used in detection
+    :param metric: 'avg_cor' or 'cor_sum'
+    :param start: Start UTCDateTime for instance
+    :param end: End UTCDateTime for instance. Should be start of day after
+        the last day you want to process
     :return:
     """
     from glob import glob
     from obspy import UTCDateTime
     from eqcorrscan.core.match_filter import Party
 
-    party_files = glob('%s/*[0-9].tgz' % party_dir)
+    all_parties = glob('%s/*[0-9].tgz' % party_dir)
+    party_files = [f for f in all_parties
+                   if UTCDateTime(f.split('_')[-2]) > start - 1 and
+                   UTCDateTime(f.split('_')[-2]) < end + 1]
     all_files = glob('%s/*' % party_dir)
     party_files.sort()
     num = 0
     for i, party_file in enumerate(party_files):
-        outfile = '%s_min%02d_declust' % (party_file.split('.')[0],
-                                              min_chan)
+        outfile = '%s_min%02d_%s_declust' % (party_file.split('.')[0],
+                                             min_chan, metric)
         if '%s.tgz' % outfile in all_files:
             print('Already wrote %s.tgz' % outfile)
             continue
@@ -121,11 +131,9 @@ def decluster_day_parties(party_dir, trig_int, max_n, min_chan):
         party.read(party_file)
         print('Party has length %d' % len(party))
         party.min_chans(min_chan)
-        party.decluster(trig_int)
+        party.decluster(trig_int=trig_int, metric=metric)
         print('Writing party to %s' % outfile)
         party.write(outfile)
-        if num == max_n:
-            break
     return
 
 def partition_party_by_tribe(party, tribe):
