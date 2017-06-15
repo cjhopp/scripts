@@ -628,50 +628,6 @@ def mseed_2_Tribe(temp_dir, cat, swin='all', tar_name=None):
     return Tribe
 
 
-def Tribe_2_Detector(tribe_dir, raw_wavs, outdir, lowcut, highcut, filt_order,
-                     samp_rate, shift_len, reject, dimension, prepick, length):
-    """
-    Take a directory of cluster-defined Tribes and write them to Detectors
-    :param tribe_dir:
-    :return:
-    """
-    from glob import glob
-    from obspy import read
-    from eqcorrscan.core.match_filter import Tribe
-    from eqcorrscan.core.subspace import Detector
-
-    tribe_files = glob('%s/*.tgz' % tribe_dir)
-    tribe_files.sort()
-    wav_files = glob('%s/*' % raw_wavs)
-    for tfile in tribe_files:
-        tribe = Tribe().read(tfile)
-        print('Working on Tribe: %s' % tfile)
-        templates = []
-        for temp in tribe:
-            try:
-                wav = read([wav for wav in wav_files
-                            if wav.split('/')[-1].split('.')[0]
-                            == temp.name][0])
-            except IndexError:
-                print('Event not above SNR 1.5')
-                continue
-            wav.traces = [tr.trim(starttime=tr.stats.starttime + 2 - prepick,
-                                  endtime=tr.stats.starttime + 2 - prepick
-                                  + length)
-                          for tr in wav]
-            templates.append(wav)
-        # Now construct the detector
-        detector = Detector()
-        detector.construct(streams=templates, lowcut=lowcut, highcut=highcut,
-                           filt_order=filt_order, sampling_rate=samp_rate,
-                           multiplex=True,
-                           name=tfile.split('.')[0].split('/')[-1],
-                           align=True, shift_len=shift_len,
-                           reject=reject, no_missed=False)
-        detector.write('%s/%s_detector' % (outdir, tfile.split('.')[0]))
-    return
-
-
 def mseed_2_Party(wav_dir, cat, temp_cat, lowcut, highcut, filt_order,
                   process_length, prepick):
     """
