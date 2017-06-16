@@ -100,8 +100,7 @@ def decluster_day_parties(party_dir, trig_int, min_chan, metric,
     :param min_chan: Minimum number of channels used in detection
     :param metric: 'avg_cor' or 'cor_sum'
     :param start: Start UTCDateTime for instance
-    :param end: End UTCDateTime for instance. Should be start of day after
-        the last day you want to process
+    :param end: End UTCDateTime for instance.
     :return:
     """
     from glob import glob

@@ -52,14 +52,85 @@ def grab_day_wavs(wav_dirs, dto, stachans):
         print('All traces long enough to proceed to dayproc')
     return st.sort(['starttime'])
 
-def correlate_tribe(tribe, raw_wavs):
+def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate,
+                  filt_order, pre_pick, length, shift_len, cores):
     """
     Cross correlate all templates in a tribe and return separate tribes for
     each cluster
     :param tribe:
     :return:
+
+    .. Note: Functionality here is pilaged from align design as we don't
+        want the multiplexed portion of that function.
     """
-    return sub_tribes
+    from glob import glob
+    from obspy import read
+    import warnings
+    from eqcorrscan.core.match_filter import Tribe, Template
+    from eqcorrscan.utils import stacking, clustering
+    from eqcorrscan.utils.pre_processing import shortproc
+
+    tribe.sort()
+    raw_wav_files = glob('%s/*' % raw_wav_dir)
+    raw_wav_files.sort()
+    all_wavs = [wav.split('/')[-1].split('.')[0] for wav in raw_wav_files]
+    names = [t.name for t in tribe if t.name in all_wavs]
+    wavs = [wav for wav in raw_wav_files if wav.split('/')[-1].split('.')[0]
+            in names]
+    new_tribe = Tribe()
+    new_tribe.templates = [temp for temp in tribe if temp.name in names]
+    print(len(new_tribe), len(wavs))
+    print('Processing temps')
+    temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
+                            samp_rate=samp_rate, filt_order=filt_order,
+                            parallel=True, num_cores=cores),
+                  template)
+                 for tmp, template in zip(wavs, new_tribe)]
+    print('Clipping traces')
+    for temp in temp_list:
+        print('Clipping template %s' % temp[1].name)
+        for tr in temp[0]:
+            pk = [pk for pk in temp[1].event.picks
+                  if pk.waveform_id.station_code == tr.stats.station
+                  and pk.waveform_id.channel_code == tr.stats.channel][0]
+            tr.trim(starttime=pk.time - shift_len - pre_pick,
+                    endtime=pk.time - pre_pick + length + shift_len)
+    trace_lengths = [tr.stats.endtime - tr.stats.starttime for st in
+                     temp_list for tr in st[0]]
+    clip_len = min(trace_lengths) - (2 * shift_len)
+    stachans = list(set([(tr.stats.station, tr.stats.channel)
+                         for st in temp_list for tr in st[0]]))
+    print('Aligning traces')
+    for stachan in stachans:
+        trace_list = []
+        trace_ids = []
+        for i, st in enumerate(temp_list):
+            tr = st[0].select(station=stachan[0], channel=stachan[1])
+            if len(tr) > 0:
+                trace_list.append(tr[0])
+                trace_ids.append(i)
+            if len(tr) > 1:
+                warnings.warn('Too many matches for %s %s' % (stachan[0],
+                                                              stachan[1]))
+        shift_len_samples = int(shift_len * trace_list[0].stats.sampling_rate)
+        shifts, cccs = stacking.align_traces(
+            trace_list=trace_list, shift_len=shift_len_samples, positive=True)
+        for i, shift in enumerate(shifts):
+            st = temp_list[trace_ids[i]][0]
+            start_t = st.select(
+                station=stachan[0], channel=stachan[1])[0].stats.starttime
+            start_t += shift_len
+            start_t -= shift
+            st.select(
+                station=stachan[0], channel=stachan[1])[0].trim(
+                start_t, start_t + clip_len)
+    groups = clustering.cluster(temp_list, show=True, corr_thresh=0.3,
+                                allow_shift=False, save_corrmat=True)
+    group_tribes = []
+    for group in groups:
+        group_tribes.append(Tribe(templates=[Template(st=tmp[0], event=tmp[1])
+                                             for tmp in group]))
+    return group_tribes
 
 def Tribe_2_Detector(tribe_dir, raw_wavs, outdir, lowcut, highcut, filt_order,
                      samp_rate, shift_len, reject, dimension, prepick, length):
