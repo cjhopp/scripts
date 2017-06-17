@@ -114,10 +114,17 @@ def decluster_day_parties(party_dir, tribe_dir, trig_int, min_chan, metric,
     all_files = glob('%s/*' % party_dir)
     party_files.sort()
     num = 0
+    print('Reading tribes to memory')
     tribes = [(Tribe().read(tribe_file),
                tribe_file.split('_')[-1].split('.')[0])
               for tribe_file in glob('%s/*' % tribe_dir)]
+    print('Starting declustering')
     for i, party_file in enumerate(party_files):
+        strt = UTCDateTime()
+        print('Processing party %s at %02d:%02d:%02d' % (party_file,
+                                                         strt.hour,
+                                                         strt.minute,
+                                                         strt.second))
         for tribe in tribes:
             outfile = '%s_min%02d_%s_%s_declust' % (party_file.split('.')[0],
                                                     min_chan, metric,
@@ -125,12 +132,8 @@ def decluster_day_parties(party_dir, tribe_dir, trig_int, min_chan, metric,
             if '%s.tgz' % outfile in all_files:
                 print('Already wrote %s.tgz' % outfile)
                 continue
+            print('Working on tribe %s' % tribe[1])
             num += 1
-            strt = UTCDateTime()
-            print('Processing party %s at %02d:%02d:%02d' % (party_file,
-                                                             strt.hour,
-                                                             strt.minute,
-                                                             strt.second))
             party = Party()
             party.read(party_file)
             print('Original Party has length %d' % len(party))
@@ -139,7 +142,12 @@ def decluster_day_parties(party_dir, tribe_dir, trig_int, min_chan, metric,
             print('Enforcing minimum no_chans')
             part_party.min_chans(min_chan)
             print('Declustering')
-            part_party.decluster(trig_int=trig_int, metric=metric)
+            try:
+                part_party.decluster(trig_int=trig_int, metric=metric)
+            except IndexError as msg:
+                print('Declustering failed with %s\n' % msg)
+                print('Probably no detections')
+                continue
             print('Writing party to %s' % outfile)
             part_party.write(outfile)
     return
