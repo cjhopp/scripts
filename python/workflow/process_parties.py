@@ -91,11 +91,11 @@ def lag_calc_daylong(wav_dirs, party_dir, start, end, outdir):
                       format='QUAKEML')
     return
 
-def decluster_day_parties(party_dir, trig_int, min_chan, metric,
+def decluster_day_parties(party_dir, tribe_dir, trig_int, min_chan, metric,
                           start, end):
     """
 
-    :param party_dir: Directory houseing the Party files from match_filter
+    :param party_dir: Directory housing the Party files from match_filter
     :param trig_int: Minimum separation dist between detections in secs
     :param min_chan: Minimum number of channels used in detection
     :param metric: 'avg_cor' or 'cor_sum'
@@ -105,7 +105,7 @@ def decluster_day_parties(party_dir, trig_int, min_chan, metric,
     """
     from glob import glob
     from obspy import UTCDateTime
-    from eqcorrscan.core.match_filter import Party
+    from eqcorrscan.core.match_filter import Party, Tribe
 
     all_parties = glob('%s/*[0-9].tgz' % party_dir)
     party_files = [f for f in all_parties
@@ -114,25 +114,34 @@ def decluster_day_parties(party_dir, trig_int, min_chan, metric,
     all_files = glob('%s/*' % party_dir)
     party_files.sort()
     num = 0
+    tribes = [(Tribe().read(tribe_file),
+               tribe_file.split('_')[-1].split('.')[0])
+              for tribe_file in glob('%s/*' % tribe_dir)]
     for i, party_file in enumerate(party_files):
-        outfile = '%s_min%02d_%s_declust' % (party_file.split('.')[0],
-                                             min_chan, metric)
-        if '%s.tgz' % outfile in all_files:
-            print('Already wrote %s.tgz' % outfile)
-            continue
-        num += 1
-        strt = UTCDateTime()
-        print('Processing party %s at %02d:%02d:%02d' % (party_file,
-                                                         strt.hour,
-                                                         strt.minute,
-                                                         strt.second))
-        party = Party()
-        party.read(party_file)
-        print('Party has length %d' % len(party))
-        party.min_chans(min_chan)
-        party.decluster(trig_int=trig_int, metric=metric)
-        print('Writing party to %s' % outfile)
-        party.write(outfile)
+        for tribe in tribes:
+            outfile = '%s_min%02d_%s_%s_declust' % (party_file.split('.')[0],
+                                                    min_chan, metric,
+                                                    tribe[1])
+            if '%s.tgz' % outfile in all_files:
+                print('Already wrote %s.tgz' % outfile)
+                continue
+            num += 1
+            strt = UTCDateTime()
+            print('Processing party %s at %02d:%02d:%02d' % (party_file,
+                                                             strt.hour,
+                                                             strt.minute,
+                                                             strt.second))
+            party = Party()
+            party.read(party_file)
+            print('Original Party has length %d' % len(party))
+            print('Partitioning into cluster: %s' % tribe[1])
+            part_party = partition_party_by_tribe(party, tribe[0])
+            print('Enforcing minimum no_chans')
+            part_party.min_chans(min_chan)
+            print('Declustering')
+            part_party.decluster(trig_int=trig_int, metric=metric)
+            print('Writing party to %s' % outfile)
+            party.write(outfile)
     return
 
 def partition_party_by_tribe(party, tribe):
