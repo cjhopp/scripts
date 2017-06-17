@@ -141,7 +141,7 @@ def decluster_day_parties(party_dir, tribe_dir, trig_int, min_chan, metric,
             print('Declustering')
             part_party.decluster(trig_int=trig_int, metric=metric)
             print('Writing party to %s' % outfile)
-            party.write(outfile)
+            part_party.write(outfile)
     return
 
 def partition_party_by_tribe(party, tribe):
