@@ -125,6 +125,8 @@ def decluster_day_parties(party_dir, tribe_dir, trig_int, min_chan, metric,
                                                          strt.hour,
                                                          strt.minute,
                                                          strt.second))
+        party = Party()
+        party.read(party_file)
         for tribe in tribes:
             outfile = '%s_min%02d_%s_%s_declust' % (party_file.split('.')[0],
                                                     min_chan, metric,
@@ -134,8 +136,6 @@ def decluster_day_parties(party_dir, tribe_dir, trig_int, min_chan, metric,
                 continue
             print('Working on tribe %s' % tribe[1])
             num += 1
-            party = Party()
-            party.read(party_file)
             print('Original Party has length %d' % len(party))
             print('Partitioning into cluster: %s' % tribe[1])
             part_party = partition_party_by_tribe(party, tribe[0])
