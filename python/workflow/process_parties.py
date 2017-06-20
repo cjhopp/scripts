@@ -52,28 +52,32 @@ def grab_day_wavs(wav_dirs, dto, stachans):
         print('All traces long enough to proceed to dayproc')
     return st
 
-def lag_calc_daylong(wav_dirs, party_dir, start, end, outdir):
+def lag_calc_daylong(wav_dirs, party, start, end, outdir, shift_len, min_cc,
+                     cores=5, plot=False, debug=1):
     """
     Essentially just a day loop to grab the day's waveforms and the day's
     party and then perform the lag calc
     :param wav_dir:
-    :param party:
+    :param party: eqcorrscane.core.match_filter.Party
     :return:
     """
     import datetime
-    from glob import glob
     from obspy import UTCDateTime
-    from eqcorrscan.core.match_filter import Party
+    from eqcorrscan.core.match_filter import Party, Family
 
     cat_start = datetime.datetime.strptime(start, '%d/%m/%Y')
     cat_end = datetime.datetime.strptime(end, '%d/%m/%Y')
     for date in date_generator(cat_start, cat_end):
-        # Find waveforms and find pertinent party
+        # Find waveforms and create party for this day
         dto = UTCDateTime(date)
-        party_file = glob('%s/*%s*' % (party_dir, dto.strftime('%Y-%m-%d')))[0]
-        print('Reading file: %s' % party_file)
-        party = Party().read(party_file)
-        stachans = {tr.stats.station: [] for family in party
+        day_fams = []
+        for fam in party:
+            day_fams.append(Family(detections=[det for det in fam if
+                                               det.detect_time >= dto and
+                                               det.detect_time < dto + 86400],
+                                   template=fam.template))
+        day_party = Party(families=day_fams)
+        stachans = {tr.stats.station: [] for family in day_party
                     for tr in family.template.st}
         for family in party:
             for tr in family.template.st:
@@ -85,9 +89,14 @@ def lag_calc_daylong(wav_dirs, party_dir, start, end, outdir):
         wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
         st = grab_day_wavs(wav_dirs=wav_ds, dto=dto, stachans=stachans)
         print('Running lag calc')
-        day_cat = party.lag_calc(stream=st, pre_processed=False, shift_len=0.1,
-                                 min_cc=0.3, cores=1, debug=1)
-        day_cat.write('%s/det_cat_%s.xml' % (outdir, dto.strftime('%Y-%m-%d')),
+        day_cat = day_party.lag_calc(stream=st, pre_processed=False,
+                                     shift_len=shift_len, min_cc=min_cc,
+                                     cores=cores, debug=debug, plot=plot)
+        day_cat.write('%s/det_cat_mcc%0.3f_shift%0.1f_%s.xml' \
+                      % (outdir,
+                         min_cc,
+                         shift_len,
+                         dto.strftime('%Y-%m-%d')),
                       format='QUAKEML')
     return
 
@@ -201,4 +210,4 @@ def combine_year_parties(party_glob_str, outfile):
         print('Adding %s to big_party' % party_file)
         big_party += Party().read(party_file)
     big_party.write(outfile)
-    return
+    return big_party
