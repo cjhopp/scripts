@@ -4,7 +4,6 @@ r"""
 Script to handle pick refinement/removal and relocation of catalog earthquakes.
 """
 
-from obspy import read_events
 from glob import glob
 from subprocess import call
 import numpy as np
@@ -24,7 +23,7 @@ def my_conversion(x, y, z):
     return new_x, new_y, z
 
 
-def relocate(cat, root_name, in_file):
+def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
     """
     Run NonLinLoc relocations on a catalog. This is a function hardcoded for my laptop only.
     :type cat: obspy.Catalog
@@ -37,17 +36,18 @@ def relocate(cat, root_name, in_file):
     :param in_file: NLLoc input file
     :return: same catalog with new origins appended to each event
     """
-    # root_name = '/media/chet/hdd/seismic/NZ/NLLoc/mrp/2015_Rawlinson_spicks/obs/'
     for ev in cat:
         if len(ev.picks) < 5:
             print('Fewer than 5 picks for %s. Will not locate.' % str(ev.resource_id))
             continue
+        for pk in ev.picks:
+            pk.time_errors.uncertainty = pick_uncertainty
         id_str = str(ev.resource_id).split('/')[-1]
         filename = root_name + 'obs/' + id_str + '.nll'
         ev.write(filename, format="NLLOC_OBS")
         # Specify awk command to edit NLLoc .in file
         outfile = root_name + 'loc/' + id_str
-        cmnd = """awk '$1 == "LOCFILES" {$2 = "%s"; $5 = "%s"}1' %s > tmp && mv tmp %s""" % (filename, outfile, in_file, in_file)
+        cmnd = """awk '$1 == "LOCFILES" {$2 = "%s"; $5 = "%s"}1' %s > tmp.txt && mv tmp.txt %s""" % (filename, outfile, in_file, in_file)
         call(cmnd, shell=True)
         # Call to NLLoc
         call('NLLoc %s' % in_file, shell=True)
