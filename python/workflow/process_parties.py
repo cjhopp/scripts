@@ -53,7 +53,7 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     return st
 
 def lag_calc_daylong(wav_dirs, party, start, end, outdir, shift_len, min_cc,
-                     cores=5, plot=False, debug=1):
+                     cores=5, parallel=True, plot=False, debug=1):
     """
     Essentially just a day loop to grab the day's waveforms and the day's
     party and then perform the lag calc
@@ -91,7 +91,8 @@ def lag_calc_daylong(wav_dirs, party, start, end, outdir, shift_len, min_cc,
         print('Running lag calc')
         day_cat = day_party.lag_calc(stream=st, pre_processed=False,
                                      shift_len=shift_len, min_cc=min_cc,
-                                     cores=cores, debug=debug, plot=plot)
+                                     cores=cores, debug=debug, plot=plot,
+                                     parallel=parallel)
         day_cat.write('%s/det_cat_mcc%0.3f_shift%0.1f_%s.xml' \
                       % (outdir,
                          min_cc,
