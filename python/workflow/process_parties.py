@@ -9,7 +9,7 @@ def date_generator(start_date, end_date):
         yield start_date + timedelta(n)
 
 def grab_day_wavs(wav_dirs, dto, stachans):
-    # Helper to recursively crawl paths searching for waveforms for a dict of
+    # Helper to recursively crawl paths searching for waveforms from a dict of
     # stachans for one day
     import os
     import fnmatch
@@ -32,6 +32,17 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     print('Reading into memory')
     for wav in wav_files:
         st += read(wav)
+    stachans = [(tr.stats.station, tr.stats.channel) for tr in st]
+    for stachan in list(set(stachans)):
+        tmp_st = st.select(station=stachan[0], channel=stachan[1])
+        if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate
+                                        for tr in tmp_st])) > 1:
+            print('Traces from %s.%s have differing samp rates'
+                  % (stachan[0], stachan[1]))
+            for tr in tmp_st:
+                st.remove(tr)
+            tmp_st.resample(sampling_rate=100.)
+            st += tmp_st
     st.merge(fill_value='interpolate')
     print('Checking for trace length. Removing if too short')
     rm_trs = []
