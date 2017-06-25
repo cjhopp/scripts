@@ -8,7 +8,7 @@ def date_generator(start_date, end_date):
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
 
-def grab_day_wavs(wav_dirs, dto, stations):
+def grab_day_wavs_stations(wav_dirs, dto, stations):
     # Helper to recursively crawl paths searching for waveforms for a dict of
     # stachans for one day
     import os
@@ -28,6 +28,35 @@ def grab_day_wavs(wav_dirs, dto, stations):
     print('Reading into memory')
     for wav in wav_files:
         st += read(wav)
+    stachans = [(tr.stats.station, tr.stats.channel) for tr in st]
+    for stachan in list(set(stachans)):
+        tmp_st = st.select(station=stachan[0], channel=stachan[1])
+        if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate
+                                        for tr in tmp_st])) > 1:
+            print('Traces from %s.%s have differing samp rates'
+                  % (stachan[0], stachan[1]))
+            for tr in tmp_st:
+                st.remove(tr)
+            tmp_st.resample(sampling_rate=100.)
+            st += tmp_st
+    st.merge(fill_value='interpolate')
+    print('Checking for trace length. Removing if too short')
+    rm_trs = []
+    for tr in st:
+        if len(tr.data) < (86400 * tr.stats.sampling_rate * 0.8):
+            rm_trs.append(tr)
+        if tr.stats.starttime != dto:
+            print('Trimming trace %s.%s with starttime %s to %s'
+                  % (tr.stats.station, tr.stats.channel,
+                     str(tr.stats.starttime), str(dto)))
+            tr.trim(starttime=dto, endtime=dto + 86400,
+                    nearest_sample=False)
+    if len(rm_trs) != 0:
+        print('Removing traces shorter than 0.8 * daylong')
+        for tr in rm_trs:
+            st.remove(tr)
+    else:
+        print('All traces long enough to proceed to dayproc')
     return st
 
 def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
@@ -62,7 +91,31 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
         if len(tmp_cat) == 0:
             print('No events on: %s' % str(dto))
             continue
+        stations = list(set([pk.waveform_id.station_code for ev in tmp_cat
+                             for pk in ev.picks]))
+        wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
+        sta_st = grab_day_wavs_stations(wav_ds, dto, stations)
+        print('Processing data: %s' % pk_sta)
+        # Process the stream
+        try:
+            st1 = pre_processing.dayproc(sta_st, lowcut=None,
+                                         highcut=None,
+                                         filt_order=None,
+                                         samp_rate=100.,
+                                         starttime=dto, debug=0,
+                                         ignore_length=True,
+                                         num_cores=2)
+        except NotImplementedError or Exception as e:
+            print('Found error in dayproc, noting date and continuing')
+            print(e)
+            with open('%s/dayproc_errors.txt' % outdir,
+                      mode='a') as fo:
+                fo.write('%s\n%s\n' % (str(date), e))
+            continue
         for event in tmp_cat:
+            if len(event.picks) < 5:
+                print('Too few picks for event. Continuing.')
+                continue
             ev_name = str(event.resource_id).split('/')[-1]
             if not os.path.exists('%s/%s' % (outdir, ev_name)):
                 os.mkdir('%s/%s' % (outdir, ev_name))
@@ -77,38 +130,10 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                 pk_sta = pick.waveform_id.station_code
                 if pick.phase_hint != 'P':
                     continue
-                wav_ds = ['%s%d/NZ/%s' % (d, dto.year, pk_sta) for d in wav_dirs]
-                sta_st = grab_day_wavs(wav_ds, dto, [pk_sta])
-                print('Processing data: %s' % pk_sta)
-                stachans = [(tr.stats.station, tr.stats.channel) for tr in sta_st]
-                for stachan in list(set(stachans)):
-                    tmp_st = sta_st.select(station=stachan[0], channel=stachan[1])
-                    if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate
-                                                    for tr in tmp_st])) > 1:
-                        print('Traces from %s.%s have differing samp rates'
-                              % (stachan[0], stachan[1]))
-                        for tr in tmp_st:
-                            sta_st.remove(tr)
-                        tmp_st.resample(sampling_rate=100.)
-                        sta_st += tmp_st
-                sta_st.merge(fill_value='interpolate')
-                # Process the stream
-                try:
-                    st1 = pre_processing.dayproc(sta_st, lowcut=None,
-                                                 highcut=None,
-                                                 filt_order=None,
-                                                 samp_rate=100.,
-                                                 starttime=dto, debug=0,
-                                                 ignore_length=True,
-                                                 num_cores=2)
-                except NotImplementedError or Exception as e:
-                    print('Found error in dayproc, noting date and continuing')
-                    print(e)
-                    with open('%s/dayproc_errors.txt' % outdir,
-                              mode='a') as fo:
-                        fo.write('%s\n%s\n' % (str(date), e))
-                    continue
-                work_st = st1.copy().trim(tr_starttime, tr_endtime)
+                # Grab just this station from whole day stream
+                sta_wavs = st1.select(station=pk_sta)
+                # Copy it out of the way and trim
+                work_st = sta_wavs.copy().trim(tr_starttime, tr_endtime)
                 if len(work_st) == 0:
                     continue
                 rel_origin_t = ev_time - work_st[0].stats.starttime
