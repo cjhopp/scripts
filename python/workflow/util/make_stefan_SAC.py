@@ -95,7 +95,7 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                              for pk in ev.picks]))
         wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
         sta_st = grab_day_wavs_stations(wav_ds, dto, stations)
-        print('Processing data: %s' % pk_sta)
+        print('Processing data:')
         # Process the stream
         try:
             st1 = pre_processing.dayproc(sta_st, lowcut=None,
