@@ -218,7 +218,7 @@ def combine_year_parties(party_dir):
 
     year = party_dir.split('/')[-1]
     for place in ['Rotokawa', 'Wairakei', 'North', 'South', 'Remainder']:
-        glob_str = '%s/*min05_avg_cor_%s_declust*' % place
+        glob_str = '%s/*min05_avg_cor_%s_declust*' % (party_dir, place)
         party_files = glob(glob_str)
         party_files.sort()
         big_party = Party()
