@@ -207,7 +207,7 @@ def remove_fams_low_snr(party, temp_dir):
         party.families.remove(rm_fam)
     return
 
-def combine_year_parties(party_glob_str, outfile):
+def combine_year_parties(party_dir, outfile):
     """
     Take declustered parties and the combine them into one year-long party
     :param party_glob_str: Glob string to collect the correct parties
@@ -215,11 +215,15 @@ def combine_year_parties(party_glob_str, outfile):
     """
     from glob import glob
     from eqcorrscan.core.match_filter import Party
-    party_files = glob(party_glob_str)
-    party_files.sort()
-    big_party = Party()
-    for party_file in party_files:
-        print('Adding %s to big_party' % party_file)
-        big_party += Party().read(party_file)
-    big_party.write(outfile)
-    return big_party
+
+    for place in ['Rotokawa', 'Wairakei', 'North', 'South', 'Remainder']:
+        glob_str = '%s/*min05_avg_cor_%s_declust*' % place
+        party_files = glob(glob_str)
+        party_files.sort()
+        big_party = Party()
+        for party_file in party_files:
+            print('Adding %s to big_party' % party_file)
+            big_party += Party().read(party_file)
+        print('Writing yearlong file for %s' % place)
+        big_party.write('%s/%s' % (party_dir, outfile))
+    return

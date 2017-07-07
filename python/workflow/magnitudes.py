@@ -3,7 +3,7 @@ from __future__ import division
 
 def local_to_moment(mag, m=0.88, c=0.73):
     """
-    From Gabe and or Calum?
+    From Gabe and/or Calum?
     Function to convert local magnitude to seismic moment - defaults to use
     the linear estimate from Ristau 2009 (BSSA) for shallow earthquakes in
     New Zealand.
