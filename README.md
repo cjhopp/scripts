@@ -6,7 +6,7 @@ This repository contains all the top level functions and scripts for my PhD work
 
 Mostly this is just a backup/sync between multiple machines. Most of the work is done in Python so that is the most actively maintained directory.
 
-##Acknowledgments  
+## Acknowledgments  
 These scripts rely heavily upon other Python packages including, but not limited to:
 * [EQcorrscan](https://eqcorrscan.github.io/)
 * [Obspy](https://docs.obspy.org/)
