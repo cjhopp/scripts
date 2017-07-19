@@ -4,6 +4,7 @@ r"""
 Script to handle pick refinement/removal and relocation of catalog earthquakes.
 """
 
+import os
 from glob import glob
 from subprocess import call
 import numpy as np
@@ -44,6 +45,9 @@ def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
             pk.time_errors.uncertainty = pick_uncertainty
         id_str = str(ev.resource_id).split('/')[-1]
         filename = root_name + 'obs/' + id_str + '.nll'
+        if os.path.isfile(filename):
+            print('OBS file already written, moving on.')
+            continue
         ev.write(filename, format="NLLOC_OBS")
         # Specify awk command to edit NLLoc .in file
         outfile = root_name + 'loc/' + id_str

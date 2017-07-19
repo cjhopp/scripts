@@ -33,6 +33,27 @@ def grab_day_wavs(wav_dirs, dto, stachans):
         st += read(wav)
     return st
 
+
+def merc_2_flow_pkl(Rot_sheet, Nga_sheet, NM08_stim):
+    """
+    Take the final flow rate sheets, clean them and save as a more convenient
+    pkl object
+    :param flow_sheet:
+    :return:
+    """
+    import pandas as pd
+    from obspy import UTCDateTime
+
+    rot_inj_DF = pd.read_excel(Rot_sheet, sheetname=0, header=[0,1])
+    rot_pres_DF = pd.read_excel(Rot_sheet, sheetname=1, header=[0,1])
+    nga_inj_DF = pd.read_excel(Nga_sheet, sheetname=1, header=[0,1])
+    nga_prod_DF = pd.read_excel(Nga_sheet, sheetname=0, header=[0,1])
+    nm08_stim_DF = pd.read_excel(NM08_stim, sheetname=5, header=0)
+    # Now create dict with top key as well name
+
+    return
+
+
 def sc3ml2qml(zipdir, outdir, stylesheet, prog='xalan'):
     """
     Converting Steve's zipped sc3ml to individual-event qml files

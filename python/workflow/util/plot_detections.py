@@ -552,7 +552,6 @@ def mrp_2_flow_dict(flow_csv, well_list=None):
             elif np.isnan(whp):
                 well_dict[well] = 0.0
         well_dict['total'] = sum([flow for well, flow in well_dict.iteritems() if well != 'LP Brine'])
-
     return flow_dict, whp_dict
 
 
