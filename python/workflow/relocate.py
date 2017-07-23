@@ -47,6 +47,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
         filename = root_name + 'obs/' + id_str + '.nll'
         if os.path.isfile(filename):
             print('OBS file already written, reading output to catalog')
+            outfile = root_name + 'loc/' + id_str
         else:
             ev.write(filename, format="NLLOC_OBS")
             # Specify awk command to edit NLLoc .in file
