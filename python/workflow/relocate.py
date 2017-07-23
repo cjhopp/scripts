@@ -51,7 +51,6 @@ def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
         else:
             ev.write(filename, format="NLLOC_OBS")
             # Specify awk command to edit NLLoc .in file
-            outfile = root_name + 'loc/' + id_str
             cmnd = """awk '$1 == "LOCFILES" {$2 = "%s"; $5 = "%s"}1' %s > tmp.txt && mv tmp.txt %s""" % (filename, outfile, in_file, in_file)
             call(cmnd, shell=True)
             # Call to NLLoc
