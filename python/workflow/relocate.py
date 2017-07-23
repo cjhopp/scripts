@@ -45,9 +45,9 @@ def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
             pk.time_errors.uncertainty = pick_uncertainty
         id_str = str(ev.resource_id).split('/')[-1]
         filename = root_name + 'obs/' + id_str + '.nll'
-        if os.path.isfile(filename):
-            print('OBS file already written, reading output to catalog')
-            outfile = root_name + 'loc/' + id_str
+        outfile = root_name + 'loc/' + id_str
+        if os.path.isfile(outfile):
+            print('LOC file already written, reading output to catalog')
         else:
             ev.write(filename, format="NLLOC_OBS")
             # Specify awk command to edit NLLoc .in file
