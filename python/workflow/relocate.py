@@ -46,7 +46,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
         id_str = str(ev.resource_id).split('/')[-1]
         filename = root_name + 'obs/' + id_str + '.nll'
         outfile = root_name + 'loc/' + id_str
-        if os.path.isfile(glob(outfile + '.????????.??????.grid0.loc.hyp')[0]):
+        if len(glob(outfile + '.????????.??????.grid0.loc.hyp')) > 0:
             print('LOC file already written, reading output to catalog')
         else:
             ev.write(filename, format="NLLOC_OBS")
