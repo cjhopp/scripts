@@ -46,15 +46,15 @@ def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
         id_str = str(ev.resource_id).split('/')[-1]
         filename = root_name + 'obs/' + id_str + '.nll'
         if os.path.isfile(filename):
-            print('OBS file already written, moving on.')
-            continue
-        ev.write(filename, format="NLLOC_OBS")
-        # Specify awk command to edit NLLoc .in file
-        outfile = root_name + 'loc/' + id_str
-        cmnd = """awk '$1 == "LOCFILES" {$2 = "%s"; $5 = "%s"}1' %s > tmp.txt && mv tmp.txt %s""" % (filename, outfile, in_file, in_file)
-        call(cmnd, shell=True)
-        # Call to NLLoc
-        call('NLLoc %s' % in_file, shell=True)
+            print('OBS file already written, reading output to catalog')
+        else:
+            ev.write(filename, format="NLLOC_OBS")
+            # Specify awk command to edit NLLoc .in file
+            outfile = root_name + 'loc/' + id_str
+            cmnd = """awk '$1 == "LOCFILES" {$2 = "%s"; $5 = "%s"}1' %s > tmp.txt && mv tmp.txt %s""" % (filename, outfile, in_file, in_file)
+            call(cmnd, shell=True)
+            # Call to NLLoc
+            call('NLLoc %s' % in_file, shell=True)
         # Now reading NLLoc output back into catalog as new origin
         # XXX BE MORE CAREFUL HERE. CANNOT GRAB BOTH SUM AND NON-SUM
         out_w_ext = glob(outfile + '.????????.??????.grid0.loc.hyp')

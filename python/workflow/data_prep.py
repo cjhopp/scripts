@@ -657,6 +657,7 @@ def mseed_2_Party(wav_dir, cat, temp_cat, lowcut, highcut, filt_order,
     :param cat:
     :return:
     """
+    import os
     from eqcorrscan.core.match_filter import Detection, Family, Party, Template
     from obspy import read, UTCDateTime, Catalog
 
@@ -669,7 +670,7 @@ def mseed_2_Party(wav_dir, cat, temp_cat, lowcut, highcut, filt_order,
     temp_evs = list(temp_evs)
     wav_files = ['%s/%s.mseed' % (wav_dir, str(ev.resource_id).split('/')[-1])
                  for ev in temp_evs]
-    temp_wavs = [read(wav) for wav in wav_files]
+    temp_wavs = [read(wav) for wav in wav_files if os.path.isfile(wav)]
     for temp_wav, temp_ev in zip(temp_wavs, temp_evs):
         #Create a Template object, assign it to Family and then to Party
         tid = str(temp_ev.resource_id).split('/')[-1].split('_')[0]
