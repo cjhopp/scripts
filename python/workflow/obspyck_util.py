@@ -113,6 +113,14 @@ def obspyck_from_local(wav_dirs, inv_dir, catalog, start=False, end=False):
         if not os.path.isdir('tmp'):
             os.mkdir('tmp')
         for ev in tmp_cat:
+            # First, remove amplitudes not set with obspyck
+            rm_amps = []
+            for amp in ev.amplitudes:
+                if "/obspyck/" not in str(amp.method_id) or str(
+                    amp.method_id).endswith("/obspyck/1"):
+                    rm_amps.append(amp)
+            for ampl in rm_amps:
+                ev.amplitudes.remove(ampl)
             tmp_name = 'tmp/%s' % str(ev.resource_id).split('/')[-1]
             ev.write(tmp_name, format='QUAKEML')
             if len(ev.origins) > 0:
