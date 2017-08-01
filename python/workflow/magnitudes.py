@@ -86,7 +86,8 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
                 raw_tr = read(wav_file)[0]
                 print(raw_tr.stats.sac['a'])
                 start = raw_tr.stats.starttime + raw_tr.stats.sac['a'] - 3.
-                raw_tr.trim(starttime=start)
+                end = start + 10
+                raw_tr.trim(starttime=start, endtime=end)
                 print(len(raw_tr))
                 raw_st.traces.append(raw_tr)
             streams.append(raw_st)
