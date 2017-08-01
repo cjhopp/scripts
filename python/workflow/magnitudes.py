@@ -91,7 +91,7 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
                 print(len(raw_tr))
                 raw_st.traces.append(raw_tr)
             streams.append(raw_st)
-        streams.insert(0, fam.template.st)
+        # streams.insert(0, fam.template.st)
         front_clip = prepick - (shift_len) - 0.05
         back_clip = prepick - 0.05 + align_len + (shift_len)
         wrk_streams = copy.deepcopy(streams) # For aligning
