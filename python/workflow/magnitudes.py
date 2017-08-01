@@ -75,6 +75,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             rdr = csv.reader(f)
             for row in rdr:
                 selfs.append(str(row))
+    print(selfs)
     for fam in party.families:
         temp = fam.template
         prepick = temp.prepick
