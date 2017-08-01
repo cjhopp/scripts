@@ -125,6 +125,9 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                              for st in wrk_streams for tr in st]))
         st_chans.sort()
         # Align streams with just P arrivals, then use longer st for svd
+        # TODO 8/2: Running on sgees018 get to alignment with
+        # TODO      AttributeError; 'funtion object has no 'stats'
+        # TODO      Continue from here...
         shift_inds = int(shift_len * fam.template.samp_rate)
         for st_chan in st_chans:
             self_det_trace = False
