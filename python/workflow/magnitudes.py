@@ -84,6 +84,7 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
             raw_st = Stream()
             for wav_file in glob('%s/*EHZ*' % ev_dir):
                 raw_tr = read(wav_file)[0]
+                print(raw_tr.stats.sac['a'])
                 raw_tr.trim(starttime=raw_tr.stats.starttime +
                                       raw_tr.stats.sac['a'] - 3.,
                             endtime=raw_tr.stats.endtime)
