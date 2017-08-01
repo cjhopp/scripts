@@ -87,6 +87,7 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
                 print(raw_tr.stats.sac['a'])
                 start = raw_tr.stats.starttime + raw_tr.stats.sac['a'] - 3.
                 raw_tr.trim(starttime=start)
+                print(len(raw_tr))
                 raw_st.traces.append(raw_tr)
             streams.append(raw_st)
         streams.insert(0, fam.template.st)
