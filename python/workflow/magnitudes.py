@@ -74,7 +74,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         with open(self_file, 'r') as f:
             rdr = csv.reader(f)
             for row in rdr:
-                selfs.append(str(row))
+                selfs.append(str(row[0]))
     print(selfs)
     for fam in party.families:
         temp = fam.template
