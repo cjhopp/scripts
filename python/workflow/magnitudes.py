@@ -40,8 +40,8 @@ def cc_coh_dets(streams, length, wav_prepick, corr_prepick, shift):
     return cccohs
 
 
-def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
-                        calibrate=False, method='PCA'):
+def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
+                        reject, sac_dir, calibrate=False, method='PCA'):
     """
     Calculate the relative moments for detections in a Family using
     mag_calc.svd_moments()
@@ -56,6 +56,7 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
     :return:
     """
     import copy
+    import csv
     import scipy
     import numpy as np
     from glob import glob
@@ -67,6 +68,13 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
     from eqcorrscan.utils.clustering import svd
     from eqcorrscan.utils.mag_calc import svd_moments
 
+    # First read-in self detection names
+    selfs = []
+    for self_file in self_files:
+        with open(self_file, 'r') as f:
+            rdr = csv.reader(f)
+            for row in rdr.readrow():
+                selfs.append(row)
     for fam in party.families:
         temp = fam.template
         prepick = temp.prepick
@@ -80,6 +88,8 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
                    for ev in events]
         # Maybe have to write these as list comprehensions...
         streams = []
+        self_ind = [i for i, ev_dir in enumerate(ev_dirs)
+                    if ev_dir.split('/')[-1] in selfs][0]
         for ev_dir in ev_dirs:
             raw_st = Stream()
             for wav_file in glob('%s/*EHZ*' % ev_dir):
@@ -91,7 +101,8 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
                 print(len(raw_tr))
                 raw_st.traces.append(raw_tr)
             streams.append(raw_st)
-        # streams.insert(0, fam.template.st)
+        # Move the self detection to the first element
+        streams.insert(0, streams.pop(self_ind))
         front_clip = prepick - (shift_len) - 0.05
         back_clip = prepick - 0.05 + align_len + (shift_len)
         wrk_streams = copy.deepcopy(streams) # For aligning
