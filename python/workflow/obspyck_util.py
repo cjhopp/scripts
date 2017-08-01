@@ -113,8 +113,9 @@ def obspyck_from_local(wav_dirs, inv_dir, catalog, start=False, end=False):
         if not os.path.isdir('tmp'):
             os.mkdir('tmp')
         for ev in tmp_cat:
-            # First, remove amplitudes not set with obspyck
+            # First, remove amplitudes and station mags not set with obspyck
             rm_amps = []
+            rm_sta_mags = []
             for amp in ev.amplitudes:
                 if "/obspyck/" not in str(amp.method_id) or str(
                     amp.method_id).endswith("/obspyck/1"):

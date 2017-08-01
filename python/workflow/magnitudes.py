@@ -90,7 +90,7 @@ def party_relative_mags(party, shift_len, align_len, svd_len, reject, sac_dir,
         back_clip = prepick - 0.05 + align_len + (shift_len)
         wrk_streams = copy.deepcopy(streams) # For aligning
         # Process streams then copy to both ccc_streams and svd_streams
-        for st in svd_streams:
+        for st in streams:
             shortproc(st=st, lowcut=temp.lowcut, highcut=temp.highcut,
                       filt_order=temp.filt_order, samp_rate=temp.samp_rate)
         svd_streams = copy.deepcopy(streams) # For svd
