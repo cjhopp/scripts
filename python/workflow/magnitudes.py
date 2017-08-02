@@ -76,6 +76,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             for row in rdr:
                 selfs.append(str(row[0]))
     for fam in party.families:
+        print('Starting work on family %s' % fam.template.name)
         temp = fam.template
         prepick = temp.prepick
         events = [det.event for det in fam.detections]
@@ -90,16 +91,20 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         for ev_dir in ev_dirs:
             raw_st = Stream()
             for wav_file in glob('%s/*EHZ*' % ev_dir):
+                print('Reading %s' % ev_dir)
+                print('...file %s' % wav_file)
                 raw_tr = read(wav_file)[0]
                 start = raw_tr.stats.starttime + raw_tr.stats.sac['a'] - 3.
                 end = start + 10
                 raw_tr.trim(starttime=start, endtime=end)
                 raw_st.traces.append(raw_tr)
             streams.append(raw_st)
+        print('Moved self detection to top of list')
         # Move the self detection to the first element
         streams.insert(0, streams.pop(self_ind))
-        front_clip = prepick - (shift_len) - 0.05
-        back_clip = prepick - 0.05 + align_len + (shift_len)
+        # Front/back clip hardcoded relative to wavs starting 3 s before pick
+        front_clip = 3.0 - shift_len - 0.05 - prepick
+        back_clip = front_clip + align_len + (2 * shift_len) + 0.05
         wrk_streams = copy.deepcopy(streams) # For aligning
         # Process streams then copy to both ccc_streams and svd_streams
         for st in streams:
@@ -119,6 +124,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                              for st in wrk_streams for tr in st]))
         st_chans.sort()
         # Align streams with just P arrivals, then use longer st for svd
+        print('Now aligning svd_streams')
         shift_inds = int(shift_len * fam.template.samp_rate)
         for st_chan in st_chans:
             self_det_trace = False
@@ -196,7 +202,6 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                     continue
                 M.append(np.median(ev_r_amps))
                 events_out.append(i)
-        print(type(M))
         # If we have a Mag for template, calibrate moments
         if calibrate and len(fam.template.event.magnitudes) > 0:
             # Convert the template magnitude to seismic moment
@@ -205,7 +210,6 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             # Extrapolate from the template moment - relative moment relationship to
             # Get the moment for relative moment = 1.0
             norm_mo = temp_mo / M[0]
-            print(type(norm_mo))
             # Template is the last event in the list
             # Now these are weights which we can multiple the moments by
             moments = np.multiply(M, norm_mo)
