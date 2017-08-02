@@ -187,12 +187,10 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                                      channel=tr.stats.channel)) > 0:
                         det_tr = st.select(station=tr.stats.station,
                                            channel=tr.stats.channel)[0]
-                        # Check if the ccval is above thresh
-                        if normxcorr2(tr.data, det_tr.data) > reject:
-                            data_mat = np.hstack((tr.data, det_tr.data))
-                            U, sig, Vt = scipy.linalg.svd(np.matrix(data_mat),
-                                                          full_matrices=True)
-                            ev_r_amps.append(Vt[0][1] / Vt[0][0])
+                        data_mat = np.hstack((tr.data, det_tr.data))
+                        U, sig, Vt = scipy.linalg.svd(np.matrix(data_mat),
+                                                      full_matrices=True)
+                        ev_r_amps.append(Vt[0][1] / Vt[0][0])
                 if len(ev_r_amps) < 4:
                     print('Fewer than 4 amplitude picks, skipping.')
                     continue
