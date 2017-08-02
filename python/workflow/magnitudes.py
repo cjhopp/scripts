@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# from __future__ import division
+from __future__ import division
 
 def local_to_moment(mag, m=0.88, c=0.73):
     """
@@ -193,8 +193,8 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                             U, sig, Vt = scipy.linalg.svd(np.matrix(data_mat),
                                                           full_matrices=True)
                             ev_r_amps.append(Vt[0][1] / Vt[0][0])
-                if len(ev_r_amps) < 6:
-                    print('Fewer than 6 amplitude picks, skipping.')
+                if len(ev_r_amps) < 4:
+                    print('Fewer than 4 amplitude picks, skipping.')
                     continue
                 M.append(np.median(ev_r_amps))
                 events_out.append(i)
@@ -207,6 +207,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             # Extrapolate from the template moment - relative moment relationship to
             # Get the moment for relative moment = 1.0
             norm_mo = temp_mo / M[0]
+            print(norm_mo)
             # Template is the last event in the list
             # Now these are weights which we can multiple the moments by
             moments = M * norm_mo
