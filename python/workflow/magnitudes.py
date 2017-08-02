@@ -91,8 +91,8 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                     if ev_dir.split('/')[-1] in selfs][0]
         for ev_dir in ev_dirs:
             raw_st = Stream()
+            print('Reading %s' % ev_dir)
             for wav_file in glob('%s/*EHZ*' % ev_dir):
-                print('Reading %s' % ev_dir)
                 print('...file %s' % wav_file)
                 raw_tr = read(wav_file)[0]
                 start = raw_tr.stats.starttime + raw_tr.stats.sac['a'] - 3.
