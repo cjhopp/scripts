@@ -135,7 +135,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 shifts, ccs = stacking.align_traces(trace_list=list(traces),
                                                     shift_len=shift_inds,
                                                     positive=True,
-                                                    master=traces[0].copy)
+                                                    master=traces[0].copy())
             else:
                 shifts, ccs = stacking.align_traces(trace_list=list(traces),
                                                     shift_len=shift_inds,
