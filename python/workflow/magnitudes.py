@@ -188,7 +188,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                                            channel=tr.stats.channel)[0]
                         # Check if the ccval is above thresh
                         if normxcorr2(tr.data, det_tr.data) > reject:
-                            data_mat = np.hstack((tr.data, det_tr))
+                            data_mat = np.hstack((tr.data, det_tr.data))
                             U, sig, Vt = scipy.linalg.svd(data_mat,
                                                           full_matrices=True)
                             ev_r_amps.append(Vt[0][1] / Vt[0][0])
