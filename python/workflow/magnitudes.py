@@ -177,6 +177,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             print('Using principal component method')
             # Now loop over all detections and do svd for each matching
             # chan with temp
+            events_out = []
             template = svd_streams[0]
             M = []
             for i, st in enumerate(svd_streams):
