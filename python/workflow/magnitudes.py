@@ -75,14 +75,10 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             rdr = csv.reader(f)
             for row in rdr:
                 selfs.append(str(row[0]))
-    print(selfs)
     for fam in party.families:
         temp = fam.template
         prepick = temp.prepick
         events = [det.event for det in fam.detections]
-        # Find out which detection is the self detection and its index
-        self_det = [(det, i) for i, det in enumerate(fam.detections)
-                    if det.detect_val / det.no_chans == 1.0][0]
         # Here we'll read in the waveforms and trim from stefan's directory
         # of SAC files so as not to duplicate data
         ev_dirs = ['%s/%s' % (sac_dir, str(ev.resource_id).split('/')[-1])
@@ -95,11 +91,9 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             raw_st = Stream()
             for wav_file in glob('%s/*EHZ*' % ev_dir):
                 raw_tr = read(wav_file)[0]
-                print(raw_tr.stats.sac['a'])
                 start = raw_tr.stats.starttime + raw_tr.stats.sac['a'] - 3.
                 end = start + 10
                 raw_tr.trim(starttime=start, endtime=end)
-                print(len(raw_tr))
                 raw_st.traces.append(raw_tr)
             streams.append(raw_st)
         # Move the self detection to the first element
@@ -125,9 +119,6 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                              for st in wrk_streams for tr in st]))
         st_chans.sort()
         # Align streams with just P arrivals, then use longer st for svd
-        # TODO 8/2: Running on sgees018 get to alignment with
-        # TODO      AttributeError; 'funtion object has no 'stats'
-        # TODO      Continue from here...
         shift_inds = int(shift_len * fam.template.samp_rate)
         for st_chan in st_chans:
             self_det_trace = False
@@ -136,16 +127,15 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 if len(st.select(station=st_chan[0], channel=st_chan[-1])) > 0:
                     trs.append((i, st.select(station=st_chan[0],
                                              channel=st_chan[-1])[0]))
-                    # If template has trace for stachan, note the index
-                    if i == self_det[1]:
+                    # If template has trace for stachan set flag
+                    if i == 0:
                         self_det_trace = True
-                        mast_ind = len(trs) - 1
             inds, traces = zip(*trs)
             if self_det_trace:
                 shifts, ccs = stacking.align_traces(trace_list=list(traces),
                                                     shift_len=shift_inds,
                                                     positive=True,
-                                                    master=traces[mast_ind].copy)
+                                                    master=traces[0].copy)
             else:
                 shifts, ccs = stacking.align_traces(trace_list=list(traces),
                                                     shift_len=shift_inds,
