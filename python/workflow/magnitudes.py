@@ -82,8 +82,9 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         events = [det.event for det in fam.detections]
         # Here we'll read in the waveforms and trim from stefan's directory
         # of SAC files so as not to duplicate data
-        ev_dirs = ['%s/%s' % (sac_dir, str(ev.resource_id).split('/')[-1])
+        ev_dirs = ['%s%s' % (sac_dir, str(ev.resource_id).split('/')[-1])
                    for ev in events]
+        print(ev_dirs)
         # Maybe have to write these as list comprehensions...
         streams = []
         self_ind = [i for i, ev_dir in enumerate(ev_dirs)
