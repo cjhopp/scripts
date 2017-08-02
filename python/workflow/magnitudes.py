@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from __future__ import division
+# from __future__ import division
 
 def local_to_moment(mag, m=0.88, c=0.73):
     """
@@ -198,6 +198,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                     continue
                 M.append(np.median(ev_r_amps))
                 events_out.append(i)
+        print(M)
         # If we have a Mag for template, calibrate moments
         if calibrate and len(fam.template.event.magnitudes) > 0:
             # Convert the template magnitude to seismic moment
