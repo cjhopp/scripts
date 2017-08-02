@@ -198,7 +198,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                     continue
                 M.append(np.median(ev_r_amps))
                 events_out.append(i)
-        print(M)
+        print(type(M))
         # If we have a Mag for template, calibrate moments
         if calibrate and len(fam.template.event.magnitudes) > 0:
             # Convert the template magnitude to seismic moment
@@ -207,10 +207,10 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             # Extrapolate from the template moment - relative moment relationship to
             # Get the moment for relative moment = 1.0
             norm_mo = temp_mo / M[0]
-            print(norm_mo)
+            print(type(norm_mo))
             # Template is the last event in the list
             # Now these are weights which we can multiple the moments by
-            moments = M * norm_mo
+            moments = np.multiply(M, norm_mo)
             # Now convert to Mw
             Mw = [2.0 / 3.0 * (np.log10(m) - 9.0) for m in moments]
             Mw2, evs2 = remove_outliers(Mw, events_out)
