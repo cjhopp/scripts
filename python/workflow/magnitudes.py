@@ -62,7 +62,6 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
     from glob import glob
     from obspy import read, Catalog, Stream
     from obspy.core.event import Magnitude, Comment
-    from eqcorrscan.core.match_filter import normxcorr2
     from eqcorrscan.utils import stacking
     from eqcorrscan.utils.pre_processing import shortproc
     from eqcorrscan.utils.clustering import svd
@@ -217,15 +216,16 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             Mw2, evs2 = remove_outliers(Mw, events_out)
             # Convert to local
             Ml = [0.88 * m + 0.73 for m in Mw2]
+            print(Ml)
             #Normalize moments to template mag
             # Add calibrated mags to detection events
             for i, eind in enumerate(evs2):
-                fam.detections[eind-1].event.magnitudes = [Magnitude(mag=Mw2[i],
-                                                                     magnitude_type='Mw')]
+                fam.detections[eind-1].event.magnitudes = [
+                    Magnitude(mag=Mw2[i], magnitude_type='Mw')]
                 fam.detections[eind-1].event.comments.append(
                     Comment(text=str(cccohs[eind-1])))
-                # fam.detections[eind-1].event.magnitudes.append(Magnitude(mag=Ml[i],
-                #                                                          magnitude_type='ML'))
+                fam.detections[eind-1].event.magnitudes.append(
+                    Magnitude(mag=Ml[i], magnitude_type='ML'))
             fam.catalog = Catalog(events=[det.event for det in fam.detections])
     return party, cccohs
 
