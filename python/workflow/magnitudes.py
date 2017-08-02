@@ -147,7 +147,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 if ccs[j] < reject:
                     svd_streams[inds[j]].remove(st.select(
                         station=st_chan[0], channel=st_chan[-1])[0])
-                    print('Removing stream due to low cc value: %s' % ccs[j])
+                    print('Removing trace due to low cc value: %s' % ccs[j])
                     continue
                 strt_tr = st.select(
                     station=st_chan[0], channel=st_chan[-1])[0].stats.starttime
@@ -157,6 +157,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                           channel=st_chan[-1])[0].trim(strt_tr,strt_tr
                                                        + svd_len)
         if method == 'LSQR':
+            print('Using least-squares method')
             event_list = []
             for stachan in st_chans:
                 st_list = []
@@ -173,9 +174,10 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 print('Family %s raised error %s' % (fam.template.name, e))
                 continue
         elif method == 'PCA':
+            print('Using principal component method')
             # Now loop over all detections and do svd for each matching
             # chan with temp
-            template = svd_streams[self_det[1]]
+            template = svd_streams[0]
             M = []
             for i, st in enumerate(svd_streams):
                 ev_r_amps = []
