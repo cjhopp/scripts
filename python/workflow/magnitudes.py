@@ -84,15 +84,15 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         # of SAC files so as not to duplicate data
         ev_dirs = ['%s%s' % (sac_dir, str(ev.resource_id).split('/')[-1])
                    for ev in events]
-        print(ev_dirs)
-        # Maybe have to write these as list comprehensions...
         streams = []
         self_ind = [i for i, ev_dir in enumerate(ev_dirs)
                     if ev_dir.split('/')[-1] in selfs][0]
-        for ev_dir in ev_dirs:
+        # Read in Z components of events which we wrote for stefan
+        # Many of these ev_dirs will not exist!
+        for i, ev_dir in enumerate(ev_dirs):
             raw_st = Stream()
             print('Reading %s' % ev_dir)
-            for wav_file in glob('%s/*EHZ*' % ev_dir):
+            for wav_file in glob('%s/*Z.sac' % ev_dir):
                 print('...file %s' % wav_file)
                 raw_tr = read(wav_file)[0]
                 start = raw_tr.stats.starttime + raw_tr.stats.sac['a'] - 3.
@@ -103,6 +103,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         print('Moved self detection to top of list')
         # Move the self detection to the first element
         streams.insert(0, streams.pop(self_ind))
+        print('Template Stream: %s' % str(streams[0]))
         # Front/back clip hardcoded relative to wavs starting 3 s before pick
         front_clip = 3.0 - shift_len - 0.05 - prepick
         back_clip = front_clip + align_len + (2 * shift_len) + 0.05
@@ -128,26 +129,17 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         print('Now aligning svd_streams')
         shift_inds = int(shift_len * fam.template.samp_rate)
         for st_chan in st_chans:
-            self_det_trace = False
             trs = []
             for i, st in enumerate(wrk_streams):
                 if len(st.select(station=st_chan[0], channel=st_chan[-1])) > 0:
                     trs.append((i, st.select(station=st_chan[0],
                                              channel=st_chan[-1])[0]))
-                    # If template has trace for stachan set flag
-                    if i == 0:
-                        self_det_trace = True
             inds, traces = zip(*trs)
-            if self_det_trace:
-                shifts, ccs = stacking.align_traces(trace_list=list(traces),
-                                                    shift_len=shift_inds,
-                                                    positive=True,
-                                                    master=traces[0].copy())
-            else:
-                shifts, ccs = stacking.align_traces(trace_list=list(traces),
-                                                    shift_len=shift_inds,
-                                                    positive=True)
-            # We not have shifts based on P correlation, shift and trim
+            shifts, ccs = stacking.align_traces(trace_list=list(traces),
+                                                shift_len=shift_inds,
+                                                positive=True,
+                                                master=traces[0].copy())
+            # We now have shifts based on P correlation, shift and trim
             # larger wavs for svd
             for j, shift in enumerate(shifts):
                 st = svd_streams[inds[j]]
@@ -158,8 +150,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                     continue
                 strt_tr = st.select(
                     station=st_chan[0], channel=st_chan[-1])[0].stats.starttime
-                strt_tr += prepick
-                strt_tr -= shift
+                strt_tr += (3.0 - prepick - shift)
                 st.select(station=st_chan[0],
                           channel=st_chan[-1])[0].trim(strt_tr,strt_tr
                                                        + svd_len)
@@ -188,15 +179,22 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             template = svd_streams[0]
             M = []
             for i, st in enumerate(svd_streams):
+                if len(st) == 0:
+                    print('Event not located, skipping')
+                    continue
                 ev_r_amps = []
+                # For each pair of template:detection (including temp:temp)
                 for tr in template:
                     if len(st.select(station=tr.stats.station,
                                      channel=tr.stats.channel)) > 0:
                         det_tr = st.select(station=tr.stats.station,
                                            channel=tr.stats.channel)[0]
-                        data_mat = np.hstack((tr.data, det_tr.data))
-                        U, sig, Vt = scipy.linalg.svd(np.matrix(data_mat),
+                        # Convoluted way of getting two 'vert' vectors
+                        data_mat = np.vstack((tr.data, det_tr.data)).T
+                        U, sig, Vt = scipy.linalg.svd(data_mat,
                                                       full_matrices=True)
+                        # Vt is 2x2 for two events
+                        # Per Shelly et al., 2016 eq. 4
                         ev_r_amps.append(Vt[0][1] / Vt[0][0])
                 if len(ev_r_amps) < 4:
                     print('Fewer than 4 amplitude picks, skipping.')
@@ -248,21 +246,3 @@ def remove_outliers(M, ev_out, m=4):
             new_M.append(M[i])
             new_evs.append(ev_out[i])
     return np.array(new_M), new_evs
-
-
-def shelly_mags(party, wav_dir):
-    """
-    Implementation of David Shelly's relative amplitude-based calculations
-    :param party:
-    :return:
-    """
-    from obspy import read
-
-    for fam in party:
-        prepick = fam.template.prepick
-        events = [det.event for det in fam.detections]
-        wav_files = ['%s/%s.mseed' % (wav_dir,
-                                      str(ev.resource_id).split('/')[-1])
-                     for ev in events]
-        streams = [read(wav_file) for wav_file in wav_files]
-    return
