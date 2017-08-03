@@ -2,19 +2,34 @@
 """
 Helper functions for subspace detectors
 """
+import os
+import copy
+import fnmatch
+import warnings
+import numpy as np
+import matplotlib.pyplot as plt
+
+from glob import glob
+from itertools import chain
+from obspy import Stream, read
+from datetime import timedelta
+from eqcorrscan.core.match_filter import Tribe, Template
+from eqcorrscan.utils import stacking, clustering
+from eqcorrscan.utils.pre_processing import shortproc
+from eqcorrscan.core.subspace import Detector
+from obspy.signal.trigger import classic_sta_lta
+from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+
+
 def date_generator(start_date, end_date):
     # Generator for date looping
-    from datetime import timedelta
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
 
 def grab_day_wavs(wav_dirs, dto, stachans):
     # Helper to recursively crawl paths searching for waveforms for a dict of
     # stachans for one day
-    import os
-    import fnmatch
-    from itertools import chain
-    from obspy import read, Stream
 
     st = Stream()
     wav_files = []
@@ -52,8 +67,61 @@ def grab_day_wavs(wav_dirs, dto, stachans):
         print('All traces long enough to proceed to dayproc')
     return st.sort(['starttime'])
 
-def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate,
-                  filt_order, pre_pick, length, shift_len, cores):
+def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
+                          show=False, debug=1):
+    """
+    In the case that the distance matrix has been saved, forego calculating it
+
+    Functionality extracted from eqcorrscan.utils.clustering.cluster
+    Consider adding this functionality and commiting to new branch
+    :param party: Party used to make the dist_mat
+    :param dist_mat: Distance matrix of pair-wise template wav correlations
+    :return: Groups of templates
+    """
+    dist_vec = squareform(dist_mat)
+    if debug >= 1:
+        print('Computing linkage')
+    Z = linkage(dist_vec)
+    if show:
+        if debug >= 1:
+            print('Plotting the dendrogram')
+        dendrogram(Z, color_threshold=1 - corr_thresh,
+                   distance_sort='ascending')
+        plt.show()
+    # Get the indices of the groups
+    if debug >= 1:
+        print('Clustering')
+    indices = fcluster(Z, t=1 - corr_thresh, criterion='distance')
+    # Indices start at 1...
+    group_ids = list(set(indices))  # Unique list of group ids
+    if debug >= 1:
+        msg = ' '.join(['Found', str(len(group_ids)), 'groups'])
+        print(msg)
+    # Convert to tuple of (group id, stream id)
+    indices = [(indices[i], i) for i in range(len(indices))]
+    # Sort by group id
+    indices.sort(key=lambda tup: tup[0])
+    groups = []
+    if debug >= 1:
+        print('Extracting and grouping')
+    for group_id in group_ids:
+        group = []
+        for ind in indices:
+            if ind[0] == group_id:
+                group.append(temp_list[ind[1]])
+            elif ind[0] > group_id:
+                # Because we have sorted by group id, when the index is greater
+                # than the group_id we can break the inner loop.
+                # Patch applied by CJC 05/11/2015
+                groups.append(group)
+                break
+    # Catch the final group
+    groups.append(group)
+    return groups
+
+def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
+                  pre_pick, length, shift_len, corr_thresh, cores,
+                  dist_mat=False):
     """
     Cross correlate all templates in a tribe and return separate tribes for
     each cluster
@@ -63,12 +131,6 @@ def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate,
     .. Note: Functionality here is pilaged from align design as we don't
         want the multiplexed portion of that function.
     """
-    from glob import glob
-    from obspy import read
-    import warnings
-    from eqcorrscan.core.match_filter import Tribe, Template
-    from eqcorrscan.utils import stacking, clustering
-    from eqcorrscan.utils.pre_processing import shortproc
 
     tribe.sort()
     raw_wav_files = glob('%s/*' % raw_wav_dir)
@@ -124,11 +186,23 @@ def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate,
             st.select(
                 station=stachan[0], channel=stachan[1])[0].trim(
                 start_t, start_t + clip_len)
-    groups = clustering.cluster(temp_list, show=True, corr_thresh=0.3,
-                                allow_shift=False, save_corrmat=True)
+    if dist_mat.any() == True:
+        groups = cluster_from_dist_mat(dist_mat=dist_mat, temp_list=temp_list,
+                                       show=True, corr_thresh=corr_thresh)
+    else:
+        groups = clustering.cluster(temp_list, show=True,
+                                    corr_thresh=corr_thresh, allow_shift=False,
+                                    save_corrmat=True)
     group_tribes = []
     for group in groups:
-        group_tribes.append(Tribe(templates=[Template(st=tmp[0], event=tmp[1])
+        group_tribes.append(Tribe(templates=[Template(st=tmp[0],
+                                                      name=tmp[1].name,
+                                                      event=tmp[1].event,
+                                                      highcut=highcut,
+                                                      lowcut=lowcut,
+                                                      samp_rate=samp_rate,
+                                                      filt_order=filt_order,
+                                                      prepick=pre_pick)
                                              for tmp in group]))
     return group_tribes
 
@@ -139,10 +213,6 @@ def Tribe_2_Detector(tribe_dir, raw_wavs, outdir, lowcut, highcut, filt_order,
     :param tribe_dir:
     :return:
     """
-    from glob import glob
-    from obspy import read
-    from eqcorrscan.core.match_filter import Tribe
-    from eqcorrscan.core.subspace import Detector
 
     tribe_files = glob('%s/*.tgz' % tribe_dir)
     tribe_files.sort()
@@ -181,8 +251,6 @@ def rewrite_subspace(detector, outfile):
     :param detector:
     :return:
     """
-    import copy
-    from eqcorrscan.core.subspace import Detector
 
     new_u = copy.deepcopy(detector.v)
     new_v = copy.deepcopy(detector.u)
@@ -257,8 +325,6 @@ def _check_stalta(st, STATime, LTATime, limit):
 
     .. Note: Taken from detex.fas
     """
-    import numpy as np
-    from obspy.signal.trigger import classic_sta_lta
 
     if limit is None:
         return True

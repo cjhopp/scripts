@@ -216,7 +216,6 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             Mw2, evs2 = remove_outliers(Mw, events_out)
             # Convert to local
             Ml = [0.88 * m + 0.73 for m in Mw2]
-            print(Ml)
             #Normalize moments to template mag
             # Add calibrated mags to detection events
             for i, eind in enumerate(evs2):

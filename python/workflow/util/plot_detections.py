@@ -371,10 +371,34 @@ def plot_location_changes(cat, bbox, show=True):
         fig.show()
     return fig
 
-def plot_non_cumulative(party):
+def plot_non_cumulative(party, dates=False, tribe_list=False):
+    """
+    Recreating something similar to Gabe's thesis fig. 4.9 plotting
+    a party
+    :param party:
+    :param tribe_list:
+    :return:
+    """
     import numpy as np
-    from eqcorrscan.core.match_filter import Detection
+    from itertools import cycle
+    from eqcorrscan.core.match_filter import Detection, Family, Party, Template
 
+    if dates:
+        date_party = Party()
+        for fam in party:
+            date_party += Family(detections=[det for det in fam.detections
+                                             if det.detect_time < dates[1]
+                                             and det.detect_time > dates[0]],
+                                 template=Template())
+        party = date_party
+    # Make list of list of template names for each tribe
+    mult_list = [[temp.name for temp in tribe] for tribe in tribe_list]
+    # Setup generator for colors as in cumulative_detections()
+    colors = cycle(['blue', 'green', 'red', 'cyan', 'magenta', 'black',
+                    'purple', 'darkgoldenrod', 'gray'])
+    # Make color dict with key as mutliplet no
+    col_dict = {i : (next(colors) if len(mult) > 1
+                     else 'grey') for i, mult in enumerate(tribe_list)}
     detections = []
     for fam in party:
         detections.extend(fam.detections)
@@ -389,18 +413,25 @@ def plot_non_cumulative(party):
         template_names.append(detection.template_name)
     _dates = []
     _template_names = []
+    mult_cols = []
     for template_name in sorted(set(template_names)):
         _template_names.append(template_name)
         _dates.append([date for i, date in enumerate(dates)
                        if template_names[i] == template_name])
+        # Assign this template the color of its corresponding multiplet
+        for i, mult in enumerate(mult_list):
+            if template_name in mult:
+                mult_cols.append(col_dict[i])
     dates = _dates
     template_names = _template_names
     fig, ax = plt.subplots()
-    for i, (d_list, temp_name) in enumerate(zip(dates, template_names)):
+    for i, (d_list, temp_name, mult_col) in enumerate(zip(dates,
+                                                          template_names,
+                                                          mult_cols)):
         y = np.empty(len(d_list))
         y.fill(i)
         d_list.sort()
-        ax.plot(d_list, y, '--o', color='gray', linewidth=0.2,
+        ax.plot(d_list, y, '--o', color=mult_col, linewidth=0.2,
                 #markerfacecolor=colorsList[i - 1],
                 markersize=2,
                 markeredgewidth=0, markeredgecolor='k',
