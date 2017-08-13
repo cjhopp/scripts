@@ -121,7 +121,7 @@ def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
 
 def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
                   pre_pick, length, shift_len, corr_thresh, cores,
-                  dist_mat=False):
+                  dist_mat=False, show=False):
     """
     Cross correlate all templates in a tribe and return separate tribes for
     each cluster
@@ -188,9 +188,9 @@ def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
                 start_t, start_t + clip_len)
     if dist_mat.any() == True:
         groups = cluster_from_dist_mat(dist_mat=dist_mat, temp_list=temp_list,
-                                       show=True, corr_thresh=corr_thresh)
+                                       show=show, corr_thresh=corr_thresh)
     else:
-        groups = clustering.cluster(temp_list, show=True,
+        groups = clustering.cluster(temp_list, show=show,
                                     corr_thresh=corr_thresh, allow_shift=False,
                                     save_corrmat=True)
     group_tribes = []
