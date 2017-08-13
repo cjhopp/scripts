@@ -186,7 +186,8 @@ def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
             st.select(
                 station=stachan[0], channel=stachan[1])[0].trim(
                 start_t, start_t + clip_len)
-    if dist_mat.any() == True:
+    print('Clustering')
+    if isinstance(dist_mat, np.ndarray):
         groups = cluster_from_dist_mat(dist_mat=dist_mat, temp_list=temp_list,
                                        show=show, corr_thresh=corr_thresh)
     else:
