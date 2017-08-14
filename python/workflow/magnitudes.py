@@ -41,7 +41,8 @@ def cc_coh_dets(streams, length, wav_prepick, corr_prepick, shift):
 
 
 def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
-                        reject, sac_dir, calibrate=False, method='PCA'):
+                        reject, sac_dir, min_amps, calibrate=False,
+                        method='PCA'):
     """
     Calculate the relative moments for detections in a Family using
     mag_calc.svd_moments()
@@ -52,7 +53,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
     :param svd_len: Length of waveform used in relative amplitude calc
     :param reject: Min cc threshold for accepted measurement
     :param sac_dir: Root directory of waveforms
-    :param calibrate: Boolean flag for calibration to a priori Ml's
+    :param calibrate: Flag for calibration to a priori Ml's
     :return:
     """
     import copy
@@ -195,7 +196,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                         # Vt is 2x2 for two events
                         # Per Shelly et al., 2016 eq. 4
                         ev_r_amps.append(Vt[0][1] / Vt[0][0])
-                if len(ev_r_amps) < 4:
+                if len(ev_r_amps) < min_amps:
                     print('Fewer than 4 amplitude picks, skipping.')
                     continue
                 M.append(np.median(ev_r_amps))
