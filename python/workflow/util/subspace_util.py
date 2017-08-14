@@ -141,7 +141,6 @@ def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
             in names]
     new_tribe = Tribe()
     new_tribe.templates = [temp for temp in tribe if temp.name in names]
-    print(len(new_tribe), len(wavs))
     print('Processing temps')
     temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
                             samp_rate=samp_rate, filt_order=filt_order,
@@ -193,7 +192,8 @@ def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
     else:
         groups = clustering.cluster(temp_list, show=show,
                                     corr_thresh=corr_thresh, allow_shift=False,
-                                    save_corrmat=True)
+                                    save_corrmat=True,
+                                    cores=cores)
     group_tribes = []
     for group in groups:
         group_tribes.append(Tribe(templates=[Template(st=tmp[0],
