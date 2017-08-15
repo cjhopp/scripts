@@ -77,6 +77,8 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 selfs.append(str(row[0]))
     for fam in party.families:
         print('Starting work on family %s' % fam.template.name)
+        if len(fam) == 1:
+            print('Only self-detection. Moving on.')
         temp = fam.template
         prepick = temp.prepick
         events = [det.event for det in fam.detections]
