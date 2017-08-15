@@ -162,7 +162,8 @@ def bval_plot(cat, bins=30, MC=None, title=None,
     bin_interval = b_dict['bin_vals'][1] - b_dict['bin_vals'][0]
     b_dict2 = bval_calc(cat, bins, MC=test_dict['M_cut'])
     fig = plt.figure(figsize=(12, 5))
-    ax = fig.add_subplot(121, aspect=1.)
+    # ax = fig.add_subplot(121, aspect=1.)
+    ax = fig.add_subplot(121)
     # Plotting first bval line
     ax.plot(b_dict['bval_bins'],
             np.power([10],[b_dict['a']-b_dict['b']*aval
@@ -200,7 +201,8 @@ def bval_plot(cat, bins=30, MC=None, title=None,
     ax.scatter(b_dict['bin_vals'] + (bin_interval / 2.),
                b_dict['non_cum_bins'], color='m', marker='^',
                label='Non-cumulative')
-    ax.set_ylim(bottom=1)
+    ax.set_ylim(bottom=1, top=max(b_dict['cum_bins']) +
+                              1.25 * max(b_dict['cum_bins']))
     ax.set_ylabel('Number of events')
     ax.set_xlabel('Magnitude')
     if title:
