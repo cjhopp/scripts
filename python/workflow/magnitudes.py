@@ -85,6 +85,11 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         ev_dirs = ['%s%s' % (sac_dir, str(ev.resource_id).split('/')[-1])
                    for ev in events]
         streams = []
+        if len([i for i, ev_dir in enumerate(ev_dirs)
+                    if ev_dir.split('/')[-1] in selfs]) == 0:
+            print('Family %s has no self detection. Investigate'
+                  % fam.template.name)
+            continue
         self_ind = [i for i, ev_dir in enumerate(ev_dirs)
                     if ev_dir.split('/')[-1] in selfs][0]
         # Read in Z components of events which we wrote for stefan
