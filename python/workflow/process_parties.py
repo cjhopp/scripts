@@ -229,3 +229,11 @@ def combine_year_parties(party_dir):
         big_party.write('%s/Party_%s_min05_avg_cor_%s_declust'
                         % (party_dir, year, place))
     return
+
+def flow_det_corr(flow_df):
+    """
+    # XXX TODO Probably useful to have a correlation between normalized...
+    # XXX TODO ...flow params and detections
+    :return:
+    """
+    return

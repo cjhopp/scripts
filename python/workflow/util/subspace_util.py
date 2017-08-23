@@ -119,6 +119,33 @@ def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
     groups.append(group)
     return groups
 
+def stack_plot(streams, station, channel, savefig):
+    """
+    Plot list of traces for a stachan as an aligned series
+    :return:
+    """
+    # Sort traces by starttime
+    streams.sort(key=lambda x: x[0].stats.starttime)
+    # Select all traces
+    traces = []
+    for st in streams:
+        if len(st.select(station=station, channel=channel)) == 1:
+            traces.append(st.select(station=station, channel=channel)[0])
+    # Normalize traces
+    for tr in traces:
+        tr.data = tr.data / max(tr.data)
+    fig, ax = plt.subplots()
+    vert_steps = np.linspace(0, len(traces), len(traces))
+    for tr, vert_step in zip(traces, vert_steps):
+        ax.plot(tr.data + vert_step, color='k')
+    ax.set_xlabel('Samples')
+    ax.set_ylabel('Event count')
+    if savefig:
+        plt.savefig(savefig)
+    else:
+        plt.show()
+    return
+
 def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
                   pre_pick, length, shift_len, corr_thresh, cores,
                   dist_mat=False, show=False):
@@ -208,7 +235,8 @@ def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
     return group_tribes
 
 def Tribe_2_Detector(tribe_dir, raw_wavs, outdir, lowcut, highcut, filt_order,
-                     samp_rate, shift_len, reject, dimension, prepick, length):
+                     samp_rate, shift_len, reject, dimension, prepick,
+                     length, multiplex=False):
     """
     Take a directory of cluster-defined Tribes and write them to Detectors
     :param tribe_dir:
@@ -239,11 +267,12 @@ def Tribe_2_Detector(tribe_dir, raw_wavs, outdir, lowcut, highcut, filt_order,
         detector = Detector()
         detector.construct(streams=templates, lowcut=lowcut, highcut=highcut,
                            filt_order=filt_order, sampling_rate=samp_rate,
-                           multiplex=True,
-                           name=tfile.split('.')[0].split('/')[-1],
+                           multiplex=multiplex,
+                           name=tfile.split('/')[-1].split('.')[0],
                            align=True, shift_len=shift_len,
                            reject=reject, no_missed=False)
-        detector.write('%s/%s_detector' % (outdir, tfile.split('.')[0]))
+        detector.write('%s/%s_detector' % (outdir,
+                                           tfile.split('/')[-1].split('.')[0]))
     return
 
 def rewrite_subspace(detector, outfile):

@@ -53,7 +53,9 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
     :param svd_len: Length of waveform used in relative amplitude calc
     :param reject: Min cc threshold for accepted measurement
     :param sac_dir: Root directory of waveforms
+    :param min_amps: Minimum number of relative measurements per pair
     :param calibrate: Flag for calibration to a priori Ml's
+    :param method: 'PCA' or 'LSQR'
     :return:
     """
     import copy
