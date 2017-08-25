@@ -119,9 +119,9 @@ def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
     groups.append(group)
     return groups
 
-def stack_plot(streams, station, channel, savefig):
+def stack_plot(streams, station, channel, title, savefig=None):
     """
-    Plot list of traces for a stachan as an aligned series
+    Plot list of traces for a stachan one just above the other
     :return:
     """
     # Sort traces by starttime
@@ -140,6 +140,7 @@ def stack_plot(streams, station, channel, savefig):
         ax.plot(tr.data + vert_step, color='k')
     ax.set_xlabel('Samples')
     ax.set_ylabel('Event count')
+    ax.set_title(title)
     if savefig:
         plt.savefig(savefig)
     else:

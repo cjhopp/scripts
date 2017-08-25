@@ -114,6 +114,10 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         # Move the self detection to the first element
         streams.insert(0, streams.pop(self_ind))
         print('Template Stream: %s' % str(streams[0]))
+        if len(streams[0]) == 0:
+            print('Template %s waveforms did not get written to SAC.' %
+                  temp.name)
+            continue
         # Front/back clip hardcoded relative to wavs starting 3 s before pick
         front_clip = 3.0 - shift_len - 0.05 - prepick
         back_clip = front_clip + align_len + (2 * shift_len) + 0.05
