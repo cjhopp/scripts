@@ -5,21 +5,35 @@ import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.rcParams['figure.dpi'] = 300
 
+import subprocess
+import csv
+import numpy as np
+import pandas as pd
+import seaborn.apionly as sns
+import matplotlib.dates as mdates
+from datetime import timedelta
+from itertools import cycle
+from mpl_toolkits.basemap import Basemap
+from matplotlib.patches import Ellipse
+from pyproj import Proj, transform
+from obspy import Catalog
+from obspy.core.event import ResourceIdentifier
+from eqcorrscan.utils import plotting
+from eqcorrscan.utils.mag_calc import dist_calc
+from eqcorrscan.utils.plotting import detection_multiplot
+from eqcorrscan.core.match_filter import Detection, Family, Party, Template
+
 def date_generator(start_date, end_date):
     # Generator for date looping
-    from datetime import timedelta
     for n in range(int ((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
-
-# Read Rot, Nga_N and Nga_S temps from files to temp lists
 def qgis2temp_list(filename):
-    import csv
+    # Read Rot, Nga_N and Nga_S temps from files to temp lists
     with open(filename, 'rb') as f:
         reader = csv.reader(f)
         temp_names = [row[2].split('/')[-1] for row in reader]
     return temp_names
-
 
 def which_self_detect(cat):
     """
@@ -28,8 +42,6 @@ def which_self_detect(cat):
     :param cat: Catalog of detections including self detections
     :return: obspy.Catalog
     """
-    import numpy as np
-    from obspy.core.event import ResourceIdentifier
     avg_corrs = {ev.resource_id: np.mean([float(pk.comments[0].text.split('=')[-1]) for pk in ev.picks
                                           if len(pk.comments) > 0])
                  for ev in cat}
@@ -38,7 +50,6 @@ def which_self_detect(cat):
             temp_str = str(ev.resource_id).split('/')[-1]
             ev.resource_id = ResourceIdentifier(id=temp_str.split('_')[0] + '_self')
     return cat
-
 
 def template_det_cats(cat, temp_list, outdir=False):
     """
@@ -51,7 +62,6 @@ def template_det_cats(cat, temp_list, outdir=False):
     :param outdir: Directory to write catalogs and shapefiles to (optional)
     :return: dict of {template_name: obspy.Catalog}
     """
-    from obspy import Catalog
     temp_det_dict = {}
     for ev in cat:
         temp_name = str(ev.resource_id).split('/')[-1].split('_')[0]
@@ -66,14 +76,12 @@ def template_det_cats(cat, temp_list, outdir=False):
             cat.write('%s/%s_detections.shp' % (outdir, temp), format="SHAPEFILE")
     return temp_det_dict
 
-
 def format_well_data(well_file):
     """
     Helper to format well txt files into (lat, lon, depth(km)) tups
     :param well_file: Well txt file
     :return: list of tuples
     """
-    import csv
     pts = []
     with open(well_file) as f:
         rdr = csv.reader(f, delimiter=' ')
@@ -86,7 +94,6 @@ def format_well_data(well_file):
                             float(row[3]) / 1000.))
     return pts
 
-
 def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', show=True):
     """
     Function to plot events with distance from well as a function of time.
@@ -96,13 +103,6 @@ def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', sh
     :param method: plot either the 'scatter' or daily 'average' distance
     :return: matplotlib.pyplot.Figure
     """
-    from eqcorrscan.utils.mag_calc import dist_calc
-    from obspy import Catalog
-    import matplotlib.pyplot as plt
-    import matplotlib
-    import numpy as np
-    from datetime import timedelta
-    matplotlib.rcParams['figure.dpi'] = 300
     well_pts = format_well_data(well_file)
     # Grab only templates in the list
     cat = Catalog()
@@ -151,7 +151,6 @@ def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', sh
         fig.show()
     return fig
 
-
 def plot_detection_wavs(cat, temp_dict, det_dict, n_events):
     """
     Wrapper on detection_multiplot() for our dataset
@@ -160,11 +159,6 @@ def plot_detection_wavs(cat, temp_dict, det_dict, n_events):
     :param det_dir: detection waveform dict
     :return: matplotlib.pyplot.Figure
     """
-    import numpy as np
-    import matplotlib
-    from obspy.core.event import ResourceIdentifier
-    from eqcorrscan.utils.plotting import detection_multiplot
-    matplotlib.rcParams['figure.dpi'] = 300
 
     rand_inds = np.random.choice(range(len(cat)), n_events, replace=False)
     for i, ev in enumerate(cat):
@@ -186,13 +180,11 @@ def plot_detection_wavs(cat, temp_dict, det_dict, n_events):
 
 
 def bounding_box(cat, bbox, depth_thresh):
-    from obspy import Catalog
     new_cat = Catalog()
     new_cat.events = [ev for ev in cat if min(bbox[0]) <= ev.origins[-1].longitude <= max(bbox[0])
                       and min(bbox[1]) <= ev.origins[-1].latitude <= max(bbox[1])
                       and ev.origins[-1].depth <= depth_thresh * 1000]
     return new_cat
-
 
 def plot_detections_map(cat, temp_cat, bbox, stations=None, temp_list='all', threeD=False, show=True):
     """
@@ -207,8 +199,6 @@ def plot_detections_map(cat, temp_cat, bbox, stations=None, temp_list='all', thr
     :param temp_list: list of str of template names
     :return: matplotlib.pyplot.Figure
     """
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.basemap import Basemap
 
     dets_dict = template_det_cats(cat, temp_list)
     if temp_list == 'all':
@@ -280,7 +270,6 @@ def plot_detections_map(cat, temp_cat, bbox, stations=None, temp_list='all', thr
         fig.show()
     return fig
 
-
 def template_extents(cat, temp_cat, temp_list='all', param='avg_dist', show=True):
     """
     Measure parameters of the areal extent of template detections
@@ -289,10 +278,6 @@ def template_extents(cat, temp_cat, temp_list='all', param='avg_dist', show=True
     :param param: What parameter are we measuring? Average template-detection distance or area?
     :return:
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from eqcorrscan.utils.mag_calc import dist_calc
-    import seaborn.apionly as sns
 
     dets_dict = template_det_cats(cat, temp_list)
     temp_dict = {str(ev.resource_id).split('/')[-1]: ev for ev in temp_cat
@@ -317,30 +302,7 @@ def template_extents(cat, temp_cat, temp_list='all', param='avg_dist', show=True
         fig.show()
     return fig
 
-
-def add_patches(shapefiles):
-    from descartes import PolygonPatch
-    patches = []
-    for file in shapefiles:
-        for poly in file.geometry:
-            # deal with single polygons and multipolygons
-            if poly.geom_type == 'Polygon':
-                p = PolygonPatch(poly, facecolor='#6699cc', alpha=1., zorder=1)
-                patches.append(p)
-            elif poly.geom_type == 'MultiPolygon':
-                for single in poly:
-                    q = PolygonPatch(single, facecolor='#6699cc', alpha=1., zorder=1)
-                    patches.append(q)
-    return patches
-
-
 def plot_location_changes(cat, bbox, show=True):
-    import geopandas as gpd
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.basemap import Basemap
-    from matplotlib.collections import PatchCollection
-    import numpy as np
-
     fig, ax = plt.subplots()
     mp = Basemap(projection='merc', lat_0=bbox[1][1] - bbox[1][0], lon_0=bbox[0][1] - bbox[0][0],
                  resolution='h', llcrnrlon=bbox[0][0], llcrnrlat=bbox[1][1],
@@ -350,10 +312,6 @@ def plot_location_changes(cat, bbox, show=True):
     mp.fillcontinents(color='white')
     mp.readshapefile('/home/chet/gmt/data/NZ/taupo_river_poly', 'rivers', color='b')
     mp.readshapefile('/home/chet/gmt/data/NZ/taupo_lakes', 'lakes', color='b')
-    # Goofy basemap filling for shapefile?
-    # patches = add_patches([rivers, lakes])
-    # for patch in patches:
-    #     ax.add_patch(patch)
     mp.drawparallels(np.arange(bbox[1][1], bbox[0][1], 0.025), linewidth=0, labels=[1, 0, 0, 0])
     mp.drawmeridians(np.arange(bbox[0][0], bbox[1][0], 0.025), linewidth=0, labels=[0, 0, 0, 1])
     for ev in cat:
@@ -379,9 +337,6 @@ def plot_non_cumulative(party, dates=False, tribe_list=False):
     :param tribe_list:
     :return:
     """
-    import numpy as np
-    from itertools import cycle
-    from eqcorrscan.core.match_filter import Detection, Family, Party, Template
 
     if dates:
         date_party = Party()
@@ -458,11 +413,6 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
     :param detection_rate: Do we plot derivative of detections?
     :return:
     """
-    import matplotlib.pyplot as plt
-    from eqcorrscan.utils import plotting
-    from datetime import timedelta
-    import matplotlib.dates as mdates
-    from obspy import Catalog
 
     # If specified, filter catalog to only events in geographic area
     if bbox:
@@ -537,169 +487,37 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
             fig = plotting.cumulative_detections(dates=det_times, template_names=temp_names)
     return fig
 
-
-def mrp_2_flow_dict(flow_csv, well_list=None):
+def plot_well_data(excel_file, sheetname, parameter, well_list, ax=None,
+                   show=True):
     """
-    Handle taking the csv files made from mrp and creating the flow dict required for plot_flow_rates
-    :type flow_csv: str
-    :param flow_csv: Path to csv file with MRP flow rates
-    :type well_list: None or list of str
-    :param well_list: List of wells you would like to include
-    :return: dict of flows {datetime: {well: flow rate}}
+    New flow/pressure plotting function utilizing DataFrame functionality
+    :param excel_file: Excel file to read
+    :param sheetname: Which sheet of the spreadsheet do you want?
+    :param parameter: Either 'WHP (bar)' or 'Flow (t/h)' at the moment
+    :param well_list: List of wells you want plotted
+    :param ax: If plotting on existing Axis, pass it here
+    :param show: Are we showing this Axis automatically?
+    :return: matplotlib.pyplot.Axis
     """
-    import datetime
-    import numpy as np
-    import pandas as pd
-    flows = pd.read_csv(flow_csv, header=[0, 1], tupleize_cols=True)
-    if not well_list:
-        well_list, measure = zip(*list(flows.columns.values))
-        well_list = [well for well in well_list if well != 'Date' and well != 'LP Brine']
-    flow_dict = {datetime.datetime.strptime(row[('Date', 'Time')], "%m/%d/%Y %H:%M"):
-                     {index[0]: flow for index, flow in row.iteritems() if index[0] != 'Date'
-                      and index[0] != 'LP Brine' and index[0] in well_list and index[1] == 'Flow'}
-                 for ind, row in flows.iterrows()}
-    whp_dict = {datetime.datetime.strptime(row[('Date', 'Time')], "%m/%d/%Y %H:%M"):
-                     {index[0]: whp for index, whp in row.iteritems() if index[0] != 'Date'
-                      and index[0] != 'LP Brine' and index[0] in well_list and index[1] == 'WHP'}
-                for ind, row in flows.iterrows()}
-    # Sum the flows and add to the dto dict
-    for dto, well_dict in flow_dict.iteritems(): # Convert nans to 0.0
-        for well, flow in well_dict.iteritems():
-            if type(flow) != float:
-                try:
-                    well_dict[well] = float(flow)
-                except ValueError:
-                    well_dict[well] = 0.0
-            elif np.isnan(flow):
-                well_dict[well] = 0.0
-        well_dict['total'] = sum([flow for well, flow in well_dict.iteritems() if well != 'LP Brine'])
-    for dto, well_dict in whp_dict.iteritems(): # Convert nans to 0.0
-        for well, whp in well_dict.iteritems():
-            if type(whp) != float:
-                try:
-                    well_dict[well] = float(whp)
-                except ValueError:
-                    well_dict[well] = 0.0
-            elif np.isnan(whp):
-                well_dict[well] = 0.0
-        well_dict['total'] = sum([flow for well, flow in well_dict.iteritems() if well != 'LP Brine'])
-    return flow_dict, whp_dict
-
-
-def plot_flow_rates(flow_dict, pres_dict, start_date, end_date, well_list=None,
-                    method='flows', ax_in=None, order='front'):
-    """
-    Plotting function for injection flows for geothermal power production.
-    :type flow_csv: str
-    :param flow_csv: Path to csv file with flow rates (this should change to Python native format)
-    :type start_date: str
-    :param start_date: Plot start date in %d/%m/%Y format
-    :type end_date: str
-    :param end_date: Plot end date in %d/%m/%Y format
-    :type well_list: str or list
-    :param well_list: Either 'all' or a list of strings with wells of interest matching headers in csv
-    :type total: bool
-    :param total: Plot total injection rate for 'True', otherwise seperate out wells
-    :type fig: None or matplotlib.figure
-    :param fig: Input figure with detections already plotted
-    :return: class matplotlib.figure
-    """
-    import datetime
-    import matplotlib.pyplot as plt
-
-    # Checks for plotting pressure or flow
-    if method == 'pressure':
-        plot_dict = pres_dict
+    df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
+    if not ax:
+        fig, ax = plt.subplots()
     else:
-        plot_dict = flow_dict
-    # Date strings to datetime objects
-    start = datetime.datetime.strptime(start_date, "%d/%m/%Y")
-    end = datetime.datetime.strptime(end_date, "%d/%m/%Y")
-    # Get flows into list of (dto, flow) for plotting
-    if method == 'total_flow' or method == 'volume':
-        well_list = 'total'
-        plot_tups_dict = {'total':[(dto, well_dict['total'])
-                                   for dto, well_dict in iter(plot_dict.items())
-                                   if dto > start and dto < end]}
-    else:
-        if well_list is None:
-            Exception('Must designate either a list of wells to plot or set' +
-                      'well_list equal to "all"')
-        plot_tups_dict = {}
-        for dto, well_dict in iter(plot_dict.items()):
-            if dto > start and dto < end:
-                for well in well_dict.keys():
-                    if well in well_list or well_list == 'all':
-                        if well in plot_tups_dict:
-                            plot_tups_dict[well].append((dto, well_dict[well]))
-                        else:
-                            plot_tups_dict[well] = [(dto, well_dict[well])]
-    # Sort the tuple lists by datetime object
-    for well, list_tups in iter(plot_tups_dict.items()):
-        list_tups.sort(key=lambda x: x[0])
-    # Set up figure object
-    if ax_in:
-        fig_final = ax_in.get_figure()
-        lines, labels = fig_final.get_axes()[0].get_legend_handles_labels()
-        if fig_final.get_axes()[0].legend_:
-            fig_final.get_axes()[0].legend_.remove() # Clear old legend
-        axes = fig_final.get_axes()[0].twinx()
-    else:
-        fig_final = plt.figure()
-        axes = plt.gca()
-    if method == 'pressure':
-        color='r'
-        axes.set_ylabel('Wellhead Pressure (bar-g)', color=color)
-    elif method == 'volume':
-        color='r'
-        axes.set_ylabel('Total injected Volume (m^3)', color=color)
-    else:
-        color='k'
-        axes.set_ylabel('Flow rate (T/h)', color=color)
-    for t in axes.get_yticklabels():
-        t.set_color(color)
-    axes.set_xlabel('Date')
-    # Plotting relevant data
-    for well, flow_list in iter(plot_tups_dict.items()):
-        dtos, flows = zip(*flow_list)
-        if method == 'total_flow':
-            label = 'Total flow rate'
-            axes.plot(dtos, flows, label=label, color='r')
-        elif method == 'volume':
-            label = 'Cumulative injected volume'
-            for i, flow in enumerate(flows):
-                if i == 0:
-                    cum_vols = [flow * 24]
-                else:
-                    cum_vols.append((flow * 24) + cum_vols[i-1])
-            axes.plot(list(dtos), cum_vols, label=label)
-        else:
-            label = well
-            axes.plot(dtos, flows, label=label)
-    lines2, labels2 = axes.get_legend_handles_labels()
-    if ax_in:
-        leg = axes.legend(lines + lines2, labels + labels2, loc=2,
-                          prop={'size': 12}, ncol=3)
-        leg.get_frame().set_alpha(0.5)
-    else:
-        leg = axes.legend(lines2, labels2, loc=2, prop={'size': 8}, ncol=3)
-        leg.get_frame().set_alpha(0.5)
-    if method != 'pressure' and method != 'volume':
-        try:
-            axes.set_ylim([0.,
-                           max([fl[1] for well, list_tups in
-                                iter(plot_tups_dict.items())
-                                for fl in list_tups])
-                           + 200])
-        except ValueError:
-            print('Probably no flow data available for this time period')
-    if ax_in and order == 'back':
-        # Put injection info behind data of interest
-        fig_final.get_axes()[0].set_zorder(axes.get_zorder() + 1)
-        fig_final.get_axes()[0].patch.set_visible(False)
-        fig_final.set_facecolor('w')
-    return fig_final.axes
-
+        xlims = ax.get_xlim()
+        start = mdates.num2date(xlims[0])
+        end = mdates.num2date(xlims[1])
+        df = df.truncate(before=start, after=end)
+    # Loop over well list (although there must be slicing option here)
+    pd.concat([df.xs((well, parameter), level=(0, 1), axis=1)
+               for well in well_list]).plot(ax=ax)
+    # Now plot formatting
+    plt.ylim(ymin=0) # Make bottom always zero
+    # Fix the default legend entries from pandas
+    for text, well in zip(plt.legend().get_texts()[::-1], well_list[::-1]):
+        text.set_text(well)
+    if show:
+        plt.show()
+    return ax
 
 ##### OTHER MISC FUNCTIONS #####
 
@@ -713,9 +531,6 @@ def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=Fa
     :param cat2: Catalog which we'd like to compare to cat1
     :return: matplotlib.Figure
     """
-    import seaborn.apionly as sns
-    from matplotlib.patches import Ellipse
-    from pyproj import Proj, transform
 
     #kwarg sanity check
     if uncertainty_ellipse:
@@ -781,16 +596,12 @@ def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=Fa
         plt.gcf().show()
     return
 
-
 def plot_pick_uncertainty(cat, show=True):
-    import seaborn.apionly as sns
-    import matplotlib.pyplot as plt
     sns.distplot([pk.time_errors.uncertainty for ev in cat for pk in ev.picks])
     fig = plt.gcf()
     if show:
         fig.show()
     return fig
-
 
 def make_residuals_dict(cat):
     stas = set([pk.waveform_id.station_code for ev in cat for pk in ev.picks])
@@ -800,7 +611,6 @@ def make_residuals_dict(cat):
             pk = arr.pick_id.get_referred_object()
             residual_dict[pk.waveform_id.station_code][pk.phase_hint].append(arr.time_residual)
     return residual_dict
-
 
 def plot_station_residuals(cat1, sta_list='all', plot_type='bar',
                            kde=False, hist=True, savefig=False):
@@ -819,8 +629,6 @@ def plot_station_residuals(cat1, sta_list='all', plot_type='bar',
     :param hist: Tells seaborn whether or not to plot the histogram
     :return: matplotlib.pyplot.Figure
     """
-    import seaborn.apionly as sns
-    import numpy as np
     # Create dict of {sta: {phase: residual}}
     residual_dict1 = make_residuals_dict(cat1)
     if plot_type == 'hist':
@@ -870,7 +678,6 @@ def plot_station_residuals(cat1, sta_list='all', plot_type='bar',
         fig.show()
     return fig
 
-
 def event_diff_dict(cat1, cat2):
     """
     Generates a dictionary of differences between two catalogs with identical events
@@ -880,7 +687,6 @@ def event_diff_dict(cat1, cat2):
     :param cat2: catalog of events parallel to cat1
     :return: dict
     """
-    from eqcorrscan.utils.mag_calc import dist_calc
 
     diff_dict = {}
     for ev1 in cat1:
@@ -921,16 +727,12 @@ def event_diff_dict(cat1, cat2):
                                                                        ar.time_residual))
     return diff_dict
 
-
 def plot_catalog_differences(diff_dict, param='dist', param2=None, show=True):
     """
     Plot differences between catalogs with S or no S picks
     :param param:
     :return: matplotlib.axis
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import seaborn.apionly as sns
 
     param_list = [ev_dict[param] for rid, ev_dict in diff_dict.iteritems()]
     if param2:
@@ -942,7 +744,6 @@ def plot_catalog_differences(diff_dict, param='dist', param2=None, show=True):
         plt.gcf().show()
     return ax
 
-
 def seis_viewer_compare(ev1, ev2):
     """
     Hard-coded crap to launch seismicity viewer for two events (one with S-picks, one without)
@@ -950,8 +751,6 @@ def seis_viewer_compare(ev1, ev2):
     :param ev2:
     :return:
     """
-    import subprocess
-
     filename1 = '/media/chet/hdd/seismic/NZ/NLLoc/mrp/2015_Rawlinson_S_9-21/loc/%s.*.*.grid0.loc.hyp' % \
                 str(ev1.resource_id).split('/')[-1]
     filename2 = '/media/chet/hdd/seismic/NZ/NLLoc/mrp/2015_Rawlinson_S_9-21/rewt_0.05_test/loc/%s.*.*.grid0.loc.hyp' % \
@@ -961,16 +760,12 @@ def seis_viewer_compare(ev1, ev2):
     subprocess.call(cmnd, shell=True)
     return
 
-
 def seis_view_catalogs(cat1, cat2):
     for i, ev in enumerate(cat1):
         seis_viewer_compare(ev, cat2[i])
     return
 
-
 def bbox_two_cat(cat1, cat2, bbox, depth_thresh):
-    from obspy import Catalog
-
     new_cat1 = Catalog()
     new_cat2 = Catalog()
     for i, ev in enumerate(cat1):
@@ -981,7 +776,6 @@ def bbox_two_cat(cat1, cat2, bbox, depth_thresh):
             new_cat2.events.append(cat2[i])
     return new_cat1, new_cat2
 
-
 def find_common_events(catP, catS):
     """
     Takes parallel catalogs, one with P only, the other with added S phases
@@ -989,7 +783,6 @@ def find_common_events(catP, catS):
     :param catS: Catalog with S-picks added
     :return: two parallel catalogs including events with S-picks and their corresponding P-only versions
     """
-    from obspy import Catalog
     comm_cat_S = Catalog()
     comm_cat_P = Catalog()
     for i, ev in enumerate(catS):
