@@ -39,7 +39,6 @@ def cc_coh_dets(streams, length, wav_prepick, corr_prepick, shift):
         cccohs.append(coh)
     return cccohs
 
-
 def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                         reject, sac_dir, min_amps, calibrate=False,
                         method='PCA'):

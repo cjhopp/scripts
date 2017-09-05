@@ -184,16 +184,16 @@ def bval_plot(cat, bins=30, MC=None, title=None,
     ax.set_yscale('log')
     # Put b-val on plot
     text = 'B-val via weighted lsqr: %.3f' % b_dict['b']
-    ax.text(0.75, 0.6, text, transform=ax.transAxes, color='r',
+    ax.text(0.75, 0.9, text, transform=ax.transAxes, color='r',
             horizontalalignment='center', fontsize=10.)
-    ax.text(0.75, 0.65, 'Mc via max-curv=%.2f' % b_dict['Mc'], color='r',
+    ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict['Mc'], color='r',
             transform=ax.transAxes, horizontalalignment='center',
             fontsize=10.)
     # if 'b_dict2' in locals():
     text = 'Best MLE b-value: %.3f' % test_dict['best_bval']
-    ax.text(0.75, 0.5, text, transform=ax.transAxes, color='b',
+    ax.text(0.75, 0.8, text, transform=ax.transAxes, color='b',
             horizontalalignment='center', fontsize=10.)
-    ax.text(0.75, 0.55, 'Modified Mc: %.2f' % b_dict2['Mc'],
+    ax.text(0.75, 0.85, 'Modified Mc: %.2f' % b_dict2['Mc'],
             color='b', transform=ax.transAxes,
             horizontalalignment='center', fontsize=10.)
     ax.scatter(b_dict['bin_vals'], b_dict['cum_bins'], label='Cumulative',
@@ -209,7 +209,7 @@ def bval_plot(cat, bins=30, MC=None, title=None,
         ax.set_title(title)
     else:
         ax.set_title('B-value plot')
-    leg = ax.legend(fontsize=12., markerscale=0.7)
+    leg = ax.legend(fontsize=12., markerscale=0.7, loc=3)
     leg.get_frame().set_alpha(0.5)
     ax2 = fig.add_subplot(122)
     ax2.set_ylim([0, 3])

@@ -1,7 +1,20 @@
 #!/usr/bin/python
 from __future__ import division
+from future.utils import iteritems
+
 # import matplotlib
 # matplotlib.rcParams['figure.dpi'] = 300
+
+import csv
+import numpy as np
+import matplotlib.pyplot as plt
+
+from glob import glob
+from obspy import read
+from scipy.signal import argrelextrema
+from obspy.imaging.beachball import beach
+from eqcorrscan.utils.mag_calc import dist_calc
+
 
 def foc_mec_from_event(catalog, station_names=False):
     """
@@ -9,9 +22,6 @@ def foc_mec_from_event(catalog, station_names=False):
     :param catalog:
     :return:
     """
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from obspy.imaging.beachball import beach
 
     for ev in catalog:
         fms = ev.focal_mechanisms
@@ -136,3 +146,139 @@ def getArrivalForPick(arrivals, pick):
         if a.pick_id == pick.resource_id:
             return a
     return None
+
+def dec_2_merc_meters(dec_x, dec_y, z):
+    """
+    Conversion from decimal degrees to meters in Mercury Cartesian Grid.
+    This is the same grid used for NLLoc
+    """
+    origin = [-38.3724, 175.9577]
+    y = (origin[0] - dec_y) * 111111
+    x = (dec_x - origin[1]) * (111111 * np.cos(origin[0]*(np.pi/180)))
+    return x, y, z
+
+def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
+                         file_type='raw', plot=False):
+    """
+    Umbrella function to handle writing input files for focimt and hybridMT
+
+    :param cat: Catalog of events to write files for
+    :param sac_dir: Root directory for detection SAC files
+    :param inv: Inventory object containing all necessary station responses
+    :param selfs: List containing directory names for template self detections
+    :param prefilt: List of 4 corners for preconvolution bandpass
+        For details see obspy.core.trace.Trace.remove_response() docs
+    :return:
+    """
+    selfs = []
+    for self_file in self_files:
+        with open(self_file, 'r') as f:
+            rdr = csv.reader(f)
+            for row in rdr:
+                selfs.append(str(row[0]))
+    ev_dict = {}
+    # Build prefilt dict (Assuming all wavs have been downsampled to 100 Hz)
+    pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
+               'GEONET': [0.2, 1.1, 40., 49.]}
+    # Loop through events
+    for ev in cat:
+        ev_id = str(ev.resource_id).split('/')[-1]
+        print('Working on {}'.format(ev_id))
+        ev_dict[ev_id] = {} # Allocate subdictionary
+        self = [self for self in selfs if self.split('_')[0] == ev_id]
+        orig = ev.origins[-1]
+        if len(self) == 0: # Skip those with no self detection (outside fields)
+            print('No self detection for %s' % ev_id)
+            continue
+        wavs = glob('%s/%s/*' % (sac_dir, self[0]))
+        # Loop through arrivals and populate ev_dict with TOA, Backaz, etc...
+        ev_dict[ev_id]['phases'] = []
+        for arr in orig.arrivals:
+            pick = arr.pick_id.get_referred_object()
+            sta = pick.waveform_id.station_code
+            chan = pick.waveform_id.channel_code
+            if chan[-1] != 'Z':
+                continue
+            sta_inv = inv.select(station=sta, channel=chan)
+            # Do a rough incidence angle calculation based on dist and depth
+            dist = dist_calc((orig.latitude, orig.longitude,
+                              orig.depth / 1000.), (sta_inv[0][0].latitude,
+                                                    sta_inv[0][0].longitude,
+                                                    (sta_inv[0][0].elevation -
+                                                     sta_inv[0][0][0].depth)
+                                                     / 1000.))
+            aoi = 90. - np.degrees(np.arcsin(orig.depth / 1000. / dist))
+            if np.isnan(aoi):
+                aoi = 180. - arr.takeoff_angle
+            # Establish which station we're working with
+            if sta.endswith('Z'):
+                prefilt = pf_dict['GEONET']
+            else:
+                prefilt = pf_dict['MERC']
+            wav_file = [wav for wav in wavs
+                        if wav.split('_')[-1].split('.')[0] == chan]
+            if len(wav_file) == 0:
+                print('Waveform directory not found.')
+                continue
+            # Read in the corresponding trace
+            # Cosine taper and demeaning applied by default
+            tr = read(wav_file[0])[0].remove_response(inventory=inv,
+                                                      pre_filt=prefilt,
+                                                      output='DISP')
+            # Trim once more and detrend again(?)
+            tr.trim(starttime=pick.time - 1., endtime=pick.time + 3).detrend()
+            # Trim around P pulse
+            tr.trim(starttime=pick.time, endtime=pick.time + 0.1)
+            # Find last zero crossing of the trimmed wav, assuming we've
+            # trimmed only half a cycle. Then integrate from pick time to
+            # first sample with a swapped sign (+/- or -/+)
+            try:
+                pulse = tr.data[:np.where(
+                    np.diff(np.sign(tr.data)) != 0)[0][-1] + 2]
+            except IndexError as e:
+                print('Pulse never crosses zero. Investigate.')
+                continue
+            omega = np.trapz(pulse)
+            # Now determine if the local max is + or -
+            if plot:
+                plt.plot(pulse)
+                plt.show()
+            try:
+                polarity = np.sign(pulse[argrelextrema(np.abs(pulse),
+                                                       np.greater,
+                                                       order=2)[0][0]])
+            except IndexError as e:
+                print('Couldnt find acceptable relative min/max, skipping')
+                continue
+            # Now we can populate the strings in ev_dict
+            if file_type == 'raw':
+                ev_dict[ev_id]['phases'].append(
+                    "  {} {} {} {!s} {!s} {!s} {!s} {!s} {!s} {!s}\n".format(
+                        sta, chan[-1], pick.phase_hint, omega * polarity,
+                        arr.azimuth, aoi, arr.takeoff_angle, 5000, dist * 1000,
+                        2600))
+            elif file_type == 'vel1d':
+                x, y, z = dec_2_merc_meters(sta_inv[0][0].longitude,
+                                            sta_inv[0][0].latitude,
+                                            sta_inv[0][0].elevation -
+                                            sta_inv[0][0][0].depth)
+                ev_dict[ev_id]['phases'].append(
+                    "  {} {} {} {!s} {!s} {!s} {!s}\n".format(
+                        sta, chan[-1], pick.phase_hint, omega * polarity,
+                        y, x, z))
+        if len(ev_dict[ev_id]['phases']) > 0:
+            if file_type == 'raw':
+                ev_dict[ev_id]['header'] = "{} {!s}\n".format(
+                    ev_id, len(ev_dict[ev_id]['phases']))
+            elif file_type == 'vel1d':
+                ex, ey, ez = dec_2_merc_meters(orig.longitude, orig.latitude,
+                                               orig.depth)
+                ev_dict[ev_id]['header'] = "{} {!s} {!s} {!s} {!s} {!s}\n".format(
+                    ev_id, len(ev_dict[ev_id]['phases']), ey, ex, ez, 2600)
+        else:
+            del ev_dict[ev_id]
+    with open(outfile, 'w') as fo:
+        for eid, dict in iteritems(ev_dict):
+            fo.write(dict['header'])
+            fo.writelines(dict['phases'])
+    return

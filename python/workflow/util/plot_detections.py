@@ -15,6 +15,7 @@ from datetime import timedelta
 from itertools import cycle
 from mpl_toolkits.basemap import Basemap
 from matplotlib.patches import Ellipse
+from matplotlib.ticker import ScalarFormatter
 from pyproj import Proj, transform
 from obspy import Catalog
 from obspy.core.event import ResourceIdentifier
@@ -487,14 +488,15 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
             fig = plotting.cumulative_detections(dates=det_times, template_names=temp_names)
     return fig
 
-def plot_well_data(excel_file, sheetname, parameter, well_list, ax=None,
-                   show=True):
+def plot_well_data(excel_file, sheetname, parameter, well_list,
+                   cumulative=False, ax=None, show=True):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
     :param excel_file: Excel file to read
     :param sheetname: Which sheet of the spreadsheet do you want?
     :param parameter: Either 'WHP (bar)' or 'Flow (t/h)' at the moment
     :param well_list: List of wells you want plotted
+    :param cumulative: Plot the total injected volume?
     :param ax: If plotting on existing Axis, pass it here
     :param show: Are we showing this Axis automatically?
     :return: matplotlib.pyplot.Axis
@@ -502,19 +504,41 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, ax=None,
     df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
     if not ax:
         fig, ax = plt.subplots()
+        handles = []
     else:
         xlims = ax.get_xlim()
         start = mdates.num2date(xlims[0])
         end = mdates.num2date(xlims[1])
         df = df.truncate(before=start, after=end)
+        handles = plt.legend().get_lines() # Grab these lines for legend
+        plt.gca().legend_.remove() # Need to manually remove this, apparently
     # Loop over well list (although there must be slicing option here)
-    pd.concat([df.xs((well, parameter), level=(0, 1), axis=1)
-               for well in well_list]).plot(ax=ax)
+    # Maybe do some checks here on your kwargs (Are these wells in this sheet?)
+    if cumulative:
+        if parameter != 'Flow (t/h)':
+            print('Will not plot cumulative %s. Only for Flow (t/h)'
+                  % parameter)
+            return
+        for well in well_list:
+            df.xs((well, parameter), level=(0, 1), axis=1).cumsum().plot(
+                ax=ax, secondary_y=True, legend=None,
+                linewidth=1.5)
+        plt.gca().set_ylabel('Cumulative Volume (Tonnes)')
+        # Force scientific notation for cumulative y axis
+        plt.gca().ticklabel_format(style='sci', scilimits=(0, 0), axis='y')
+    else:
+        # Loop over wells, slice dataframe to each and plot
+        for well in well_list:
+            df.xs((well, parameter),
+                  level=(0, 1), axis=1).plot(ax=ax, secondary_y=True,
+                                             legend=None, linewidth=1.5)
+        plt.gca().set_ylabel(parameter)
+    # Add the new handles to the prexisting ones
+    handles.extend(plt.legend().get_lines())
+    # Redo the legend
+    plt.legend(handles=handles, fontsize=5)
     # Now plot formatting
     plt.ylim(ymin=0) # Make bottom always zero
-    # Fix the default legend entries from pandas
-    for text, well in zip(plt.legend().get_texts()[::-1], well_list[::-1]):
-        text.set_text(well)
     if show:
         plt.show()
     return ax
