@@ -8,6 +8,8 @@ import fnmatch
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 
 from glob import glob
 from itertools import chain
@@ -118,6 +120,68 @@ def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
     # Catch the final group
     groups.append(group)
     return groups
+
+def cluster_map_plot(dmat_file, big_tribe, tribe_groups_dir, raw_wav_dir):
+    """
+    Wrapper on seaborn.clustermap to allow for coloring of rows/columns
+    by multiplet
+    :param dmat_file:
+    :param big_tribe:
+    :param tribe_groups_dir:
+    :return:
+    """
+    # Make list of temp files which were actually used in the clustering
+    # There were actually fewer than templates for some reason...?
+    # XXX TODO May be worth using SAC directories instead?
+    big_tribe.sort()
+    raw_wav_files = glob('%s/*' % raw_wav_dir)
+    raw_wav_files.sort()
+    all_wavs = [wav.split('/')[-1].split('.')[0] for wav in raw_wav_files]
+    names = [t.name for t in big_tribe if t.name in all_wavs]
+    wavs = [wav for wav in raw_wav_files if wav.split('/')[-1].split('.')[0]
+            in names]
+    new_tribe = Tribe()
+    new_tribe.templates = [temp for temp in big_tribe if temp.name in names]
+    print('Processing temps')
+    temp_list = [template.name
+                 for tmp, template in zip(wavs, new_tribe)]
+    matrix = np.abs(np.load(dmat_file)) # Take absolute value?
+    dist_vec = squareform(matrix)
+    Z = linkage(dist_vec)
+    df_mat = pd.DataFrame(matrix)
+    tribes = glob(tribe_groups_dir)
+    grp_inds = []
+    grp_nos = []
+    for tribe in tribes:
+        grp_nos.append(tribe.split('_')[-2])
+        trb = Tribe().read(tribe)
+        names = [temp.name for temp in trb]
+        inds = []
+        for i, nm in enumerate(temp_list):
+            if nm in names:
+                inds.append(i)
+        grp_inds.append(tuple(inds))
+    # Create a categorical palette to identify the networks
+    multiplet_pal = sns.hls_palette(len(grp_inds))
+    multiplet_lut = dict(zip(tuple(grp_inds), multiplet_pal))
+    # Convert the palette to vectors that will be drawn on the side of the matrix
+    temp_colors = {}
+    temp_inds = np.arange(0, len(temp_list), 1)
+    for i in temp_inds:
+        for key in multiplet_lut.keys():
+            if i in key:
+                temp_colors[i] = multiplet_lut[key]
+                break
+    template_colors = pd.Series(temp_inds,
+                                index=temp_inds,
+                                name='Multiplet').map(temp_colors)
+    cmg = sns.clustermap(df_mat, method='single', cmap='vlag_r',
+                         vmin=0.1, vmax=1.0, #row_colors=template_colors,
+                         col_colors=template_colors, row_linkage=Z,
+                         col_linkage=Z, yticklabels=False, xticklabels=False,
+                         cbar_kws={'label':'1 - CCC'})
+    plt.show()
+    return cmg
 
 def stack_plot(streams, station, channel, title, savefig=None):
     """
