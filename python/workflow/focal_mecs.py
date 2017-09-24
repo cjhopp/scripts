@@ -42,7 +42,7 @@ def foc_mec_from_event(catalog, station_names=False):
         # plot the selected solution
         av_np1_strike = np.mean([fm.nodal_planes.nodal_plane_1.strike
                                  for fm in fms])
-        print(av_np1_strike)
+        print('Strike of nodal plane 1: %f' % av_np1_strike)
         fm = sorted([fm for fm in fms], key=lambda x:
                     abs(x.nodal_planes.nodal_plane_1.strike - av_np1_strike))[0]
         np1 = fm.nodal_planes.nodal_plane_1
@@ -151,9 +151,12 @@ def dec_2_merc_meters(dec_x, dec_y, z):
     """
     Conversion from decimal degrees to meters in Mercury Cartesian Grid.
     This is the same grid used for NLLoc
+
+    **Note** This grid node has been changed from the NLLoc grid origin of
+    -38.3724, 175.9577 to ensure that all coordinates are positive
     """
-    origin = [-38.3724, 175.9577]
-    y = (origin[0] - dec_y) * 111111
+    origin = [-38.8224, 175.9577]
+    y = (dec_y - origin[0]) * 111111
     x = (dec_x - origin[1]) * (111111 * np.cos(origin[0]*(np.pi/180)))
     return x, y, z
 
@@ -184,7 +187,6 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
     for ev in cat:
         ev_id = str(ev.resource_id).split('/')[-1]
         print('Working on {}'.format(ev_id))
-        ev_dict[ev_id] = {} # Allocate subdictionary
         self = [self for self in selfs if self.split('_')[0] == ev_id]
         orig = ev.origins[-1]
         if len(self) == 0: # Skip those with no self detection (outside fields)
@@ -192,7 +194,9 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
             continue
         wavs = glob('%s/%s/*' % (sac_dir, self[0]))
         # Loop through arrivals and populate ev_dict with TOA, Backaz, etc...
+        ev_dict[ev_id] = {} # Allocate subdictionary
         ev_dict[ev_id]['phases'] = []
+        ev_dict[ev_id]['header'] = None
         for arr in orig.arrivals:
             pick = arr.pick_id.get_referred_object()
             sta = pick.waveform_id.station_code
@@ -216,7 +220,8 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
             else:
                 prefilt = pf_dict['MERC']
             wav_file = [wav for wav in wavs
-                        if wav.split('_')[-1].split('.')[0] == chan]
+                        if wav.split('_')[-1].split('.')[0] == chan
+                        and wav.split('_')[-2] == sta]
             if len(wav_file) == 0:
                 print('Waveform directory not found.')
                 continue
@@ -225,13 +230,15 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
             tr = read(wav_file[0])[0].remove_response(inventory=inv,
                                                       pre_filt=prefilt,
                                                       output='DISP')
-            # Trim once more and detrend again(?)
-            tr.trim(starttime=pick.time - 1., endtime=pick.time + 3).detrend()
+            # # Trim once more and detrend again(?)
+            # tr.trim(starttime=pick.time - 1., endtime=pick.time + 3).detrend()
             # Trim around P pulse
-            tr.trim(starttime=pick.time, endtime=pick.time + 0.1)
+            tr.trim(starttime=pick.time, endtime=pick.time + 0.12)
             # Find last zero crossing of the trimmed wav, assuming we've
             # trimmed only half a cycle. Then integrate from pick time to
             # first sample with a swapped sign (+/- or -/+)
+            if plot:
+                tr.plot()
             try:
                 pulse = tr.data[:np.where(
                     np.diff(np.sign(tr.data)) != 0)[0][-1] + 2]
@@ -240,9 +247,6 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                 continue
             omega = np.trapz(pulse)
             # Now determine if the local max is + or -
-            if plot:
-                plt.plot(pulse)
-                plt.show()
             try:
                 polarity = np.sign(pulse[argrelextrema(np.abs(pulse),
                                                        np.greater,
@@ -272,13 +276,13 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                     ev_id, len(ev_dict[ev_id]['phases']))
             elif file_type == 'vel1d':
                 ex, ey, ez = dec_2_merc_meters(orig.longitude, orig.latitude,
-                                               orig.depth)
+                                               -1 * orig.depth)
                 ev_dict[ev_id]['header'] = "{} {!s} {!s} {!s} {!s} {!s}\n".format(
                     ev_id, len(ev_dict[ev_id]['phases']), ey, ex, ez, 2600)
-        else:
-            del ev_dict[ev_id]
     with open(outfile, 'w') as fo:
         for eid, dict in iteritems(ev_dict):
-            fo.write(dict['header'])
-            fo.writelines(dict['phases'])
+            if dict['header'] is not None:
+                print('Writing event %s' % eid)
+                fo.write(dict['header'])
+                fo.writelines(dict['phases'])
     return

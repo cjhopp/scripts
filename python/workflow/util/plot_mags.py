@@ -3,16 +3,23 @@ import sys
 sys.path.insert(0, '/home/chet/EQcorrscan/')
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.rcParams['figure.dpi'] = 300
+import matplotlib.dates as mdates
+import numpy as np
+import seaborn.apionly as sns
+
+from dateutil import rrule
+from scipy.io import loadmat
+from operator import itemgetter
+from datetime import timedelta
+from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
+
 
 def date_generator(start_date, end_date):
     # Generator for date looping
-    from datetime import timedelta
     for n in range(int ((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
 def avg_dto(dto_list):
-    import numpy as np
     srt_list = sorted(dto_list)
     return srt_list[0] + np.mean([dt - srt_list[0] for dt in srt_list])
 
@@ -25,8 +32,6 @@ def plot_mag_w_time(cat, show=True):
     :param show: whether or not to show plot
     :return: matplotlib.pyplot.Figure
     """
-    import matplotlib
-    import matplotlib.pyplot as plt
     matplotlib.rcParams['figure.dpi'] = 300
     mag_tup = []
     for ev in cat:
@@ -55,9 +60,6 @@ def Mc_test(cat, n_bins, start_mag=None):
     :param show: Plotting flag
     :return: (matplotlib.pyplot.Figure, best bval, cutoff mag)
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from operator import itemgetter
     mags = np.array([round(ev.magnitudes[-1].mag, 1)
                     for ev in cat if len(ev.magnitudes) > 0])
     mags = mags[np.isfinite(mags)].tolist()
@@ -100,8 +102,6 @@ def bval_calc(cat, n_bins, MC):
     :param method: whether to use weighted lsqr regression or MLE
     :return: (non_cum_bins, cum_bins, bval_vals, bval_bins, bval_wts)
     """
-    import numpy as np
-    from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
     mags = np.asarray([ev.magnitudes[-1].mag for ev in cat
                        if len(ev.magnitudes) > 0])
     mags = mags[np.isfinite(mags)].tolist()
@@ -141,68 +141,71 @@ def bval_calc(cat, n_bins, MC):
             'bval_bins':bval_bins, 'bval_wts':bval_wts,
             'b': b, 'a': a, 'Mc': Mc}
 
-
-def bval_plot(cat, bins=30, MC=None, title=None,
-              show=True, savefig=None):
+def simple_bval_plot(cat, cat2=None, bins=30, MC=None, title=None,
+                     show=True, savefig=None, ax=None):
     """
-    Plotting the frequency-magnitude distribution on semilog axes
-    :param cat: Catalog of events with magnitudes
-    :param show: Plot flag
-    :return: matplotlib.pyplot.Figure
+    Function to mimick Shelly et al., 2016 bval plots
+    :param cat:
+    :param cat2:
+    :param bins:
+    :param MC:
+    :param title:
+    :param show:
+    :param savefig:
+    :param ax:
+    :return:
     """
-    import matplotlib.pyplot as plt
-    import matplotlib
-    import seaborn.apionly as sns
-    matplotlib.rcParams['figure.dpi'] = 300
-    import numpy as np
-
+    mags = [ev.magnitudes[-1].mag for ev in cat]
+    if cat2:
+        mags2 = [ev.magnitudes[-1].mag for ev in cat2]
     b_dict = bval_calc(cat, bins, MC)
-    test_dict = Mc_test(cat, n_bins=bins, start_mag=b_dict['Mc'])
     # Now re-compute b-value for new Mc if difference larger than bin size
-    bin_interval = b_dict['bin_vals'][1] - b_dict['bin_vals'][0]
-    b_dict2 = bval_calc(cat, bins, MC=test_dict['M_cut'])
-    fig = plt.figure(figsize=(12, 5))
-    # ax = fig.add_subplot(121, aspect=1.)
-    ax = fig.add_subplot(121)
+    if not ax:
+        fig, ax = plt.subplots()
+    # If plotting two cats, plot cat2 first (so it should be the extended cat)
+    if cat2:
+        b_dict2 = bval_calc(cat2, bins, MC)
+        ax.axvline(b_dict2['Mc'], color='darkgray')
+        sns.distplot(mags2, kde=False, color='b', hist_kws={'alpha':1.0},
+                     ax=ax)
+        # Reversed cumulative hist
+        ax.plot(b_dict2['bin_vals'], b_dict2['cum_bins'],
+                label='Matched filter detected',
+                color='b')
+        ax.plot(b_dict2['bval_bins'],
+                np.power([10],[b_dict2['a']-b_dict2['b']*aval
+                               for aval in b_dict2['bval_bins']]),
+                color='darkgray', linestyle='--')
+        text = 'B-val via weighted lsqr: %.3f' % b_dict2['b']
+        ax.text(0.75, 0.9, text, transform=ax.transAxes, color='k',
+                horizontalalignment='center', fontsize=10.)
+        ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict2['Mc'],
+                color='k', transform=ax.transAxes,
+                horizontalalignment='center', fontsize=10.)
     # Plotting first bval line
-    ax.plot(b_dict['bval_bins'],
-            np.power([10],[b_dict['a']-b_dict['b']*aval
-                           for aval in b_dict['bval_bins']]),
-            color='r', linestyle='-', label='Weighted lsqr: $log(N)=a - bM$')
-    # if 'b_dict2' in locals():
-    # Now plotting the modified b-value on plot 1
-    # Grab a value diff between orig and modified line at same a value
-    correction = (b_dict2['a'] - test_dict['best_bval']
-                  * b_dict2['bval_bins'][0]) - (b_dict2['a']
-                                                - b_dict2['b']
-                                                * b_dict2['bval_bins'][0])
-    ax.plot(b_dict2['bval_bins'],
-            np.power([10],[b_dict2['a'] - (test_dict['best_bval']*aval)
-                           for aval in b_dict2['bval_bins']] - correction),
-            color='b', linestyle='-',
-            label='Best MLE: $log(N)=a - bM$')
+    if not cat2:
+        # Plot vertical Mc line
+        ax.axvline(b_dict['Mc'], color='darkgray')
+        text = 'B-val via weighted lsqr: %.3f' % b_dict['b']
+        ax.text(0.75, 0.9, text, transform=ax.transAxes, color='k',
+                horizontalalignment='center', fontsize=10.)
+        ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict['Mc'],
+                color='k', transform=ax.transAxes,
+                horizontalalignment='center', fontsize=10.)
+        ax.plot(b_dict['bval_bins'],
+                np.power([10],[b_dict['a']-b_dict['b']*aval
+                               for aval in b_dict['bval_bins']]),
+                color='darkgray', linestyle='--')
+        ax.set_ylim(bottom=1, top=max(b_dict['cum_bins']) +
+                    1.25 * max(b_dict['cum_bins']))
     ax.set_yscale('log')
     # Put b-val on plot
-    text = 'B-val via weighted lsqr: %.3f' % b_dict['b']
-    ax.text(0.75, 0.9, text, transform=ax.transAxes, color='r',
-            horizontalalignment='center', fontsize=10.)
-    ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict['Mc'], color='r',
-            transform=ax.transAxes, horizontalalignment='center',
-            fontsize=10.)
-    # if 'b_dict2' in locals():
-    text = 'Best MLE b-value: %.3f' % test_dict['best_bval']
-    ax.text(0.75, 0.8, text, transform=ax.transAxes, color='b',
-            horizontalalignment='center', fontsize=10.)
-    ax.text(0.75, 0.85, 'Modified Mc: %.2f' % b_dict2['Mc'],
-            color='b', transform=ax.transAxes,
-            horizontalalignment='center', fontsize=10.)
-    ax.scatter(b_dict['bin_vals'], b_dict['cum_bins'], label='Cumulative',
-               color='k')
-    ax.scatter(b_dict['bin_vals'] + (bin_interval / 2.),
-               b_dict['non_cum_bins'], color='m', marker='^',
-               label='Non-cumulative')
-    ax.set_ylim(bottom=1, top=max(b_dict['cum_bins']) +
-                              1.25 * max(b_dict['cum_bins']))
+    # Non cumulative hist
+    sns.distplot(mags, kde=False, color='r', hist_kws={'alpha':1.0},
+                 ax=ax)
+    # Reversed cumulative hist
+    ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label='GNS catalog',
+               color='r')
     ax.set_ylabel('Number of events')
     ax.set_xlabel('Magnitude')
     if title:
@@ -210,7 +213,22 @@ def bval_plot(cat, bins=30, MC=None, title=None,
     else:
         ax.set_title('B-value plot')
     leg = ax.legend(fontsize=12., markerscale=0.7, loc=3)
-    leg.get_frame().set_alpha(0.5)
+    leg.get_frame().set_alpha(0.9)
+    if show:
+        plt.show()
+    if savefig:
+        fig.savefig(savefig, dpi=300)
+    return ax
+
+def big_bval_plot(cat, bins=30, MC=None, title=None,
+              show=True, savefig=None):
+    """
+    Plotting the frequency-magnitude distribution on semilog axes
+    :param cat: Catalog of events with magnitudes
+    :param show: Plot flag
+    :return: matplotlib.pyplot.Figure
+    """
+    ax1, test_dict, b_dict = simple_bval_plot(cat, bins, MC, title, show=False)
     ax2 = fig.add_subplot(122)
     ax2.set_ylim([0, 3])
     ax2.errorbar(test_dict['bins'], test_dict['bvals'],
@@ -245,9 +263,8 @@ def bval_plot(cat, bins=30, MC=None, title=None,
     if show:
         fig.show()
     if savefig:
-        fig.savefig(savefig, dpi=720)
+        fig.savefig(savefig, dpi=300)
     return
-
 
 def plot_mag_v_lat(cat, method='all'):
     """
@@ -300,9 +317,6 @@ def plot_zmap_b_w_time(mat_file, ax_in=None, color='b',
     :param mat_file: Path to .mat file
     :return: matplotlib.pyplot.Figure
     """
-    from scipy.io import loadmat
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
 
     """
     Wkspace must contain variables 'mResult', 'mB' and 'mBstd1' which are
@@ -350,10 +364,6 @@ def plot_max_mag(mat_file, bins='monthly', ax_in=None, color='k',
     :return:
     """
     from dateutil import rrule
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
-    from scipy.io import loadmat
-    import numpy as np
 
     wkspace = loadmat(mat_file)
     time_decs = wkspace['s'] # Decimal years
@@ -407,10 +417,6 @@ def plot_mag_bins(mat_file, bin_size='monthly', ax_in=None, color='k',
     :param cat:
     :return:
     """
-    from scipy.io import loadmat
-    from dateutil import rrule
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
 
     # Read vars from matlab file
     wkspace = loadmat(mat_file)
@@ -470,9 +476,6 @@ def plot_cum_moment(mat_file, ax_in=None, color='m', overwrite=False,
     :param method: path to file
     :return:
     """
-    from scipy.io import loadmat
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
 
     wkspace = loadmat(mat_file)
     time_decs = wkspace['s']
@@ -512,9 +515,6 @@ def plot_Mc(mat_file, ax_in=None, color='r', overwrite=False, show=True):
     :param mat_file: path to file
     :return:
     """
-    from scipy.io import loadmat
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
 
     wkspace = loadmat(mat_file)
     # First, deal with time decimals
@@ -559,7 +559,6 @@ def make_big_plot(matfile, flow_dict, pres_dict, well_list='all',
     :param cat:
     :return:
     """
-    import matplotlib.pyplot as plt
     from plot_detections import plot_flow_rates
 
     fig, axes = plt.subplots(3, 1, sharex=True, figsize=(9.,13.), dpi=400)
@@ -588,8 +587,6 @@ def plot_2D_bval_grid(matfile, savefig=None, show=True):
     :param matfile: path to matlab .mat workspace
     :return:
     """
-    from scipy.io import loadmat
-    import numpy as np
     from mpl_toolkits.basemap import Basemap
     from matplotlib.collections import PatchCollection
     from matplotlib.patches import Polygon

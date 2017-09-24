@@ -1,9 +1,6 @@
 #!/usr/bin/env python
-import sys
-sys.path.insert(0, '/home/chet/EQcorrscan/')
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.rcParams['figure.dpi'] = 300
 
 import subprocess
 import csv
@@ -11,13 +8,15 @@ import numpy as np
 import pandas as pd
 import seaborn.apionly as sns
 import matplotlib.dates as mdates
-from datetime import timedelta
+
+from datetime import timedelta, datetime
 from itertools import cycle
 from mpl_toolkits.basemap import Basemap
 from matplotlib.patches import Ellipse
+from matplotlib.dates import date2num
 from matplotlib.ticker import ScalarFormatter
 from pyproj import Proj, transform
-from obspy import Catalog
+from obspy import Catalog, UTCDateTime
 from obspy.core.event import ResourceIdentifier
 from eqcorrscan.utils import plotting
 from eqcorrscan.utils.mag_calc import dist_calc
@@ -95,7 +94,9 @@ def format_well_data(well_file):
                             float(row[3]) / 1000.))
     return pts
 
-def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', show=True):
+def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
+                         temp_list='all', method='scatter', starttime=None,
+                         endtime=None, show=True):
     """
     Function to plot events with distance from well as a function of time.
     :param cat: catalog of events
@@ -107,7 +108,13 @@ def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', sh
     well_pts = format_well_data(well_file)
     # Grab only templates in the list
     cat = Catalog()
-    cat.events = [ev for ev in big_cat if
+    filt_cat = Catalog()
+    if starttime and endtime:
+        filt_cat.events = [ev for ev in big_cat if ev.origins[-1].time
+                           < endtime and ev.origins[-1].time >= starttime]
+    else:
+        filt_cat = big_cat
+    cat.events = [ev for ev in filt_cat if
                   str(ev.resource_id).split('/')[-1].split('_')[0] in
                   temp_list or temp_list == 'all']
     time_dist_tups = []
@@ -122,13 +129,44 @@ def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', sh
             time_dist_tups.append((ev.origins[-1].time.datetime,
                                   dist))
     times, dists = zip(*time_dist_tups)
+    # Make DataFrame for boxplotting
+    dist_df = pd.DataFrame()
+    dist_df['dists'] = pd.Series(dists, index=times)
+    # Add daily grouping column to df (this is crap, but can't find better)
+    dist_df['day_num'] =  [date2num(dto.replace(hour=12, minute=0, second=0,
+                                                microsecond=0).to_datetime())
+                           for dto in dist_df.index]
+    dist_df['dto_num'] =  [date2num(dt) for dt in dist_df.index]
+    # Now create the pressure envelopes
+    # Creating hourly datetime increments
+    start = pd.Timestamp(flow_start.datetime)
+    end = pd.Timestamp(cat_end)
+    t = pd.to_datetime(pd.date_range(start, end, freq='H'))
+    t = [date2num(d) for d in t]
+    # Now diffusion y vals
+    diff_ys = []
+    for d in diffs:
+        diff_ys.append([np.sqrt(60 * d * i / 4000 * np.pi) # account for kms
+                        for i in range(len(t))])
     # Plot 'em up
     fig, ax = plt.subplots()
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Distance (m)')
-    if method == 'scatter':
-        ax.scatter(times, dists)
-    elif method == 'average':
+    ax2 = ax.twinx() # Enables hiding of date2num ticks for boxplots
+    # First boxplots
+    u_days = list(set(dist_df.day_num))
+    bplots = ax2.boxplot([dist_df.loc[dist_df['day_num'] == d]['dists']
+                          for d in u_days],
+                         positions=[d for d in u_days],
+                         patch_artist=True,
+                         flierprops={'markersize': 5})
+    for patch in bplots['boxes']:
+        patch.set_facecolor('lightblue')
+        patch.set_alpha(0.5)
+    ax2.set_xticks([])
+    # First diffusions
+    for i, diff_y in enumerate(diff_ys):
+        ax.plot(t, diff_y, label=str(diffs[i]))
+    # Now events
+    if method != 'scatter':
         dates = []
         day_avg_dist = []
         for date in date_generator(cat_start, cat_end):
@@ -136,21 +174,23 @@ def plot_det2well_dist(big_cat, well_file, temp_list='all', method='scatter', sh
             tdds = [tdd[1] for tdd in time_dist_tups if tdd[0] > date
                     and tdd[0] < date + timedelta(days=1)]
             day_avg_dist.append(np.mean(tdds))
+    if method == 'scatter':
+        ax.scatter(times, dists, color='gray', label='Event', s=10, alpha=0.5)
+    elif method == 'average':
         ax.plot(dates, day_avg_dist)
     elif method == 'both':
         ax.scatter(times, dists)
-        dates = []
-        day_avg_dist = []
-        for date in date_generator(cat_start, cat_end):
-            dates.append(date)
-            tdds = [tdd[1] for tdd in time_dist_tups if tdd[0] > date
-                    and tdd[0] < date + timedelta(days=1)]
-            day_avg_dist.append(np.mean(tdds))
         ax.plot(dates, day_avg_dist, color='r')
+    fig.autofmt_xdate()
+    # Formatting
+    ax.legend()
     ax.set_ylim([0, max(dists)])
+    ax.set_xlim([min(t), max(t)])
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Distance (km)')
     if show:
         fig.show()
-    return fig
+    return ax
 
 def plot_detection_wavs(cat, temp_dict, det_dict, n_events):
     """
@@ -510,8 +550,9 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
         start = mdates.num2date(xlims[0])
         end = mdates.num2date(xlims[1])
         df = df.truncate(before=start, after=end)
-        handles = plt.legend().get_lines() # Grab these lines for legend
-        plt.gca().legend_.remove() # Need to manually remove this, apparently
+        handles = ax.legend().get_lines() # Grab these lines for legend
+        if isinstance(ax.legend_, matplotlib.legend.Legend):
+            ax.legend_.remove() # Need to manually remove this, apparently
     # Loop over well list (although there must be slicing option here)
     # Maybe do some checks here on your kwargs (Are these wells in this sheet?)
     if cumulative:
@@ -536,14 +577,51 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
     # Add the new handles to the prexisting ones
     handles.extend(plt.legend().get_lines())
     # Redo the legend
-    plt.legend(handles=handles, fontsize=5)
+    if len(handles) > 4:
+        plt.legend(handles=handles, fontsize=5, loc=2)
+    else:
+        plt.legend(handles=handles, loc=2)
     # Now plot formatting
+    ax.set_xlim(start, end)
     plt.ylim(ymin=0) # Make bottom always zero
     if show:
         plt.show()
     return ax
 
 ##### OTHER MISC FUNCTIONS #####
+
+def qgis_csv_to_elapsed_days(csv_file, outfile):
+    """
+    Take the csv file output from qgis (formatted specifically) and
+    convert the dates to days since start of catalog
+
+    :param csv_file: File path
+    :return:
+    """
+    from obspy import UTCDateTime
+
+    next_rows = []
+    dates = []
+    with open(csv_file, 'r') as f:
+        next(f)
+        for row in f:
+            splits = row.split(',')
+            date = UTCDateTime().strptime(splits[6], '%Y/%m/%d')
+            dates.append(date)
+            next_rows.append('{!s} {!s} {!s}'.format(splits[0],
+                                                    splits[1],
+                                                    splits[11]))
+    start_date = min(dates)
+    print(start_date)
+    out_rows = []
+    for date, new_r in zip(dates, next_rows):
+        elapsed = (date.datetime - start_date.datetime).days
+        new_r += ' %s' % str(elapsed)
+        out_rows.append(new_r)
+    with open(outfile, 'w') as nf:
+        for out_row in out_rows:
+            nf.write('{}\n'.format(out_row))
+    return
 
 def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=False):
     """
