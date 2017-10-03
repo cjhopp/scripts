@@ -94,7 +94,7 @@ def Mc_test(cat, n_bins, start_mag=None):
             'bins': bins, 'bvals': bvals, 'errs': errs}
 
 
-def bval_calc(cat, n_bins, MC):
+def bval_calc(cat, n_bins, MC, weight=False):
     """
     Helper function to run the calculation loop
     :param mags: list of magnitudes
@@ -134,15 +134,18 @@ def bval_calc(cat, n_bins, MC):
             bval_wts.append(non_cum_val_cnt / float(len(mags)))
     # Tack 0 on end of non_cum_bins representing bin above max mag
     non_cum_bins.append(0)
-    b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1, w=bval_wts)
-    b *= -1.
+    if weight:
+        b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1, w=bval_wts)
+        b *= -1.
+    else:
+        b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1)
     return {'bin_vals':bin_vals, 'non_cum_bins':non_cum_bins,
             'cum_bins':cum_bins, 'bval_vals':bval_vals,
             'bval_bins':bval_bins, 'bval_wts':bval_wts,
             'b': b, 'a': a, 'Mc': Mc}
 
-def simple_bval_plot(cat, cat2=None, bins=30, MC=None, title=None,
-                     show=True, savefig=None, ax=None):
+def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
+                     title=None, show=True, savefig=None, ax=None):
     """
     Function to mimick Shelly et al., 2016 bval plots
     :param cat:
@@ -158,13 +161,13 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, title=None,
     mags = [ev.magnitudes[-1].mag for ev in cat]
     if cat2:
         mags2 = [ev.magnitudes[-1].mag for ev in cat2]
-    b_dict = bval_calc(cat, bins, MC)
+    b_dict = bval_calc(cat, bins, MC, weight)
     # Now re-compute b-value for new Mc if difference larger than bin size
     if not ax:
         fig, ax = plt.subplots()
     # If plotting two cats, plot cat2 first (so it should be the extended cat)
     if cat2:
-        b_dict2 = bval_calc(cat2, bins, MC)
+        b_dict2 = bval_calc(cat2, bins, MC, weight)
         ax.axvline(b_dict2['Mc'], color='darkgray')
         sns.distplot(mags2, kde=False, color='b', hist_kws={'alpha':1.0},
                      ax=ax)
@@ -221,7 +224,7 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, title=None,
     return ax
 
 def big_bval_plot(cat, bins=30, MC=None, title=None,
-              show=True, savefig=None):
+                  show=True, savefig=None):
     """
     Plotting the frequency-magnitude distribution on semilog axes
     :param cat: Catalog of events with magnitudes

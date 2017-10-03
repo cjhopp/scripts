@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 from glob import glob
 from obspy import read
-from scipy.signal import argrelextrema
+from scipy.signal import argrelmax, argrelmin
 from obspy.imaging.beachball import beach
 from eqcorrscan.utils.mag_calc import dist_calc
 
@@ -161,7 +161,7 @@ def dec_2_merc_meters(dec_x, dec_y, z):
     return x, y, z
 
 def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
-                         file_type='raw', plot=False):
+                         prepick, file_type='raw', plot=False):
     """
     Umbrella function to handle writing input files for focimt and hybridMT
 
@@ -230,30 +230,68 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
             tr = read(wav_file[0])[0].remove_response(inventory=inv,
                                                       pre_filt=prefilt,
                                                       output='DISP')
-            # # Trim once more and detrend again(?)
-            # tr.trim(starttime=pick.time - 1., endtime=pick.time + 3).detrend()
             # Trim around P pulse
-            tr.trim(starttime=pick.time, endtime=pick.time + 0.12)
-            # Find last zero crossing of the trimmed wav, assuming we've
+            tr.trim(starttime=pick.time - prepick, endtime=pick.time + 0.1)
+            pick_sample = int(prepick * tr.stats.sampling_rate)
+            # Find the next index where trace crosses the 'zero' value
+            # which we assume is the value at time of pick.
+            # Take last 'zero' crossing of the trimmed wav, assuming we've
             # trimmed only half a cycle. Then integrate from pick time to
             # first sample with a swapped sign (+/- or -/+)
-            if plot:
-                tr.plot()
+            # Make pick value zero
+            leveled = tr.data - tr.data[pick_sample]
+            # Determine some polarity info
+            rel_min_max = argrelmax(np.abs(leveled)) #Relative peaks
+            print(rel_min_max)
             try:
-                pulse = tr.data[:np.where(
-                    np.diff(np.sign(tr.data)) != 0)[0][-1] + 2]
-            except IndexError as e:
-                print('Pulse never crosses zero. Investigate.')
+                if rel_min_max[0].shape[0] > 1:
+                    print(leveled[rel_min_max])
+                    rel_pk = np.argmax(np.abs(leveled[rel_min_max]))
+                    print(rel_pk)
+                    print(rel_min_max[0][rel_pk])
+                    peak = leveled[rel_min_max[0][rel_pk]] # Largest peak
+                else:
+                    peak = leveled[rel_min_max]
+            except ValueError:
+                print('No relative maxima or minima')
                 continue
+            print('Peak value: {!s}'.format(peak))
+            polarity = np.sign(peak) # Sign of largest peak
+            print('Zero crossings at: {!s}'.format(
+                np.where(np.diff(np.sign(leveled[pick_sample + 1:])) != 0)[0]))
+            try:
+                pulse = leveled[pick_sample:pick_sample + 1 + np.where(
+                    np.diff(np.sign(leveled[pick_sample + 1:]))
+                    != 0)[0][-1] + 2] # 2-sample fudge factor over crossing
+            except IndexError as i:
+                print('IndexError: {}'.format(i))
+                if polarity == 1:
+                    try:
+                        pulse = leveled[pick_sample:argrelmin(leveled)[0][-1] + 1]
+                    except IndexError:
+                        print('No zero crossing OR relative minimum.')
+                        continue
+                elif polarity == -1:
+                    try:
+                        pulse = leveled[pick_sample:argrelmax(leveled)[0][-1] + 1]
+                    except IndexError:
+                        print('No zero crossing OR relative maximum.')
+                        continue
+            # Try to catch case where small min/max just post pick
+            if len(pulse) < 6:
+                print('{}'.format(
+                      'Pulse is too short: likely due to small rel peak'))
+                pulse = leveled[pick_sample:]
             omega = np.trapz(pulse)
-            # Now determine if the local max is + or -
-            try:
-                polarity = np.sign(pulse[argrelextrema(np.abs(pulse),
-                                                       np.greater,
-                                                       order=2)[0][0]])
-            except IndexError as e:
-                print('Couldnt find acceptable relative min/max, skipping')
-                continue
+            if plot:
+                plt.plot(leveled, color='k')
+                plt.plot(np.arange(pick_sample, pick_sample + len(pulse),
+                                   step=1),
+                         pulse, color='r')
+                plt.axvline(pick_sample, linestyle='--',
+                            color='grey', label='Pick')
+                plt.show()
+                plt.close()
             # Now we can populate the strings in ev_dict
             if file_type == 'raw':
                 ev_dict[ev_id]['phases'].append(

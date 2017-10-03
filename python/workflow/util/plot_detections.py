@@ -6,7 +6,7 @@ import subprocess
 import csv
 import numpy as np
 import pandas as pd
-import seaborn.apionly as sns
+import seaborn as sns
 import matplotlib.dates as mdates
 
 from datetime import timedelta, datetime
@@ -18,7 +18,7 @@ from matplotlib.ticker import ScalarFormatter
 from pyproj import Proj, transform
 from obspy import Catalog, UTCDateTime
 from obspy.core.event import ResourceIdentifier
-from eqcorrscan.utils import plotting
+from eqcorrscan.utils import plotting, pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
 from eqcorrscan.utils.plotting import detection_multiplot
 from eqcorrscan.core.match_filter import Detection, Family, Party, Template
@@ -27,6 +27,61 @@ def date_generator(start_date, end_date):
     # Generator for date looping
     for n in range(int ((end_date - start_date).days)):
         yield start_date + timedelta(n)
+
+def grab_day_wavs(wav_dirs, dto, stachans):
+    # Helper to recursively crawl paths searching for waveforms from a dict of
+    # stachans for one day
+    import os
+    import fnmatch
+    from itertools import chain
+    from obspy import read, Stream
+
+    st = Stream()
+    wav_files = []
+    for path, dirs, files in chain.from_iterable(os.walk(path)
+                                                 for path in wav_dirs):
+        print('Looking in %s' % path)
+        for sta, chans in iter(stachans.items()):
+            for chan in chans:
+                for filename in fnmatch.filter(files,
+                                               '*.%s.*.%s*%d.%03d'
+                                                       % (
+                                               sta, chan, dto.year,
+                                               dto.julday)):
+                    wav_files.append(os.path.join(path, filename))
+    print('Reading into memory')
+    for wav in wav_files:
+        st += read(wav)
+    stachans = [(tr.stats.station, tr.stats.channel) for tr in st]
+    for stachan in list(set(stachans)):
+        tmp_st = st.select(station=stachan[0], channel=stachan[1])
+        if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate
+                                        for tr in tmp_st])) > 1:
+            print('Traces from %s.%s have differing samp rates'
+                  % (stachan[0], stachan[1]))
+            for tr in tmp_st:
+                st.remove(tr)
+            tmp_st.resample(sampling_rate=100.)
+            st += tmp_st
+    st.merge(fill_value='interpolate')
+    print('Checking for trace length. Removing if too short')
+    rm_trs = []
+    for tr in st:
+        if len(tr.data) < (86400 * tr.stats.sampling_rate * 0.8):
+            rm_trs.append(tr)
+        if tr.stats.starttime != dto:
+            print('Trimming trace %s.%s with starttime %s to %s'
+                  % (tr.stats.station, tr.stats.channel,
+                     str(tr.stats.starttime), str(dto)))
+            tr.trim(starttime=dto, endtime=dto + 86400,
+                    nearest_sample=False)
+    if len(rm_trs) != 0:
+        print('Removing traces shorter than 0.8 * daylong')
+        for tr in rm_trs:
+            st.remove(tr)
+    else:
+        print('All traces long enough to proceed to dayproc')
+    return st
 
 def qgis2temp_list(filename):
     # Read Rot, Nga_N and Nga_S temps from files to temp lists
@@ -134,7 +189,7 @@ def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
     dist_df['dists'] = pd.Series(dists, index=times)
     # Add daily grouping column to df (this is crap, but can't find better)
     dist_df['day_num'] =  [date2num(dto.replace(hour=12, minute=0, second=0,
-                                                microsecond=0).to_datetime())
+                                                microsecond=0).to_pydatetime())
                            for dto in dist_df.index]
     dist_df['dto_num'] =  [date2num(dt) for dt in dist_df.index]
     # Now create the pressure envelopes
@@ -150,18 +205,16 @@ def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
                         for i in range(len(t))])
     # Plot 'em up
     fig, ax = plt.subplots()
-    ax2 = ax.twinx() # Enables hiding of date2num ticks for boxplots
     # First boxplots
     u_days = list(set(dist_df.day_num))
-    bplots = ax2.boxplot([dist_df.loc[dist_df['day_num'] == d]['dists']
-                          for d in u_days],
-                         positions=[d for d in u_days],
-                         patch_artist=True,
-                         flierprops={'markersize': 5})
+    bins = [dist_df.loc[dist_df['day_num'] == d]['dists'].values
+            for d in u_days]
+    positions = [d for d in u_days]
+    bplots = ax.boxplot(bins, positions=positions, patch_artist=True,
+                        flierprops={'markersize': 0}, manage_xticks=False)
     for patch in bplots['boxes']:
         patch.set_facecolor('lightblue')
         patch.set_alpha(0.5)
-    ax2.set_xticks([])
     # First diffusions
     for i, diff_y in enumerate(diff_ys):
         ax.plot(t, diff_y, label=str(diffs[i]))
@@ -184,7 +237,7 @@ def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
     fig.autofmt_xdate()
     # Formatting
     ax.legend()
-    ax.set_ylim([0, max(dists)])
+    ax.set_ylim([0, 6])
     ax.set_xlim([min(t), max(t)])
     ax.set_xlabel('Date')
     ax.set_ylabel('Distance (km)')
@@ -192,7 +245,8 @@ def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
         fig.show()
     return ax
 
-def plot_detection_wavs(cat, temp_dict, det_dict, n_events):
+def plot_detection_wavs(family, tribe, wav_dirs, start=None, end=None,
+                        save=False, save_dir=None, no_dets=5):
     """
     Wrapper on detection_multiplot() for our dataset
     :param cat: catalog of detections
@@ -201,22 +255,61 @@ def plot_detection_wavs(cat, temp_dict, det_dict, n_events):
     :return: matplotlib.pyplot.Figure
     """
 
-    rand_inds = np.random.choice(range(len(cat)), n_events, replace=False)
-    for i, ev in enumerate(cat):
-        if i in rand_inds:
-            det_st = det_dict[ev.resource_id].copy()
-            for tr in det_st:
-                tr.trim(tr.stats.starttime + 2, tr.stats.endtime - 4)
-            temp_id = ResourceIdentifier('smi:local/' +
-                                         str(ev.resource_id).split('/')[-1].split('_')[0] +
-                                         '_1sec')
-            temp_st = temp_dict[temp_id]
-            times = [min([tr.stats.starttime + 0.9 for tr in det_st])]
-            fig = detection_multiplot(det_st, temp_st, times, save=True,
-                                      savefile='/home/chet/figures/NZ/det_mulplt/%s.ps' %
-                                               str(ev.resource_id).split('/')[-1],
-                                      title='Detection for template %s' %
-                                            str(temp_id).split('/')[-1].split('_')[0])
+    # Random range of dates in detections
+    rand_inds = np.random.choice(range(len(family)), no_dets, replace=False)
+    cat = Catalog(events=[det.event for i, det in enumerate(family)
+                          if i in rand_inds])
+    # Always plot self_detection
+    cat += [det.event for det in family
+            if det.detect_val / det.no_chans == 1.0][0]
+    cat.events.sort(key=lambda x: x.picks[0].time)
+    sub_fam = Family(template=family.template, detections=[det for i, det in
+                                                           enumerate(family)
+                                                           if i in rand_inds])
+    sub_fam.detections.extend([det for det in family
+                               if det.detect_val / det.no_chans == 1.0])
+    temp = tribe[sub_fam.template.name]
+    if start:
+        cat_start = datetime.strptime(start, '%d/%m/%Y')
+        cat_end = datetime.strptime(end, '%d/%m/%Y')
+    else:
+        cat_start = cat[0].picks[0].time.date
+        cat_end = cat[-1].picks[0].time.date
+    for date in date_generator(cat_start, cat_end):
+        dto = UTCDateTime(date)
+        dets = [det for det in sub_fam if dto
+                < det.detect_time < dto + 86400]
+        if len(dets) == 0:
+            print('No detections on: {!s}'.format(dto))
+            continue
+        print('Running for date: %s' % str(dto))
+        stachans = {}
+        for det in dets:
+            ev = det.event
+            for pk in ev.picks:
+                sta = pk.waveform_id.station_code
+                chan = pk.waveform_id.channel_code
+                if sta not in stachans:
+                    stachans[sta] = [chan]
+                elif chan not in stachans[sta]:
+                    stachans[sta].append(chan)
+        # Grab day's wav files
+        wav_ds = ['%s%d' % (d, dto.year) for d in wav_dirs]
+        stream = grab_day_wavs(wav_ds, dto, stachans)
+        print('Preprocessing')
+        st1 = pre_processing.dayproc(stream, temp.lowcut, temp.highcut,
+                                        temp.filt_order, temp.samp_rate,
+                                        starttime=dto, num_cores=3)
+        for det in dets:
+            det_st = st1.slice(starttime=det.detect_time - 3,
+                               endtime=det.detect_time + 7).copy()
+            fname = '{}/{}.png'.format(
+                save_dir,
+                str(det.event.resource_id).split('/')[-1])
+            det_t = 'Template {}: {}'.format(temp.name, det.detect_time)
+            detection_multiplot(det_st, temp.st, [det.detect_time],
+                                save=save, savefile=fname, title=det_t)
+            plt.close('all')
     return
 
 
@@ -545,7 +638,9 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
     if not ax:
         fig, ax = plt.subplots()
         handles = []
+        plain = True
     else:
+        plain = False
         xlims = ax.get_xlim()
         start = mdates.num2date(xlims[0])
         end = mdates.num2date(xlims[1])
@@ -560,29 +655,44 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
             print('Will not plot cumulative %s. Only for Flow (t/h)'
                   % parameter)
             return
+        maxs = []
+        ax1a = ax.twinx()
         for well in well_list:
-            df.xs((well, parameter), level=(0, 1), axis=1).cumsum().plot(
-                ax=ax, secondary_y=True, legend=None,
-                linewidth=1.5)
+            dtos = df.xs((well, parameter), level=(0, 1),
+                         axis=1).index.to_pydatetime()
+            values = df.xs((well, parameter), level=(0, 1), axis=1).cumsum()
+            ax1a.plot(dtos, values, label='{}: {}'.format(well,
+                                                          'Cumulative Vol.'))
+            plt.legend() # This is annoying
+            maxs.append(np.max(df.xs((well, parameter),
+                               level=(0, 1), axis=1).values))
         plt.gca().set_ylabel('Cumulative Volume (Tonnes)')
         # Force scientific notation for cumulative y axis
         plt.gca().ticklabel_format(style='sci', scilimits=(0, 0), axis='y')
     else:
         # Loop over wells, slice dataframe to each and plot
+        maxs = []
+        ax1a = ax.twinx()
         for well in well_list:
-            df.xs((well, parameter),
-                  level=(0, 1), axis=1).plot(ax=ax, secondary_y=True,
-                                             legend=None, linewidth=1.5)
-        plt.gca().set_ylabel(parameter)
+            dtos = df.xs((well, parameter), level=(0, 1),
+                         axis=1).index.to_pydatetime()
+            dtos = date2num(dtos)
+            values = df.xs((well, parameter), level=(0, 1), axis=1)
+            ax1a.plot(dtos, values, label='{}: {}'.format(well, parameter))
+            plt.legend()
+            maxs.append(np.max(values.dropna().values))
+        ax1a.set_ylabel(parameter)
+        ax1a.set_ylim([0, max(maxs) * 1.2])
     # Add the new handles to the prexisting ones
-    handles.extend(plt.legend().get_lines())
+    handles.extend(ax1a.legend_.get_lines())
     # Redo the legend
     if len(handles) > 4:
         plt.legend(handles=handles, fontsize=5, loc=2)
     else:
         plt.legend(handles=handles, loc=2)
     # Now plot formatting
-    ax.set_xlim(start, end)
+    if not plain:
+        ax.set_xlim(start, end)
     plt.ylim(ymin=0) # Make bottom always zero
     if show:
         plt.show()

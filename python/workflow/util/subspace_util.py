@@ -13,11 +13,14 @@ import pandas as pd
 
 from glob import glob
 from itertools import chain
-from obspy import Stream, read
+from obspy import Stream, read, UTCDateTime
+import datetime
 from datetime import timedelta
+from matplotlib import dates
 from eqcorrscan.core.match_filter import Tribe, Template
 from eqcorrscan.utils import stacking, clustering
 from eqcorrscan.utils.pre_processing import shortproc
+from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.core.subspace import Detector
 from obspy.signal.trigger import classic_sta_lta
 from scipy.spatial.distance import squareform
@@ -183,30 +186,72 @@ def cluster_map_plot(dmat_file, big_tribe, tribe_groups_dir, raw_wav_dir):
     plt.show()
     return cmg
 
-def stack_plot(streams, station, channel, title, savefig=None):
+def stack_plot(tribe, wav_dir_pat, station, channel, title, shift=True,
+               shift_len=0.3, savefig=None):
     """
     Plot list of traces for a stachan one just above the other
     :return:
     """
+    wavs = glob(wav_dir_pat)
+    streams = []
+    events = [temp.event for temp in tribe]
+    for temp in tribe:
+        streams.append(read([
+            f for f in wavs if f.split('/')[-1].split('.')[0] ==
+            str(temp.event.resource_id).split('/')[-1]][0]))
     # Sort traces by starttime
     streams.sort(key=lambda x: x[0].stats.starttime)
     # Select all traces
     traces = []
-    for st in streams:
+    tr_evs = []
+    for st, ev in zip(streams, events):
         if len(st.select(station=station, channel=channel)) == 1:
-            traces.append(st.select(station=station, channel=channel)[0])
+            tr = st.select(station=station,channel=channel)[0]
+            tr.trim(starttime=tr.stats.starttime + 1.5,
+                    endtime=tr.stats.endtime - 5)
+            traces.append(tr)
+            tr_evs.append(ev)
+    if shift: # align traces on cc
+        shift_samp = int(shift_len * traces[0].stats.sampling_rate)
+        pks = [pk.time for ev in tr_evs for pk in ev.picks
+               if pk.waveform_id.station_code == station and
+               pk.waveform_id.channel_code == channel]
+        cut_traces = [tr.slice(starttime=p_time - 0.2,
+                               endtime=p_time + 0.4)
+                      for tr, p_time in zip(traces, pks)]
+        shifts, ccs = align_traces(cut_traces, shift_len=shift_samp)
+        dt_vects = []
+        for shif, tr in zip(shifts, traces):
+            arb_dt = UTCDateTime(1970, 1, 1)
+            td = datetime.timedelta(microseconds=
+                                    int(1 / tr.stats.sampling_rate * 1000000))
+            # Make new arbitrary time vectors as they otherwise occur on
+            # different dates
+            dt_vects.append([(arb_dt + shif).datetime + (i * td)
+                             for i in range(len(tr.data))])
     # Normalize traces
     for tr in traces:
         tr.data = tr.data / max(tr.data)
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6, 15))
     vert_steps = np.linspace(0, len(traces), len(traces))
-    for tr, vert_step in zip(traces, vert_steps):
-        ax.plot(tr.data + vert_step, color='k')
-    ax.set_xlabel('Samples')
+    if shift:
+        # Plotting chronologically from top
+        for tr, vert_step, dt_v in zip(list(reversed(traces)), vert_steps,
+                                       dt_vects):
+            ax.plot(dt_v, tr.data + vert_step, color='k')
+    else:
+        for tr, vert_step in zip(list(reversed(traces)), vert_steps):
+            ax.plot(tr.data + vert_step, color='k')
+    if shift:
+        ax.set_xlabel('Seconds')
+    else:
+        ax.set_xlabel('Samples')
     ax.set_ylabel('Event count')
     ax.set_title(title)
     if savefig:
+        fig.tight_layout()
         plt.savefig(savefig)
+        plt.close()
     else:
         plt.show()
     return
