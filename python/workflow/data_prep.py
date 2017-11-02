@@ -1,6 +1,35 @@
 #!/usr/bin/python
 from __future__ import division
 
+import fnmatch
+import shutil
+import string
+import pyasdf
+import datetime
+import collections
+import copy
+import csv
+import os
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from glob import glob
+from itertools import chain
+from timeit import default_timer as timer
+from scipy.cluster.hierarchy import fcluster
+
+from obspy import UTCDateTime, Catalog, Stream, read, read_events
+
+from eqcorrscan.core.match_filter import Detection, Family, Party, Template
+from eqcorrscan.utils.pre_processing import shortproc
+from eqcorrscan.utils.clustering import distance_matrix
+from eqcorrscan.core.bright_lights import _rms
+from eqcorrscan.core.template_gen import template_gen
+from eqcorrscan.utils import pre_processing
+
+
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
@@ -10,10 +39,6 @@ def date_generator(start_date, end_date):
 def grab_day_wavs(wav_dirs, dto, stachans):
     # Helper to recursively crawl paths searching for waveforms for a dict of
     # stachans for one day
-    import os
-    import fnmatch
-    from itertools import chain
-    from obspy import read, Stream
 
     st = Stream()
     wav_files = []
@@ -41,7 +66,6 @@ def merc_2_flow_pkl(Rot_sheet, Nga_sheet, NM08_stim):
     :param flow_sheet:
     :return:
     """
-    import pandas as pd
     from obspy import UTCDateTime
 
     rot_inj_DF = pd.read_excel(Rot_sheet, sheetname=0, header=[0,1])
@@ -64,8 +88,6 @@ def sc3ml2qml(zipdir, outdir, stylesheet, prog='xalan'):
         also use xsltproc.
     :return:
     """
-    import os
-    import fnmatch
 
     raw_files = []
     # raw_dir = '/home/chet/data/mrp_data/sherburn_catalog/quake-ml/xsl_test/sc3ml_test'
@@ -108,8 +130,7 @@ def run_qml_with_obspy(dir, outdir):
     :param outdir: Output directory for new events
     :return:
     """
-    from glob import glob
-    from obspy import read_events
+
     qmls = glob(dir)
     for qml in qmls:
         ev_name = qml.split('/')[-1].split('.')[1].rstrip('_QML')
@@ -125,8 +146,6 @@ def consolidate_qmls(directory, outfile=False):
     :param outfile: Defaults to False, else is path to new outfile
     :return: obspy.core.Catalog
     """
-    from glob import glob
-    from obspy import read_events, Catalog
     qmls = glob(directory)
     cat = Catalog()
     for qml in qmls:
@@ -161,10 +180,6 @@ def make_franny_symlinks(src_dirs, out_dir):
     :param out_dir:
     :return:
     """
-    import os
-    import fnmatch
-    import string
-    from itertools import chain
 
     for path, dirs, files in chain.from_iterable(os.walk(path)
                                                  for path in src_dirs):
@@ -202,10 +217,6 @@ def asdf_create(asdf_name, wav_dirs, sta_dir):
     :param sta_dir: Directory of stationXML files (will grab all files)
     :return:
     """
-    import pyasdf
-    import os
-    from glob import glob
-    from obspy import read
 
     with pyasdf.ASDFDataSet(asdf_name) as ds:
         wav_files = []
@@ -234,10 +245,6 @@ def test_snr_distribution(cat, wav_dirs, prepick=0.05, length=1.0,
     :param wav_dirs: Waveform directories
     :return:
     """
-    import datetime
-    from obspy import UTCDateTime
-    from eqcorrscan.utils import pre_processing
-    from eqcorrscan.core.bright_lights import _rms
 
     # Establish date range for template creation
     cat.events.sort(key=lambda x: x.origins[-1].time)
@@ -334,14 +341,6 @@ def mseed_2_templates(wav_dirs, cat, outdir, length, prepick,
     :param end: same as above. Defaults to full length of catalog.
     :return:
     """
-    import pyasdf
-    import collections
-    import copy
-    import datetime
-    from obspy import UTCDateTime, Stream, read
-    from eqcorrscan.core.template_gen import template_gen
-    from eqcorrscan.utils import pre_processing
-    from timeit import default_timer as timer
 
     # Establish date range for template creation
     cat.events.sort(key=lambda x: x.origins[-1].time)
@@ -450,9 +449,6 @@ def template_spectrograms(temp_dir, num_evs):
     :param num_evs: How many events to randomly select from all temps
     :return:
     """
-    from glob import glob
-    import numpy as np
-    from obspy import read
 
     files = glob('%s/*' % temp_dir)
     rands = np.random.choice(range(len(files)), num_evs, replace=False)
@@ -474,8 +470,6 @@ def remove_temp_dups(templates, cat, bad_list):
     :param bad_list: list of eid's for events to throw out
     :return:
     """
-    from obspy import read
-    import collections
 
     for ev in cat:
         if str(ev.resource_id).split('/')[-1] not in bad_list:
@@ -506,8 +500,6 @@ def remove_temp_dups(templates, cat, bad_list):
 
 def remove_dups_Tribe(tribe):
     """Address more dups. Gross."""
-    import collections
-    import copy
 
     remove_evs = []
     for temp in tribe.templates:
@@ -547,8 +539,6 @@ def remove_dups_TauP(cat, input):
     :param input: stefan's text file
     :return: 'Fixed' catalog
     """
-    import csv
-    from obspy import UTCDateTime, Catalog
 
     fixed_cat = cat.copy()
     with open(input, 'r') as f:
@@ -580,7 +570,6 @@ def replace_dup_events(orig_cat, replacement_cat, bad_cat):
     :param bad_cat: Catalog of all events which had duplicate events
     :return:
     """
-    from obspy import Catalog
 
     rev_ids = [str(ev.resource_id).split('/')[-1]
                for ev in replacement_cat.events]
@@ -605,7 +594,6 @@ def replace_dup_events(orig_cat, replacement_cat, bad_cat):
 def sync_temps_catalogs(cat, temp_dir):
     # Remove the events from catalog which didn't get made into temps due
     # to low SNR
-    from glob import glob
 
     temp_files = glob(temp_dir)
     temp_names = [nm.split('/')[-1].split('.')[0] for nm in temp_files]
@@ -625,9 +613,6 @@ def mseed_2_Tribe(temp_dir, cat, swin='all', tar_name=None):
     :param cat: catalog coresponding to templates
     :return:
     """
-    from eqcorrscan.core.match_filter import Template, Tribe
-    from glob import glob
-    from obspy import read
 
     temp_files = glob('%s/*' % temp_dir)
     Tribe = Tribe()
@@ -657,9 +642,6 @@ def mseed_2_Party(wav_dir, cat, temp_cat, lowcut, highcut, filt_order,
     :param cat:
     :return:
     """
-    import os
-    from eqcorrscan.core.match_filter import Detection, Family, Party, Template
-    from obspy import read, UTCDateTime, Catalog
 
     partay = Party()
     # Get templates first
@@ -728,11 +710,6 @@ def make_dist_mat(directory, highcut, lowcut, samp_rate,
     :param method: Method for heirarchical clustering
     :return:
     """
-    from glob import glob
-    import numpy as np
-    from obspy import read
-    from eqcorrscan.utils.pre_processing import shortproc
-    from eqcorrscan.utils.clustering import distance_matrix
 
     temp_files = glob('%s/*' % directory)
     temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
@@ -762,13 +739,6 @@ def cluster_temp_list(directory, dist_mat, method):
     :param method:
     :return:
     """
-    from glob import glob
-    from obspy import read
-    from scipy.cluster.hierarchy import fcluster
-    import numpy as np
-    import pandas as pd
-    import seaborn as sns
-    import matplotlib.pyplot as plt
 
     temp_files = glob('%s/*' % directory)
     temp_list = [(read(tmp), tmp.split('/')[-1].split('.')[0])
@@ -798,3 +768,112 @@ def cluster_temp_list(directory, dist_mat, method):
     # Catch the final group
     groups.append(group)
     return groups
+
+##############################################################################
+
+# Functions for REST input file preparation
+
+def write_station_files(inv, outdir):
+    """
+    The software takes 3 of them, for some reason. Just need to feed it an
+    Inventory
+    :param inv:
+    :return:
+    """
+
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+    with open('{}/station.list'.format(outdir), 'w') as f1:
+        for sta in inv[0]:
+            f1.write('{} {} {} {} {} {} {} {} {}\n'.format(
+                0.00, 0.00, sta.elevation - sta[0].depth,
+                sta.code, sta.latitude, sta.longitude, 0.00,
+                0.00, sta[-1].code))
+    with open('{}/station.codes'.format(outdir), 'w') as f2:
+        stas = list(set([sta.code for sta in inv[0]]))
+        for sta in stas:
+            f2.write('{}\n'.format(sta))
+    with open('{}/channel.codes'.format(outdir), 'w') as f3:
+        chans = list(set([chan.code for sta in inv[0] for chan in sta]))
+        for chan in chans:
+            f3.write('{}\n'.format(chan))
+    return
+
+def write_modfile(tops, P_vels, outdir, S_vels=None, vpvs=None, interp='C'):
+    """
+    Write a simple velocity model file for REST
+    :param tops: List of tops of layers in km
+    :param P_vels: List of P wave speeds for each layer
+    :param S_vels: List of S wave speeds for each layer (optional)
+    :param vpvs: Alternate specification of constant vpvs ratio
+    :param interp: 'C' or 'I' for continuous or interpolated layer velocity
+    :return:
+    """
+
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+    with open('{}/modfile.1d'.format(outdir), 'w') as f:
+        if not S_vels and vpvs:
+            S_vels = [pvel / vpvs for pvel in P_vels]
+        for top, pvel, svel in zip(tops, P_vels, S_vels):
+            f.write('{!s} {!s} {:5.2f} {!s}\n'.format(top, pvel, svel, interp))
+    return
+
+def write_file_lists(sac_dir, outdir):
+    """
+    Write lists of all SAC files, and also just vertical comp files for REST
+    :param sac_dir:
+    :return:
+    """
+    sac_files = glob('{}/**'.format(sac_dir), recursive=True)
+    with open('{}/filelist.SAC'.format(outdir), 'w') as f:
+        with open('{}/filelist.zcomp'.format(outdir), 'w') as fz:
+            for sac_file in sac_files:
+                if sac_file[-3:] != 'sac':
+                    continue
+                f.write('{}\n'.format(sac_file))
+                if sac_file.split('_')[-1].split('.')[0] == 'EHZ':
+                    fz.write('{}\n'.format(sac_file))
+    return
+
+def SAC_polarity_correct(sac_dir, flipped_dir, debug=0):
+    """
+    Search through a SAC directory formatted as for Stefan, and flip the
+    polarities of the geophones
+    :param sac_dir: Input sac dir
+    :param flipped_dir: Output dir with correct polarities
+    :return:
+    """
+
+    all_sac_dirs = glob('{}/*'.format(sac_dir))
+    for dir in all_sac_dirs:
+        dir_name = dir.split('/')[-1]
+        print('In directory {}'.format(dir_name))
+        dir_files = glob('{}/*'.format(dir))
+        for sac in dir_files:
+            # If this dir isn't in the flipped dir, create it
+            if not os.path.isdir('{}/{}'.format(flipped_dir, dir_name)):
+                print('Creating new directory for event {}'.format(
+                    sac.split('/')[-1].rstrip('.sac')))
+                os.makedirs('{}/{}'.format(flipped_dir, dir_name))
+            # Extract info from full path
+            sta = sac.split('_')[-2]
+            chan = sac.split('_')[-1].split('.')[0]
+            fname = sac.split('/')[-1]
+            if sta == 'THQ2' or sta[-1] == 'Z':
+                print('Station {} all good. Copying only.'.format(sta))
+                # Copy to new directory
+                shutil.copy(sac, os.path.join(flipped_dir, dir_name, fname))
+            elif chan[-1] == 'Z':
+                print('Flipping polarity at {}.{}'.format(sta, chan))
+                z_stream = read(sac)
+                z_stream[0].data *= -1
+                if debug > 0:
+                    print('SAC header dict:')
+                    print(z_stream[0].stats.sac)
+                z_stream.write(os.path.join(flipped_dir, dir_name, fname),
+                               format='SAC')
+            else:
+                print('Non-vertical comp of geophone. Copying.')
+                shutil.copy(sac, os.path.join(flipped_dir, dir_name, fname))
+    return

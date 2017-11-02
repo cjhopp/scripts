@@ -956,27 +956,6 @@ def plot_catalog_differences(diff_dict, param='dist', param2=None, show=True):
         plt.gcf().show()
     return ax
 
-def seis_viewer_compare(ev1, ev2):
-    """
-    Hard-coded crap to launch seismicity viewer for two events (one with S-picks, one without)
-    :param ev1:
-    :param ev2:
-    :return:
-    """
-    filename1 = '/media/chet/hdd/seismic/NZ/NLLoc/mrp/2015_Rawlinson_S_9-21/loc/%s.*.*.grid0.loc.hyp' % \
-                str(ev1.resource_id).split('/')[-1]
-    filename2 = '/media/chet/hdd/seismic/NZ/NLLoc/mrp/2015_Rawlinson_S_9-21/rewt_0.05_test/loc/%s.*.*.grid0.loc.hyp' % \
-                str(ev2.resource_id).split('/')[-1]
-    print(filename1)
-    cmnd = 'java net.alomax.seismicity.Seismicity %s %s' % (filename1, filename2)
-    subprocess.call(cmnd, shell=True)
-    return
-
-def seis_view_catalogs(cat1, cat2):
-    for i, ev in enumerate(cat1):
-        seis_viewer_compare(ev, cat2[i])
-    return
-
 def bbox_two_cat(cat1, cat2, bbox, depth_thresh):
     new_cat1 = Catalog()
     new_cat2 = Catalog()

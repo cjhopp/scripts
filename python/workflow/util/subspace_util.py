@@ -124,7 +124,8 @@ def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
     groups.append(group)
     return groups
 
-def cluster_map_plot(dmat_file, big_tribe, tribe_groups_dir, raw_wav_dir):
+def cluster_map_plot(dmat_file, big_tribe, tribe_groups_dir, raw_wav_dir,
+                     savefig=None):
     """
     Wrapper on seaborn.clustermap to allow for coloring of rows/columns
     by multiplet
@@ -148,11 +149,11 @@ def cluster_map_plot(dmat_file, big_tribe, tribe_groups_dir, raw_wav_dir):
     print('Processing temps')
     temp_list = [template.name
                  for tmp, template in zip(wavs, new_tribe)]
-    matrix = np.abs(np.load(dmat_file)) # Take absolute value?
+    matrix = np.load(dmat_file) # Take absolute value? NO
     dist_vec = squareform(matrix)
     Z = linkage(dist_vec)
     df_mat = pd.DataFrame(matrix)
-    tribes = glob(tribe_groups_dir)
+    tribes = glob('{}/*.tgz'.format(tribe_groups_dir))
     grp_inds = []
     grp_nos = []
     for tribe in tribes:
@@ -179,11 +180,14 @@ def cluster_map_plot(dmat_file, big_tribe, tribe_groups_dir, raw_wav_dir):
                                 index=temp_inds,
                                 name='Multiplet').map(temp_colors)
     cmg = sns.clustermap(df_mat, method='single', cmap='vlag_r',
-                         vmin=0.1, vmax=1.0, #row_colors=template_colors,
+                         vmin=0.4, vmax=1.4, #row_colors=template_colors,
                          col_colors=template_colors, row_linkage=Z,
                          col_linkage=Z, yticklabels=False, xticklabels=False,
-                         cbar_kws={'label':'1 - CCC'})
-    plt.show()
+                         cbar_kws={'label':'1 - CCC'}, figsize=(12, 12))
+    if not savefig:
+        plt.show()
+    else:
+        cmg.savefig(savefig, dpi=500)
     return cmg
 
 def stack_plot(tribe, wav_dir_pat, station, channel, title, shift=True,

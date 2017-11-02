@@ -161,7 +161,7 @@ def dec_2_merc_meters(dec_x, dec_y, z):
     return x, y, z
 
 def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
-                         prepick, file_type='raw', plot=False):
+                         prepick, postpick, file_type='raw', plot=False):
     """
     Umbrella function to handle writing input files for focimt and hybridMT
 
@@ -181,8 +181,9 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                 selfs.append(str(row[0]))
     ev_dict = {}
     # Build prefilt dict (Assuming all wavs have been downsampled to 100 Hz)
-    pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
-               'GEONET': [0.2, 1.1, 40., 49.]}
+    pf_dict = {'MERC': [0.001, 1.0, 35., 45.],
+               'WPRZ': [0.001, 0.5, 35., 45.],
+               'GEONET': [0.001, 0.01, 40., 48.]}
     # Loop through events
     for ev in cat:
         ev_id = str(ev.resource_id).split('/')[-1]
@@ -201,6 +202,7 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
             pick = arr.pick_id.get_referred_object()
             sta = pick.waveform_id.station_code
             chan = pick.waveform_id.channel_code
+            print('{}.{}'.format(sta, chan))
             if chan[-1] != 'Z':
                 continue
             sta_inv = inv.select(station=sta, channel=chan)
@@ -216,7 +218,10 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                 aoi = 180. - arr.takeoff_angle
             # Establish which station we're working with
             if sta.endswith('Z'):
-                prefilt = pf_dict['GEONET']
+                if sta == 'WPRZ':
+                    prefilt = pf_dict['WPRZ']
+                else:
+                    prefilt = pf_dict['GEONET']
             else:
                 prefilt = pf_dict['MERC']
             wav_file = [wav for wav in wavs
@@ -227,11 +232,20 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                 continue
             # Read in the corresponding trace
             # Cosine taper and demeaning applied by default
+            raw = read(wav_file[0])[0]
             tr = read(wav_file[0])[0].remove_response(inventory=inv,
                                                       pre_filt=prefilt,
                                                       output='DISP')
+            # Invert polarity of SP instruments
+            if not sta.endswith('Z'):
+                tr.data *= -1
             # Trim around P pulse
-            tr.trim(starttime=pick.time - prepick, endtime=pick.time + 0.1)
+            raw_sliced = raw.slice(starttime=pick.time - 0.2,
+                                   endtime=pick.time + 1).copy()
+            whole_tr = tr.slice(starttime=pick.time - 0.2,
+                                endtime=pick.time + 1).copy()
+            tr.trim(starttime=pick.time - prepick,
+                    endtime=pick.time + postpick)
             pick_sample = int(prepick * tr.stats.sampling_rate)
             # Find the next index where trace crosses the 'zero' value
             # which we assume is the value at time of pick.
@@ -251,7 +265,11 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                     print(rel_min_max[0][rel_pk])
                     peak = leveled[rel_min_max[0][rel_pk]] # Largest peak
                 else:
-                    peak = leveled[rel_min_max]
+                    try:
+                        peak = leveled[rel_min_max][0]
+                    except IndexError:
+                        print('No relative maxima or minima')
+                        continue
             except ValueError:
                 print('No relative maxima or minima')
                 continue
@@ -284,12 +302,17 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                 pulse = leveled[pick_sample:]
             omega = np.trapz(pulse)
             if plot:
-                plt.plot(leveled, color='k')
-                plt.plot(np.arange(pick_sample, pick_sample + len(pulse),
+                fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1)
+                fig.suptitle('{}.{}'.format(sta, chan))
+                ax1.plot(raw_sliced.data, label='raw')
+                ax2.plot(whole_tr.data, label='Displacement')
+                ax3.plot(leveled, color='k', label='Pulse')
+                ax3.plot(np.arange(pick_sample, pick_sample + len(pulse),
                                    step=1),
                          pulse, color='r')
-                plt.axvline(pick_sample, linestyle='--',
+                ax3.axvline(pick_sample, linestyle='--',
                             color='grey', label='Pick')
+                plt.legend()
                 plt.show()
                 plt.close()
             # Now we can populate the strings in ev_dict
