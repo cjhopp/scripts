@@ -67,21 +67,21 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8):
         bin_scatangle = True
         ### First run for DC contrained solution
         max_samples = 100000
+        dc = True
         mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
               parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
               max_samples=max_samples, convert=convert, bin_scatangle=bin_scatangle,
-              number_location_samples=number_location_samples)
+              number_location_samples=number_location_samples, n=n)
         ### Now for full MT
         # Change max_samples for MT inversion
         max_samples = 1000000
+        dc = False
         # Create the inversion object with the set parameters.
         mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
               parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem,
-              dc=False, max_samples=max_samples, convert=convert,
-              bin_scatangle=bin_scatangle, number_location_samples=number_location_samples)
-        # TODO finish this guy off and run on server, eh
-        # TODO Needs some way to write the output ( as .mat, I guess)??
-        # TODO May do this automatically per krafla_event.py?
+              max_samples=max_samples, convert=convert, dc=dc,
+              bin_scatangle=bin_scatangle,
+              number_location_samples=number_location_samples, n=n)
     return
 
 def add_pols_to_hyp(catalog, nlloc_dir):
