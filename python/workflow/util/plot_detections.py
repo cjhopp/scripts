@@ -149,26 +149,28 @@ def format_well_data(well_file):
                             float(row[3]) / 1000.))
     return pts
 
-def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
+def plot_event_well_dist(catalog, well_file, flow_start, diffs,
                          temp_list='all', method='scatter', starttime=None,
-                         endtime=None, show=True):
+                         endtime=None, title=None, show=True):
     """
     Function to plot events with distance from well as a function of time.
     :param cat: catalog of events
-    :param well_file: text file of xyz well pts
+    :param well_file: text file of xyz feedzone pts
+    :param flow_start: Start UTCdt of well flow to model
+    :param diffs: list of diffusion values to plot
     :param temp_list: list of templates for which we'll plot detections
-    :param method: plot either the 'scatter' or daily 'average' distance
-    :return: matplotlib.pyplot.Figure
+    :param method: plot the 'scatter' or daily 'average' distance or both
+    :return: matplotlib.pyplot.Axes
     """
     well_pts = format_well_data(well_file)
     # Grab only templates in the list
     cat = Catalog()
     filt_cat = Catalog()
     if starttime and endtime:
-        filt_cat.events = [ev for ev in big_cat if ev.origins[-1].time
+        filt_cat.events = [ev for ev in catalog if ev.origins[-1].time
                            < endtime and ev.origins[-1].time >= starttime]
     else:
-        filt_cat = big_cat
+        filt_cat = catalog
     cat.events = [ev for ev in filt_cat if
                   str(ev.resource_id).split('/')[-1].split('_')[0] in
                   temp_list or temp_list == 'all']
@@ -204,7 +206,7 @@ def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
         diff_ys.append([np.sqrt(60 * d * i / 4000 * np.pi) # account for kms
                         for i in range(len(t))])
     # Plot 'em up
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(7, 6))
     # First boxplots
     u_days = list(set(dist_df.day_num))
     bins = [dist_df.loc[dist_df['day_num'] == d]['dists'].values
@@ -217,7 +219,8 @@ def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
         patch.set_alpha(0.5)
     # First diffusions
     for i, diff_y in enumerate(diff_ys):
-        ax.plot(t, diff_y, label=str(diffs[i]))
+        ax.plot(t, diff_y,
+                label='Diffusion envelope, D={} $m^2/s$'.format(str(diffs[i])))
     # Now events
     if method != 'scatter':
         dates = []
@@ -234,13 +237,21 @@ def plot_event_well_dist(big_cat, well_file, flow_start, diffs,
     elif method == 'both':
         ax.scatter(times, dists)
         ax.plot(dates, day_avg_dist, color='r')
+    # Plot formatting
     fig.autofmt_xdate()
-    # Formatting
     ax.legend()
     ax.set_ylim([0, 6])
-    ax.set_xlim([min(t), max(t)])
+    if title:
+        ax.set_title(title, fontsize=19)
+    else:
+        ax.set_title('Fluid diffusion envelopes and earthquake distance')
+    if starttime:
+        ax.set_xlim([date2num(starttime.datetime), max(t)])
+    else:
+        ax.set_xlim([min(t), max(t)])
     ax.set_xlabel('Date')
     ax.set_ylabel('Distance (km)')
+    fig.tight_layout()
     if show:
         fig.show()
     return ax

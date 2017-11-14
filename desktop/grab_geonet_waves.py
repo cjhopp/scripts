@@ -29,7 +29,7 @@ def grab_geonet(stations, starttime, endtime, outdir):
     """
     cli = Client('GEONET')
     for dt in rrule.rrule(rrule.DAILY, dtstart=starttime, until=endtime):
-        print('Downloading data for '+str(dt)+':')
+        print('Downloading data for ' + str(dt) + ':')
         st = Stream()
         start = UTCDateTime(dt)
         end = UTCDateTime(dt + timedelta(days=1))

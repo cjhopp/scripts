@@ -2,21 +2,136 @@
 from __future__ import division
 from future.utils import iteritems
 
-# import matplotlib
-# matplotlib.rcParams['figure.dpi'] = 300
-
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
 
 from glob import glob
-from obspy import read
+from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
 from obspy.imaging.beachball import beach
 from eqcorrscan.utils.mag_calc import dist_calc
+# Try to import hashpype if in active env
+try:
+    from hashpy.hashpype import HashPype, HashError
+    from hashpy.plotting.focalmechplotter import FocalMechPlotter
+except:
+    print('HashPy not installed in this env, fool.')
+# Try to import mtfit if in active env
+try:
+    from mtfit import mtfit
+    from mtfit.utilities.file_io import parse_hyp
+except:
+    print('MTfit not installed in this env, fool')
 
 
-def foc_mec_from_event(catalog, station_names=False):
+def run_mtfit(catalog, nlloc_dir, parallel=True, n=8):
+    for ev in catalog:
+        eid = str(ev.resource_id).split('/')[-1]
+        print('Running mtfit for {}'.format(eid))
+        nlloc_fs = glob('{}/{}*'.format(
+            nlloc_dir,
+            str(ev.resource_id).split('/')[-1].split('_')[0]))
+        # Find the hyp file with update pol information
+        try:
+            hyp_path = [path for path in nlloc_fs
+                        if path.endswith('.hyp')
+                        and 'sum' not in path.split('.')
+                        and path.split('_')[-1].startswith('pol')][0]
+        except IndexError as msg:
+            print('No NLLoc location for this event. Probably low SNR?')
+        # Read in data dict
+        data = parse_hyp(hyp_path)
+        print(data['PPolarity'])
+        data['UID'] = '{}_ppolarity'.format(eid)
+        # Set inversion parameters
+        # Use an iteration random sampling algorithm
+        algorithm = 'iterate'
+        # Run in parallel if set on command line
+        parallel = parallel
+        # uses a soft memory limit of 1Gb of RAM for estimating the sample sizes
+        # (This is only a soft limit, so no errors are thrown if the memory usage
+        #         increases above this)
+        phy_mem = 1
+        inversion_options = 'PPolarity'
+        # Set the convert flag to convert the output to other source parameterisations
+        convert = True
+        # Set location uncertainty file path
+        location_pdf_file_path = [path for path in nlloc_fs
+                                  if path.endswith('.scatangle')][0]
+        # Handle location uncertainty
+        # Set number of location samples to use (randomly sampled from PDF) as this
+        #    reduces calculation time
+        # (each location sample is equivalent to running an additional event)
+        number_location_samples = 5000
+        bin_scatangle = True
+        ### First run for DC contrained solution
+        max_samples = 100000
+        mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
+              parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
+              max_samples=max_samples, convert=convert, bin_scatangle=bin_scatangle,
+              number_location_samples=number_location_samples)
+        ### Now for full MT
+        # Change max_samples for MT inversion
+        max_samples = 1000000
+        # Create the inversion object with the set parameters.
+        mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
+              parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem,
+              dc=False, max_samples=max_samples, convert=convert,
+              bin_scatangle=bin_scatangle, number_location_samples=number_location_samples)
+        # TODO finish this guy off and run on server, eh
+        # TODO Needs some way to write the output ( as .mat, I guess)??
+        # TODO May do this automatically per krafla_event.py?
+    return
+
+def add_pols_to_hyp(catalog, nlloc_dir):
+    for ev in catalog:
+        print('{}'.format(str(ev.resource_id).split('/')[-1]))
+        nlloc_fs = glob('{}/{}*'.format(
+            nlloc_dir,
+            str(ev.resource_id).split('/')[-1].split('_')[0]))
+        try:
+            hyp_path = [path for path in nlloc_fs
+                        if path.endswith('.hyp')
+                        and 'sum' not in path.split('.')][0]
+        except IndexError as msg:
+            print('No NLLoc location for this event. Probably low SNR?')
+            continue
+        print(hyp_path)
+        with open(hyp_path, 'r') as orig:
+            with open('{}_pols.hyp'.format(hyp_path.rstrip('.hyp')),
+                      'w') as new:
+                phase = False
+                for ln in orig:
+                    line = ln.rstrip()
+                    line = line.split()
+                    if len(line) == 0:
+                        print('End of file')
+                        break
+                    if line[0] == 'PHASE':
+                        phase = True
+                        continue
+                    elif line[0] == 'END_PHASE':
+                        phase = False
+                    if phase:
+                        print('Try adding for {}'.format(line[0]))
+                        try:
+                            pk = [pk for pk in ev.picks
+                                  if pk.waveform_id.station_code == line[0]][0]
+                        except IndexError:
+                            print('No pick for this.....pick??')
+                            continue
+                        if pk.polarity not in ['positive', 'negative']:
+                            print('No polarity for station {}'.format(line[0]))
+                            continue
+                        if pk.polarity == 'positive':
+                            line[5] = 'U'
+                        elif pk.polarity == 'negative':
+                            line[5] = 'D'
+                    new.write(' '.join(line) + '\n')
+    return
+
+def foc_mec_from_event(catalog, station_names=False, outdir=False):
     """
     Just taking Tobias' plotting function out of obspyck
     :param catalog:
@@ -24,16 +139,16 @@ def foc_mec_from_event(catalog, station_names=False):
     """
 
     for ev in catalog:
+        eid = str(ev.resource_id).split('/')[-1]
+        print('Plotting eid: {}'.format(eid))
         fms = ev.focal_mechanisms
         if not fms:
             err = "Error: No focal mechanism data!"
-            raise Exception(err)
-            return
+            print(err)
+            continue
         # make up the figure:
         fig, tax = plt.subplots()
         ax = fig.add_subplot(111, aspect="equal")
-        axs = [ax]
-        axsFocMec = axs
         ax.autoscale_view(tight=False, scalex=True, scaley=True)
         width = 2
         plot_width = width * 0.95
@@ -132,8 +247,12 @@ def foc_mec_from_event(catalog, station_names=False):
                    s=200, zorder=4)
         # this fits the 90 degree incident value to the beachball edge best
         ax.set_ylim([0., 91])
-        plt.draw()
-        plt.show()
+        if not outdir:
+            plt.draw()
+            plt.show()
+        else:
+            fig.savefig('{}/{}_focmec.png'.format(outdir, eid),
+                        dpi=500)
     return
 
 
@@ -159,6 +278,56 @@ def dec_2_merc_meters(dec_x, dec_y, z):
     y = (dec_y - origin[0]) * 111111
     x = (dec_x - origin[1]) * (111111 * np.cos(origin[0]*(np.pi/180)))
     return x, y, z
+
+def run_hashpy(catalog, config, outfile):
+    """
+    Wrapper on hashpy for calculating HASH focal mechanisms
+    :param catalog: :class: obspy.core.event.Catalog
+    :param config: Configuration dict for hashpy
+    :return:
+    """
+    new_cat = Catalog()
+    for ev in catalog:
+        eid = str(ev.resource_id).split('/')[-1]
+        # Set up hashpy object
+        hp = HashPype(**config)
+        hp.input(ev, format="OBSPY")
+        hp.load_velocity_models()
+        hp.generate_trial_data()
+        try:
+            hp.calculate_takeoff_angles()
+        except:
+            print('Error in toa calc for eid: {}'.format(eid))
+            continue
+        pass1 = hp.check_minimum_polarity()
+        pass2 = hp.check_maximum_gap()
+        if pass1 and pass2:
+            try:
+                hp.calculate_hash_focalmech()
+                hp.calculate_quality()
+            except:
+                print('Error in fm calc for eid: {}'.format(eid))
+                continue
+        else:
+            print("Minimum polarity and/or maximum gap check failed")
+            continue
+        new_cat += hp.output(format="OBSPY")
+    new_cat.write(outfile, format="QUAKEML")
+    return
+
+def plot_hashpy(catalog, outdir):
+    """
+    Take a catalog of events with foc mecs defined by hashpy and save the
+    plots to a file
+    :param catalog:
+    :param outdir:
+    :return:
+    """
+    for ev in catalog:
+        eid = str(ev.resource_id).split('/')[-1]
+        fmp = FocalMechPlotter(ev)
+        fmp.fig.savefig('{}/{}'.format(outdir, eid), dpi=500)
+    return
 
 def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                          prepick, postpick, file_type='raw', plot=False):

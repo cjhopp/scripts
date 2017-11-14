@@ -16,12 +16,11 @@ from itertools import chain
 from obspy import Stream, read, UTCDateTime
 import datetime
 from datetime import timedelta
-from matplotlib import dates
 from eqcorrscan.core.match_filter import Tribe, Template
 from eqcorrscan.utils import stacking, clustering
 from eqcorrscan.utils.pre_processing import shortproc
-from eqcorrscan.utils.stacking import align_traces
-from eqcorrscan.core.subspace import Detector
+from eqcorrscan.utils.stacking import align_traces, linstack
+from eqcorrscan.core.subspace import Detector, align_design
 from obspy.signal.trigger import classic_sta_lta
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
@@ -194,6 +193,14 @@ def stack_plot(tribe, wav_dir_pat, station, channel, title, shift=True,
                shift_len=0.3, savefig=None):
     """
     Plot list of traces for a stachan one just above the other
+    :param tribe: Tribe to plot
+    :param wav_dir_pat: Glob pattern for all possible wavs
+    :param station: Station to plot
+    :param channel: channel to plot
+    :param title: Plot title
+    :param shift: Whether to allow alignment of the wavs
+    :param shift_len: Length in seconds to allow wav to shift
+    :param savefig: Name of the file to write
     :return:
     """
     wavs = glob(wav_dir_pat)
@@ -233,8 +240,10 @@ def stack_plot(tribe, wav_dir_pat, station, channel, title, shift=True,
             # different dates
             dt_vects.append([(arb_dt + shif).datetime + (i * td)
                              for i in range(len(tr.data))])
-    # Normalize traces
+    # Normalize traces and make dates vect
+    date_labels = []
     for tr in traces:
+        date_labels.append(str(tr.stats.starttime.date))
         tr.data = tr.data / max(tr.data)
     fig, ax = plt.subplots(figsize=(6, 15))
     vert_steps = np.linspace(0, len(traces), len(traces))
@@ -247,18 +256,42 @@ def stack_plot(tribe, wav_dir_pat, station, channel, title, shift=True,
         for tr, vert_step in zip(list(reversed(traces)), vert_steps):
             ax.plot(tr.data + vert_step, color='k')
     if shift:
-        ax.set_xlabel('Seconds')
+        ax.set_xlabel('Seconds', fontsize=19)
     else:
-        ax.set_xlabel('Samples')
-    ax.set_ylabel('Event count')
-    ax.set_title(title)
+        ax.set_xlabel('Samples', fontsize=19)
+    ax.set_ylabel('Date', fontsize=19)
+    # Change y labels to dates
+    ax.yaxis.set_ticks(vert_steps)
+    ax.set_yticklabels(date_labels[::-1], fontsize=16)
+    ax.set_title(title, fontsize=19)
     if savefig:
         fig.tight_layout()
         plt.savefig(savefig)
         plt.close()
     else:
+        fig.tight_layout()
         plt.show()
     return
+
+def stack_multiplet(catalog, sac_dir, align=True, shift_len=0.1, reject=0.5,
+                    normalize=True):
+    """
+    Return a stream for the linear stack of the templates in a multiplet
+    :param catalog:
+    :param sac_dir:
+    :return:
+    """
+    sac_dirs = glob('{}/*'.format(sac_dir))
+    eids = [str(ev.resource_id).split('/')[-1] for ev in catalog]
+    raws = []
+    for s_dir in sac_dirs:
+        if s_dir.split('/')[-1].split('_')[0] in eids:
+            raws.append(read('{}/*'.format(s_dir)))
+    if align:
+        raws = align_design(raws, shift_len=shift_len, reject=reject,
+                            multiplex=False, no_missed=False)
+
+    return linstack(raws, normalize=normalize)
 
 def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
                   pre_pick, length, shift_len, corr_thresh, cores,
