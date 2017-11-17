@@ -82,7 +82,26 @@ def grab_day_wavs(wav_dirs, dto, stachans):
         print('All traces long enough to proceed to dayproc')
     return st
 
-def run_mtfit(catalog, nlloc_dir, parallel=True, n=8):
+def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
+              phy_mem=1, inversion_options='PPolarity',
+              number_location_samples=5000, MT=True, DC=True):
+    """
+    Wrapper on mtfit to run over a catalog for which there are already
+    polarity picks and .scatangle nlloc files in the specified dir
+    :param catalog: Catalog of events
+    :param nlloc_dir: Directory with the necessary nlloc and .scatangle files
+    :param parallel: Run in parallel?
+    :param n: Number of cores
+    :param algorithm: MTfit inversion algorithm
+    :param phy_mem: A soft memory limit of 1Gb of RAM for estimating the
+        sample sizes. This is only a soft limit, so no errors are thrown
+        if the memory usage increases above this.
+    :param inversion_options: What data to include in the inversion
+    :param number_location_samples: How many random samples to draw from the
+        NLLoc location PDF
+
+    :return:
+    """
     for ev in catalog:
         eid = str(ev.resource_id).split('/')[-1]
         print('Running mtfit for {}'.format(eid))
@@ -101,16 +120,6 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8):
         data = parse_hyp(hyp_path)
         print(data['PPolarity'])
         data['UID'] = '{}_ppolarity'.format(eid)
-        # Set inversion parameters
-        # Use an iteration random sampling algorithm
-        algorithm = 'iterate'
-        # Run in parallel if set on command line
-        parallel = parallel
-        # uses a soft memory limit of 1Gb of RAM for estimating the sample sizes
-        # (This is only a soft limit, so no errors are thrown if the memory usage
-        #         increases above this)
-        phy_mem = 1
-        inversion_options = 'PPolarity'
         # Set the convert flag to convert the output to other source parameterisations
         convert = True
         # Set location uncertainty file path
@@ -120,27 +129,28 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8):
         # Set number of location samples to use (randomly sampled from PDF) as this
         #    reduces calculation time
         # (each location sample is equivalent to running an additional event)
-        number_location_samples = 5000
         bin_scatangle = True
-        ### First run for DC contrained solution
-        max_samples = 100000
-        dc = True
-        print('Running DC for {}'.format(eid))
-        mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
-              parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
-              max_samples=max_samples, convert=convert, bin_scatangle=bin_scatangle,
-              number_location_samples=number_location_samples, n=n)
-        ### Now for full MT
-        # Change max_samples for MT inversion
-        max_samples = 1000000
-        dc = False
-        print('Running full MT for {}'.format(eid))
-        # Create the inversion object with the set parameters.
-        mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
-              parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem,
-              max_samples=max_samples, convert=convert, dc=dc,
-              bin_scatangle=bin_scatangle,
-              number_location_samples=number_location_samples, n=n)
+        if DC:
+            ### First run for DC contrained solution
+            max_samples = 100000
+            dc = True
+            print('Running DC for {}'.format(eid))
+            mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
+                  parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
+                  max_samples=max_samples, convert=convert, bin_scatangle=bin_scatangle,
+                  number_location_samples=number_location_samples, n=n)
+        if MT:
+            ### Now for full MT
+            # Change max_samples for MT inversion
+            max_samples = 1000000
+            dc = False
+            print('Running full MT for {}'.format(eid))
+            # Create the inversion object with the set parameters.
+            mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
+                  parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem,
+                  max_samples=max_samples, convert=convert, dc=dc,
+                  bin_scatangle=bin_scatangle,
+                  number_location_samples=number_location_samples, n=n)
     return
 
 def add_pols_to_hyp(catalog, nlloc_dir):
