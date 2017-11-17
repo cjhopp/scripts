@@ -3,6 +3,7 @@ from __future__ import division
 from future.utils import iteritems
 
 import csv
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -10,6 +11,7 @@ from glob import glob
 from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
 from obspy.imaging.beachball import beach
+from eqcorrscan.utils import pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
 # Try to import hashpype if in active env
 try:
@@ -24,6 +26,61 @@ try:
 except:
     print('MTfit not installed in this env, fool')
 
+def grab_day_wavs(wav_dirs, dto, stachans):
+    # Helper to recursively crawl paths searching for waveforms from a dict of
+    # stachans for one day
+    import os
+    import fnmatch
+    from itertools import chain
+    from obspy import read, Stream
+
+    st = Stream()
+    wav_files = []
+    wav_ds = ['%s/%d' % (d, dto.year) for d in wav_dirs]
+    for path, dirs, files in chain.from_iterable(os.walk(path)
+                                                 for path in wav_ds):
+        print('Looking in %s' % path)
+        for sta, chans in iter(stachans.items()):
+            for chan in chans:
+                for filename in fnmatch.filter(files,
+                                               '*.%s.*.%s*%d.%03d'
+                                                       % (
+                                               sta, chan, dto.year,
+                                               dto.julday)):
+                    wav_files.append(os.path.join(path, filename))
+    print('Reading into memory')
+    for wav in wav_files:
+        st += read(wav)
+    stachans = [(tr.stats.station, tr.stats.channel) for tr in st]
+    for stachan in list(set(stachans)):
+        tmp_st = st.select(station=stachan[0], channel=stachan[1])
+        if len(tmp_st) > 1 and len(set([tr.stats.sampling_rate
+                                        for tr in tmp_st])) > 1:
+            print('Traces from %s.%s have differing samp rates'
+                  % (stachan[0], stachan[1]))
+            for tr in tmp_st:
+                st.remove(tr)
+            tmp_st.resample(sampling_rate=100.)
+            st += tmp_st
+    st.merge(fill_value='interpolate')
+    print('Checking for trace length. Removing if too short')
+    rm_trs = []
+    for tr in st:
+        if len(tr.data) < (86400 * tr.stats.sampling_rate * 0.8):
+            rm_trs.append(tr)
+        if tr.stats.starttime != dto:
+            print('Trimming trace %s.%s with starttime %s to %s'
+                  % (tr.stats.station, tr.stats.channel,
+                     str(tr.stats.starttime), str(dto)))
+            tr.trim(starttime=dto, endtime=dto + 86400,
+                    nearest_sample=False)
+    if len(rm_trs) != 0:
+        print('Removing traces shorter than 0.8 * daylong')
+        for tr in rm_trs:
+            st.remove(tr)
+    else:
+        print('All traces long enough to proceed to dayproc')
+    return st
 
 def run_mtfit(catalog, nlloc_dir, parallel=True, n=8):
     for ev in catalog:
@@ -68,6 +125,7 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8):
         ### First run for DC contrained solution
         max_samples = 100000
         dc = True
+        print('Running DC for {}'.format(eid))
         mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
               parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
               max_samples=max_samples, convert=convert, bin_scatangle=bin_scatangle,
@@ -76,6 +134,7 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8):
         # Change max_samples for MT inversion
         max_samples = 1000000
         dc = False
+        print('Running full MT for {}'.format(eid))
         # Create the inversion object with the set parameters.
         mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
               parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem,
@@ -253,6 +312,7 @@ def foc_mec_from_event(catalog, station_names=False, outdir=False):
         else:
             fig.savefig('{}/{}_focmec.png'.format(outdir, eid),
                         dpi=500)
+            plt.close()
     return
 
 
@@ -327,6 +387,65 @@ def plot_hashpy(catalog, outdir):
         eid = str(ev.resource_id).split('/')[-1]
         fmp = FocalMechPlotter(ev)
         fmp.fig.savefig('{}/{}'.format(outdir, eid), dpi=500)
+    return
+
+def plot_network_arrivals(wav_dirs, lowcut, highcut, start, end, sta_list=None,
+                          remove_resp=False, inv=None, dto=None, ev=None):
+    """
+    Plot data for the whole network at a given dto
+
+    This is intended for plotting teleseismic arrivals to check polarities
+    :param dto:
+    :param wav_dirs:
+    :return:
+    """
+    if not sta_list:
+        sta_list = ['ALRZ','ARAZ','HRRZ','NS01','NS02','NS03','NS04','NS05','NS06',
+                    'NS07','NS08','NS09','NS10','NS11','NS12','NS13','NS14','NS15',
+                    'NS16','NS18','PRRZ','RT01','RT02','RT03','RT05','RT06','RT07',
+                    'RT08','RT09','RT10','RT11','RT12','RT13','RT14','RT15','RT16',
+                    'RT17','RT18','RT19','RT20','RT21','RT22','RT23','THQ2','WPRZ']
+    stachans = {sta: ['EHZ'] for sta in sta_list}
+    if ev:
+        dto = ev.origins[-1].time
+    # Get start of day
+    dto_start = copy.deepcopy(dto)
+    dto_start.hour = 0
+    dto_start.minute = 0
+    dto_start.second = 0
+    dto_start.microsecond = 0
+    st = grab_day_wavs(wav_dirs, dto_start, stachans)
+    pf_dict = {'MERC': [0.001, 1.0, 35., 45.],
+               'WPRZ': [0.001, 0.5, 35., 45.],
+               'GEONET': [0.001, 0.01, 40., 48.]}
+    st.traces.sort(key=lambda x:
+                   inv.select(station=x.stats.station)[0][0].latitude)
+    st1 = pre_processing.dayproc(st, lowcut, highcut, 3, 100., starttime=dto,
+                                 num_cores=4)
+    trimmed = st1.trim(starttime=dto+start, endtime=dto+end)
+    for tr in trimmed:
+        sta = tr.stats.station
+        if sta.endswith('Z'):
+            if sta == 'WPRZ':
+                prefilt = pf_dict['WPRZ']
+            else:
+                prefilt = pf_dict['GEONET']
+        else:
+            prefilt = pf_dict['MERC']
+        if remove_resp:
+            # Cosine taper and demeaning applied by default
+            tr.remove_response(inventory=inv, pre_filt=prefilt, output='DISP')
+    labels=[]
+    for tr in trimmed:
+        labels.append(tr.stats.station)
+        tr.data = tr.data / max(tr.data)
+    fig, ax = plt.subplots(figsize=(3, 6))
+    vert_steps = np.linspace(0, len(trimmed), len(trimmed))
+    for tr, vert_step in zip(trimmed, vert_steps):
+        ax.plot(tr.data + vert_step, color='k', linewidth=0.3)
+    ax.yaxis.set_ticks(vert_steps)
+    ax.set_yticklabels(labels, fontsize=8)
+    plt.show()
     return
 
 def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,

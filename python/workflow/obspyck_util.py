@@ -135,9 +135,14 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
                 # If getting from SAC directory, grab wavs
                 if wav_format == 'SAC' and not wav_file:
                     sac_dirs = glob(wav_dirs[0] + '/*')
-                    wav_files = [glob('{}/*'.format(dir)) for dir
-                                 in sac_dirs if dir.split('/')[-1].split('_')[0] ==
-                                 str(ev.resource_id).split('/')[-1]][0]
+                    try:
+                        wav_files = [
+                            glob('{}/*'.format(dir)) for dir
+                            in sac_dirs if dir.split('/')[-1].split('_')[0] ==
+                            str(ev.resource_id).split('/')[-1]][0]
+                    except IndexError:
+                        print('No SAC file for this event.')
+                        continue
                 # First, remove amplitudes and station mags not set with obspyck
                 rm_amps = []
                 rm_sta_mags = []
@@ -168,7 +173,10 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
             input_file = '/home/chet/obspyck/hoppch_local.obspyckrc17'
             root = ['obspyck -c {} -t {} -d 360 -s NS'.format(
                 input_file, str(utcdto - 20))]
-            cmd = ' '.join(root + [wav_file] + inv_files)
+            if not wav_file and wav_files:
+                cmd = ' '.join(root + wav_files + inv_files)
+            else:
+                cmd = ' '.join(root + [wav_file] + inv_files)
             call(cmd, shell=True)
     return
 

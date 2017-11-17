@@ -836,7 +836,7 @@ def write_file_lists(sac_dir, outdir):
                     fz.write('{}\n'.format(sac_file))
     return
 
-def SAC_polarity_correct(sac_dir, flipped_dir, debug=0):
+def SAC_polarity_correct(sac_dir, flipped_dir):
     """
     Search through a SAC directory formatted as for Stefan, and flip the
     polarities of the geophones
@@ -860,17 +860,28 @@ def SAC_polarity_correct(sac_dir, flipped_dir, debug=0):
             sta = sac.split('_')[-2]
             chan = sac.split('_')[-1].split('.')[0]
             fname = sac.split('/')[-1]
-            if sta == 'THQ2' or sta[-1] == 'Z':
+            if sta in ['THQ2'] or sta[-1] == 'Z':
                 print('Station {} all good. Copying only.'.format(sta))
                 # Copy to new directory
-                shutil.copy(sac, os.path.join(flipped_dir, dir_name, fname))
-            elif chan[-1] == 'Z':
-                print('Flipping polarity at {}.{}'.format(sta, chan))
+                print('Correcting SAC header info for GeoNet traces')
                 z_stream = read(sac)
+                z_stream[0].stats.sac['cmpinc'] = 0.0
+                z_stream[0].stats.sac['lpspol'] = True
+                z_stream.write(os.path.join(flipped_dir, dir_name, fname),
+                               format='SAC')
+            elif sta in ['NS12', 'NS13', 'NS14']:
+                print('Flipping boreholes back to normal at {}.{}'.format(sta, chan))
+                z_stream = read(sac)
+                z_stream[0].stats.sac['cmpinc'] = 0.0
+                z_stream[0].stats.sac['lpspol'] = True
                 z_stream[0].data *= -1
-                if debug > 0:
-                    print('SAC header dict:')
-                    print(z_stream[0].stats.sac)
+                z_stream.write(os.path.join(flipped_dir, dir_name, fname),
+                               format='SAC')
+            elif chan[-1] == 'Z':
+                print('Keeping geophones as correct at {}.{}'.format(sta, chan))
+                z_stream = read(sac)
+                z_stream[0].stats.sac['cmpinc'] = 0.0
+                z_stream[0].stats.sac['lpspol'] = True
                 z_stream.write(os.path.join(flipped_dir, dir_name, fname),
                                format='SAC')
             else:
