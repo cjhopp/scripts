@@ -116,8 +116,9 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
                         and path.split('_')[-1].startswith('pol')][0]
         except IndexError as msg:
             print('No NLLoc location for this event. Probably low SNR?')
+            continue
         # Read in data dict
-        data = parse_hyp(hyp_path)
+        data = parse_hyp(hyp_path)[0]
         print(data['PPolarity'])
         data['UID'] = '{}_ppolarity'.format(eid)
         # Set the convert flag to convert the output to other source parameterisations
