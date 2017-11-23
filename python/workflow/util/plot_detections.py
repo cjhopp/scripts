@@ -23,6 +23,11 @@ from eqcorrscan.utils.mag_calc import dist_calc
 from eqcorrscan.utils.plotting import detection_multiplot
 from eqcorrscan.core.match_filter import Detection, Family, Party, Template
 
+def get_cmap(n, name='hsv'):
+    '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
+    RGB color; the keyword argument name must be a standard mpl colormap name.'''
+    return plt.cm.get_cmap(name, n)
+
 def date_generator(start_date, end_date):
     # Generator for date looping
     for n in range(int ((end_date - start_date).days)):
@@ -668,12 +673,13 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
             return
         maxs = []
         ax1a = ax.twinx()
-        for well in well_list:
+        for i, well in enumerate(well_list):
             dtos = df.xs((well, parameter), level=(0, 1),
                          axis=1).index.to_pydatetime()
             values = df.xs((well, parameter), level=(0, 1), axis=1).cumsum()
             ax1a.plot(dtos, values, label='{}: {}'.format(well,
-                                                          'Cumulative Vol.'))
+                                                          'Cumulative Vol.'),
+                      color=np.random.rand(3, 1))
             plt.legend() # This is annoying
             maxs.append(np.max(df.xs((well, parameter),
                                level=(0, 1), axis=1).values))
@@ -683,15 +689,19 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
     else:
         # Loop over wells, slice dataframe to each and plot
         maxs = []
-        ax1a = ax.twinx()
-        for well in well_list:
-            dtos = df.xs((well, parameter), level=(0, 1),
+        if not plain:
+            ax1a = ax.twinx()
+        else:
+            ax1a = ax
+        for i, well in enumerate(well_list):
+            # Just grab the dates for the flow column as it shouldn't matter
+            dtos = df.xs((well, 'Flow (t/h)'), level=(0, 1),
                          axis=1).index.to_pydatetime()
-            dtos = date2num(dtos)
             values = df.xs((well, parameter), level=(0, 1), axis=1)
-            ax1a.plot(dtos, values, label='{}: {}'.format(well, parameter))
-            plt.legend()
             maxs.append(np.max(values.dropna().values))
+            ax1a.plot(dtos, values, label='{}: {}'.format(well, parameter),
+                      color=np.random.rand(3, 1))
+            plt.legend()
         ax1a.set_ylabel(parameter)
         ax1a.set_ylim([0, max(maxs) * 1.2])
     # Add the new handles to the prexisting ones
@@ -704,7 +714,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
     # Now plot formatting
     if not plain:
         ax.set_xlim(start, end)
+    else:
+        fig.autofmt_xdate()
     plt.ylim(ymin=0) # Make bottom always zero
+    plt.tight_layout()
     if show:
         plt.show()
     return ax

@@ -109,6 +109,7 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
             nlloc_dir,
             str(ev.resource_id).split('/')[-1].split('_')[0]))
         # Find the hyp file with update pol information
+        print(nlloc_fs)
         try:
             hyp_path = [path for path in nlloc_fs
                         if path.endswith('.hyp')
@@ -117,8 +118,11 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
         except IndexError as msg:
             print('No NLLoc location for this event. Probably low SNR?')
             continue
+        print(hyp_path)
         # Read in data dict
-        data = parse_hyp(hyp_path)[0]
+        data = parse_hyp(hyp_path)
+        print(data)
+        print(type(data))
         print(data['PPolarity'])
         data['UID'] = '{}_ppolarity'.format(eid)
         # Set the convert flag to convert the output to other source parameterisations
@@ -180,6 +184,7 @@ def add_pols_to_hyp(catalog, nlloc_dir):
                         break
                     if line[0] == 'PHASE':
                         phase = True
+                        new.write(' '.join(line) + '\n')
                         continue
                     elif line[0] == 'END_PHASE':
                         phase = False
