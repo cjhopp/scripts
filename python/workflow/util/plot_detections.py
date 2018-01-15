@@ -638,7 +638,7 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
     return fig
 
 def plot_well_data(excel_file, sheetname, parameter, well_list,
-                   cumulative=False, ax=None, show=True):
+                   cumulative=False, ax=None, dates=None, show=True):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
     :param excel_file: Excel file to read
@@ -647,10 +647,15 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
     :param well_list: List of wells you want plotted
     :param cumulative: Plot the total injected volume?
     :param ax: If plotting on existing Axis, pass it here
+    :param dates: Specify start and end dates if plotting to preexisting
+        empty Axes.
     :param show: Are we showing this Axis automatically?
     :return: matplotlib.pyplot.Axis
     """
     df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
+    # All flow info is local time
+    df.index = df.index.tz_localize('Pacific/Auckland')
+    print('Flow data tz set to: {}'.format(df.index.tzinfo))
     if not ax:
         fig, ax = plt.subplots()
         handles = []
@@ -658,8 +663,17 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
     else:
         plain = False
         xlims = ax.get_xlim()
-        start = mdates.num2date(xlims[0])
-        end = mdates.num2date(xlims[1])
+        if not dates:
+            try:
+                start = mdates.num2date(xlims[0])
+                end = mdates.num2date(xlims[1])
+            except ValueError:
+                print('If plotting on empty Axes, please specify start'
+                      'and end date')
+                return
+        else:
+            start = dates[0].datetime
+            end = dates[1].datetime
         df = df.truncate(before=start, after=end)
         handles = ax.legend().get_lines() # Grab these lines for legend
         if isinstance(ax.legend_, matplotlib.legend.Legend):
@@ -695,7 +709,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
             ax1a = ax
         for i, well in enumerate(well_list):
             # Just grab the dates for the flow column as it shouldn't matter
-            dtos = df.xs((well, 'Flow (t/h)'), level=(0, 1),
+            dtos = df.xs((well, parameter), level=(0, 1),
                          axis=1).index.to_pydatetime()
             values = df.xs((well, parameter), level=(0, 1), axis=1)
             maxs.append(np.max(values.dropna().values))
@@ -727,7 +741,9 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
 def qgis_csv_to_elapsed_days(csv_file, outfile):
     """
     Take the csv file output from qgis (formatted specifically) and
-    convert the dates to days since start of catalog
+    convert the dates to days since start of catalog.
+
+    In QGIS, must export layer as csv with GEOMETRY set to AS_XYZ
 
     :param csv_file: File path
     :return:
@@ -743,8 +759,8 @@ def qgis_csv_to_elapsed_days(csv_file, outfile):
             date = UTCDateTime().strptime(splits[6], '%Y/%m/%d')
             dates.append(date)
             next_rows.append('{!s} {!s} {!s}'.format(splits[0],
-                                                    splits[1],
-                                                    splits[11]))
+                                                     splits[1],
+                                                     splits[11]))
     start_date = min(dates)
     print(start_date)
     out_rows = []

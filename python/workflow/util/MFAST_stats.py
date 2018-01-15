@@ -41,7 +41,7 @@ def MFAST_to_stats(file_path, bin_size=3, overlap=1, debug=1):
             Dfast = float(line[-19])
             fast = float(line[-20])
             if fast < 0:
-                fast += 360
+                fast += 180
             # Check if the 'fast' key is already in the dictionary
             if 'fast' in results[julday]:
                 results[julday]['fast'].append(fast)

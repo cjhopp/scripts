@@ -2,6 +2,11 @@
 
 from __future__ import division
 
+import os
+import shutil
+from glob import glob
+from obspy import read
+
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
@@ -11,10 +16,9 @@ def date_generator(start_date, end_date):
 def grab_day_wavs_stations(wav_dirs, dto, stations):
     # Helper to recursively crawl paths searching for waveforms for a dict of
     # stachans for one day
-    import os
     import fnmatch
     from itertools import chain
-    from obspy import read, Stream
+    from obspy import Stream
 
     st = Stream()
     wav_files = []
@@ -58,6 +62,52 @@ def grab_day_wavs_stations(wav_dirs, dto, stations):
     else:
         print('All traces long enough to proceed to dayproc')
     return st
+
+def orient_boreholes(sac_dir):
+    """
+    Take Stefan's ngatamariki borehole orientations and add the azimuth
+    to the SAC headers
+    :param sac_dir: Directory of sac directories
+    :return:
+    """
+    # Stefans orientations for EH1 from teleseisms
+    bh_dict = {'NS12': [283.73, 13.73],
+               'NS13': [292.03, 22.03],
+               'NS14': [65.31, 155.31]}
+    sac_dirs = glob('{}/*'.format(sac_dir))
+    for dir in sac_dirs:
+        sacs = glob('{}/*'.format(dir))
+        bh_sacs = [sac for sac in sacs if sac.split('_')[-2]
+                   in bh_dict.keys() and sac.rstrip('.sac')[-1] != 'Z']
+        print(bh_sacs)
+        if len(bh_sacs) == 0:
+            print('No boreholes')
+            continue
+        for bh_sac in bh_sacs:
+            tr = read(bh_sac)[0]
+            if tr.stats.channel in ['EH1', 'EHN']:
+                tr.stats.sac['cmpaz'] = bh_dict[tr.stats.station][0]
+            elif tr.stats.channel in ['EH2', 'EHE']:
+                tr.stats.sac['cmpaz'] = bh_dict[tr.stats.station][1]
+            if tr.stats.channel == 'EHN':
+                tr.stats.sac['kcmpnm'] = 'EH1'
+                tr.stats.channel = 'EH1'
+                bh_sac2 = bh_sac.replace('EHN', 'EH1')
+                print('Writing file: {}'.format(bh_sac2))
+                tr.write(bh_sac2, format='SAC')
+                os.remove(bh_sac)
+                continue
+            elif tr.stats.channel == 'EHE':
+                tr.stats.sac['kcmpnm'] = 'EH2'
+                tr.stats.channel = 'EH2'
+                bh_sac2 = bh_sac.replace('EHE', 'EH2')
+                print('Writing file: {}'.format(bh_sac2))
+                tr.write(bh_sac2, format='SAC')
+                os.remove(bh_sac)
+                continue
+            print('Writing file: {}'.format(bh_sac))
+            tr.write(bh_sac, format='SAC')
+    return
 
 def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
     """

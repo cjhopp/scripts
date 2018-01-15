@@ -19,7 +19,7 @@ from datetime import timedelta
 from eqcorrscan.core.match_filter import Tribe, Template
 from eqcorrscan.utils import stacking, clustering
 from eqcorrscan.utils.pre_processing import shortproc
-from eqcorrscan.utils.stacking import align_traces, linstack
+from eqcorrscan.utils.stacking import align_traces, linstack, PWS_stack
 from eqcorrscan.core.subspace import Detector, align_design
 from obspy.signal.trigger import classic_sta_lta
 from scipy.spatial.distance import squareform
@@ -122,6 +122,31 @@ def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
     # Catch the final group
     groups.append(group)
     return groups
+
+def heatmap_plot(dmat_file, big_tribe, raw_wav_dir, tick_int=20,
+                 title=None, show=True):
+    mat = 1.0 - np.load(dmat_file) # More intuitive to use CCC
+    # Make list of dates
+    big_tribe.sort()
+    raw_wav_files = glob('%s/*' % raw_wav_dir)
+    raw_wav_files.sort()
+    all_wavs = [wav.split('/')[-1].split('.')[0] for wav in raw_wav_files]
+    names = [t.name for t in big_tribe if t.name in all_wavs]
+    new_tribe = Tribe()
+    new_tribe.templates = [temp for temp in big_tribe if temp.name in names]
+    times = [template.event.origins[-1].time.strftime('%Y-%m-%d')
+             for template in new_tribe][::tick_int]
+    ax = sns.heatmap(mat, vmin=-0.4, vmax=0.6, cmap='vlag',
+                     yticklabels=tick_int, xticklabels=False,
+                     cbar_kws={'label': 'CCC'})
+    ax.set_yticklabels(times, fontsize=6)
+    if title:
+        ax.set_title(title)
+    plt.tight_layout()
+    if show:
+        plt.show()
+        plt.close()
+    return ax
 
 def cluster_map_plot(dmat_file, big_tribe, tribe_groups_dir, raw_wav_dir,
                      savefig=None):
@@ -273,25 +298,86 @@ def stack_plot(tribe, wav_dir_pat, station, channel, title, shift=True,
         plt.show()
     return
 
-def stack_multiplet(catalog, sac_dir, align=True, shift_len=0.1, reject=0.5,
-                    normalize=True):
+def stack_multiplet(party, sac_dir, method='linear', filt_params=None,
+                    align=True, shift_len=0.1, reject=0.5, normalize=True,
+                    plot=False):
     """
-    Return a stream for the linear stack of the templates in a multiplet
-    :param catalog:
-    :param sac_dir:
+    Return a stream for the linear stack of the templates in a multiplet.
+
+    The approach here is to first stack all of the detections in a family
+    over the rejection ccc threshold and THEN stack the Family stacks into
+    the final stack for the multiplet. This avoids attempting to correlate
+    detections from different Families with each other, which is nonsensical.
+
+    :param party: Party for the multiplet we're interested in
+    :param sac_dir: Directory of SAC files made for Stefan
+    :param method: Stacking method: 'linear' or 'PWS'
+    :param filt_params: (optional) Dictionary of filter parameters to use
+        before aligning waveforms. Keys must be 'highcut', 'lowcut',
+        'filt_order', and 'samp_rate'
+    :param align: Whether or not to align the waveforms
+    :param shift_len: Allowed shift in aligning in seconds
+    :param reject: Correlation coefficient cutoff in aligning
+    :param normalize: Whether to normalize before stacking
+    :param plot: Alignment plot flag
     :return:
     """
-    sac_dirs = glob('{}/*'.format(sac_dir))
-    eids = [str(ev.resource_id).split('/')[-1] for ev in catalog]
-    raws = []
-    for s_dir in sac_dirs:
-        if s_dir.split('/')[-1].split('_')[0] in eids:
-            raws.append(read('{}/*'.format(s_dir)))
-    if align:
-        raws = align_design(raws, shift_len=shift_len, reject=reject,
-                            multiplex=False, no_missed=False)
 
-    return linstack(raws, normalize=normalize)
+    sac_dirs = glob('{}/2*'.format(sac_dir))
+    fam_stacks = []
+    for fam in party:
+        print('For Family {}'.format(fam.template.event.resource_id))
+        eids = [str(ev.resource_id).split('/')[-1] for ev in fam.catalog]
+        raws = []
+        for s_dir in sac_dirs:
+            if s_dir.split('/')[-1] in eids:
+                raws.append(read('{}/*'.format(s_dir)).merge(
+                    fill_value='interpolate'))
+        # Stupid check for empty det directories. Not yet resolved
+        lens = [len(raw) for raw in raws]
+        if len(lens) == 0: continue
+        if max(lens) == 0: continue
+        print('Removing all traces without 3001 samples')
+        for st in raws:
+            for tr in st.copy():
+                if len(tr.data) != 3001:
+                    st.remove(tr)
+        if filt_params:
+            for raw in raws:
+                shortproc(raw, lowcut=filt_params['lowcut'],
+                          highcut=filt_params['highcut'],
+                          filt_order=filt_params['filt_order'],
+                          samp_rate=filt_params['samp_rate'])
+        print('Now trimming around pick times')
+        z_streams = []
+        for raw in raws:
+            print('Starting length of raw: {}'.format(len(raw)))
+            z_stream = Stream()
+            for tr in raw.copy():
+                if 'a' in tr.stats.sac:
+                    z_stream += tr.trim(
+                        starttime=tr.stats.starttime + tr.stats.sac['a'] - 0.5,
+                        endtime=tr.stats.starttime + tr.stats.sac['a'] + 2.)
+            print('Output length of z_stream: {}'.format(len(z_stream)))
+            if len(z_stream) > 0:
+                z_streams.append(z_stream)
+        if align:
+            z_streams = align_design(z_streams, shift_len=shift_len,
+                                     reject=reject, multiplex=False,
+                                     no_missed=False, plot=plot)
+        if method == 'linear':
+            fam_stacks.append(linstack(z_streams, normalize=normalize))
+        elif method == 'PWS':
+            fam_stacks.append(PWS_stack(z_streams, normalize=normalize))
+    # Now realign the family stacks and stack again
+    if align:
+        fam_stacks = align_design(fam_stacks, shift_len=shift_len,
+                                  reject=reject, multiplex=False,
+                                  no_missed=False, plot=plot)
+    if method == 'linear':
+        return linstack(fam_stacks, normalize=normalize)
+    elif method == 'PWS':
+        return PWS_stack(fam_stacks, normalize=normalize)
 
 def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
                   pre_pick, length, shift_len, corr_thresh, cores,

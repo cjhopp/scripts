@@ -158,6 +158,9 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
                   number_location_samples=number_location_samples, n=n)
     return
 
+def plot_mtfit_output(directory, outdir):
+    return
+
 def add_pols_to_hyp(catalog, nlloc_dir):
     for ev in catalog:
         print('{}'.format(str(ev.resource_id).split('/')[-1]))
@@ -206,10 +209,14 @@ def add_pols_to_hyp(catalog, nlloc_dir):
                     new.write(' '.join(line) + '\n')
     return
 
-def foc_mec_from_event(catalog, station_names=False, outdir=False):
+def foc_mec_from_event(catalog, station_names=False, wavdir=False,
+                       outdir=False):
     """
     Just taking Tobias' plotting function out of obspyck
-    :param catalog:
+    :param catalog: Catalog of events with focmec info
+    :param station_names: Whether or not to plot the station names
+    :param wavdir: False or the root of the waveform directory
+    :param outdir: False or the directory to write the files to
     :return:
     """
 
@@ -221,13 +228,21 @@ def foc_mec_from_event(catalog, station_names=False, outdir=False):
             err = "Error: No focal mechanism data!"
             print(err)
             continue
+        if wavdir:
+            # Read in the waveforms if we're plotting them
+            wavs = glob('{}/*'.format(wavdir))
+            try:
+                wav = [w for w in wavs
+                       if w.split('/')[-1].split('_')[0] == eid][0]
+            except IndexError:
+                print('Waveform for this event doesnt exist')
+                continue
         # make up the figure:
-        fig, tax = plt.subplots()
+        fig, tax = plt.subplots(figsize=(7, 7))
         ax = fig.add_subplot(111, aspect="equal")
         ax.autoscale_view(tight=False, scalex=True, scaley=True)
         width = 2
         plot_width = width * 0.95
-        # plot_width = 0.95 * width
         fig.subplots_adjust(left=0, bottom=0, right=1, top=1)
         # plot the selected solution
         av_np1_strike = np.mean([fm.nodal_planes.nodal_plane_1.strike
@@ -237,11 +252,11 @@ def foc_mec_from_event(catalog, station_names=False, outdir=False):
                     abs(x.nodal_planes.nodal_plane_1.strike - av_np1_strike))[0]
         np1 = fm.nodal_planes.nodal_plane_1
         if hasattr(fm, "_beachball"):
-            beach_ = fm._beachball
+            beach_ = copy.copy(fm._beachball)
         else:
             beach_ = beach([np1.strike, np1.dip, np1.rake],
                            width=plot_width)
-            fm._beachball = beach_
+            fm._beachball = copy.copy(beach_)
         ax.add_collection(beach_)
         # plot the alternative solutions
         if not hasattr(fm, "_beachball2"):
@@ -250,7 +265,7 @@ def foc_mec_from_event(catalog, station_names=False, outdir=False):
                 beach_ = beach([_np1.strike, _np1.dip, _np1.rake],
                                nofill=True, edgecolor='k', linewidth=1.,
                                alpha=0.3, width=plot_width)
-                fm_._beachball2 = beach_
+                fm_._beachball2 = copy.copy(beach_)
         for fm_ in fms:
             ax.add_collection(fm_._beachball2)
         text = "Focal Mechanism (%i of %i)" % \
@@ -287,8 +302,11 @@ def foc_mec_from_event(catalog, station_names=False, outdir=False):
             arrival = getArrivalForPick(ev.origins[-1].arrivals, pick)
             if not pick:
                 continue
-            if pick.polarity is None or arrival is None or arrival.azimuth is None or arrival.takeoff_angle is None:
+            if pick.polarity is None or arrival is None or \
+                arrival.azimuth is None or arrival.takeoff_angle is None:
                 continue
+            if wavdir:
+                print('Not supported yet')
             if pick.polarity == "positive":
                 polarity = True
             elif pick.polarity == "negative":
@@ -309,6 +327,9 @@ def foc_mec_from_event(catalog, station_names=False, outdir=False):
             polarities.append(polarity)
             if station_names:
                 ax.text(plotazim, inci, "  " + sta, va="top", bbox=bbox, zorder=2)
+            if wavdir:
+                # Plot waveforms on edge of figure
+                pass
         azims = np.array(azims)
         incis = np.array(incis)
         polarities = np.array(polarities, dtype=bool)
@@ -325,10 +346,11 @@ def foc_mec_from_event(catalog, station_names=False, outdir=False):
         if not outdir:
             plt.draw()
             plt.show()
+            plt.close('all')
         else:
             fig.savefig('{}/{}_focmec.png'.format(outdir, eid),
                         dpi=500)
-            plt.close()
+            plt.close('all')
     return
 
 

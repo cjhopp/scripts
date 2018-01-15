@@ -59,25 +59,6 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     return st
 
 
-def merc_2_flow_pkl(Rot_sheet, Nga_sheet, NM08_stim):
-    """
-    Take the final flow rate sheets, clean them and save as a more convenient
-    pkl object
-    :param flow_sheet:
-    :return:
-    """
-    from obspy import UTCDateTime
-
-    rot_inj_DF = pd.read_excel(Rot_sheet, sheetname=0, header=[0,1])
-    rot_pres_DF = pd.read_excel(Rot_sheet, sheetname=1, header=[0,1])
-    nga_inj_DF = pd.read_excel(Nga_sheet, sheetname=1, header=[0,1])
-    nga_prod_DF = pd.read_excel(Nga_sheet, sheetname=0, header=[0,1])
-    nm08_stim_DF = pd.read_excel(NM08_stim, sheetname=5, header=0)
-    # Now create dict with top key as well name
-
-    return
-
-
 def sc3ml2qml(zipdir, outdir, stylesheet, prog='xalan'):
     """
     Converting Steve's zipped sc3ml to individual-event qml files
@@ -87,6 +68,8 @@ def sc3ml2qml(zipdir, outdir, stylesheet, prog='xalan'):
     :param prog: which conversion program to use. Defaults to xalan. Can
         also use xsltproc.
     :return:
+
+    **Note: This is deprecated with the new functionality in Obspy 1.1
     """
 
     raw_files = []
@@ -457,6 +440,20 @@ def template_spectrograms(temp_dir, num_evs):
         st = read(fl)
         for tr in st:
             tr.spectrogram()
+
+def remove_dup_hypoDD_cat(catalog):
+    """
+    Function to remove all but the last occurrence of template events
+    in hypoDD catalogs of detections. The duplicates were intentionally
+    included in separate runs to provide continuity across time-chunks
+    of the catalog.
+    :param catalog: Catalog of detections with hypoDD hypocenters
+    :return:
+    """
+    rids = [ev.resource_id for ev in catalog]
+    count = collections.Counter(rids)
+
+    return catalog
 
 ##############################################################################
 # vv Duplicate pick related BS vv #
@@ -839,7 +836,9 @@ def write_file_lists(sac_dir, outdir):
 def SAC_polarity_correct(sac_dir, flipped_dir):
     """
     Search through a SAC directory formatted as for Stefan, and flip the
-    polarities of the geophones
+    polarities of the geophones. Boreholes have the same polarity as the
+    GeoNet stations and should remain as they are in the raw data.
+
     :param sac_dir: Input sac dir
     :param flipped_dir: Output dir with correct polarities
     :return:
@@ -870,18 +869,18 @@ def SAC_polarity_correct(sac_dir, flipped_dir):
                 z_stream.write(os.path.join(flipped_dir, dir_name, fname),
                                format='SAC')
             elif sta in ['NS12', 'NS13', 'NS14']:
-                print('Flipping boreholes back to normal at {}.{}'.format(sta, chan))
+                print('Leaving boreholes as is at {}.{}'.format(sta, chan))
+                z_stream = read(sac)
+                z_stream[0].stats.sac['cmpinc'] = 0.0
+                z_stream[0].stats.sac['lpspol'] = True
+                z_stream.write(os.path.join(flipped_dir, dir_name, fname),
+                               format='SAC')
+            elif chan[-1] == 'Z':
+                print('Flipping geophones at {}.{}'.format(sta, chan))
                 z_stream = read(sac)
                 z_stream[0].stats.sac['cmpinc'] = 0.0
                 z_stream[0].stats.sac['lpspol'] = True
                 z_stream[0].data *= -1
-                z_stream.write(os.path.join(flipped_dir, dir_name, fname),
-                               format='SAC')
-            elif chan[-1] == 'Z':
-                print('Keeping geophones as correct at {}.{}'.format(sta, chan))
-                z_stream = read(sac)
-                z_stream[0].stats.sac['cmpinc'] = 0.0
-                z_stream[0].stats.sac['lpspol'] = True
                 z_stream.write(os.path.join(flipped_dir, dir_name, fname),
                                format='SAC')
             else:

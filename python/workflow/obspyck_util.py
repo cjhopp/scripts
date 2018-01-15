@@ -3,6 +3,18 @@
 """
 Wrapper functions for obspyck and seishub
 """
+import os
+import fnmatch
+import datetime
+import shutil
+import numpy as np
+
+from obspy import read, UTCDateTime
+from subprocess import call
+from glob import glob
+from itertools import chain
+
+
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
@@ -16,9 +28,6 @@ def pick_event(event):
     :param event: obspy.core.Event
     :return:
     """
-    import os
-    import shutil
-    from subprocess import call
 
     #Write event to temporary qml to feed to obspyck
     if not os.path.isdir('tmp'):
@@ -41,7 +50,6 @@ def pick_catalog(catalog, rand_choice=False, ev_ids=False):
     :param ev_ids: list of event identifier strings to match
     :return:
     """
-    import numpy as np
 
     if rand_choice:
         inds = np.random.choice(range(len(catalog)),
@@ -65,22 +73,15 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
     Function to take local files instead of seishub inv/wavs
     :return:
     """
-    from glob import glob
-    import fnmatch
-    import datetime
-    import os
-    from subprocess import call
-    from glob import glob
-    from itertools import chain
-    from obspy import UTCDateTime
 
     # Grab all stationxml files
     inv_files = glob(inv_dir)
     # Work out what the args are telling us to do
     if not catalog:
         if not utcdto:
-            msg = 'Without a catalog you need to specify a datetime'
-            raise Exception(msg)
+            utcdto = read(wav_file)[0].stats.starttime
+            # msg = 'Without a catalog you need to specify a datetime'
+            # raise Exception(msg)
         cat_start = utcdto.date
         cat_end = utcdto.date
     else:
@@ -143,6 +144,8 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
                     except IndexError:
                         print('No SAC file for this event.')
                         continue
+                elif wav_file:
+                    wav_files = [wav_file]
                 # First, remove amplitudes and station mags not set with obspyck
                 rm_amps = []
                 rm_sta_mags = []

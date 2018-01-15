@@ -2,10 +2,11 @@
 import sys
 sys.path.insert(0, '/home/chet/EQcorrscan/')
 import matplotlib
+import pytz
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
-import seaborn.apionly as sns
+import seaborn as sns
 
 from dateutil import rrule
 from scipy.io import loadmat
@@ -25,30 +26,65 @@ def avg_dto(dto_list):
 
 """Magnitude and b-val functions"""
 
-def plot_mag_w_time(cat, show=True):
+def plot_mags(cat, dates=None, metric='time',
+              ax=None, title=None, show=True):
     """
     Plot earthquake magnitude as a function of time
     :param cat: catalog of earthquakes with mag info
     :param show: whether or not to show plot
     :return: matplotlib.pyplot.Figure
     """
-    matplotlib.rcParams['figure.dpi'] = 300
+    if ax: # If axis passes in, set x-axis limits accordingly
+        plain = False
+        ax1 = ax.twinx()
+        xlims = ax.get_xlim()
+        if not dates:
+            try:
+                start = mdates.num2date(xlims[0])
+                end = mdates.num2date(xlims[1])
+            except ValueError:
+                print('If plotting on empty Axes, please specify start'
+                      'and end date')
+                return
+        else:
+            start = dates[0].datetime
+            end = dates[1].datetime
+    cat.events.sort(key=lambda x: x.origins[-1].time)
+    # Make all event times UTC for purposes of dto compare
     mag_tup = []
     for ev in cat:
-        try:
-            mag_tup.append((ev.origins[-1].time.datetime,
-                            ev.magnitudes[-1].mag))
-        except AttributeError:
-            print('Event %s has no associated magnitude' % str(ev.resource_id))
-    dates, mags = zip(*mag_tup)
-    fig, ax = plt.subplots()
-    ax.set_ylabel('Magnitude')
-    ax.set_xlabel('Date')
-    ax.scatter(dates, mags)
+        if start < pytz.utc.localize(ev.origins[-1].time.datetime) < end:
+            try:
+                if metric == 'time':
+                    mag_tup.append(
+                        (pytz.utc.localize(ev.origins[-1].time.datetime),
+                         ev.magnitudes[-1].mag))
+                elif metric == 'depth':
+                    mag_tup.append((ev.origins[-1].depth,
+                                    ev.magnitudes[-1].mag))
+            except AttributeError:
+                print('Event {} has no associated magnitude'.format(
+                    str(ev.resource_id)))
+    xs, ys = zip(*mag_tup)
+    if not ax:
+        fig, ax1 = plt.subplots()
+    ax1.set_ylabel('Magnitude')
+    ax1.set_ylim([0, max(ys) * 1.2])
+    if metric == 'time':
+        ax1.set_xlabel('Date')
+        ax1.stem(xs, ys)
+    elif metric == 'depth':
+        ax1.set_xlabel('Depth (m)')
+        fn = np.poly1d(np.polyfit(xs, ys, 1))
+        ax1.plot(xs, ys, 'yo', xs, fn(xs), '--k', markersize=2)
+        ax1.set_xlim([0, 10000])
+    if title:
+        ax1.set_title(title)
+    plt.tight_layout()
     if show:
-        fig.show()
-    return fig
-
+        ax1.show()
+        ax1.close()
+    return ax1
 
 def Mc_test(cat, n_bins, start_mag=None):
     """
@@ -139,6 +175,7 @@ def bval_calc(cat, n_bins, MC, weight=False):
         b *= -1.
     else:
         b, a = np.polyfit(bval_bins, np.log10(bval_vals), 1)
+        b *= -1.
     return {'bin_vals':bin_vals, 'non_cum_bins':non_cum_bins,
             'cum_bins':cum_bins, 'bval_vals':bval_vals,
             'bval_bins':bval_bins, 'bval_wts':bval_wts,
@@ -165,6 +202,10 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
     # Now re-compute b-value for new Mc if difference larger than bin size
     if not ax:
         fig, ax = plt.subplots()
+    if weight:
+        wt = 'weighted '
+    else:
+        wt = ''
     # If plotting two cats, plot cat2 first (so it should be the extended cat)
     if cat2:
         b_dict2 = bval_calc(cat2, bins, MC, weight)
@@ -179,22 +220,22 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
                 np.power([10],[b_dict2['a']-b_dict2['b']*aval
                                for aval in b_dict2['bval_bins']]),
                 color='darkgray', linestyle='--')
-        text = 'B-val via weighted lsqr: %.3f' % b_dict2['b']
+        text = 'B-val via {}lsqr: {:.3f}'.format(wt, b_dict2['b'])
         ax.text(0.75, 0.9, text, transform=ax.transAxes, color='k',
-                horizontalalignment='center', fontsize=10.)
+                horizontalalignment='center', fontsize=12.)
         ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict2['Mc'],
                 color='k', transform=ax.transAxes,
-                horizontalalignment='center', fontsize=10.)
+                horizontalalignment='center', fontsize=12.)
     # Plotting first bval line
     if not cat2:
         # Plot vertical Mc line
         ax.axvline(b_dict['Mc'], color='darkgray')
-        text = 'B-val via weighted lsqr: %.3f' % b_dict['b']
+        text = 'B-val via {}lsqr: {:.3f}'.format(wt, b_dict2['b'])
         ax.text(0.75, 0.9, text, transform=ax.transAxes, color='k',
-                horizontalalignment='center', fontsize=10.)
+                horizontalalignment='center', fontsize=12.)
         ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict['Mc'],
                 color='k', transform=ax.transAxes,
-                horizontalalignment='center', fontsize=10.)
+                horizontalalignment='center', fontsize=12.)
         ax.plot(b_dict['bval_bins'],
                 np.power([10],[b_dict['a']-b_dict['b']*aval
                                for aval in b_dict['bval_bins']]),
@@ -212,10 +253,10 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
     ax.set_ylabel('Number of events')
     ax.set_xlabel('Magnitude')
     if title:
-        ax.set_title(title)
+        ax.set_title(title, fontsize=16)
     else:
-        ax.set_title('B-value plot')
-    leg = ax.legend(fontsize=12., markerscale=0.7, loc=3)
+        ax.set_title('B-value plot', fontsize=16)
+    leg = ax.legend(fontsize=14., markerscale=0.7, loc=3)
     leg.get_frame().set_alpha(0.9)
     if show:
         plt.show()
