@@ -298,9 +298,9 @@ def stack_plot(tribe, wav_dir_pat, station, channel, title, shift=True,
         plt.show()
     return
 
-def stack_multiplet(party, sac_dir, method='linear', filt_params=None,
-                    align=True, shift_len=0.1, reject=0.5, normalize=True,
-                    plot=False):
+def stack_party(party, sac_dir, method='linear', filt_params=None, align=True,
+                shift_len=0.1, prepick=2., postpick=5., reject=0.7,
+                normalize=False, plot=False, outdir=None):
     """
     Return a stream for the linear stack of the templates in a multiplet.
 
@@ -324,9 +324,10 @@ def stack_multiplet(party, sac_dir, method='linear', filt_params=None,
     """
 
     sac_dirs = glob('{}/2*'.format(sac_dir))
-    fam_stacks = []
+    fam_stacks = {}
     for fam in party:
-        print('For Family {}'.format(fam.template.event.resource_id))
+        fam_id = fam.template.event.resource_id
+        print('For Family {}'.format(fam_id))
         eids = [str(ev.resource_id).split('/')[-1] for ev in fam.catalog]
         raws = []
         for s_dir in sac_dirs:
@@ -351,33 +352,36 @@ def stack_multiplet(party, sac_dir, method='linear', filt_params=None,
         print('Now trimming around pick times')
         z_streams = []
         for raw in raws:
-            print('Starting length of raw: {}'.format(len(raw)))
             z_stream = Stream()
             for tr in raw.copy():
                 if 'a' in tr.stats.sac:
+                    strt = tr.stats.starttime
                     z_stream += tr.trim(
-                        starttime=tr.stats.starttime + tr.stats.sac['a'] - 0.5,
-                        endtime=tr.stats.starttime + tr.stats.sac['a'] + 2.)
-            print('Output length of z_stream: {}'.format(len(z_stream)))
+                        starttime=strt + tr.stats.sac['a'] - prepick,
+                        endtime=strt + tr.stats.sac['a'] + postpick)
             if len(z_stream) > 0:
                 z_streams.append(z_stream)
+        # At the moment, the picks are based on P-arrival correlation already!
         if align:
             z_streams = align_design(z_streams, shift_len=shift_len,
                                      reject=reject, multiplex=False,
                                      no_missed=False, plot=plot)
         if method == 'linear':
-            fam_stacks.append(linstack(z_streams, normalize=normalize))
+            fam_stacks[fam_id] = linstack(z_streams, normalize=normalize)
         elif method == 'PWS':
-            fam_stacks.append(PWS_stack(z_streams, normalize=normalize))
-    # Now realign the family stacks and stack again
-    if align:
-        fam_stacks = align_design(fam_stacks, shift_len=shift_len,
-                                  reject=reject, multiplex=False,
-                                  no_missed=False, plot=plot)
-    if method == 'linear':
-        return linstack(fam_stacks, normalize=normalize)
-    elif method == 'PWS':
-        return PWS_stack(fam_stacks, normalize=normalize)
+            fam_stacks[fam_id] = PWS_stack(z_streams, normalize=normalize)
+    if plot:
+        # Plot up the stacks of the Families first
+        for id, fam_stack in fam_stacks.items():
+            fam_stack.plot(equal_scale=False)
+    if outdir:
+        if not os.path.isdir(outdir):
+            os.mkdir(outdir)
+        for id, fam_stack in fam_stacks.items():
+            filename = '{}/Family_{}_stack.mseed'.format(
+                outdir, str(id).split('/')[-1])
+            fam_stack.write(filename, format='MSEED')
+    return fam_stacks
 
 def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
                   pre_pick, length, shift_len, corr_thresh, cores,

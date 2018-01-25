@@ -142,8 +142,15 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
                             in sac_dirs if dir.split('/')[-1].split('_')[0] ==
                             str(ev.resource_id).split('/')[-1]][0]
                     except IndexError:
-                        print('No SAC file for this event.')
-                        continue
+                        try:
+                            wav_files = [
+                                glob('{}/*'.format(dir)) for dir
+                                in sac_dirs if
+                                dir.split('/')[-1].split('_')[0] ==
+                                str(ev.resource_id).split('/')[-1].split('_')[0]][0]
+                        except IndexError:
+                            print('No SAC file for this event.')
+                            continue
                 elif wav_file:
                     wav_files = [wav_file]
                 # First, remove amplitudes and station mags not set with obspyck

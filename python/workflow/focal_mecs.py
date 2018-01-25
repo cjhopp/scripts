@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from glob import glob
 from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
+from scipy.stats import circmean
 from obspy.imaging.beachball import beach
 from eqcorrscan.utils import pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
@@ -81,6 +82,8 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     else:
         print('All traces long enough to proceed to dayproc')
     return st
+
+########################## MTFIT STUFF #######################################
 
 def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
               phy_mem=1, inversion_options='PPolarity',
@@ -159,6 +162,40 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
     return
 
 def plot_mtfit_output(directory, outdir):
+    return
+
+##############################################################################
+
+def write_obspy_focmec_2_gmt(catalog, outfile, names=False, format='Aki'):
+    """
+    Take a catalog which contains focal mechanisms and write a file formatted
+    for input into GMT.
+
+    :param catalog: Catalog of events
+    :param outfile: Name of the output file
+    :param format: GMT format to write to. Just 'Aki' for now.
+    :return:
+    """
+    with open(outfile, 'w') as f:
+        for ev in catalog:
+            eid = str(ev.resource_id).split('/')[-1]
+            orig = ev.preferred_origin()
+            mag = ev.preferred_magnitude()
+            # Here will have to determine preferred FM
+            fms = [(fm.nodal_planes.nodal_plane_1.strike,
+                    fm.nodal_planes.nodal_plane_1.dip,
+                    fm.nodal_planes.nodal_plane_1.rake)
+                   for fm in ev.focal_mechanisms]
+            fms = list(zip(*fms))
+            avg_fm = [circmean(fms[0], high=360), np.mean(fms[1]),
+                      np.mean(fms[2])]
+            if names:
+                name=eid
+            else:
+                name = ''
+            f.write('{} {} {} {} {} {} {} {} {} {}\n'.format(
+                orig.longitude, orig.latitude, orig.depth / 1000., avg_fm[0],
+                avg_fm[1], avg_fm[2], mag.mag, 0, 0, name))
     return
 
 def add_pols_to_hyp(catalog, nlloc_dir):
@@ -377,6 +414,8 @@ def dec_2_merc_meters(dec_x, dec_y, z):
     x = (dec_x - origin[1]) * (111111 * np.cos(origin[0]*(np.pi/180)))
     return x, y, z
 
+############################### HASHPY STUFF #################################
+
 def run_hashpy(catalog, config, outfile):
     """
     Wrapper on hashpy for calculating HASH focal mechanisms
@@ -426,6 +465,8 @@ def plot_hashpy(catalog, outdir):
         fmp = FocalMechPlotter(ev)
         fmp.fig.savefig('{}/{}'.format(outdir, eid), dpi=500)
     return
+
+##############################################################################
 
 def plot_network_arrivals(wav_dirs, lowcut, highcut, start, end, sta_list=None,
                           remove_resp=False, inv=None, dto=None, ev=None):
@@ -485,6 +526,8 @@ def plot_network_arrivals(wav_dirs, lowcut, highcut, start, end, sta_list=None,
     ax.set_yticklabels(labels, fontsize=8)
     plt.show()
     return
+
+######## HYBRIDMT STUFF ##########
 
 def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                          prepick, postpick, file_type='raw', plot=False):

@@ -177,7 +177,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                           filt_order=temp.filt_order, samp_rate=temp.samp_rate)
             except ValueError as e:
                 print('Attempting to remove bad trace and reprocess')
-                bad_tr = e.split(' ')[-1]
+                bad_tr = str(e).split(' ')[-1]
                 tr = st.select(station=bad_tr.split('.')[0],
                                channel=bad_tr.split('.')[1])[0]
                 st.traces.remove(tr)

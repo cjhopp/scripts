@@ -637,7 +637,7 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
             fig = plotting.cumulative_detections(dates=det_times, template_names=temp_names)
     return fig
 
-def plot_well_data(excel_file, sheetname, parameter, well_list,
+def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                    cumulative=False, ax=None, dates=None, show=True):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
@@ -678,6 +678,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
         handles = ax.legend().get_lines() # Grab these lines for legend
         if isinstance(ax.legend_, matplotlib.legend.Legend):
             ax.legend_.remove() # Need to manually remove this, apparently
+    # Set color (this is only a good idea for one line atm)
     # Loop over well list (although there must be slicing option here)
     # Maybe do some checks here on your kwargs (Are these wells in this sheet?)
     if cumulative:
@@ -688,12 +689,16 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
         maxs = []
         ax1a = ax.twinx()
         for i, well in enumerate(well_list):
+            if color:
+                colr = color
+            else:
+                colr = np.random.rand(3, 1)
             dtos = df.xs((well, parameter), level=(0, 1),
                          axis=1).index.to_pydatetime()
             values = df.xs((well, parameter), level=(0, 1), axis=1).cumsum()
             ax1a.plot(dtos, values, label='{}: {}'.format(well,
                                                           'Cumulative Vol.'),
-                      color=np.random.rand(3, 1))
+                      color=colr)
             plt.legend() # This is annoying
             maxs.append(np.max(df.xs((well, parameter),
                                level=(0, 1), axis=1).values))
@@ -713,8 +718,12 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
                          axis=1).index.to_pydatetime()
             values = df.xs((well, parameter), level=(0, 1), axis=1)
             maxs.append(np.max(values.dropna().values))
+            if color:
+                colr = color
+            else:
+                colr = np.random.rand(3, 1)
             ax1a.plot(dtos, values, label='{}: {}'.format(well, parameter),
-                      color=np.random.rand(3, 1))
+                      color=colr)
             plt.legend()
         ax1a.set_ylabel(parameter)
         ax1a.set_ylim([0, max(maxs) * 1.2])

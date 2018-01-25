@@ -34,7 +34,7 @@ def plot_mags(cat, dates=None, metric='time',
     :param show: whether or not to show plot
     :return: matplotlib.pyplot.Figure
     """
-    if ax: # If axis passes in, set x-axis limits accordingly
+    if ax: # If axis passed in, set x-axis limits accordingly
         plain = False
         ax1 = ax.twinx()
         xlims = ax.get_xlim()
@@ -70,6 +70,8 @@ def plot_mags(cat, dates=None, metric='time',
         fig, ax1 = plt.subplots()
     ax1.set_ylabel('Magnitude')
     ax1.set_ylim([0, max(ys) * 1.2])
+    # Eliminate the side padding
+    ax1.margins(0, 0)
     if metric == 'time':
         ax1.set_xlabel('Date')
         ax1.stem(xs, ys)

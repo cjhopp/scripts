@@ -3,8 +3,8 @@
 """
 Taking stefans csv files and putting the picks into the catalog
 """
-from obspy import UTCDateTime
 from glob import glob
+from obspy import UTCDateTime, read
 from obspy.core.event import ResourceIdentifier, Pick, WaveformStreamID
 from obspy.core.event.base import QuantityError
 
@@ -77,26 +77,32 @@ def make_pk_dict(pk_file, name_map=None):
     return picks
 
 
-def assign_stefan_picks(cat, name_map, pk_file, uncert_cutoff, temps=False,
-                        temp_sac_dir=False):
+def assign_stefan_picks(cat, pk_file, uncert_cutoff, name_map=None,
+                        temps=False, temp_sac_dir=False):
     """
     Take output from Stefans Spicker and add to catalog (in place)
-    :param cat:
-    :param name_map:
-    :param pk_file:
-    :param uncert_cutoff:
+    :param cat: Catalog which we want to populate with S-picks
+    :param pk_file: File including all of the S-picks
+    :param uncert_cutoff: Cutoff for the pick error in seconds
+    :param name_map: In the case of detections, we need to map new eids back
+        to the original based on this file provided by stefan
+    :param temps: Whether or not we are using template resource_id and not
+        detection resource_id
+    :param temp_sac_dir: Directory of self detections for templates. This is
+        so that we can map the self_detection name (which may be the basis
+        for rids in a catalog) to the basic template name.
     :return:
     """
 
     boreholes = ['NS12', 'NS13', 'NS14', 'THQ2'] # For channel naming
     alph = make_alph()
-    picks = make_pk_dict(name_map, pk_file)
+    picks = make_pk_dict(pk_file, name_map)
     if temps and temp_sac_dir:
         self_names = [nm.split('/')[-1] for nm in
                       glob('{}/*'.format(temp_sac_dir))]
-        temp_map = {ResourceIdentifier(
-            'smi:de.erdbeben-in-bayern/event/{}'.format(nm.split('_')[0])):
-            ResourceIdentifier('smi:local/{}'.format(nm)) for nm in self_names}
+        temp_map = {ResourceIdentifier('smi:local/{}'.format(nm)):
+                    ResourceIdentifier('smi:local/{}'.format(nm.split('_')[0]))
+                    for nm in self_names}
     for ev in cat:
         print('For ev: %s' % str(ev.resource_id))
         if temps and temp_sac_dir:
@@ -144,3 +150,49 @@ def assign_stefan_picks(cat, name_map, pk_file, uncert_cutoff, temps=False,
         else:
             print('id not in picks')
     return cat
+
+def cat_2_sac_dir(cat, sac_dir, dry_run=True):
+    """
+    Take a catalog with S-picks from Stefan and add them to the headers of
+    the SAC files in the given directory.
+    :param cat: Catalog with picks which we want to add to SAC files
+    :param sac_dir: Directory of SAC files which we wrote for stefan which we
+        now want to add S-picks to.
+
+    .. NOTE:: This assumes a catalog with full eids for self_detections
+    :return:
+    """
+    sac_names = glob('{}/*'.format(sac_dir))
+    for ev in cat:
+        eid = str(ev.resource_id).split('/')[-1]
+        # Find directory for this event, if it exists
+        ev_sacs = []
+        for sac in sac_names:
+            if sac.split('/')[-1] == eid:
+                ev_sacs.extend(glob('{}/*'.format(sac)))
+        if len(ev_sacs) == 0:
+            print('No events in directory match this event.')
+            continue
+        # Loop over picks, find S-picks, and then add them to the appropriate
+        # SAC file headers
+        for pk in ev.picks:
+            if pk.phase_hint == 'S':
+                sta = pk.waveform_id.station_code
+                chan = pk.waveform_id.channel_code
+                tr_sac = [s for s in ev_sacs
+                          if s.split('_')[-2] == sta and
+                          s.split('_')[-1].rstrip('.sac') == chan]
+                if len(tr_sac) == 0:
+                    print('No sac files exist for this sta/chan')
+                    continue
+                # Read in the data and add the s-pick to the header
+                tr = read(tr_sac[0])[0]
+                tr.stats.sac['t0'] = pk.time - tr.stats.starttime
+                tr.stats.sac['kt0'] = 'S'
+                if dry_run:
+                    print('Would write file to: {}'.format(tr_sac[0]))
+                    print('SAC header for new trace:\n{}'.format(tr.stats.sac))
+                else:
+                    print('Writing file: {}'.format(tr_sac[0]))
+                    tr.write(tr_sac[0], format='MSEED')
+    return
