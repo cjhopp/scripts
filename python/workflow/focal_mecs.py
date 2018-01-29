@@ -166,7 +166,8 @@ def plot_mtfit_output(directory, outdir):
 
 ##############################################################################
 
-def write_obspy_focmec_2_gmt(catalog, outfile, names=False, format='Aki'):
+def write_obspy_focmec_2_gmt(catalog, outfile, names=False, strike_range=45,
+                             format='Aki'):
     """
     Take a catalog which contains focal mechanisms and write a file formatted
     for input into GMT.
@@ -179,7 +180,8 @@ def write_obspy_focmec_2_gmt(catalog, outfile, names=False, format='Aki'):
     with open(outfile, 'w') as f:
         for ev in catalog:
             eid = str(ev.resource_id).split('/')[-1]
-            orig = ev.preferred_origin()
+            # The origin should probably be the NLLoc manual one
+            orig = ev.origins[-1]
             mag = ev.preferred_magnitude()
             # Here will have to determine preferred FM
             fms = [(fm.nodal_planes.nodal_plane_1.strike,
@@ -187,15 +189,23 @@ def write_obspy_focmec_2_gmt(catalog, outfile, names=False, format='Aki'):
                     fm.nodal_planes.nodal_plane_1.rake)
                    for fm in ev.focal_mechanisms]
             fms = list(zip(*fms))
-            avg_fm = [circmean(fms[0], high=360), np.mean(fms[1]),
-                      np.mean(fms[2])]
-            if names:
-                name=eid
+            # Determine the difference between the min and max
+            angle = min(fms[0]) - max(fms[0])
+            diff = abs((angle + 180) % 360 - 180)
+            print('Angle difference: {}'.format(diff))
+            if diff <= strike_range:
+                avg_fm = [circmean(fms[0], high=360), np.mean(fms[1]),
+                          np.mean(fms[2])]
+                if names:
+                    name=eid
+                else:
+                    name = ''
+                f.write('{} {} {} {} {} {} {} {} {} {}\n'.format(
+                    orig.longitude, orig.latitude, orig.depth / 1000., avg_fm[0],
+                    avg_fm[1], avg_fm[2], mag.mag, 0, 0, name))
             else:
-                name = ''
-            f.write('{} {} {} {} {} {} {} {} {} {}\n'.format(
-                orig.longitude, orig.latitude, orig.depth / 1000., avg_fm[0],
-                avg_fm[1], avg_fm[2], mag.mag, 0, 0, name))
+                print(
+                    'Range of strikes for {} too large. Skipping.'.format(eid))
     return
 
 def add_pols_to_hyp(catalog, nlloc_dir):
@@ -265,15 +275,6 @@ def foc_mec_from_event(catalog, station_names=False, wavdir=False,
             err = "Error: No focal mechanism data!"
             print(err)
             continue
-        if wavdir:
-            # Read in the waveforms if we're plotting them
-            wavs = glob('{}/*'.format(wavdir))
-            try:
-                wav = [w for w in wavs
-                       if w.split('/')[-1].split('_')[0] == eid][0]
-            except IndexError:
-                print('Waveform for this event doesnt exist')
-                continue
         # make up the figure:
         fig, tax = plt.subplots(figsize=(7, 7))
         ax = fig.add_subplot(111, aspect="equal")
@@ -342,8 +343,6 @@ def foc_mec_from_event(catalog, station_names=False, wavdir=False,
             if pick.polarity is None or arrival is None or \
                 arrival.azimuth is None or arrival.takeoff_angle is None:
                 continue
-            if wavdir:
-                print('Not supported yet')
             if pick.polarity == "positive":
                 polarity = True
             elif pick.polarity == "negative":
@@ -364,9 +363,6 @@ def foc_mec_from_event(catalog, station_names=False, wavdir=False,
             polarities.append(polarity)
             if station_names:
                 ax.text(plotazim, inci, "  " + sta, va="top", bbox=bbox, zorder=2)
-            if wavdir:
-                # Plot waveforms on edge of figure
-                pass
         azims = np.array(azims)
         incis = np.array(incis)
         polarities = np.array(polarities, dtype=bool)
