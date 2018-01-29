@@ -180,7 +180,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 print(str(e))
                 print('Attempting to remove bad trace at {}'.format(
                     str(e).split(' ')[-1]))
-                bad_tr = str(e).split(' ')[-1]
+                bad_tr = str(e).split(' ')[-1].rstrip("'")
                 tr = st.select(station=bad_tr.split('.')[0],
                                channel=bad_tr.split('.')[1]).copy()[0]
                 st.traces.remove(tr)
