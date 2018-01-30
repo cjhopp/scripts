@@ -186,13 +186,15 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 try:
                     tr = streams[i].select(station=bad_tr.split('.')[0],
                                            channel=bad_tr.split('.')[1])[0]
+                    streams[i].traces.remove(tr)
+                    shortproc(st=streams[i], lowcut=temp.lowcut,
+                              highcut=temp.highcut,
+                              filt_order=temp.filt_order,
+                              samp_rate=temp.samp_rate)
                 except IndexError as e:
                     print(str(e))
                     print('Funkyness. Removing entire stream')
                     streams.remove(st)
-                streams[i].traces.remove(tr)
-                shortproc(st=streams[i], lowcut=temp.lowcut, highcut=temp.highcut,
-                          filt_order=temp.filt_order, samp_rate=temp.samp_rate)
         svd_streams = copy.deepcopy(streams) # For svd
         ccc_streams = copy.deepcopy(streams)
         # work out cccoh for each event with template
