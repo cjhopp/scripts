@@ -171,20 +171,27 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         wrk_streams = copy.deepcopy(streams) # For aligning
         # Process streams then copy to both ccc_streams and svd_streams
         bad_streams = []
-        for st in streams:
+        for i, st in enumerate(list(streams)):
             try:
-                shortproc(st=st, lowcut=temp.lowcut, highcut=temp.highcut,
-                          filt_order=temp.filt_order, samp_rate=temp.samp_rate)
+                shortproc(st=streams[i], lowcut=temp.lowcut,
+                          highcut=temp.highcut, filt_order=temp.filt_order,
+                          samp_rate=temp.samp_rate)
             except ValueError as e:
                 print('ValueError reads:')
                 print(str(e))
                 print('Attempting to remove bad trace at {}'.format(
                     str(e).split(' ')[-1]))
-                bad_tr = str(e).split(' ')[-1].rstrip("'")
-                tr = st.select(station=bad_tr.split('.')[0],
-                               channel=bad_tr.split('.')[1]).copy()[0]
-                st.traces.remove(tr)
-                shortproc(st=st, lowcut=temp.lowcut, highcut=temp.highcut,
+                bad_tr = str(e).split(' ')[-1][:-1] # Eliminate trailing "'"
+                print('Sta and chan names: {}'.format(bad_tr.split('.')))
+                try:
+                    tr = streams[i].select(station=bad_tr.split('.')[0],
+                                           channel=bad_tr.split('.')[1])[0]
+                except IndexError as e:
+                    print(str(e))
+                    print('Funkyness. Removing entire stream')
+                    streams.remove(st)
+                streams[i].traces.remove(tr)
+                shortproc(st=streams[i], lowcut=temp.lowcut, highcut=temp.highcut,
                           filt_order=temp.filt_order, samp_rate=temp.samp_rate)
         svd_streams = copy.deepcopy(streams) # For svd
         ccc_streams = copy.deepcopy(streams)
