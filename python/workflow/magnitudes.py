@@ -198,6 +198,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         if len(bad_streams) > 0:
             for bst in bad_streams:
                 streams.remove(bst)
+                wrk_streams.remove(bst)
         svd_streams = copy.deepcopy(streams) # For svd
         ccc_streams = copy.deepcopy(streams)
         # work out cccoh for each event with template

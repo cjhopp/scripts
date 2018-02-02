@@ -337,7 +337,8 @@ def foc_mec_from_event(catalog, station_names=False, wavdir=False,
             wid = pick.waveform_id
             net = wid.network_code
             sta = wid.station_code
-            arrival = getArrivalForPick(ev.origins[-1].arrivals, pick)
+            # Something screwy in this not plotting
+            arrival = getArrivalForPick(ev.origins[-2].arrivals, pick)
             if not pick:
                 continue
             if pick.polarity is None or arrival is None or \
