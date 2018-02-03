@@ -168,7 +168,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         # Front/back clip hardcoded relative to wavs starting 3 s before pick
         front_clip = 3.0 - shift_len - 0.05 - prepick
         back_clip = front_clip + align_len + (2 * shift_len) + 0.05
-        wrk_streams = copy.deepcopy(streams) # For aligning
+        wrk_streams = [] # For aligning
         # Process streams then copy to both ccc_streams and svd_streams
         bad_streams = []
         for i, st in enumerate(list(streams)):
@@ -176,6 +176,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 shortproc(st=streams[i], lowcut=temp.lowcut,
                           highcut=temp.highcut, filt_order=temp.filt_order,
                           samp_rate=temp.samp_rate)
+                wrk_streams.append(st.copy())
             except ValueError as e:
                 print('ValueError reads:')
                 print(str(e))
@@ -191,6 +192,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                               highcut=temp.highcut,
                               filt_order=temp.filt_order,
                               samp_rate=temp.samp_rate)
+                    wrk_streams.append(st.copy())
                 except IndexError as e:
                     print(str(e))
                     print('Funkyness. Removing entire stream')
@@ -198,7 +200,6 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         if len(bad_streams) > 0:
             for bst in bad_streams:
                 streams.remove(bst)
-                wrk_streams.remove(bst)
         svd_streams = copy.deepcopy(streams) # For svd
         ccc_streams = copy.deepcopy(streams)
         # work out cccoh for each event with template
