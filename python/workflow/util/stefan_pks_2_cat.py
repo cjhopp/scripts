@@ -105,6 +105,7 @@ def assign_stefan_picks(cat, pk_file, uncert_cutoff, name_map=None,
                     for nm in self_names}
     for ev in cat:
         print('For ev: %s' % str(ev.resource_id))
+        eid = str(ev.resource_id).split('/')[-1]
         if temps and temp_sac_dir:
             if ev.resource_id in temp_map:
                 id = temp_map[ev.resource_id]
@@ -112,7 +113,7 @@ def assign_stefan_picks(cat, pk_file, uncert_cutoff, name_map=None,
                 print('Event not in SAC directory')
                 continue
         else:
-            id = ev.resource_id
+            id = ResourceIdentifier('smi:local/{}'.format(eid))
         print(id)
         if id in picks:
             for pk in picks[id]:

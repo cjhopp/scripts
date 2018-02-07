@@ -232,7 +232,7 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
     if not cat2:
         # Plot vertical Mc line
         ax.axvline(b_dict['Mc'], color='darkgray')
-        text = 'B-val via {}lsqr: {:.3f}'.format(wt, b_dict2['b'])
+        text = 'B-val via {}lsqr: {:.3f}'.format(wt, b_dict['b'])
         ax.text(0.75, 0.9, text, transform=ax.transAxes, color='k',
                 horizontalalignment='center', fontsize=12.)
         ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict['Mc'],
