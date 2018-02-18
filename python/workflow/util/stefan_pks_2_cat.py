@@ -106,8 +106,10 @@ def assign_stefan_picks(cat, pk_file, uncert_cutoff, name_map=None,
     for ev in cat:
         print('For ev: %s' % str(ev.resource_id))
         eid = str(ev.resource_id).split('/')[-1]
+        ev.resource_id = ResourceIdentifier('smi:local/{}'.format(eid))
         if temps and temp_sac_dir:
             if ev.resource_id in temp_map:
+                print(ev.resource_id)
                 id = temp_map[ev.resource_id]
             else:
                 print('Event not in SAC directory')
@@ -118,7 +120,7 @@ def assign_stefan_picks(cat, pk_file, uncert_cutoff, name_map=None,
         if id in picks:
             for pk in picks[id]:
                 # Build the datetime from the time string...
-                o_time = ev.preferred_origin().time
+                pk_date = ev.picks[-1].time
                 hour = int(pk['time'].split(':')[0])
                 minute = int(pk['time'].split(':')[1])
                 second = int(pk['time'].split(':')[2].split('.')[0])
@@ -134,14 +136,16 @@ def assign_stefan_picks(cat, pk_file, uncert_cutoff, name_map=None,
                 else:
                     microsecond = int(
                         pk['time'].split(':')[2].split('.')[1]) * 1000
-                pk_time = UTCDateTime(year=o_time.year, month=o_time.month,
-                                      day=o_time.day, hour=hour, minute=minute,
+                pk_time = UTCDateTime(year=pk_date.year, month=pk_date.month,
+                                      day=pk_date.day, hour=hour, minute=minute,
                                       second=second, microsecond=microsecond)
                 if pk['sta'][0] == 'N' or pk['sta'][0] == 'R':
-                    wv_id = WaveformStreamID(station_code=sta_nm,
+                    wv_id = WaveformStreamID(network_code='NZ',
+                                             station_code=sta_nm,
                                              channel_code=chan_nm)
                 else:
-                    wv_id = WaveformStreamID(station_code=pk['sta'],
+                    wv_id = WaveformStreamID(network_code='NZ',
+                                             station_code=pk['sta'],
                                              channel_code=chan_nm)
                 if float(pk['error']) < uncert_cutoff:
                     uncert = QuantityError(uncertainty=float(pk['error']))

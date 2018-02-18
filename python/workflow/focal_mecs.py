@@ -165,6 +165,60 @@ def plot_mtfit_output(directory, outdir):
     return
 
 ##############################################################################
+################# Richard's focmec and stress inversion formatting ############
+
+def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False):
+    """
+    Take *_sdr.dat output file from Arnold FM software
+    add magnitudes, and output to psmeca format
+    :param arnold_file: Output from arnold
+    :param catalog: catalog including events in arnold file which need mags
+    :param outfile: Name of output file to be used by psmeca
+    :return:
+    """
+    with open(arnold_file, 'r') as f:
+        next(f)
+        with open(outfile, 'w') as of:
+            for line in f:
+                line = line.rstrip('\n')
+                line = line.split(',')
+                ev = [ev for ev in catalog
+                      if str(ev.resource_id).split('/')[-1]
+                      == line[0].split('.')[0]]
+                if len(ev) > 0:
+                    ev = ev[0]
+                    o = ev.preferred_origin()
+                    if names: name = str(ev.resource_id).split('/')[-1]
+                    else: name = ''
+                    of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
+                        o.longitude, o.latitude, o.depth / 1000., line[1],
+                        line[2], line[3], ev.preferred_magnitude().mag,
+                        name
+                    ))
+    return
+
+def arnold_focmec_output_2_clust(sdr_err_file, clust_dict, outdir):
+    """
+    Function to break output file from arnold focmec into clusters
+
+    :param sdr_err_file: Output from afmec (projname_scalar_err_degrees.csv)
+    :param clust_dict: Dict with clust name as keys, lists of ev name as value
+    :param outdir: Directory to put the separated files into
+    :return:
+    """
+    for clust_name, ev_list in clust_dict.items():
+        new_fname = '{}.csv'.format(clust_name)
+        with open('{}/{}'.format(outdir, new_fname), 'w') as of:
+            with open(sdr_err_file, 'r') as f:
+                next(f)
+                for line in f:
+                    if line.split(',')[0].split('.')[0] in ev_list:
+                        ln = line.rstrip('\n').split(',')
+                        of.write('{},{},{},{}\n'.format(ln[1], ln[2],
+                                                        ln[3], ln[-1]))
+    return
+
+##############################################################################
 
 def write_obspy_focmec_2_gmt(catalog, outfile, names=False, strike_range=45,
                              format='Aki'):

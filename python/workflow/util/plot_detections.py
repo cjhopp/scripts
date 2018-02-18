@@ -771,7 +771,6 @@ def qgis_csv_to_elapsed_days(csv_file, outfile):
                                                      splits[1],
                                                      splits[11]))
     start_date = min(dates)
-    print(start_date)
     out_rows = []
     for date, new_r in zip(dates, next_rows):
         elapsed = (date.datetime - start_date.datetime).days
