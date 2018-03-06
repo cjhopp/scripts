@@ -43,7 +43,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
         for pk in ev.picks:
             if not pk.time_errors.upper_uncertainty:
                 sta = pk.waveform_id.station_code[:2]
-                chan = pk.waveform_id.station_code[-1]
+                chan = pk.waveform_id.channel_code[-1]
                 pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
         id_str = str(ev.resource_id).split('/')[-1]
         filename = root_name + 'obs/' + id_str + '.nll'
