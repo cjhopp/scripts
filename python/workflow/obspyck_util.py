@@ -68,7 +68,7 @@ def pick_catalog(catalog, rand_choice=False, ev_ids=False):
 
 def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
                        wav_format='mseed', utcdto=None, start=False,
-                       end=False):
+                       end=False, cat_id_format='temps'):
     """
     Function to take local files instead of seishub inv/wavs
     :return:
@@ -136,21 +136,26 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
                 # If getting from SAC directory, grab wavs
                 if wav_format == 'SAC' and not wav_file:
                     sac_dirs = glob(wav_dirs[0] + '/*')
-                    try:
+                    if cat_id_format == 'temps':
                         wav_files = [
                             glob('{}/*'.format(dir)) for dir
                             in sac_dirs if dir.split('/')[-1].split('_')[0] ==
                             str(ev.resource_id).split('/')[-1]][0]
-                    except IndexError:
-                        try:
-                            wav_files = [
-                                glob('{}/*'.format(dir)) for dir
-                                in sac_dirs if
-                                dir.split('/')[-1].split('_')[0] ==
-                                str(ev.resource_id).split('/')[-1].split('_')[0]][0]
-                        except IndexError:
-                            print('No SAC file for this event.')
-                            continue
+                    elif cat_id_format == 'dets':
+                        wav_files = [
+                            glob('{}/*'.format(dir)) for dir
+                            in sac_dirs if dir.split('/')[-1] ==
+                            str(ev.resource_id).split('/')[-1]][0]
+                    # except IndexError:
+                    #     try:
+                    #         wav_files = [
+                    #             glob('{}/*'.format(dir)) for dir
+                    #             in sac_dirs if
+                    #             dir.split('/')[-1].split('_')[0] ==
+                    #             str(ev.resource_id).split('/')[-1].split('_')[0]][0]
+                    #     except IndexError:
+                    #         print('No SAC file for this event.')
+                    #         continue
                 elif wav_file:
                     wav_files = [wav_file]
                 # First, remove amplitudes and station mags not set with obspyck

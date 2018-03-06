@@ -638,7 +638,8 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
     return fig
 
 def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
-                   cumulative=False, ax=None, dates=None, show=True):
+                   cumulative=False, ax=None, dates=None, show=True,
+                   ylims=False):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
     :param excel_file: Excel file to read
@@ -650,6 +651,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     :param dates: Specify start and end dates if plotting to preexisting
         empty Axes.
     :param show: Are we showing this Axis automatically?
+    :param ylims: To force the ylims for the well data.
     :return: matplotlib.pyplot.Axis
     """
     df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
@@ -726,7 +728,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                       color=colr)
             plt.legend()
         ax1a.set_ylabel(parameter)
-        ax1a.set_ylim([0, max(maxs) * 1.2])
+        if ylims:
+            ax1a.set_ylim(ylims)
+        else:
+            ax1a.set_ylim([0, max(maxs) * 1.2])
     # Add the new handles to the prexisting ones
     handles.extend(ax1a.legend_.get_lines())
     # Redo the legend
@@ -739,7 +744,8 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
         ax.set_xlim(start, end)
     else:
         fig.autofmt_xdate()
-    plt.ylim(ymin=0) # Make bottom always zero
+    if not ylims:
+        plt.ylim(ymin=0) # Make bottom always zero
     plt.tight_layout()
     if show:
         plt.show()
@@ -761,24 +767,24 @@ def qgis_csv_to_elapsed_days(csv_file, outfile):
 
     next_rows = []
     dates = []
+    mags = []
     with open(csv_file, 'r') as f:
         next(f)
         for row in f:
             splits = row.split(',')
             date = UTCDateTime().strptime(splits[6], '%Y/%m/%d')
             dates.append(date)
-            next_rows.append('{!s} {!s} {!s}'.format(splits[0],
-                                                     splits[1],
-                                                     splits[11]))
+            next_rows.append([splits[0], splits[1], splits[11],
+                              splits[-1].rstrip('\n')])
+            mags.append(float(splits[-1].rstrip('\n')))
     start_date = min(dates)
-    out_rows = []
-    for date, new_r in zip(dates, next_rows):
-        elapsed = (date.datetime - start_date.datetime).days
-        new_r += ' %s' % str(elapsed)
-        out_rows.append(new_r)
+    mm = max(mags) * 3.
     with open(outfile, 'w') as nf:
-        for out_row in out_rows:
-            nf.write('{}\n'.format(out_row))
+        for date, new_r in zip(dates, next_rows):
+            elapsed = (date.datetime - start_date.datetime).days
+            nf.write('{} {} {} {} {}\n'.format(new_r[0], new_r[1], new_r[2],
+                                               str(elapsed),
+                                               str(float(new_r[3]) / mm)))
     return
 
 def plot_catalog_uncertainties(cat1, cat2=None, RMS=True, uncertainty_ellipse=False):

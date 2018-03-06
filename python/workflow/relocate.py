@@ -23,18 +23,17 @@ def my_conversion(x, y, z):
     new_x = origin[1] + ((x * 1000) / (111111 * np.cos(origin[0] * (np.pi/180))))
     return new_x, new_y, z
 
-
-def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
+def relocate(cat, root_name, in_file, pick_uncertainty):
     """
     Run NonLinLoc relocations on a catalog. This is a function hardcoded for my laptop only.
     :type cat: obspy.Catalog
     :param cat: catalog of events with picks to relocate
     :type root_name: str
     :param root_name: String specifying where the nlloc.obs files will be written from the catalog
-    :type outfiles: str
-    :param outfiles: Output directory for location files
     :type in_file: str
     :param in_file: NLLoc input file
+    :type pick_uncertainty: dict
+    :param pick_uncertainty: Dictionary mapping uncertainties to sta/chans
     :return: same catalog with new origins appended to each event
     """
     for ev in cat:
@@ -42,7 +41,10 @@ def relocate(cat, root_name, in_file, pick_uncertainty=0.1):
             print('Fewer than 5 picks for %s. Will not locate.' % str(ev.resource_id))
             continue
         for pk in ev.picks:
-            pk.time_errors.uncertainty = pick_uncertainty
+            if not pk.time_errors.upper_uncertainty:
+                sta = pk.waveform_id.station_code[:2]
+                chan = pk.waveform_id.station_code[-1]
+                pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
         id_str = str(ev.resource_id).split('/')[-1]
         filename = root_name + 'obs/' + id_str + '.nll'
         outfile = root_name + 'loc/' + id_str

@@ -197,25 +197,35 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False):
                     ))
     return
 
-def arnold_focmec_output_2_clust(sdr_err_file, clust_dict, outdir):
+def arnold_focmec_2_clust(sdr_err_file, clust_dict, outdir, window=None):
     """
     Function to break output file from arnold focmec into clusters
 
     :param sdr_err_file: Output from afmec (projname_scalar_err_degrees.csv)
     :param clust_dict: Dict with clust name as keys, lists of ev name as value
     :param outdir: Directory to put the separated files into
+    :param time_dict (optional): Dict with the size of window and overlap
     :return:
     """
-    for clust_name, ev_list in clust_dict.items():
-        new_fname = '{}.csv'.format(clust_name)
-        with open('{}/{}'.format(outdir, new_fname), 'w') as of:
-            with open(sdr_err_file, 'r') as f:
-                next(f)
-                for line in f:
-                    if line.split(',')[0].split('.')[0] in ev_list:
-                        ln = line.rstrip('\n').split(',')
-                        of.write('{},{},{},{}\n'.format(ln[1], ln[2],
-                                                        ln[3], ln[-1]))
+    for clust_name, big_ev_list in clust_dict.items():
+        print('Doing cluster: {}'.format(clust_name))
+        with open(sdr_err_file, 'r') as f:
+            clust_ev_list = [line
+                             for line in f if line.split(',')[0].split('.')[0]
+                             in big_ev_list]
+        print(len(clust_ev_list))
+        if window:
+            sub_clusts = [clust_ev_list[i:i+window]
+                          for i in range(0, len(clust_ev_list) - window)]
+        else:
+            sub_clusts = [clust_ev_list]
+        for i, ev_list in enumerate(sub_clusts):
+            new_fname = '{}_{}.csv'.format(clust_name, i)
+            with open('{}/{}'.format(outdir, new_fname), 'w') as of:
+                for line in ev_list:
+                    ln = line.rstrip('\n').split(',')
+                    of.write('{},{},{},{}\n'.format(ln[1], ln[2],
+                                                    ln[3], ln[-1]))
     return
 
 ##############################################################################

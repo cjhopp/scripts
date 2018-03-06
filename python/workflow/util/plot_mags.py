@@ -49,18 +49,18 @@ def plot_mags(cat, dates=None, metric='time',
         else:
             start = dates[0].datetime
             end = dates[1].datetime
-    cat.events.sort(key=lambda x: x.origins[-1].time)
+    cat.events.sort(key=lambda x: x.picks[-1].time)
     # Make all event times UTC for purposes of dto compare
     mag_tup = []
     for ev in cat:
-        if start < pytz.utc.localize(ev.origins[-1].time.datetime) < end:
+        if start < pytz.utc.localize(ev.picks[-1].time.datetime) < end:
             try:
                 if metric == 'time':
                     mag_tup.append(
-                        (pytz.utc.localize(ev.origins[-1].time.datetime),
+                        (pytz.utc.localize(ev.picks[-1].time.datetime),
                          ev.magnitudes[-1].mag))
                 elif metric == 'depth':
-                    mag_tup.append((ev.origins[-1].depth,
+                    mag_tup.append((ev.picks[-1].depth,
                                     ev.magnitudes[-1].mag))
             except AttributeError:
                 print('Event {} has no associated magnitude'.format(
@@ -222,22 +222,22 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
                 np.power([10],[b_dict2['a']-b_dict2['b']*aval
                                for aval in b_dict2['bval_bins']]),
                 color='darkgray', linestyle='--')
-        text = 'B-val via {}lsqr: {:.3f}'.format(wt, b_dict2['b'])
-        ax.text(0.75, 0.9, text, transform=ax.transAxes, color='k',
-                horizontalalignment='center', fontsize=12.)
-        ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict2['Mc'],
+        text = 'B-value: {:.2f}'.format(b_dict2['b'])
+        ax.text(0.8, 0.82, text, transform=ax.transAxes, color='k',
+                horizontalalignment='center', fontsize=14.)
+        ax.text(0.8, 0.9, 'Mc=%.2f' % b_dict2['Mc'],
                 color='k', transform=ax.transAxes,
-                horizontalalignment='center', fontsize=12.)
+                horizontalalignment='center', fontsize=14.)
     # Plotting first bval line
     if not cat2:
         # Plot vertical Mc line
         ax.axvline(b_dict['Mc'], color='darkgray')
-        text = 'B-val via {}lsqr: {:.3f}'.format(wt, b_dict['b'])
-        ax.text(0.75, 0.9, text, transform=ax.transAxes, color='k',
-                horizontalalignment='center', fontsize=12.)
-        ax.text(0.75, 0.95, 'Mc via max-curv=%.2f' % b_dict['Mc'],
+        text = 'B-value: {:.2f}'.format(b_dict['b'])
+        ax.text(0.8, 0.82, text, transform=ax.transAxes, color='k',
+                horizontalalignment='center', fontsize=14.)
+        ax.text(0.8, 0.9, 'Mc=%.2f' % b_dict['Mc'],
                 color='k', transform=ax.transAxes,
-                horizontalalignment='center', fontsize=12.)
+                horizontalalignment='center', fontsize=14.)
         ax.plot(b_dict['bval_bins'],
                 np.power([10],[b_dict['a']-b_dict['b']*aval
                                for aval in b_dict['bval_bins']]),

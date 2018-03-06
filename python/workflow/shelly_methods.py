@@ -1,21 +1,22 @@
 #!/usr/bin/python
-from __future__ import division
+"""
+Spitballing recreating David Shelly's methodology on the Long Valley catalog
+for magnitudes and focal mechanisms
+"""
 
-import os
-import copy
 import csv
+import copy
 import scipy
 import numpy as np
-import matplotlib.pyplot as plt
 
 from glob import glob
-from obspy import read, Catalog, Stream
+from obspy import Stream, read, Catalog
 from obspy.core.event import Magnitude, Comment
 from eqcorrscan.utils import stacking
-from eqcorrscan.utils.clustering import cross_chan_coherence
-from eqcorrscan.utils.pre_processing import shortproc
-from eqcorrscan.utils.clustering import svd
 from eqcorrscan.utils.mag_calc import svd_moments
+from eqcorrscan.utils.pre_processing import shortproc
+from eqcorrscan.utils.clustering import cross_chan_coherence, svd
+
 
 def local_to_moment(mag, m=0.88, c=0.73):
     """
@@ -37,6 +38,23 @@ def local_to_moment(mag, m=0.88, c=0.73):
     Moment = 10.0 ** (1.5 * Mw + 9.0 )
     return Moment
 
+def remove_outliers(M, ev_out, m=4):
+    """
+    helper function for outliers
+    :param M:
+    :param ev_out:
+    :return:
+    """
+    import numpy as np
+    new_M = []
+    new_evs = []
+    for i, m in enumerate(list(M)):
+        if abs(m) <= 4.:
+            print(m)
+            new_M.append(M[i])
+            new_evs.append(ev_out[i])
+    return np.array(new_M), new_evs
+
 def cc_coh_dets(streams, length, wav_prepick, corr_prepick, shift):
     # Loop over detections and return list of cc_coh with template
     # Trim all wavs to desired length
@@ -51,50 +69,6 @@ def cc_coh_dets(streams, length, wav_prepick, corr_prepick, shift):
                                       allow_shift=True, shift_len=shift)
         cccohs.append(coh)
     return cccohs
-
-def plot_displacement_spectra(trace, ev, inv, savefig=False):
-    """
-    Simple function to plot the displacement spectra of a trace
-    :param tr: obspy.core.trace.Trace
-    :return:
-    """
-    tr = trace.copy()
-    sta = tr.stats.station
-    chan = tr.stats.channel
-    eid = str(ev.resource_id).split('/')[-1]
-    pick = [pk for pk in ev.picks
-            if pk.waveform_id.station_code == sta
-            and pk.waveform_id.channel_code == chan]
-    if len(pick) == 0:
-        return
-    else:
-        pick = pick[0]
-    pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
-               'GEONET': [0.2, 1.1, 40., 49.]}
-    if sta.endswith('Z'):
-        prefilt = pf_dict['GEONET']
-    else:
-        prefilt = pf_dict['MERC']
-    tr.remove_response(inventory=inv, pre_filt=prefilt,
-                       water_level=20, output='DISP')
-    tr.trim(starttime=pick.time - 0.1, endtime=pick.time + 2.0)
-    N = len(tr.data)
-    T = 1.0 / tr.stats.sampling_rate
-    xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
-    yf = scipy.fft(tr.data)
-    fig, ax = plt.subplots()
-    plt.loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]))
-    ax.set_xlabel('Frequancy (Hz)')
-    ax.set_ylabel('Displacement (m/Hz)')
-    plt.title('{}: {}.{} Displacement Spectra'.format(eid, sta, chan))
-    if savefig:
-        dir = '{}/{}'.format(savefig, eid)
-        if not os.path.isdir(dir):
-            os.mkdir(dir)
-        fig.savefig('{}/{}_{}-{}.png'.format(dir, eid, sta, chan))
-    else:
-        plt.show()
-    return
 
 def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                         reject, sac_dir, min_amps, calibrate=False,
@@ -314,21 +288,3 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                     Magnitude(mag=Ml[i], magnitude_type='ML'))
             fam.catalog = Catalog(events=[det.event for det in fam.detections])
     return party, cccohs
-
-
-def remove_outliers(M, ev_out, m=4):
-    """
-    helper function for outliers
-    :param M:
-    :param ev_out:
-    :return:
-    """
-    import numpy as np
-    new_M = []
-    new_evs = []
-    for i, m in enumerate(list(M)):
-        if abs(m) <= 4.:
-            print(m)
-            new_M.append(M[i])
-            new_evs.append(ev_out[i])
-    return np.array(new_M), new_evs
