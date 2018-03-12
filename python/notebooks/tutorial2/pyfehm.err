@@ -1,0 +1,13 @@
+WARNING: Assigning default poissons_ratio (   0.2) to zone 10.
+WARNING: Assigning default poissons_ratio (   0.2) to zone 20.
+WARNING: Assigning default poissons_ratio (   0.2) to zone 21.
+WARNING: Assigning default pressure_coupling (   1.0) to zone 0.
+
+
+ !!!!---------------------------------------------------------!!!!
+ !!!! Possible errors detected in input file.                 !!!!
+ !!!!---------------------------------------------------------!!!!
+ !!!! - Use of history output format 'surf' may not be        !!!!
+ !!!!    compatible with zoneflux output (fehm macro: flxz).  !!!!
+ !!!!    Use 'tec' if problems experienced.                   !!!!
+ !!!!---------------------------------------------------------!!!!

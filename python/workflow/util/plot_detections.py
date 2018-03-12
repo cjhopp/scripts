@@ -753,7 +753,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
 
 ##### OTHER MISC FUNCTIONS #####
 
-def qgis_csv_to_elapsed_days(csv_file, outfile):
+def qgis_csv_to_elapsed_days(csv_file, outfile, mag_multiplier):
     """
     Take the csv file output from qgis (formatted specifically) and
     convert the dates to days since start of catalog.
@@ -778,7 +778,7 @@ def qgis_csv_to_elapsed_days(csv_file, outfile):
                               splits[-1].rstrip('\n')])
             mags.append(float(splits[-1].rstrip('\n')))
     start_date = min(dates)
-    mm = max(mags) * 3.
+    mm = max(mags) * mag_multiplier
     with open(outfile, 'w') as nf:
         for date, new_r in zip(dates, next_rows):
             elapsed = (date.datetime - start_date.datetime).days

@@ -1,0 +1,9 @@
+FEHM V3.3.0linUbuntu 15-12-04   03/07/2018  17:09:05
+# EGS_stress_INPUT.dat
+strs
+Output file format: Surfer (csv)
+Parameters written to individual history files:
+ Water, vapor, and capillary pressure Temperature flow Zone flux
+for the following nodes:
+Number of output nodes:    0
+

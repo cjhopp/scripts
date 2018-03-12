@@ -212,12 +212,12 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
     if cat2:
         b_dict2 = bval_calc(cat2, bins, MC, weight)
         ax.axvline(b_dict2['Mc'], color='darkgray')
-        sns.distplot(mags2, kde=False, color='b', hist_kws={'alpha':1.0},
-                     ax=ax)
+        sns.distplot(mags2, kde=False, color=sns.xkcd_rgb["dull blue"],
+                     hist_kws={'alpha':1.0}, ax=ax)
         # Reversed cumulative hist
         ax.plot(b_dict2['bin_vals'], b_dict2['cum_bins'],
-                label='Matched filter detected',
-                color='b')
+                label='Matched-filter detected',
+                color=sns.xkcd_rgb["dull blue"])
         ax.plot(b_dict2['bval_bins'],
                 np.power([10],[b_dict2['a']-b_dict2['b']*aval
                                for aval in b_dict2['bval_bins']]),
@@ -247,17 +247,17 @@ def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
     ax.set_yscale('log')
     # Put b-val on plot
     # Non cumulative hist
-    sns.distplot(mags, kde=False, color='r', hist_kws={'alpha':1.0},
-                 ax=ax)
+    sns.distplot(mags, kde=False, color=sns.xkcd_rgb["pale red"],
+                 hist_kws={'alpha':1.0}, ax=ax)
     # Reversed cumulative hist
     ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label='GNS catalog',
-               color='r')
-    ax.set_ylabel('Number of events')
-    ax.set_xlabel('Magnitude')
+               color=sns.xkcd_rgb["pale red"])
+    ax.set_ylabel('Number of events', fontsize=14.)
+    ax.set_xlabel('Magnitude', fontsize=14.)
     if title:
-        ax.set_title(title, fontsize=16)
+        ax.set_title(title, fontsize=18)
     else:
-        ax.set_title('B-value plot', fontsize=16)
+        ax.set_title('B-value plot', fontsize=18)
     leg = ax.legend(fontsize=14., markerscale=0.7, loc=3)
     leg.get_frame().set_alpha(0.9)
     if show:

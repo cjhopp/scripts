@@ -588,6 +588,25 @@ def replace_dup_events(orig_cat, replacement_cat, bad_cat):
 
 ##############################################################################
 
+def clean_DD_output_cats(catalog):
+    """
+    Take output catalogs from hypoDDpy, remove templates, remove non-located
+    events, and assign preferred origins
+    :return:
+    """
+    print('Initial length of catalog: {}'.format(len(catalog)))
+    for ev in list(catalog.events):
+        if ev.resource_id.id.startswith('smi:de'):
+            catalog.events.remove(ev)
+    print('After removing temps, length is: {}'.format(len(catalog)))
+    for ev in list(catalog.events):
+        if ev.origins[-1].method_id == None:
+            catalog.events.remove(ev)
+    print('After removing non-located, length is: {}'.format(len(catalog)))
+    for ev in catalog:
+        ev.preferred_origin_id = ev.origins[-1].resource_id.id
+    return catalog
+
 def sync_temps_catalogs(cat, temp_dir):
     # Remove the events from catalog which didn't get made into temps due
     # to low SNR
