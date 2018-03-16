@@ -65,7 +65,9 @@ def model_setup():
 	dat.zone[0].conductivity = 2.7
 
 	# initial temperature/pressure conditions
-	dat.temperature_gradient('dp_modelTemperatures.txt', hydrostatic = 0.1, offset=0.,first_zone = 600,auxiliary_file = 'temp.macro')
+	dat.temperature_gradient('dp_modelTemperatures.txt', hydrostatic = 0.1,
+							 offset=0.,first_zone = 600,
+							 auxiliary_file = 'temp.macro')
 	dat.zone['ZMAX'].fix_pressure(0.1)
 
 	# initial run allowing equilibration
@@ -103,7 +105,9 @@ def model_setup():
 	dat.zone[0].thermal_expansion = 3.5e-5
 	dat.zone[0].pressure_coupling = 1.
 
-	dat.incon.stressgrad(xgrad = xgrad, ygrad = ygrad, zgrad=115.*rho*9.81/1e6, calculate_vertical = True, vertical_fraction = True)
+	dat.incon.stressgrad(xgrad = xgrad, ygrad = ygrad,
+						 zgrad=115.*rho*9.81/1e6, calculate_vertical = True,
+						 vertical_fraction = True)
 	dat.incon.write(root+'_INCON.ini')
 	dat.incon.read(dat.work_dir+os.sep+root+'_INCON.ini')
 

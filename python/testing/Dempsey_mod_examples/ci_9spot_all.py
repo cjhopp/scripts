@@ -67,12 +67,11 @@ for root,par in zip(roots[startAt:],pars[startAt:]):
 		gm = gmake(meshname='ci_'+root0+'_GRID.inp',xmin=0,xmax=x1,ymin=0,ymax=y1,zmin=z0,zmax=z1,
 			xprop=hprop, yprop=hprop, xdiv=hdiv, ydiv=hdiv, zprop=zprop, zdiv=zdiv)
 		gm.run()
-		
 	dat = fdata()
 	dat.grid.read('ci_'+root0+'_GRID.inp')
 	if first:
 		dat.grid.plot(color='b',cutaway='middle',save = 'ci_'+root0+'_GRID.png')
-	
+
 	############################################## assign rock units
 	dat.add(fmacro('perm',zone=0,param=(('kx',1.e-16),('ky',1.e-16),('kz',1.e-16))))
 	dat.add(fmacro('rock',zone=0,param=(('density',2500),('porosity',0.01),('specific_heat',900))))
