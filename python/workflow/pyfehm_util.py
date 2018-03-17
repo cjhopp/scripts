@@ -127,7 +127,6 @@ def define_well_nodes(dat, well_file_pattern, well_name, surf_loc=None,
         # Add buffer around rectangle
         rect = [[zone[0][0] - 0.1, zone[0][1] - 0.1, zone[0][2] + 0.1],
                 [zone[1][0] + 0.1, zone[1][1] + 0.1, zone[1][2] - 0.1]]
-        print(rect)
         dat.new_zone(ind + i, name='{}_fzone_{}'.format(well_name, i),
                      rect=rect)
     return dat
@@ -217,7 +216,6 @@ def make_NM08_grid(work_dir):
     dat = fdata(work_dir=work_dir)
     dat.files.root = root
     pad_1 = [1500., 1500.]
-    print('Grid location of pad 1:\n{}'.format(pad_1))
     # Symmetric grid in x-y
     base = 3
     dx = pad_1[0]
@@ -311,14 +309,18 @@ def NM08_model_loop(root, run_dict, res_dict, decimate=100):
     excel_file = '/Users/home/hoppche/data/merc_data/flows/Merc_Ngatamariki.xlsx'
     perm_xx, perm_yy, perm_zz = res_dict['tahorakuri']['perms']
     # Make the directory for this object
+    print('Making grid')
     dat = make_NM08_grid(
         work_dir='{}/perms_{:.1E}_{:.1E}_{:.1E}'.format(root, perm_xx,
                                                         perm_yy, perm_zz))
+    print('Assigning reservoir parameters')
     reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
                      show=False)
+    print('Defining well nodes')
     define_well_nodes(
         dat, well_file_pattern=fz_file_pat,
         well_name='NM08', type='injection', surf_loc=[1500., 1500.])
+    print('Running initial condition')
     run_initial_conditions(dat)
     set_well_boundary(
         dat, excel_file=excel_file, sheet_name='NM08 Stimulation',

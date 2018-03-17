@@ -5,6 +5,7 @@ Functions for running Shelly et al. focal mechanism methods for MF detections
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from glob import glob
 from multiprocessing import Pool
@@ -13,7 +14,7 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from eqcorrscan.core.match_filter import normxcorr2
 
 
-def _rel_polarity(data1, data2, min_cc, samp_rate, m, n):
+def _rel_polarity(data1, data2, min_cc, debug=0):
     """
     Compute the relative polarity between two traces
 
@@ -30,25 +31,46 @@ def _rel_polarity(data1, data2, min_cc, samp_rate, m, n):
     :rtype: float
     """
     if not data1.any() or not data2.any():
-        return 0.0, m, n
+        return 0.0
     ccc = normxcorr2(data1, data2)[0]
-    raw_max = np.argmax(ccc)
-    if ccc[raw_max] < min_cc:
-        return 0.0, m, n
+    raw_max = np.argmax(np.abs(ccc))
+    if raw_max == 0:
+        print('Max absolute data point is at end of ccc array. Skipping.')
+        return 0.0
+    elif raw_max == np.max(ccc.shape) - 1:
+        print('Max absolute data point is at end of ccc array. Skipping.')
+        return 0.0
+    elif ccc[raw_max] < min_cc:
+        return 0.0
     sign = np.sign(ccc[raw_max])
     # Find pks
-    pk_locs = argrelmax(np.abs(ccc), order=int(0.02 * samp_rate))[0]
-    pk_ind = np.where(pk_locs == raw_max)[-1]
+    pk_locs = argrelmax(np.abs(ccc), order=2)[0]
+    pk_ind = np.where(np.equal(raw_max, pk_locs))[0][0]
     # Now find the two peaks either side of the max peak
-    try:
-        second_pk_vals = np.abs(ccc)[0][pk_locs[np.array([pk_ind - 1,
-                                                          pk_ind + 1])]]
-    except IndexError:
-        print('Peak at one end of ccc array, not using pick. If this is'
-              'unexpected, consider adjusting shift and window params')
-        return 0.0, m, n
+    if pk_ind == 0:
+        # If max peak is first peak...
+        second_pk_vals = np.abs(ccc)[np.array([pk_locs[pk_ind + 1]])]
+        sec_pk_locs = np.array([pk_locs[pk_ind + 1]])
+    elif pk_ind == np.max(pk_locs.shape) - 1:
+        # If max peak is last peak...
+        second_pk_vals = np.abs(ccc)[np.array([pk_locs[pk_ind - 1]])]
+        sec_pk_locs = np.array([pk_locs[pk_ind - 1]])
+    else:
+        # All other cases
+        second_pk_vals = np.abs(ccc)[np.array([pk_locs[pk_ind - 1],
+                                               pk_locs[pk_ind + 1]])]
+        sec_pk_locs = np.array([pk_locs[pk_ind - 1],
+                                pk_locs[pk_ind + 1]])
+    if debug > 0:
+        plt.plot(np.abs(ccc), color='k')
+        for loc in sec_pk_locs:
+            plt.axvline(loc, color='blue', linestyle='-.')
+        plt.axvline(raw_max, color='r')
+        plt.axvline(pk_locs[pk_ind], color='grey', linestyle='--')
+        plt.show()
+        plt.close('all')
     rel_pol = sign * np.max(second_pk_vals)
-    return rel_pol, m, n
+    return rel_pol
 
 def _prepare_data(template_streams, detection_streams, template_cat,
                   detection_cat, temp_traces, det_traces, phases, corr_dict):
@@ -106,13 +128,20 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                     nearest_sample=False).data[:-1]
     return temp_traces, det_traces
 
-def _stachan_loop():
+def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
     """
     Inner loop to parallel over stachan matrices
     :return:
     """
-
-    return
+    pol_array = np.array((len(det_traces), len(temp_traces)))
+    print('Looping stachan: {}'.format(stachan))
+    for m in range(len(temp_traces)):
+        for n in range(len(det_traces)):
+            pol = _rel_polarity(temp_traces[m],
+                                det_traces[n],
+                                min_cc, debug)
+            pol_array[n][m] = pol
+    return phase, stachan, pol_array
 
 def make_corr_matrices(template_streams, detection_streams, template_cat,
                        detection_cat, corr_dict, min_cc, phases=('P', 'S'),
@@ -164,12 +193,6 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                           for stachan in stachans}
         det_traces[p] = {stachan: np.zeros((len(detection_cat), det_len[p]))
                          for stachan in stachans}
-    # Preassign umbrella dict with nxm arrary of zeros for each sta/chan/phase
-    rel_pol_dict = {}
-    for p in phases:
-        rel_pol_dict[p] = {stachan: np.zeros((len(detection_cat),
-                                              len(template_cat)))
-                           for stachan in stachans}
     # Populate trace arrays for all picks
     # Pass to _prepare_data function to clean this up
     print('Preparing data for processing')
@@ -179,35 +202,34 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     # Calculate relative polarities
     if cores > 1:
         print('Starting up pool')
+        rel_pols = []
         pool = Pool(processes=cores)
         for phase in phases:
-            results = [pool.apply_async()]
-            for stachan in stachans:
-                print('Calculating relative pols for:'
-                      '\nPhase: {}\nStachan: {}'.format(phase, stachan))
-                results = [pool.apply_async(
-                    _rel_polarity,
-                    (temp_traces[phase][stachan][m],
-                     det_traces[phase][stachan][n],),
-                    {'min_cc': min_cc, 'samp_rate': s_rate, 'i': m, 'j':n})
-                    for m in range(len(template_streams))
-                    for n in range(len(detection_streams))]
-                pool.close()
-                rel_pols = [p.get() for p in results]
-                for pol in rel_pols:
-                    rel_pol_dict[phase][stachan][pol[2]][pol[1]] = pol[0]
+            results = [pool.apply_async(
+                _stachan_loop,
+                (phase, stachan,
+                 temp_traces[phase][stachan],
+                 det_traces[phase][stachan]),
+                 {'min_cc': min_cc, 'debug': debug})
+                for stachan in stachans]
+            pool.close()
+            rel_pols.extend([p.get() for p in results])
     else:
         # Python loop..?
+        rel_pols = []
         for phase in phases:
             for stachan in stachans:
                 print('Looping stachan: {}'.format(stachan))
+                pol_array = np.zeros((len(detection_streams),
+                                      len(template_streams)))
                 for m in range(len(template_streams)):
                     for n in range(len(detection_streams)):
                         pol = _rel_polarity(temp_traces[phase][stachan][m],
                                             det_traces[phase][stachan][n],
-                                            min_cc, s_rate, n, m)
-                        rel_pol_dict[phase][stachan][n][m] = pol[0]
-    return rel_pol_dict
+                                            min_cc, debug)
+                        pol_array[n][m] = pol
+                rel_pols.append((phase, stachan, pol_array))
+    return rel_pols
 
 def svd_matrix(rel_pol_dict):
     """
