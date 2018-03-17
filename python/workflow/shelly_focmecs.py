@@ -13,7 +13,7 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from eqcorrscan.core.match_filter import normxcorr2
 
 
-def _rel_polarity(data1, data2, min_cc, samp_rate, i, j):
+def _rel_polarity(data1, data2, min_cc, samp_rate, m, n):
     """
     Compute the relative polarity between two traces
 
@@ -29,19 +29,26 @@ def _rel_polarity(data1, data2, min_cc, samp_rate, i, j):
         detection on this sta/chan/phase
     :rtype: float
     """
+    if not data1.any() or not data2.any():
+        return 0.0, m, n
     ccc = normxcorr2(data1, data2)[0]
     raw_max = np.argmax(ccc)
     if ccc[raw_max] < min_cc:
-        return 0.0
+        return 0.0, m, n
     sign = np.sign(ccc[raw_max])
     # Find pks
     pk_locs = argrelmax(np.abs(ccc), order=int(0.02 * samp_rate))[0]
     pk_ind = np.where(pk_locs == raw_max)[-1]
     # Now find the two peaks either side of the max peak
-    second_pk_vals = np.abs(ccc)[0][pk_locs[np.array([pk_ind - 1,
-                                                      pk_ind + 1])]]
+    try:
+        second_pk_vals = np.abs(ccc)[0][pk_locs[np.array([pk_ind - 1,
+                                                          pk_ind + 1])]]
+    except IndexError:
+        print('Peak at one end of ccc array, not using pick. If this is'
+              'unexpected, consider adjusting shift and window params')
+        return 0.0, m, n
     rel_pol = sign * np.max(second_pk_vals)
-    return rel_pol, i, j
+    return rel_pol, m, n
 
 def _prepare_data(template_streams, detection_streams, template_cat,
                   detection_cat, temp_traces, det_traces, phases, corr_dict):
@@ -158,9 +165,11 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
         det_traces[p] = {stachan: np.zeros((len(detection_cat), det_len[p]))
                          for stachan in stachans}
     # Preassign umbrella dict with nxm arrary of zeros for each sta/chan/phase
-    rel_pol_dict = {ph: {stachan: np.zeros((len(detection_cat),
-                                        len(template_cat)))}
-                    for ph in phases for stachan in stachans}
+    rel_pol_dict = {}
+    for p in phases:
+        rel_pol_dict[p] = {stachan: np.zeros((len(detection_cat),
+                                              len(template_cat)))
+                           for stachan in stachans}
     # Populate trace arrays for all picks
     # Pass to _prepare_data function to clean this up
     print('Preparing data for processing')
@@ -172,6 +181,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
         print('Starting up pool')
         pool = Pool(processes=cores)
         for phase in phases:
+            results = [pool.apply_async()]
             for stachan in stachans:
                 print('Calculating relative pols for:'
                       '\nPhase: {}\nStachan: {}'.format(phase, stachan))
@@ -190,12 +200,13 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
         # Python loop..?
         for phase in phases:
             for stachan in stachans:
+                print('Looping stachan: {}'.format(stachan))
                 for m in range(len(template_streams)):
                     for n in range(len(detection_streams)):
                         pol = _rel_polarity(temp_traces[phase][stachan][m],
                                             det_traces[phase][stachan][n],
-                                            min_cc, s_rate, m, n)
-                        rel_pol_dict[phase][stachan][m][n] = pol[0]
+                                            min_cc, s_rate, n, m)
+                        rel_pol_dict[phase][stachan][n][m] = pol[0]
     return rel_pol_dict
 
 def svd_matrix(rel_pol_dict):

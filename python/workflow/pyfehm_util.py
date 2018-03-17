@@ -6,6 +6,9 @@ Functions for running creating models and running pyFEHM simulations
 from fdata import *  # Gross
 from fpost import *
 from glob import glob
+from copy import deepcopy
+from datetime import datetime
+from multiprocessing import Pool
 
 import pandas as pd
 
@@ -209,13 +212,12 @@ def set_permmodel(zone, permmodel_dict):
         perm_mod.param[key] = value
     return
 
-def make_NM08_grid(work_dir, temp_file, show=True):
+def make_NM08_grid(work_dir):
     root = work_dir.split('/')[-1]
     dat = fdata(work_dir=work_dir)
     dat.files.root = root
     pad_1 = [1500., 1500.]
     print('Grid location of pad 1:\n{}'.format(pad_1))
-    grid_dims = [3000., 3000.] # 5x7x5 km grid
     # Symmetric grid in x-y
     base = 3
     dx = pad_1[0]
@@ -229,6 +231,7 @@ def make_NM08_grid(work_dir, temp_file, show=True):
     Z = np.sort(list(surface_deps) + list(cap_grid) + list(perm_zone)
                 + list(lower_reservoir))
     dat.grid.make('{}_GRID.inp'.format(root), x=X, y=X, z=Z)
+    grid_dims = [3000., 3000.] # 5x7x5 km grid
     # Geology time
     dat.new_zone(1, 'suface_units', rect=[[-0.1, -0.1, 350 + 0.1],
                                           [grid_dims[0] + 0.1,
@@ -241,41 +244,44 @@ def make_NM08_grid(work_dir, temp_file, show=True):
                                        grid_dims[1] + 0.1,
                                        -1200 - 0.1]],
                  permeability=1.e-18, porosity=0.01, density=2500,
-                 specific_heat=1200., conductivity=2.7)
+                 specific_heat=1200., conductivity=2.2)
+    return dat
+
+def reservoir_params(dat, temp_file, reservoir_dict, show=False):
+    grid_dims = [3000., 3000.] # 5x7x5 km grid
     # Intrusive properties from Cant et al., 2018
     dat.new_zone(3, 'tahorakuri', rect=[[-0.1, -0.1, -1200.],
                                         [grid_dims[0] + 0.1,
                                          grid_dims[1] + 0.1,
                                          -2300 - 0.1]],
-                 permeability=[4.e-15, 4.e-15, 4.e-15], porosity=0.1,
-                 density=2500, specific_heat=1200., conductivity=2.2,
-                 youngs_modulus=40., poissons_ratio=0.26)
+                 permeability=reservoir_dict['tahorakuri']['perms'],
+                 porosity=0.1, density=2500, specific_heat=1200.,
+                 conductivity=2.2, youngs_modulus=40., poissons_ratio=0.26)
     # Intrusive properties from Cant et al., 2018
     dat.new_zone(4, 'intrusive', rect=[[-0.1, -0.1, -2300.],
                                        [grid_dims[0] + 0.1,
                                         grid_dims[1] + 0.1,
                                         -3000 - 0.1]],
-                 permeability=[1.e-16, 1.e-16, 1.e-16], porosity=0.03,
-                 density=2500, specific_heat=1200., conductivity=2.2,
-                 youngs_modulus=33., poissons_ratio=0.33)
+                 permeability=reservoir_dict['intrusive']['perms'],
+                 porosity=0.03, density=2500, specific_heat=1200.,
+                 conductivity=2.2, youngs_modulus=33., poissons_ratio=0.33)
     # Assign temperature profile
     dat.temperature_gradient(temp_file, hydrostatic=0.1,
                              offset=0.1, first_zone=600,
                              auxiliary_file='NM08_temp.macro')
+    dat.zone['ZMAX'].fix_pressure(0.1) # Surface pressure set to 1 atm
     # dat.zone['intrusive'].fix_temperature(260.)
-    # dat.zone['ZMAX'].fix_pressure(0.1) # Surface pressure set to 1 atm
     # dat.zone['ZMIN'].fix_temperature(270.)
     if show:
         print('Launching paraview')
         dat.paraview()
     return dat
 
-
 def model_run(dat, param_dict, verbose=True, diagnostic=False):
     # run simulation
-    dat.ti = param_dict['ti']
-    dat.tf = param_dict['tf']
-    dat.dtn = param_dict['dtn']
+    dat.ti = 0
+    dat.tf = 40
+    dat.dtn = 5000
     dat.dtmax = param_dict['dtmax']
     dat.cont.variables.append(
         ['xyz', 'pressure', 'liquid', 'temperature', 'stress', 'displacement',
@@ -291,4 +297,40 @@ def model_run(dat, param_dict, verbose=True, diagnostic=False):
     dat.run('{}/{}_INPUT.dat'.format(dat.work_dir, dat.files.root),
             use_paths=True, files=['hist', 'outp', 'check'], verbose=verbose,
             diagnostic=diagnostic)
+    return
+
+def NM08_model_loop(root, run_dict, res_dict, decimate=100):
+    """
+    Function to run multiple models in parallel with differing perms (for now)
+    on sgees018
+    :return:
+    """
+    # Making the directory
+    fz_file_pat = '/Users/home/hoppche/data/merc_data/wells/NM08_feedzones_?.csv'
+    T_file = '/Users/home/hoppche/data/merc_data/temps/NM08_profile_pyfehm_comma.txt'
+    excel_file = '/Users/home/hoppche/data/merc_data/flows/Merc_Ngatamariki.xlsx'
+    perm_xx, perm_yy, perm_zz = res_dict['tahorakuri']['perms']
+    # Make the directory for this object
+    dat = make_NM08_grid(
+        work_dir='{}/perms_{:.1E}_{:.1E}_{:.1E}'.format(root, perm_xx,
+                                                        perm_yy, perm_zz))
+    reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
+                     show=False)
+    define_well_nodes(
+        dat, well_file_pattern=fz_file_pat,
+        well_name='NM08', type='injection', surf_loc=[1500., 1500.])
+    run_initial_conditions(dat)
+    set_well_boundary(
+        dat, excel_file=excel_file, sheet_name='NM08 Stimulation',
+        well_name='NM08', dates=[datetime(2012, 6, 7), datetime(2012, 7, 12)],
+        t_step='day', decimate=decimate, debug=1)
+    set_stress(dat)
+    model_run(dat, run_dict)
+    return
+
+def model_multiprocess(reservoir_dicts, root, run_dict):
+    cores = len(reservoir_dicts)
+    pool = Pool(processes=cores)
+    res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict))
+           for res_dict in reservoir_dicts]
     return
