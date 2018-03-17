@@ -295,7 +295,7 @@ def model_run(dat, param_dict, verbose=True, diagnostic=False):
     dat.run('{}/{}_INPUT.dat'.format(dat.work_dir, dat.files.root),
             use_paths=True, files=['hist', 'outp', 'check'], verbose=verbose,
             diagnostic=diagnostic)
-    return
+    return dat
 
 def NM08_model_loop(root, run_dict, res_dict, decimate=100):
     """
@@ -330,9 +330,13 @@ def NM08_model_loop(root, run_dict, res_dict, decimate=100):
     model_run(dat, run_dict)
     return
 
-def model_multiprocess(reservoir_dicts, root, run_dict):
-    cores = len(reservoir_dicts)
-    pool = Pool(processes=cores)
-    res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict))
-           for res_dict in reservoir_dicts]
+def model_multiprocess(reservoir_dicts, root, run_dict, parallel=False):
+    if parallel:
+        cores = len(reservoir_dicts)
+        pool = Pool(processes=cores)
+        res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict))
+               for res_dict in reservoir_dicts]
+    else:
+        for r_dict in reservoir_dicts:
+            NM08_model_loop(root, run_dict, r_dict)
     return
