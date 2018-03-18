@@ -228,6 +228,8 @@ def make_NM08_grid(work_dir):
     lower_reservoir = np.linspace(-2100, -3000, 20)
     Z = np.sort(list(surface_deps) + list(cap_grid) + list(perm_zone)
                 + list(lower_reservoir))
+    # Move into the working directory to avoid confusing pyfehm on server
+    os.chdir(work_dir)
     dat.grid.make('{}_GRID.inp'.format(base_name), x=X, y=X, z=Z)
     grid_dims = [3000., 3000.] # 5x7x5 km grid
     # Geology time
