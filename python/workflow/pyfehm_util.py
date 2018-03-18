@@ -328,21 +328,21 @@ def NM08_model_loop(root, run_dict, res_dict, machine, decimate=100):
         work_dir='{}/perms_{:.1E}_{:.1E}_{:.1E}'.format(root, perm_xx,
                                                         perm_yy, perm_zz))
     print('Assigning reservoir parameters')
-    reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
-                     show=False)
+    dat = reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
+                           show=False)
     print('Defining well nodes')
-    define_well_nodes(
+    dat = define_well_nodes(
         dat, well_file_pattern=fz_file_pat,
         well_name='NM08', type='injection', surf_loc=[1500., 1500.])
     print('Running initial condition')
-    run_initial_conditions(dat)
-    set_well_boundary(
+    dat = run_initial_conditions(dat)
+    dat = set_well_boundary(
         dat, excel_file=excel_file, sheet_name='NM08 Stimulation',
         well_name='NM08', dates=[datetime(2012, 6, 7), datetime(2012, 7, 12)],
         t_step='day', decimate=decimate, debug=1)
-    set_stress(dat)
-    model_run(dat, run_dict)
-    return
+    dat = set_stress(dat)
+    dat = model_run(dat, run_dict)
+    return dat
 
 def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
                        parallel=False):
