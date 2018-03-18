@@ -15,12 +15,16 @@ from obspy import read
 from eqcorrscan.core.match_filter import normxcorr2
 from eqcorrscan.utils.pre_processing import shortproc
 
-def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir, filter_params):
+def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
     det_streams = []
     temp_streams = []
     print('Globbing waveforms')
     temp_wavs = glob('{}/*'.format(temp_dir))
+    print('Template directories have the following pattern:\n{}'.format(
+        temp_wavs[0].spilit('/')[-1]))
     det_wavs = glob('{}/*'.format(det_dir))
+    print('Detection directories have the following pattern:\n{}'.format(
+        det_wavs[0].spilit('/')[-1]))
     # Templates
     print('Creating template streams')
     for ev in list(cat_temps.events):
@@ -183,7 +187,7 @@ def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
     Inner loop to parallel over stachan matrices
     :return:
     """
-    pol_array = np.array((len(det_traces), len(temp_traces)))
+    pol_array = np.zeros((len(det_traces), len(temp_traces)))
     print('Looping stachan: {}'.format(stachan))
     for m in range(len(temp_traces)):
         for n in range(len(det_traces)):
