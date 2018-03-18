@@ -11,8 +11,40 @@ from glob import glob
 from multiprocessing import Pool
 from scipy.signal import argrelmax
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from obspy import read
 from eqcorrscan.core.match_filter import normxcorr2
 
+def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
+    det_streams = []
+    temp_streams = []
+    print('Globbing waveforms')
+    temp_wavs = glob('{}/*'.format(temp_dir))
+    det_wavs = glob('{}/*'.format(det_dir))
+    # Templates
+    print('Creating template streams')
+    for ev in list(cat_temps.events):
+        wdir = [wavs for wavs in temp_wavs if
+                wavs.split('/')[-1].split('_')[0] ==
+                ev.resource_id.id.split('/')[-1]]
+    if len(wdir) > 0:
+        temp_streams.append(read('{}/*'.format(wdir[0])))
+    else:
+        cat_temps.events.remove(ev)
+    # Detections
+    print('Creating detection streams')
+    det_cat_ids = [ev.resource_id.id.split('/')[-1] for ev in cat_dets]
+    det_wavs_only = [wav for wav in det_wavs if
+                              wav.split('/')[-1] in det_cat_ids]
+    det_wav_dict = {wav.split('/')[-1]: wav for wav in det_wavs_only}
+    for ev in list(cat_dets.events):
+        try:
+            print('Reading wavs for ev {}'.format(ev.resource_id.id))
+            det_streams.append(read('{}/*'.format(
+                det_wav_dict[ev.resource_id.id.split('/')[-1]])))
+        except KeyError:
+            print(ev.resource_id.id)
+            cat_dets.events.remove(ev)
+    return temp_streams, det_streams
 
 def _rel_polarity(data1, data2, min_cc, debug=0):
     """
