@@ -212,9 +212,9 @@ def set_permmodel(zone, permmodel_dict):
     return
 
 def make_NM08_grid(work_dir):
-    root = work_dir.split('/')[-1]
+    base_name = work_dir.split('/')[-1]
     dat = fdata(work_dir=work_dir)
-    dat.files.root = root
+    dat.files.root = base_name
     pad_1 = [1500., 1500.]
     # Symmetric grid in x-y
     base = 3
@@ -228,7 +228,7 @@ def make_NM08_grid(work_dir):
     lower_reservoir = np.linspace(-2100, -3000, 20)
     Z = np.sort(list(surface_deps) + list(cap_grid) + list(perm_zone)
                 + list(lower_reservoir))
-    dat.grid.make('{}_GRID.inp'.format(root), x=X, y=X, z=Z)
+    dat.grid.make('{}_GRID.inp'.format(base_name), x=X, y=X, z=Z)
     grid_dims = [3000., 3000.] # 5x7x5 km grid
     # Geology time
     dat.new_zone(1, 'suface_units', rect=[[-0.1, -0.1, 350 + 0.1],
@@ -297,17 +297,28 @@ def model_run(dat, param_dict, verbose=True, diagnostic=False):
             diagnostic=diagnostic)
     return dat
 
-def NM08_model_loop(root, run_dict, res_dict, decimate=100):
+def NM08_model_loop(root, run_dict, res_dict, machine, decimate=100):
     """
     Function to run multiple models in parallel with differing perms (for now)
     on sgees018
     :return:
     """
     # Making the directory
-    fz_file_pat = '/Users/home/hoppche/data/merc_data/wells/NM08_feedzones_?.csv'
-    T_file = '/Users/home/hoppche/data/merc_data/temps/NM08_profile_pyfehm_comma.txt'
-    excel_file = '/Users/home/hoppche/data/merc_data/flows/Merc_Ngatamariki.xlsx'
     perm_xx, perm_yy, perm_zz = res_dict['tahorakuri']['perms']
+    if machine == 'laptop':
+        fz_file_pat = '/home/chet/gmt/data/NZ/wells/feedzones/' \
+                      'NM08_feedzones_?.csv'
+        T_file = '/home/chet/data/mrp_data/Steve_Sewell_MRP_PhD_Data/' \
+                 'Natural_State_Temperatures/NM08_profile_pyfehm_comma.txt'
+        excel_file = '/home/chet/data/mrp_data/well_data/flow_rates/' \
+                     'July_2017_final/Merc_Ngatamariki.xlsx'
+    elif machine == 'server':
+        fz_file_pat = '/Users/home/hoppche/data/merc_data/wells/' \
+                      'NM08_feedzones_?.csv'
+        T_file = '/Users/home/hoppche/data/merc_data/temps/' \
+                 'NM08_profile_pyfehm_comma.txt'
+        excel_file = '/Users/home/hoppche/data/merc_data/flows/' \
+                     'Merc_Ngatamariki.xlsx'
     # Make the directory for this object
     print('Making grid')
     dat = make_NM08_grid(
@@ -330,13 +341,15 @@ def NM08_model_loop(root, run_dict, res_dict, decimate=100):
     model_run(dat, run_dict)
     return
 
-def model_multiprocess(reservoir_dicts, root, run_dict, parallel=False):
+def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
+                       parallel=False):
     if parallel:
         cores = len(reservoir_dicts)
         pool = Pool(processes=cores)
-        res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict))
+        res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict,
+                                                  machine))
                for res_dict in reservoir_dicts]
     else:
         for r_dict in reservoir_dicts:
-            NM08_model_loop(root, run_dict, r_dict)
+            NM08_model_loop(root, run_dict, r_dict, machine)
     return
