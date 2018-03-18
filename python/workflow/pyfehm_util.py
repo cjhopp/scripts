@@ -339,7 +339,7 @@ def NM08_model_loop(root, run_dict, res_dict, machine, decimate=100):
     dat = set_well_boundary(
         dat, excel_file=excel_file, sheet_name='NM08 Stimulation',
         well_name='NM08', dates=[datetime(2012, 6, 7), datetime(2012, 7, 12)],
-        t_step='day', decimate=decimate, debug=1)
+        t_step='day', decimate=decimate, debug=0)
     dat = set_stress(dat)
     dat = model_run(dat, run_dict)
     return dat

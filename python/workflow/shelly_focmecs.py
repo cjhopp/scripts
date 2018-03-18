@@ -13,8 +13,9 @@ from scipy.signal import argrelmax
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from obspy import read
 from eqcorrscan.core.match_filter import normxcorr2
+from eqcorrscan.utils.pre_processing import shortproc
 
-def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
+def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir, filter_params):
     det_streams = []
     temp_streams = []
     print('Globbing waveforms')
@@ -30,6 +31,7 @@ def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
         temp_streams.append(read('{}/*'.format(wdir[0])))
     else:
         cat_temps.events.remove(ev)
+    print('Filtering template wavs')
     # Detections
     print('Creating detection streams')
     det_cat_ids = [ev.resource_id.id.split('/')[-1] for ev in cat_dets]
@@ -105,9 +107,25 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
     return rel_pol
 
 def _prepare_data(template_streams, detection_streams, template_cat,
-                  detection_cat, temp_traces, det_traces, phases, corr_dict):
+                  detection_cat, temp_traces, det_traces, filt_params,
+                  phases, corr_dict, cores):
+    # Filter data
+    filt_temps = []
+    filt_dets = []
+    for st in template_streams:
+        filt_temps.append(shortproc(st.copy(), filt_params['lowcut'],
+                                    filt_params['highcut'],
+                                    filt_params['filt_order'],
+                                    filt_params['samp_rate'],
+                                    num_cores=cores))
+    for st in detection_streams:
+        filt_dets.append(shortproc(st.copy(), filt_params['lowcut'],
+                                   filt_params['highcut'],
+                                   filt_params['filt_order'],
+                                   filt_params['samp_rate'],
+                                   num_cores=cores))
     # Populate trace arrays for all picks
-    for i, (st, ev) in enumerate(zip(template_streams, template_cat.events)):
+    for i, (st, ev) in enumerate(zip(filt_temps, template_cat.events)):
         for pk in ev.picks:
             sta = pk.waveform_id.station_code
             chan = pk.waveform_id.channel_code
@@ -131,7 +149,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                     starttime=pk.time - corr_dict[hint]['pre_pick'],
                     endtime=pk.time + corr_dict[hint]['post_pick'],
                     nearest_sample=False).data[:-1]
-    for i, (st, ev) in enumerate(zip(detection_streams, detection_cat.events)):
+    for i, (st, ev) in enumerate(zip(filt_dets, detection_cat.events)):
         for pk in ev.picks:
             sta = pk.waveform_id.station_code
             chan = pk.waveform_id.channel_code
@@ -176,8 +194,8 @@ def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
     return phase, stachan, pol_array
 
 def make_corr_matrices(template_streams, detection_streams, template_cat,
-                       detection_cat, corr_dict, min_cc, phases=('P', 'S'),
-                       cores=4, debug=0):
+                       detection_cat, corr_dict, min_cc, filt_params,
+                       phases=('P', 'S'), cores=4, debug=0):
     """
     Create the correlation matrices
     :type template_streams: list
@@ -194,6 +212,10 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     :param corr_dict: Nested dictionary of parameters for the correlation.
         Upper level keys are 'P' and/or 'S'. Beneath this are the keys:
         'pre_pick', 'post_pick', 'shift_len', and 'min_cc'.
+    :type filt_params: dict
+    :param filt_params: Dictionary containing filtering parameters for
+        waveforms. Should include keys: 'lowcut', 'highcut', 'filt_order'
+        and 'samp_rate' to be fed to shortproc.
     :type phases: list
     :param phases: List of phases used: ['P'], ['S'], or ['P', 'S']
     :type cores: int
@@ -230,7 +252,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     print('Preparing data for processing')
     temp_traces, det_traces = _prepare_data(
         template_streams, detection_streams, template_cat, detection_cat,
-        temp_traces, det_traces, phases, corr_dict)
+        temp_traces, det_traces, filt_params, phases, corr_dict, cores=cores)
     # Calculate relative polarities
     if cores > 1:
         print('Starting up pool')
