@@ -65,7 +65,7 @@ def run_initial_conditions(dat):
     dat.dtmax = dat.tf
     dat.cont.variables.append(
         ['xyz', 'pressure', 'temperature', 'stress', 'permeability'])
-    dat.run(root + '_INPUT.dat', use_paths=True)
+    dat.run(root + '_INPUT.dat')
     dat.incon.read('{}/{}_INCON.ini'.format(dat.work_dir, root))
     dat.ti = 0.
     dat.delete(dat.preslist)
@@ -324,9 +324,8 @@ def NM08_model_loop(root, run_dict, res_dict, machine, decimate=100):
                      'Merc_Ngatamariki.xlsx'
     # Make the directory for this object
     print('Making grid')
-    dat = make_NM08_grid(
-        work_dir='{}/perms_{:.1E}_{:.1E}_{:.1E}'.format(root, perm_xx,
-                                                        perm_yy, perm_zz))
+    work_dir = '{}/perms_'.format(root, perm_xx, perm_yy, perm_zz)
+    dat = make_NM08_grid(work_dir=work_dir)
     print('Assigning reservoir parameters')
     dat = reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
                            show=False)
