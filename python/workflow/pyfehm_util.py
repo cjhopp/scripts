@@ -367,40 +367,66 @@ def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
 def process_output(outdirs, contour=True, history=False, elevation=-1300.):
     for outdir in outdirs:
         if contour:
-            cont = fcontour('{}/*sca_node.csv', latest=True)
+            cont = fcontour('{}/*sca_node.csv'.format(outdir), latest=True)
             # Slice plots of T, P and stress
             cont.slice_plot(
-                save='T_slice_{}.png'.format(elevation), cbar=True, levels=10,
-                slice=['z', elevation], divisions=[150, 150], variable='T',
-                xlims=[0, 3000], ylims=[0, 3000],
+                save='{}/T_slice_{}.png'.format(outdir, elevation), cbar=True,
+                levels=10, slice=['z', elevation], divisions=[150, 150],
+                variable='T', xlims=[0, 3000], ylims=[0, 3000],
                 title='NM08 T slice: {} m'.format(elevation))
             cont.slice_plot(
-                save='P_slice_{}.png'.format(elevation), cbar=True, levels=10,
-                slice=['z', elevation], divisions=[150, 150], variable='P',
-                xlims=[0, 3000], ylims=[0, 3000],
+                save='{}/P_slice_{}.png'.format(outdir, elevation), cbar=True,
+                levels=10, slice=['z', elevation], divisions=[150, 150],
+                variable='P', xlims=[0, 3000], ylims=[0, 3000],
                 title='NM08 P slice: {} m'.format(elevation))
             cont.slice_plot(
-                save='strs_xx_slice_{}.png'.format(elevation), cbar=True,
-                levels=10, slice=['z', elevation], divisions=[150, 150],
-                variable='strs_xx', xlims=[0, 3000], ylims=[0, 3000],
+                save='{}/strs_xx_slice_{}.png'.format(outdir, elevation),
+                cbar=True, levels=10, slice=['z', elevation],
+                divisions=[150, 150], variable='strs_xx', xlims=[0, 3000],
+                ylims=[0, 3000],
                 title='NM08 strs_xx slice: {} m'.format(elevation))
             # Cutaway plots
             cont.cutaway_plot(
-                save='T_cutaway_{}.png'.format(elevation), cbar=True,
-                levels=np.linspace(200, 270, 10),
+                save='{}/T_cutaway_{}.png'.format(outdir, elevation),
+                cbar=True, levels=np.linspace(200, 270, 10),
                 variable='P', xlims=[1500, 2000], ylims=[1500, 2000],
                 zlims=[-2000, -1200], grid_lines='k:',
                 title='NM08 T cutaway / $^o$C'.format(elevation))
             cont.cutaway_plot(
-                save='P_cutaway_{}.png'.format(elevation), cbar=True,
-                levels=np.linspace(7, 15, 10),
+                save='{}/P_cutaway_{}.png'.format(outdir, elevation),
+                cbar=True, levels=np.linspace(7, 15, 10),
                 variable='P', xlims=[1500, 2000], ylims=[1500, 2000],
                 zlims=[-2000, -1200], grid_lines='k:',
                 title='NM08 P cutaway / MPa'.format(elevation))
             cont.cutaway_plot(
-                save='strs_xx_cutaway_{}.png'.format(elevation), cbar=True,
-                levels=np.linspace(24, 26, 10),
+                save='{}/strs_xx_cutaway_{}.png'.format(outdir, elevation),
+                cbar=True, levels=np.linspace(24, 26, 10),
                 variable='strs_xx', xlims=[1500, 2000], ylims=[1500, 2000],
                 zlims=[-2000, -1200], grid_lines='k:',
                 title='NM08 strs_xx cutaway / MPa'.format(elevation))
-    return
+            # Profile plots
+            cont.profile_plot(
+                save='{}/T_prof_from_NM08_{}.png'.format(outdir, elevation),
+                profile=np.array([[1500, 1500, elevation],
+                                  [3000, 3000, elevation]]),
+                variable='T', ylabel='Temperature $^o$C',
+                title='Temp from well', color='g',
+                marker='o--', method='linear')
+            cont.profile_plot(
+                save='{}/P_prof_from_NM08_{}.png'.format(outdir, elevation),
+                profile=np.array([[1500, 1500, elevation],
+                                  [3000, 3000, elevation]]),
+                variable='P', ylabel='Pressure MPa',
+                title='Pressure from well', color='g',
+                marker='o--', method='linear')
+            cont.profile_plot(
+                save='{}/H_stress_prof_from_NM08_{}.png'.format(outdir,
+                                                                elevation),
+                profile=np.array([[1500, 1500, elevation],
+                                  [3000, 3000, elevation]]),
+                variable='strs_xx', ylabel='Stress_xx MPa',
+                title='Stress from well', color='g',
+                marker='o--', method='linear')
+        if history:
+            continue
+        return

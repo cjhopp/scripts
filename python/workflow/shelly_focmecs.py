@@ -254,6 +254,9 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                                    pk.waveform_id.channel_code)
                     for ev in detection_cat for pk in ev.picks])
     stachans = list(set(stachan))
+    ph_stachans = {}
+    ph_stachans['P'] = [stachan for stachan in stachans if stachan[-1] == 'Z']
+    ph_stachans['S'] = [stachan for stachan in stachans if stachan[-1] != 'Z']
     print(len(stachans), stachans)
     # Establish length of template and detection traces in samples
     s_rate = detection_streams[0][0].stats.sampling_rate
@@ -267,20 +270,12 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     print('Preallocating arrays')
     # Set up zero arrays for trace data
     for p in phases:
-        if p == 'P':
-            temp_traces[p] = {stachan: np.zeros((len(template_cat),
-                                                 temp_len[p]))
-                              for stachan in stachans if stachan[-1] == 'Z'}
-            det_traces[p] = {stachan: np.zeros((len(detection_cat),
-                                                det_len[p]))
-                             for stachan in stachans if stachan[-1] == 'Z'}
-        elif p == 'S':
-            temp_traces[p] = {stachan: np.zeros((len(template_cat),
-                                                 temp_len[p]))
-                              for stachan in stachans if stachan[-1] != 'Z'}
-            det_traces[p] = {stachan: np.zeros((len(detection_cat),
-                                                det_len[p]))
-                             for stachan in stachans if stachan[-1] != 'Z'}
+        temp_traces[p] = {stachan: np.zeros((len(template_cat),
+                                             temp_len[p]))
+                          for stachan in ph_stachans[p]}
+        det_traces[p] = {stachan: np.zeros((len(detection_cat),
+                                            det_len[p]))
+                         for stachan in ph_stachans[p]}
     # Populate trace arrays for all picks
     # Pass to _prepare_data function to clean this up
     print('Preparing data for processing')
@@ -300,7 +295,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                      temp_traces[phase][stachan],
                      det_traces[phase][stachan]),
                      {'min_cc': min_cc, 'debug': debug})
-                    for stachan in stachans]
+                    for stachan in ph_stachans[phase]]
                 pool.close()
                 rel_pols.extend([p.get() for p in results])
                 pool.join()
@@ -311,7 +306,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                         temp_traces=temp_traces[phase][stachan],
                         det_traces=det_traces[phase][stachan],
                         min_cc=min_cc, debug=debug)
-                    for stachan in stachans)
+                    for stachan in ph_stachans[phase])
                 rel_pols.extend(results)
     else:
         # Python loop..?
