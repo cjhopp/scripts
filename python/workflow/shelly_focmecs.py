@@ -334,9 +334,9 @@ def svd_matrix(rel_pols):
     for i, rel_pol in enumerate(rel_pols):
         u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
         if i == 0:
-            svd_mat = u[0].T
+            svd_mat = u[0]
         else:
-            svd_mat = np.hstack(svd_mat, u[0])
+            svd_mat = np.hstack((svd_mat, u[0]))
     return svd_mat
 
 def cluster_svd_mat(svd_mat, metric='cosine', show=False):
