@@ -171,6 +171,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
             stch = '{}.{}'.format(sta, chan)
             if pk.phase_hint not in phases:
                 continue
+            hint = pk.phase_hint
             try:
                 tr = st.select(station=sta, channel=chan)[0]
             except IndexError:
