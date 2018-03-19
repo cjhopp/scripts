@@ -186,12 +186,20 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                     nearest_sample=False).data
             except ValueError:
                 # Clip last sample off in this case
-                det_traces[hint][stch][i] = tr.slice(
-                    starttime=pk.time - corr_dict[hint]['pre_pick'] -
-                             corr_dict[hint]['shift_len'],
-                    endtime=pk.time + corr_dict[hint]['post_pick'] +
-                            corr_dict[hint]['shift_len'],
-                    nearest_sample=False).data[:-1]
+                try:
+                    det_traces[hint][stch][i] = tr.slice(
+                        starttime=pk.time - corr_dict[hint]['pre_pick'] -
+                                 corr_dict[hint]['shift_len'],
+                        endtime=pk.time + corr_dict[hint]['post_pick'] +
+                                corr_dict[hint]['shift_len'],
+                        nearest_sample=False).data[:-1]
+                except ValueError:
+                    det_traces[hint][stch][i] = tr.slice(
+                        starttime=pk.time - corr_dict[hint]['pre_pick'] -
+                                 corr_dict[hint]['shift_len'],
+                        endtime=pk.time + corr_dict[hint]['post_pick'] +
+                                corr_dict[hint]['shift_len'],
+                        nearest_sample=False).data[:-2]
     return temp_traces, det_traces
 
 def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
