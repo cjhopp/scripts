@@ -60,7 +60,6 @@ def feedzones_2_rects(fz_file_pattern, surf_loc=None):
 def run_initial_conditions(dat):
     # initial run allowing equilibration
     root = dat.work_dir.split('/')[-1]
-    # dat.files.rsto = '{}_INCON.ini'.format(root)
     dat.tf = 365.25
     dat.dtmax = dat.tf
     dat.cont.variables.append(
@@ -324,7 +323,8 @@ def NM08_model_loop(root, run_dict, res_dict, machine, decimate=100):
                      'Merc_Ngatamariki.xlsx'
     # Make the directory for this object
     print('Making grid')
-    work_dir = '{}/perms_'.format(root, perm_xx, perm_yy, perm_zz)
+    work_dir = '{}/perms_{:.1E}_{:.1E}_{:.1E}'.format(root, perm_xx, perm_yy,
+                                                      perm_zz)
     dat = make_NM08_grid(work_dir=work_dir)
     print('Assigning reservoir parameters')
     dat = reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
