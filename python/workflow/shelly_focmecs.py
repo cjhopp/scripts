@@ -311,24 +311,17 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                 rel_pols.append((phase, stachan, pol_array))
     return rel_pols
 
-def svd_matrix(rel_pol_dict):
+def svd_matrix(rel_pols):
     """
     Make the matrix of left singular vectors from all sta/chan/phase combos
-    :param rel_pol_dict:
+    :param rel_pols: Output from
     :return:
     """
-    phases = rel_pol_dict.keys()
-    stachans = rel_pol_dict[phases[0]].keys()
-    # Find how many sta/chan/phase combos we have
-    if set(('P','S')).issubset(phases):
-        combos = len(stachans) * 2
-    else:
-        combos = len(stachans)
-    n = rel_pol_dict['P'][stachans[0]].shape[0]
-    svd_mat = np.zeros((n, combos))
-    for phase, stachan_dict in rel_pol_dict.items():
-        for stachan, stachan_mat in stachan_dict.items():
-            u, s, v = np.linalg.svd(stachan_mat, full_matrices=True)
+    for i, rel_pol in enumerate(rel_pols):
+        u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
+        if i == 0:
+            svd_mat = u[0].T
+        else:
             svd_mat.hstack(svd_mat, u[0])
     return svd_mat
 
@@ -338,7 +331,7 @@ def cluster_svd_mat(svd_mat, metric='cosine', show=False):
     measurements
     :return:
     """
-    Z = linkage(svd_mat, method='single', metric='cosine')
+    Z = linkage(svd_mat, method='single', metric=metric)
     if show:
         dendrogram(Z)
     indices = fcluster(Z, t=1)
