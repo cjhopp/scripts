@@ -116,6 +116,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
     # Filter data
     filt_temps = []
     filt_dets = []
+    print('Filtering data')
     for st in template_streams:
         filt_temps.append(shortproc(st.copy(), filt_params['lowcut'],
                                     filt_params['highcut'],
@@ -260,7 +261,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     # Calculate relative polarities
     if cores > 1:
         print('Starting up pool')
-        rel_pols = []
+        rel_pols = {}
         pool = Pool(processes=cores)
         for phase in phases:
             results = [pool.apply_async(
@@ -271,7 +272,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                  {'min_cc': min_cc, 'debug': debug})
                 for stachan in stachans]
             pool.close()
-            rel_pols.extend([p.get() for p in results])
+            rel_pols[phase] = [p.get() for p in results]
     else:
         # Python loop..?
         rel_pols = []

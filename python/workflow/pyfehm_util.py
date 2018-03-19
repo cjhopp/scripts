@@ -364,9 +364,43 @@ def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
             NM08_model_loop(root, run_dict, r_dict, machine)
     return
 
-def process_output(outdirs, contour=True, history=False):
+def process_output(outdirs, contour=True, history=False, elevation=-1300.):
     for outdir in outdirs:
         if contour:
             cont = fcontour('{}/*sca_node.csv', latest=True)
-
+            # Slice plots of T, P and stress
+            cont.slice_plot(
+                save='T_slice_{}.png'.format(elevation), cbar=True, levels=10,
+                slice=['z', elevation], divisions=[150, 150], variable='T',
+                xlims=[0, 3000], ylims=[0, 3000],
+                title='NM08 T slice: {} m'.format(elevation))
+            cont.slice_plot(
+                save='P_slice_{}.png'.format(elevation), cbar=True, levels=10,
+                slice=['z', elevation], divisions=[150, 150], variable='P',
+                xlims=[0, 3000], ylims=[0, 3000],
+                title='NM08 P slice: {} m'.format(elevation))
+            cont.slice_plot(
+                save='strs_xx_slice_{}.png'.format(elevation), cbar=True,
+                levels=10, slice=['z', elevation], divisions=[150, 150],
+                variable='strs_xx', xlims=[0, 3000], ylims=[0, 3000],
+                title='NM08 strs_xx slice: {} m'.format(elevation))
+            # Cutaway plots
+            cont.cutaway_plot(
+                save='T_cutaway_{}.png'.format(elevation), cbar=True,
+                levels=np.linspace(200, 270, 10),
+                variable='P', xlims=[1500, 2000], ylims=[1500, 2000],
+                zlims=[-2000, -1200], grid_lines='k:',
+                title='NM08 T cutaway / $^o$C'.format(elevation))
+            cont.cutaway_plot(
+                save='P_cutaway_{}.png'.format(elevation), cbar=True,
+                levels=np.linspace(10, 20, 10),
+                variable='P', xlims=[1500, 2000], ylims=[1500, 2000],
+                zlims=[-2000, -1200], grid_lines='k:',
+                title='NM08 strs_xx cutaway / MPa'.format(elevation))
+            cont.cutaway_plot(
+                save='strs_xx_cutaway_{}.png'.format(elevation), cbar=True,
+                levels=np.linspace(200, 270, 10),
+                variable='strs_xx', xlims=[1500, 2000], ylims=[1500, 2000],
+                zlims=[-2000, -1200], grid_lines='k:',
+                title='NM08 strs_xx cutaway / MPa'.format(elevation))
     return
