@@ -211,10 +211,8 @@ def set_permmodel(zone, permmodel_dict):
     return
 
 def make_NM08_grid(work_dir):
-    base_name = work_dir.split('/')[-1]
+    base_name = 'NM08'
     dat = fdata(work_dir=work_dir)
-    # Change into working directory
-    os.chdir(dat.work_dir)
     dat.files.root = base_name
     pad_1 = [1500., 1500.]
     # Symmetric grid in x-y
