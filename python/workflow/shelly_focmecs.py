@@ -31,9 +31,9 @@ def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
         wdir = [wavs for wavs in temp_wavs if
                 wavs.split('/')[-1].split('_')[0] ==
                 ev.resource_id.id.split('/')[-1]]
-    if len(wdir) > 0:
-        print('Adding template wavs from {}'.format(wdir))
-        temp_streams.append(read('{}/*'.format(wdir[0])))
+        if len(wdir) > 0:
+            print('Adding template wavs from {}'.format(wdir[0]))
+            temp_streams.append(read('{}/*'.format(wdir[0])))
     else:
         cat_temps.events.remove(ev)
     print('Filtering template wavs')
