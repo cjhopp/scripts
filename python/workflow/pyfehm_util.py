@@ -59,13 +59,12 @@ def feedzones_2_rects(fz_file_pattern, surf_loc=None):
 
 def run_initial_conditions(dat):
     # initial run allowing equilibration
-    root = dat.work_dir.split('/')[-1]
     dat.tf = 365.25
     dat.dtmax = dat.tf
     dat.cont.variables.append(
         ['xyz', 'pressure', 'temperature', 'stress', 'permeability'])
-    dat.run(root + '_INPUT.dat', use_paths=True)
-    dat.incon.read('{}/{}_INCON.ini'.format(dat.work_dir, root))
+    dat.run('{}/NM08_INPUT.dat'.format(dat.work_dir), use_paths=True)
+    dat.incon.read('{}/NM08_INCON.ini'.format(dat.work_dir))
     dat.ti = 0.
     dat.delete(dat.preslist)
     dat.delete(
