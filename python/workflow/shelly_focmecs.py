@@ -271,10 +271,10 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     # Calculate relative polarities
     if cores > 1:
         print('Starting up pool')
-        rel_pols = {}
+        rel_pols = []
         pool = Pool(processes=cores)
         for phase in phases:
-            if method == 'multiprocessing':
+            if method == 'multiprocessing': # Error from multiprocessing...
                 results = [pool.apply_async(
                     _stachan_loop,
                     (phase, stachan,
@@ -283,7 +283,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                      {'min_cc': min_cc, 'debug': debug})
                     for stachan in stachans]
                 pool.close()
-                rel_pols[phase] = [p.get() for p in results]
+                rel_pols.extend([p.get() for p in results])
                 pool.join()
             elif method == 'joblib':
                 results = Parallel(n_jobs=cores)(
@@ -293,7 +293,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                         det_traces=det_traces[phase][stachan],
                         min_cc=min_cc, debug=debug)
                     for stachan in stachans)
-                rel_pols  = results
+                rel_pols.extend(results)
     else:
         # Python loop..?
         rel_pols = []
