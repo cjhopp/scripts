@@ -79,10 +79,15 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         print('Max absolute data point is at end of ccc array. Skipping.')
         return 0.0
     elif ccc[raw_max] < min_cc:
+        print('Correlation below threshold. Skipping.')
         return 0.0
     sign = np.sign(ccc[raw_max])
     # Find pks
     pk_locs = argrelmax(np.abs(ccc), order=2)[0]
+    # Make sure theres more than one peak
+    if pk_locs.shape[0] <= 1:
+        print('Only one pick found. Skip this polarity.')
+        return 0.0
     pk_ind = np.where(np.equal(raw_max, pk_locs))[0][0]
     # Now find the two peaks either side of the max peak
     if pk_ind == 0:
@@ -107,7 +112,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         plt.axvline(pk_locs[pk_ind], color='grey', linestyle='--')
         plt.show()
         plt.close('all')
-    rel_pol = sign * np.max(second_pk_vals)
+    rel_pol = sign * np.max(ccc[raw_max] - second_pk_vals)
     print(rel_pol)
     return rel_pol
 
