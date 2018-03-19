@@ -112,7 +112,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         plt.axvline(pk_locs[pk_ind], color='grey', linestyle='--')
         plt.show()
         plt.close('all')
-    rel_pol = sign * np.max(ccc[raw_max] - second_pk_vals)
+    rel_pol = sign * np.min(ccc[raw_max] - second_pk_vals)
     print(rel_pol)
     return rel_pol
 
