@@ -60,7 +60,7 @@ def feedzones_2_rects(fz_file_pattern, surf_loc=None):
 def run_initial_conditions(dat):
     # initial run allowing equilibration
     root = dat.work_dir.split('/')[-1]
-    dat.files.rsto = '{}_INCON.ini'.format(root)
+    # dat.files.rsto = '{}_INCON.ini'.format(root)
     dat.tf = 365.25
     dat.dtmax = dat.tf
     dat.cont.variables.append(
@@ -204,7 +204,7 @@ def set_permmodel(zone, permmodel_dict):
     :param zone: Zone to apply the model to
     :return:
     """
-    perm_mod = fmodel('permmodel', index=25)
+    perm_mod = fmodel('permmodel', index=permmodel_dict['index'])
     perm_mod.zone = zone
     # Set required permeability
     for key, value in permmodel_dict.iteritems():
@@ -350,7 +350,7 @@ def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
         pool = Pool(processes=cores)
         res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict,
                                                   machine))
-               for res_dict in reservoir_dicts]
+               for i, res_dict in enumerate(reservoir_dicts)]
     else:
         for r_dict in reservoir_dicts:
             NM08_model_loop(root, run_dict, r_dict, machine)
