@@ -258,10 +258,20 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     print('Preallocating arrays')
     # Set up zero arrays for trace data
     for p in phases:
-        temp_traces[p] = {stachan: np.zeros((len(template_cat), temp_len[p]))
-                          for stachan in stachans}
-        det_traces[p] = {stachan: np.zeros((len(detection_cat), det_len[p]))
-                         for stachan in stachans}
+        if p == 'P':
+            temp_traces[p] = {stachan: np.zeros((len(template_cat),
+                                                 temp_len[p]))
+                              for stachan in stachans if stachan[-1] == 'Z'}
+            det_traces[p] = {stachan: np.zeros((len(detection_cat),
+                                                det_len[p]))
+                             for stachan in stachans if stachan[-1] == 'Z'}
+        elif p == 'S':
+            temp_traces[p] = {stachan: np.zeros((len(template_cat),
+                                                 temp_len[p]))
+                              for stachan in stachans if stachan[-1] != 'Z'}
+            det_traces[p] = {stachan: np.zeros((len(detection_cat),
+                                                det_len[p]))
+                             for stachan in stachans if stachan[-1] != 'Z'}
     # Populate trace arrays for all picks
     # Pass to _prepare_data function to clean this up
     print('Preparing data for processing')
