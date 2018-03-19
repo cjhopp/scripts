@@ -108,6 +108,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         plt.show()
         plt.close('all')
     rel_pol = sign * np.max(second_pk_vals)
+    print(rel_pol)
     return rel_pol
 
 def _prepare_data(template_streams, detection_streams, template_cat,

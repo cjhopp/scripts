@@ -393,13 +393,13 @@ def process_output(outdirs, contour=True, history=False, elevation=-1300.):
                 title='NM08 T cutaway / $^o$C'.format(elevation))
             cont.cutaway_plot(
                 save='P_cutaway_{}.png'.format(elevation), cbar=True,
-                levels=np.linspace(10, 20, 10),
+                levels=np.linspace(7, 15, 10),
                 variable='P', xlims=[1500, 2000], ylims=[1500, 2000],
                 zlims=[-2000, -1200], grid_lines='k:',
-                title='NM08 strs_xx cutaway / MPa'.format(elevation))
+                title='NM08 P cutaway / MPa'.format(elevation))
             cont.cutaway_plot(
                 save='strs_xx_cutaway_{}.png'.format(elevation), cbar=True,
-                levels=np.linspace(200, 270, 10),
+                levels=np.linspace(24, 26, 10),
                 variable='strs_xx', xlims=[1500, 2000], ylims=[1500, 2000],
                 zlims=[-2000, -1200], grid_lines='k:',
                 title='NM08 strs_xx cutaway / MPa'.format(elevation))
