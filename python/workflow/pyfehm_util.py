@@ -61,7 +61,7 @@ def run_initial_conditions(dat):
     # initial run allowing equilibration
     dat.tf = 365.25
     dat.dtmax = dat.tf
-    dat.rsto = '{}/NM08_INCON.ini'.format(dat.work_dir)
+    dat.files.rsto = '{}/NM08_INCON.ini'.format(dat.work_dir)
     dat.run('{}/NM08_INPUT.dat'.format(dat.work_dir),
             use_paths=True)
     dat.incon.read('{}/NM08_INCON.ini'.format(dat.work_dir))
