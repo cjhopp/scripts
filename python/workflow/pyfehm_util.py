@@ -331,8 +331,12 @@ def NM08_model_loop(root, run_dict, res_dict, machine, decimate=100):
                      'Merc_Ngatamariki.xlsx'
     # Make the directory for this object
     print('Making grid')
-    work_dir = '{}/perms_{:.1E}_{:.1E}_{:.1E}'.format(root, perm_xx, perm_yy,
-                                                      perm_zz)
+    # Extract just floats and exponent from perms
+    px = '{:.1E}'.format(perm_xx)[:3]
+    py = '{:.1E}'.format(perm_yy)[:3]
+    pz = '{:.1E}'.format(perm_zz)[:3]
+    exp = '{:.1E}'.format(perm_xx)[-4:]
+    work_dir = '{}/perms_{}x{}x{}{}'.format(root, px, py, pz, exp)
     dat = make_NM08_grid(work_dir=work_dir)
     print('Assigning reservoir parameters')
     dat = reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
@@ -364,7 +368,7 @@ def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
             NM08_model_loop(root, run_dict, r_dict, machine)
     return
 
-def process_output(outdirs, contour=True, history=False, elevation=-1300.):
+def process_output(outdirs, contour=True, history=False, elevation=-1300):
     for outdir in outdirs:
         if contour:
             cont = fcontour('{}/*sca_node.csv'.format(outdir), latest=True)
@@ -388,19 +392,19 @@ def process_output(outdirs, contour=True, history=False, elevation=-1300.):
             # Cutaway plots
             cont.cutaway_plot(
                 save='{}/T_cutaway_{}.png'.format(outdir, elevation),
-                cbar=True, levels=np.linspace(200, 270, 10),
-                variable='P', xlims=[1500, 2000], ylims=[1500, 2000],
+                cbar=True, levels=np.linspace(240, 270, 10),
+                variable='T', xlims=[1500, 2000], ylims=[1500, 2000],
                 zlims=[-2000, -1200], grid_lines='k:',
                 title='NM08 T cutaway / $^o$C'.format(elevation))
             cont.cutaway_plot(
                 save='{}/P_cutaway_{}.png'.format(outdir, elevation),
-                cbar=True, levels=np.linspace(7, 15, 10),
+                cbar=True, levels=np.linspace(9, 15, 10),
                 variable='P', xlims=[1500, 2000], ylims=[1500, 2000],
                 zlims=[-2000, -1200], grid_lines='k:',
                 title='NM08 P cutaway / MPa'.format(elevation))
             cont.cutaway_plot(
                 save='{}/strs_xx_cutaway_{}.png'.format(outdir, elevation),
-                cbar=True, levels=np.linspace(24, 26, 10),
+                cbar=True, levels=np.linspace(20, 40, 10),
                 variable='strs_xx', xlims=[1500, 2000], ylims=[1500, 2000],
                 zlims=[-2000, -1200], grid_lines='k:',
                 title='NM08 strs_xx cutaway / MPa'.format(elevation))
@@ -429,4 +433,5 @@ def process_output(outdirs, contour=True, history=False, elevation=-1300.):
                 marker='o--', method='linear')
         if history:
             continue
-        return
+        plt.close('all')
+    return
