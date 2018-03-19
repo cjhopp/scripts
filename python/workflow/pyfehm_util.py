@@ -63,7 +63,8 @@ def run_initial_conditions(dat):
     dat.dtmax = dat.tf
     dat.cont.variables.append(
         ['xyz', 'pressure', 'temperature', 'stress', 'permeability'])
-    dat.run('{}/NM08_INPUT.dat'.format(dat.work_dir))
+    dat.run('{}/NM08_INPUT.dat'.format(dat.work_dir),
+            incon='{}/NM08_INCON.ini'.format(dat.work_dir))
     dat.incon.read('{}/NM08_INCON.ini'.format(dat.work_dir))
     dat.ti = 0.
     dat.delete(dat.preslist)
