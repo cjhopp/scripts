@@ -32,6 +32,7 @@ def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
                 wavs.split('/')[-1].split('_')[0] ==
                 ev.resource_id.id.split('/')[-1]]
     if len(wdir) > 0:
+        print('Adding template wavs from {}'.format(wdir))
         temp_streams.append(read('{}/*'.format(wdir[0])))
     else:
         cat_temps.events.remove(ev)
