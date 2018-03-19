@@ -65,7 +65,7 @@ def run_initial_conditions(dat):
     dat.dtmax = dat.tf
     dat.cont.variables.append(
         ['xyz', 'pressure', 'temperature', 'stress', 'permeability'])
-    dat.run(root + '_INPUT.dat')
+    dat.run(root + '_INPUT.dat', use_paths=True)
     dat.incon.read('{}/{}_INCON.ini'.format(dat.work_dir, root))
     dat.ti = 0.
     dat.delete(dat.preslist)
