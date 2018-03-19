@@ -61,6 +61,7 @@ def run_initial_conditions(dat):
     # initial run allowing equilibration
     dat.tf = 365.25
     dat.dtmax = dat.tf
+    # rsto specify the initial conditions file
     dat.files.rsto = '{}/NM08_INCON.ini'.format(dat.work_dir)
     dat.run('{}/NM08_INPUT.dat'.format(dat.work_dir),
             use_paths=True)
@@ -195,18 +196,28 @@ def set_well_boundary(dat, excel_file, sheet_name, well_name,
     dat.add(bound)
     return dat
 
-def set_permmodel(zone, permmodel_dict):
+def set_permmodel(dat, zonelist, index, permmodel_dict):
     """
     Setup a permeability model as in Dempsey et al., 2013 for Desert Peak
 
-    :param zone: Zone to apply the model to
+    :type dat: pyfehm.fdata
+    :param dat: fdata object to add this model to
+    :type zonelist: list or str
+    :param zonelist: Zone(s) to apply the model to
+    :type index: int
+    :param index: Index of the stress-permeability model to use
+    :type permmodel_dict: dict
+    :param permmodel_dict: Dictionary of parameters for this particular model.
+        All of the available parameters must be assigned (see fdata.py lines
+        70-90). No defaults will be set.
     :return:
     """
-    perm_mod = fmodel('permmodel', index=permmodel_dict['index'])
-    perm_mod.zone = zone
+    perm_mod = fmodel('permmodel', index=index,
+                      zonelist=zonelist)
     # Set required permeability
     for key, value in permmodel_dict.iteritems():
         perm_mod.param[key] = value
+    dat.add(perm_mod)
     return
 
 def make_NM08_grid(work_dir):

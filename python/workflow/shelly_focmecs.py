@@ -21,10 +21,10 @@ def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
     print('Globbing waveforms')
     temp_wavs = glob('{}/*'.format(temp_dir))
     print('Template directories have the following pattern:\n{}'.format(
-        temp_wavs[0].spilit('/')[-1]))
+        temp_wavs[0].split('/')[-1]))
     det_wavs = glob('{}/*'.format(det_dir))
     print('Detection directories have the following pattern:\n{}'.format(
-        det_wavs[0].spilit('/')[-1]))
+        det_wavs[0].split('/')[-1]))
     # Templates
     print('Creating template streams')
     for ev in list(cat_temps.events):
