@@ -363,3 +363,10 @@ def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
         for r_dict in reservoir_dicts:
             NM08_model_loop(root, run_dict, r_dict, machine)
     return
+
+def process_output(outdirs, contour=True, history=False):
+    for outdir in outdirs:
+        if contour:
+            cont = fcontour('{}/*sca_node.csv', latest=True)
+
+    return
