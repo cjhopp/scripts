@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from glob import glob
 from multiprocessing import Pool
+from joblib import Parallel, delayed
 from scipy.signal import argrelmax
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from obspy import read
@@ -73,20 +74,24 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
     ccc = normxcorr2(data1, data2)[0]
     raw_max = np.argmax(np.abs(ccc))
     if raw_max == 0:
-        print('Max absolute data point is at end of ccc array. Skipping.')
+        if debug > 0:
+            print('Max absolute data point is at end of ccc array. Skipping.')
         return 0.0
     elif raw_max == np.max(ccc.shape) - 1:
-        print('Max absolute data point is at end of ccc array. Skipping.')
+        if debug > 0:
+            print('Max absolute data point is at end of ccc array. Skipping.')
         return 0.0
     elif ccc[raw_max] < min_cc:
-        print('Correlation below threshold. Skipping.')
+        if debug > 0:
+            print('Correlation below threshold. Skipping.')
         return 0.0
     sign = np.sign(ccc[raw_max])
     # Find pks
     pk_locs = argrelmax(np.abs(ccc), order=2)[0]
     # Make sure theres more than one peak
     if pk_locs.shape[0] <= 1:
-        print('Only one pick found. Skip this polarity.')
+        if debug > 0:
+            print('Only one pick found. Skip this polarity.')
         return 0.0
     pk_ind = np.where(np.equal(raw_max, pk_locs))[0][0]
     # Now find the two peaks either side of the max peak
@@ -113,7 +118,6 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         plt.show()
         plt.close('all')
     rel_pol = sign * np.min(ccc[raw_max] - second_pk_vals)
-    print(rel_pol)
     return rel_pol
 
 def _prepare_data(template_streams, detection_streams, template_cat,
@@ -206,7 +210,7 @@ def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
 
 def make_corr_matrices(template_streams, detection_streams, template_cat,
                        detection_cat, corr_dict, min_cc, filt_params,
-                       phases=('P', 'S'), cores=4, debug=0):
+                       phases=('P', 'S'), cores=4, debug=0, method='joblib'):
     """
     Create the correlation matrices
     :type template_streams: list
@@ -270,15 +274,26 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
         rel_pols = {}
         pool = Pool(processes=cores)
         for phase in phases:
-            results = [pool.apply_async(
-                _stachan_loop,
-                (phase, stachan,
-                 temp_traces[phase][stachan],
-                 det_traces[phase][stachan]),
-                 {'min_cc': min_cc, 'debug': debug})
-                for stachan in stachans]
-            pool.close()
-            rel_pols[phase] = [p.get() for p in results]
+            if method == 'multiprocessing':
+                results = [pool.apply_async(
+                    _stachan_loop,
+                    (phase, stachan,
+                     temp_traces[phase][stachan],
+                     det_traces[phase][stachan]),
+                     {'min_cc': min_cc, 'debug': debug})
+                    for stachan in stachans]
+                pool.close()
+                rel_pols[phase] = [p.get() for p in results]
+                pool.join()
+            elif method == 'joblib':
+                results = Parallel(n_jobs=cores)(
+                    delayed(_stachan_loop)(
+                        phase=phase, stachan=stachan,
+                        temp_traces=temp_traces[phase][stachan],
+                        det_traces=det_traces[phase][stachan],
+                        min_cc=min_cc, debug=debug)
+                    for stachan in stachans)
+                rel_pols  = results
     else:
         # Python loop..?
         rel_pols = []
