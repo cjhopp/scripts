@@ -373,7 +373,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
     # Isolate columns of svd_mat corresponding to vertical channels
     # Not supporting P-polarities on horizontal channels yet.
     z_cols = np.array([i for i, stachan in enumerate(stachans)
-                       if stachan[-1] == 'Z'])
+                       if stachan[0] == 'P'])
     z_chans = [stachan for stachan in stachans if stachan[0] == 'P']
     z_mat = svd_mat[:, z_cols]
     # Create dictionary of all weighted catalog polarities
