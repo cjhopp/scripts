@@ -337,7 +337,7 @@ def svd_matrix(rel_pols):
         if i == 0:
             svd_mat = u[:, 0]
         else:
-            svd_mat = np.hstack((svd_mat, u[:, 0]))
+            svd_mat = np.vstack((svd_mat, u[:, 0]))
     svd_mat = svd_mat[~np.isnan(svd_mat)]
     return svd_mat[~np.isinf(svd_mat)]
 
