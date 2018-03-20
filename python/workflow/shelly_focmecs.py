@@ -376,6 +376,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                        if stachan[0] == 'P'])
     z_chans = [stachan for stachan in stachans if stachan[0] == 'P']
     z_mat = svd_mat[:, z_cols]
+    print(z_mat)
     # Create dictionary of all weighted catalog polarities
     cat_pol_dict = {stachan: np.zeros((len(cat_dets))) for stachan in z_chans}
     for i, ev in enumerate(cat_dets):
@@ -411,12 +412,19 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
     stachan_wt = {}
     print('Establishing stachan weighting')
     for i, stachan in enumerate(z_chans):
+        print(stachan)
         svd_pols = z_mat[:, i]
+        print(svd_pols)
         cat_pols = cat_pol_dict[stachan]
+        print(cat_pols)
         stachan_wt[stachan] = np.sum(svd_pols * cat_pols) / \
                               np.sum(np.abs(svd_pols * cat_pols))
         # Multiply corresponding column of z_mat by this value
-        z_mat[:, i] *= stachan_wt[stachan]
+        if np.isnan(stachan_wt[stachan]):
+            print('Station weight is nan')
+            continue
+        else:
+            z_mat[:, i] *= stachan_wt[stachan]
         if plot:
             plot_svd_pols = np.hstack((plot_svd_pols, z_mat[i, :]))
             plot_cat_pols = np.hstack((plot_cat_pols, cat_pol_dict[stachan]))
