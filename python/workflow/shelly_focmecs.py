@@ -428,7 +428,7 @@ def run_rel_pols(template_streams, detection_streams, template_cat,
                  detection_cat, corr_dict, min_cc, filt_params,
                  phases=('P', 'S'), cores=4, debug=0, method='joblib',
                  cluster_metric='cosine', cluster_criterion='maxclust',
-                 cluster_maxclusts=100, catalog_):
+                 cluster_maxclusts=100):
     """
     :return:
     """
