@@ -409,8 +409,9 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
     # Establish stachan weighting by comparing SVD pols with cat pols
     # Apply to z_mat
     stachan_wt = {}
+    print('Establishing stachan weighting')
     for i, stachan in enumerate(z_chans):
-        svd_pols = z_mat[i, :]
+        svd_pols = z_mat[:, i]
         cat_pols = cat_pol_dict[stachan]
         stachan_wt[stachan] = np.sum(svd_pols * cat_pols) / \
                               np.sum(np.abs(svd_pols * cat_pols))
