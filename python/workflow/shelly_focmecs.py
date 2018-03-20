@@ -337,7 +337,7 @@ def svd_matrix(rel_pols):
         if i == 0:
             svd_mat = u[:, 0]
         else:
-            svd_mat = np.hstack((svd_mat, u[:, 0]))
+            svd_mat = np.column_stack((svd_mat, u[:, 0]))
     return svd_mat[~np.isinf(svd_mat)]
 
 def cluster_svd_mat(svd_mat, metric='cosine', show=False):
