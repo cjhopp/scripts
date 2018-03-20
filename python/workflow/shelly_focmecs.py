@@ -385,7 +385,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                 chan = pk.waveform_id.channel_code
                 te = pk.time_errors
                 print(te)
-                if not te.uncertainty or not te.upper_uncertainty or not \
+                if not te.uncertainty and not te.upper_uncertainty and not \
                         te.confidence_level:
                     print('Must have a measure of pick uncertainty for '
                           'weighting')
