@@ -349,4 +349,4 @@ def cluster_svd_mat(svd_mat, metric='cosine', show=False):
     if show:
         dendrogram(Z)
     indices = fcluster(Z, t=1)
-    return
+    return indices
