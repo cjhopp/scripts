@@ -333,13 +333,13 @@ def svd_matrix(rel_pols):
     """
     for i, rel_pol in enumerate(rel_pols):
         u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
-        print(u[0])
+        print(u[:, 0])
         if i == 0:
-            svd_mat = u[0]
+            svd_mat = u[:, 0]
         else:
-            svd_mat = np.vstack((svd_mat, u[0]))
+            svd_mat = np.hstack((svd_mat, u[0]))
     svd_mat = svd_mat[~np.isnan(svd_mat)]
-    return svd_mat[~np.isinf(svd_mat)].T
+    return svd_mat[~np.isinf(svd_mat)]
 
 def cluster_svd_mat(svd_mat, metric='cosine', show=False):
     """
