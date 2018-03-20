@@ -331,23 +331,120 @@ def svd_matrix(rel_pols):
     :param rel_pols: Output from
     :return:
     """
+    stachans = []
     for i, rel_pol in enumerate(rel_pols):
         u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
         lsv = u[:, 0]
         if i == 0:
+            stachans.append((rel_pol[0], rel_pol[1]))
             svd_mat = lsv[~np.isnan(lsv)]
         else:
+            stachans.append((rel_pol[0], rel_pol[1]))
             svd_mat = np.column_stack((svd_mat, lsv[~np.isnan(lsv)]))
-    return svd_mat
+    return svd_mat, stachans
 
-def cluster_svd_mat(svd_mat, metric='cosine', show=False):
+def cluster_svd_mat(svd_mat, metric='cosine', criterion='maxclusts',
+                    clusts=100, show=False):
     """
     Function to cluster the rows of the nxk matrix of relative polarity
     measurements
-    :return:
+    :return: List of group indices for each of the n detected events
     """
     Z = linkage(svd_mat, method='single', metric=metric)
     if show:
         dendrogram(Z)
-    indices = fcluster(Z, t=100, criterion='maxclust')
+    indices = fcluster(Z, t=clusts, criterion=criterion)
     return indices
+
+def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
+    """
+
+    :param svd_mat:
+    :param stachans:
+    :param cat_dets:
+    :param indices:
+    :param plot:
+    :return:
+
+     ..Note We assume values for any of pick.time_errors.uncertainty
+        pick.time_errors.upper_uncertainty or pick.time_errors.confidence_level
+    """
+    # Isolate columns of svd_mat corresponding to vertical channels
+    # Not supporting P-polarities on horizontal channels yet.
+    z_cols = np.array([i for i, stachan in enumerate(stachans)
+                       if stachan[-1] == 'Z'])
+    z_chans = [stachan for stachan in stachans if stachan[-1] == 'Z']
+    z_mat = svd_mat[:, z_cols]
+    # Create dictionary of all weighted catalog polarities
+    cat_pol_dict = {stachan: np.zeros((len(cat_dets))) for stachan in z_chans}
+    for i, ev in enumerate(cat_dets):
+        for pk in ev.picks:
+            if pk.polarity:
+                sta = pk.waveform_id.station_code
+                chan = pk.waveform_id.channel_code
+                te = pk.time_errors
+                if not te.uncertainty or te.upper_uncertainty or \
+                        te.confidence_level:
+                    print('Must have a measure of pick uncertainty for '
+                          'weighting')
+                    return
+                else:
+                    # Invert uncertainty measure for confidence
+                    if te.uncertainty or te.upper_uncertainty:
+                        try:
+                            wt = 1. - te.uncertainty
+                        except TypeError:
+                            wt = 1. - te.upper_uncertainty
+                    elif te.confidence_level:
+                        wt = 5 - te.confidence_level
+                if pk.polarity == 'negative':
+                    pol = -1. * wt
+                elif pk.polarity == 'positive':
+                    pol = 1. * wt
+                cat_pol_dict['{}.{}'.foramt(sta, chan)][i] = pol
+    if plot:
+        plot_svd_pols = np.array([])
+        plot_cat_pols = np.array([])
+    # Establish stachan weighting by comparing SVD pols with cat pols
+    # Apply to z_mat
+    stachan_wt = {}
+    for i, stachan in enumerate(z_chans):
+        svd_pols = z_mat[i, :]
+        cat_pols = cat_pol_dict[stachan]
+        stachan_wt[stachan] = np.sum(svd_pols * cat_pols) / \
+                              np.sum(np.abs(svd_pols * cat_pols))
+        # Multiply corresponding column of z_mat by this value
+        z_mat[:, i] *= stachan_wt[stachan]
+        if plot:
+            plot_svd_pols = np.hstack((plot_svd_pols, z_mat[i, :]))
+            plot_cat_pols = np.hstack((plot_cat_pols, cat_pol_dict[stachan]))
+    if plot:
+        plt.plot(plot_svd_pols, plot_cat_pols)
+        plt.show()
+        plt.close('all')
+    return z_mat, z_chans
+
+def run_rel_pols(template_streams, detection_streams, template_cat,
+                 detection_cat, corr_dict, min_cc, filt_params,
+                 phases=('P', 'S'), cores=4, debug=0, method='joblib',
+                 cluster_metric='cosine', cluster_criterion='maxclust',
+                 cluster_maxclusts=100, catalog_):
+    """
+    :return:
+    """
+    # Check lengths of streams lists against length of catalogs.
+    # We're assuming cat[0] corresponds to stream_list[0], etc...
+    if len(template_streams) != len(template_cat) or len(detection_streams)\
+        != len(detection_cat):
+        print('Stream lists must have the same length and order as '
+              'corresponding catalog')
+        return
+    rel_pols = make_corr_matrices(template_streams, detection_streams,
+                                  template_cat, detection_cat, corr_dict,
+                                  min_cc, filt_params, phases, cores, debug,
+                                  method)
+    svd_mat, stachans = svd_matrix(rel_pols)
+    indices = cluster_svd_mat(svd_mat, metric=cluster_metric,
+                              criterion=cluster_criterion,
+                              clusts=cluster_maxclusts)
+    return
