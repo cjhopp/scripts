@@ -333,7 +333,7 @@ def svd_matrix(rel_pols):
     """
     for i, rel_pol in enumerate(rel_pols):
         u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
-        print(u[:, 0])
+        print(u[:, 0].shape)
         if i == 0:
             svd_mat = u[:, 0]
         else:
