@@ -374,7 +374,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
     # Not supporting P-polarities on horizontal channels yet.
     z_cols = np.array([i for i, stachan in enumerate(stachans)
                        if stachan[0] == 'P'])
-    z_chans = [stachan for stachan in stachans if stachan[0] == 'P']
+    z_chans = [stachan[1] for stachan in stachans if stachan[0] == 'P']
     z_mat = svd_mat[:, z_cols]
     # Create dictionary of all weighted catalog polarities
     cat_pol_dict = {stachan: np.zeros((len(cat_dets))) for stachan in z_chans}
@@ -384,7 +384,6 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                 sta = pk.waveform_id.station_code
                 chan = pk.waveform_id.channel_code
                 te = pk.time_errors
-                print(te)
                 if not te.uncertainty and not te.upper_uncertainty and not \
                         te.confidence_level:
                     print('Must have a measure of pick uncertainty for '
