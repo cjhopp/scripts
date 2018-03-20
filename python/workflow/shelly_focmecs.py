@@ -388,7 +388,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                         te.confidence_level:
                     print('Must have a measure of pick uncertainty for '
                           'weighting')
-                    return
+                    continue
                 else:
                     # Invert uncertainty measure for confidence
                     if te.uncertainty or te.upper_uncertainty:
