@@ -333,11 +333,11 @@ def svd_matrix(rel_pols):
     """
     for i, rel_pol in enumerate(rel_pols):
         u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
-        print(u[:, 0].shape)
+        lsv = u[:, 0]
         if i == 0:
-            svd_mat = u[:, 0]
+            svd_mat = lsv[~np.isnan(lsv)]
         else:
-            svd_mat = np.column_stack((svd_mat, u[:, 0]))
+            svd_mat = np.column_stack((svd_mat, lsv[~np.isnan(lsv)]))
     return svd_mat
 
 def cluster_svd_mat(svd_mat, metric='cosine', show=False):
