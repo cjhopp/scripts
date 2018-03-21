@@ -3,6 +3,8 @@
 """
 Functions for running Shelly et al. focal mechanism methods for MF detections
 """
+import matplotlib
+matplotlib.use('Agg')
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -458,7 +460,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                 pk.comments.append(
                     Comment(text='pol_wt: {}'.format(
                         np.abs(z_mat[i, stach_i]))))
-    return cat_pols, cat_pol_dict, z_mat
+    return cat_pols, cat_pol_dict, z_mat, z_chans
 
 def cluster_cat(indices, det_cat):
     """
@@ -510,7 +512,7 @@ def run_rel_pols(template_streams, detection_streams, template_cat,
     indices = cluster_svd_mat(svd_mat, metric=cluster_metric,
                               criterion=cluster_criterion,
                               clusts=cluster_maxclusts)
-    z_mat, z_chans, cat_pol = catalog_resolve(svd_mat, stachans, detection_cat,
-                                              plot=plot)
-    clust_cats =
-    return
+    cat_pol, cat_pol_dict, z_mat, z_chans, cat_pol = catalog_resolve(
+        svd_mat, stachans, detection_cat, plot=plot)
+    clust_cats = cluster_cat(indices, cat_pol)
+    return clust_cats
