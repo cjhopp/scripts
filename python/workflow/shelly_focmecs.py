@@ -438,7 +438,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
             chan = pk.waveform_id.channel_code
             stach = '{}.{}'.format(sta, chan)
             stach_i = [i for i, stch in enumerate(stachans)
-                       if stch == stach][0]
+                       if stch[1] == stach][0]
             # Assign polarity by the sign. Put the weight in a Comment at the
             # moment. User will have to decide what to do with this.
             if z_mat[i, stach_i] < 0.0:
