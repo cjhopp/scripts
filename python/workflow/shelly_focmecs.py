@@ -431,6 +431,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
         plt.show()
         plt.close('all')
     # Put the final polarities into the catalog
+    print(z_chans)
     cat_pols = cat_dets.copy()
     for i, ev in enumerate(cat_pols):
         for pk in ev.picks:
@@ -477,16 +478,6 @@ def cluster_cat(indices, z_mat, z_chans, det_cat):
             if ind[0] == clust_id:
                 ev = det_cat.events[ind[1]]
                 # Go through picks and assign polarity from relative pols
-                for stachan, pol in zip(z_chans, z_mat[ind[1], :]):
-                    sta = stachan.split('.')[0]
-                    chan = stachan.split('.')[-1]
-                    for pk in ev.picks:
-                        if pk.waveform_id.station == sta and \
-                            pk.waveform_id.channel_code == chan:
-                            if pol < 0.0:
-                                pk.polarity = 'negative'
-                            elif pol > 0.0:
-                                pk.polarity = 'positive'
                 cat.append()
     return
 
