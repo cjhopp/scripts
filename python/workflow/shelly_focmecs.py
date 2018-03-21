@@ -428,9 +428,10 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
             plot_cat_pols = np.hstack((plot_cat_pols, cat_pol_dict[stachan]))
     if plot:
         plt.plot(plot_svd_pols, plot_cat_pols)
-        plt.show()
+        # plt.show()
+        plt.savefig('test_pols.png')
         plt.close('all')
-    # Put the final polarities into the catalog
+    # Put the final polarities into a new catalog
     print(z_chans)
     cat_pols = cat_dets.copy()
     for i, ev in enumerate(cat_pols):
@@ -457,7 +458,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                 pk.comments.append(
                     Comment(text='pol_wt: {}'.format(
                         np.abs(z_mat[i, stach_i]))))
-    return z_mat, z_chans, cat_pols
+    return cat_pols, cat_pol_dict, z_mat
 
 def cluster_cat(indices, det_cat):
     """
@@ -490,7 +491,7 @@ def run_rel_pols(template_streams, detection_streams, template_cat,
                  detection_cat, corr_dict, min_cc, filt_params,
                  phases=('P', 'S'), cores=4, debug=0, method='joblib',
                  cluster_metric='cosine', cluster_criterion='maxclust',
-                 cluster_maxclusts=100, show=False):
+                 cluster_maxclusts=100, plot=False):
     """
     :return:
     """
@@ -509,7 +510,7 @@ def run_rel_pols(template_streams, detection_streams, template_cat,
     indices = cluster_svd_mat(svd_mat, metric=cluster_metric,
                               criterion=cluster_criterion,
                               clusts=cluster_maxclusts)
-    z_mat, z_chans = catalog_resolve(svd_mat, stachans, detection_cat,
-                                     plot=False)
-
+    z_mat, z_chans, cat_pol = catalog_resolve(svd_mat, stachans, detection_cat,
+                                              plot=plot)
+    clust_cats =
     return
