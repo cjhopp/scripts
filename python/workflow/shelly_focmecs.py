@@ -315,7 +315,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
         # Python loop..?
         rel_pols = []
         for phase in phases:
-            for stachan in stachans:
+            for stachan in ph_stachans[phase]:
                 print('Looping stachan: {}'.format(stachan))
                 pol_array = np.zeros((len(detection_streams),
                                       len(template_streams)))
