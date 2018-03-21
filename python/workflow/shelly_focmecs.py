@@ -441,7 +441,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
             # Find the column index of z_mat for this stachan
             try:
                 stach_i = [i for i, stch in enumerate(z_chans)
-                           if stch[1] == stach][0]
+                           if stch == stach][0]
             # Unless not a vertical channel
             except IndexError:
                 continue
