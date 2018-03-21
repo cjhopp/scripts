@@ -12,7 +12,8 @@ from multiprocessing import Pool
 from joblib import Parallel, delayed
 from scipy.signal import argrelmax
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
-from obspy import read
+from obspy import read, Catalog
+from obspy.core.event import Comment
 from eqcorrscan.core.match_filter import normxcorr2
 from eqcorrscan.utils.pre_processing import shortproc
 
@@ -380,7 +381,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
     cat_pol_dict = {stachan: np.zeros((len(cat_dets))) for stachan in z_chans}
     for i, ev in enumerate(cat_dets):
         for pk in ev.picks:
-            if pk.polarity in ['positive', 'negative']:
+            if pk.polarity:
                 sta = pk.waveform_id.station_code
                 chan = pk.waveform_id.channel_code
                 te = pk.time_errors
@@ -429,13 +430,66 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
         plt.plot(plot_svd_pols, plot_cat_pols)
         plt.show()
         plt.close('all')
-    return z_mat, z_chans
+    # Put the final polarities into the catalog
+    cat_pols = cat_dets.copy()
+    for i, ev in enumerate(cat_pols):
+        for pk in ev.picks:
+            sta = pk.waveform_id.station_code
+            chan = pk.waveform_id.channel_code
+            stach = '{}.{}'.format(sta, chan)
+            stach_i = [i for i, stch in enumerate(stachans)
+                       if stch == stach][0]
+            # Assign polarity by the sign. Put the weight in a Comment at the
+            # moment. User will have to decide what to do with this.
+            if z_mat[i, stach_i] < 0.0:
+                pk.polarity = 'negative'
+                pk.comments.append(
+                    Comment(text='pol_wt: {}'.format(
+                        np.abs(z_mat[i, stach_i]))))
+            elif z_mat[i, stach_i] > 0.0:
+                pk.polarity = 'positive'
+                pk.comments.append(
+                    Comment(text='pol_wt: {}'.format(
+                        np.abs(z_mat[i, stach_i]))))
+    return z_mat, z_chans, cat_pols
+
+def cluster_cat(indices, z_mat, z_chans, det_cat):
+    """
+    Group detection catalog into the clusters determined by the relative
+    polarity measurements.
+    :param indices:
+    :param z_mat:
+    :param det_cat:
+    :return:
+    """
+    clust_ids = list(set(indices))
+    indices = [(indices[i], i) for i in range(len(indices))]
+    indices.sort(key=lambda x: x[0])
+    clust_cats = []
+    for clust_id in clust_ids:
+        cat = Catalog()
+        for ind in indices:
+            if ind[0] == clust_id:
+                ev = det_cat.events[ind[1]]
+                # Go through picks and assign polarity from relative pols
+                for stachan, pol in zip(z_chans, z_mat[ind[1], :]):
+                    sta = stachan.split('.')[0]
+                    chan = stachan.split('.')[-1]
+                    for pk in ev.picks:
+                        if pk.waveform_id.station == sta and \
+                            pk.waveform_id.channel_code == chan:
+                            if pol < 0.0:
+                                pk.polarity = 'negative'
+                            elif pol > 0.0:
+                                pk.polarity = 'positive'
+                cat.append()
+    return
 
 def run_rel_pols(template_streams, detection_streams, template_cat,
                  detection_cat, corr_dict, min_cc, filt_params,
                  phases=('P', 'S'), cores=4, debug=0, method='joblib',
                  cluster_metric='cosine', cluster_criterion='maxclust',
-                 cluster_maxclusts=100):
+                 cluster_maxclusts=100, show=False):
     """
     :return:
     """
@@ -454,4 +508,7 @@ def run_rel_pols(template_streams, detection_streams, template_cat,
     indices = cluster_svd_mat(svd_mat, metric=cluster_metric,
                               criterion=cluster_criterion,
                               clusts=cluster_maxclusts)
+    z_mat, z_chans = catalog_resolve(svd_mat, stachans, detection_cat,
+                                     plot=False)
+
     return
