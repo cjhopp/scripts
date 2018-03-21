@@ -344,7 +344,7 @@ def svd_matrix(rel_pols):
             svd_mat = np.column_stack((svd_mat, lsv[~np.isnan(lsv)]))
     return svd_mat, stachans
 
-def cluster_svd_mat(svd_mat, metric='cosine', criterion='maxclusts',
+def cluster_svd_mat(svd_mat, metric='cosine', criterion='maxclust',
                     clusts=100, show=False):
     """
     Function to cluster the rows of the nxk matrix of relative polarity
