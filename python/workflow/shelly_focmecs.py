@@ -459,7 +459,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                         np.abs(z_mat[i, stach_i]))))
     return z_mat, z_chans, cat_pols
 
-def cluster_cat(indices, z_mat, z_chans, det_cat):
+def cluster_cat(indices, det_cat):
     """
     Group detection catalog into the clusters determined by the relative
     polarity measurements.
@@ -478,8 +478,13 @@ def cluster_cat(indices, z_mat, z_chans, det_cat):
             if ind[0] == clust_id:
                 ev = det_cat.events[ind[1]]
                 # Go through picks and assign polarity from relative pols
-                cat.append()
-    return
+                cat.append(ev)
+            elif ind[0] > clust_id:
+                clust_cats.append(cat)
+                break
+    # Get final group
+    clust_cats.append(cat)
+    return clust_cats
 
 def run_rel_pols(template_streams, detection_streams, template_cat,
                  detection_cat, corr_dict, min_cc, filt_params,
