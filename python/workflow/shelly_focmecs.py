@@ -512,7 +512,7 @@ def run_rel_pols(template_streams, detection_streams, template_cat,
     indices = cluster_svd_mat(svd_mat, metric=cluster_metric,
                               criterion=cluster_criterion,
                               clusts=cluster_maxclusts)
-    cat_pol, cat_pol_dict, z_mat, z_chans, cat_pol = catalog_resolve(
+    cat_pol, cat_pol_dict, z_mat, z_chans = catalog_resolve(
         svd_mat, stachans, detection_cat, plot=plot)
     clust_cats = cluster_cat(indices, cat_pol)
-    return clust_cats
+    return clust_cats, cat_pol_dict, z_mat, z_chans
