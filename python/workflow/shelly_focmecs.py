@@ -96,7 +96,12 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         if debug > 0:
             print('Only one pick found. Skip this polarity.')
         return 0.0
-    pk_ind = np.where(np.equal(raw_max, pk_locs))[0][0]
+    # Find index of the maximum peak in pk_locs
+    try:
+        pk_ind = np.where(np.equal(raw_max, pk_locs))[0][0]
+    except IndexError:
+        print('Raw max ccc not found by argrelmax?? Ignore this pair.')
+        return 0.0
     # Now find the two peaks either side of the max peak
     if pk_ind == 0:
         # If max peak is first peak...
