@@ -3,14 +3,17 @@
 """
 Functions for running creating models and running pyFEHM simulations
 """
-from fdata import *  # Gross
-from fpost import *
+import fdata
+import fpost
+import numpy as np
+import pandas as pd
+
 from glob import glob
 from copy import deepcopy
 from datetime import datetime
 from multiprocessing import Pool
 
-import pandas as pd
+import matplotlib.pyplot as plt
 
 def latlon_2_grid(x, y, z, origin):
     """
@@ -84,16 +87,16 @@ def set_stress(dat):
     ygrad = (0.61 + 1) / 2
     dat.strs.on()
     dat.strs.bodyforce = False
-    dat.add(fmacro('stressboun', zone='XMIN',
-                   param=(('direction', 1), ('value', 0))))
-    dat.add(fmacro('stressboun', zone='YMIN',
-                   param=(('direction', 2), ('value', 0))))
-    dat.add(fmacro('stressboun', zone='ZMIN',
-                   param=(('direction', 3), ('value', 0))))
-    dat.add(fmacro('stressboun', zone='XMAX',
-                   param=(('direction', 1), ('value', 0))))
-    dat.add(fmacro('stressboun', zone='YMAX',
-                   param=(('direction', 2), ('value', 0))))
+    dat.add(fdata.fmacro('stressboun', zone='XMIN',
+                         param=(('direction', 1), ('value', 0))))
+    dat.add(fdata.fmacro('stressboun', zone='YMIN',
+                         param=(('direction', 2), ('value', 0))))
+    dat.add(fdata.fmacro('stressboun', zone='ZMIN',
+                         param=(('direction', 3), ('value', 0))))
+    dat.add(fdata.fmacro('stressboun', zone='XMAX',
+                         param=(('direction', 1), ('value', 0))))
+    dat.add(fdata.fmacro('stressboun', zone='YMAX',
+                         param=(('direction', 2), ('value', 0))))
     dat.zone[0].poissons_ratio = 0.2
     dat.zone[0].thermal_expansion = 3.5e-5
     dat.zone[0].pressure_coupling = 1.
@@ -190,11 +193,22 @@ def set_well_boundary(dat, excel_file, sheet_name, well_name,
     flow_list.insert(0, 'dsw')
     pres_list.insert(0, 'pw')
     temps.insert(0, 'ft')
-    bound = fboun(type='ti_linear', zone=zone_list, times=times,
-                  variable=[flow_list, pres_list, temps])
+    bound = fdata.fboun(type='ti_linear', zone=zone_list, times=times,
+                        variable=[flow_list, pres_list, temps])
     # Add it
     dat.add(bound)
     return dat
+
+def set_fgeneral(dat, zonelist, general_dict):
+    """
+    General function to set an fgeneral macro for non-implemented
+    :param dat:
+    :param zonelist:
+    :param general_dict:
+    :return:
+    """
+
+    return
 
 def set_permmodel(dat, zonelist, index, permmodel_dict):
     """
@@ -212,8 +226,8 @@ def set_permmodel(dat, zonelist, index, permmodel_dict):
         70-90). No defaults will be set.
     :return:
     """
-    perm_mod = fmodel('permmodel', index=index,
-                      zonelist=zonelist)
+    perm_mod = fdata.fmodel('permmodel', index=index,
+                            zonelist=zonelist)
     # Set required permeability
     for key, value in permmodel_dict.iteritems():
         perm_mod.param[key] = value
@@ -222,7 +236,7 @@ def set_permmodel(dat, zonelist, index, permmodel_dict):
 
 def make_NM08_grid(work_dir):
     base_name = 'NM08'
-    dat = fdata(work_dir=work_dir)
+    dat = fdata.fdata(work_dir=work_dir)
     dat.files.root = base_name
     pad_1 = [1500., 1500.]
     # Symmetric grid in x-y
@@ -371,7 +385,8 @@ def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
 def process_output(outdirs, contour=True, history=False, elevation=-1300):
     for outdir in outdirs:
         if contour:
-            cont = fcontour('{}/*sca_node.csv'.format(outdir), latest=True)
+            cont = fpost.fcontour('{}/*sca_node.csv'.format(outdir),
+                                  latest=True)
             # Slice plots of T, P and stress
             cont.slice_plot(
                 save='{}/T_slice_{}.png'.format(outdir, elevation), cbar=True,

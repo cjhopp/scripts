@@ -294,9 +294,9 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     if cores > 1:
         print('Starting up pool')
         rel_pols = []
-        pool = Pool(processes=cores)
         for phase in phases:
             if method == 'multiprocessing': # Error from multiprocessing...
+                pool = Pool(processes=cores)
                 results = [pool.apply_async(
                     _stachan_loop,
                     (phase, stachan,
