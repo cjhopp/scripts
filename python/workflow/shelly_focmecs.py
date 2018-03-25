@@ -88,12 +88,13 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         if debug > 1:
             print('Correlation below threshold. Skipping.')
         return 0.0
-    # sign = np.sign(ccc[raw_max])
-    sign = np.sign(np.amax(ccc))
+    sign = np.sign(ccc[raw_max])
     if debug > 0:
         max_neg = np.max(np.abs(ccc[np.where(ccc < 0.)]))
-        print('Sign: {}'.format(sign))
-        print('Max neg: {}'.format(max_neg))
+        if max_neg >= ccc[raw_max]:
+            print('Sign: {}'.format(sign))
+            print('Max neg: {}'.format(max_neg))
+            print('Max pos: {}'.format(ccc[raw_max]))
     # Find pks
     pk_locs = argrelmax(np.abs(ccc), order=2)[0]
     # Make sure theres more than one peak
