@@ -89,6 +89,8 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
             print('Correlation below threshold. Skipping.')
         return 0.0
     sign = np.sign(ccc[raw_max])
+    if debug > 0:
+        print('Sign: {}'.format(sign))
     # Find pks
     pk_locs = argrelmax(np.abs(ccc), order=2)[0]
     # Make sure theres more than one peak
@@ -117,7 +119,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
                                                pk_locs[pk_ind + 1]])]
         sec_pk_locs = np.array([pk_locs[pk_ind - 1],
                                 pk_locs[pk_ind + 1]])
-    if debug > 0:
+    if debug > 1:
         plt.plot(np.abs(ccc), color='k')
         for loc in sec_pk_locs:
             plt.axvline(loc, color='blue', linestyle='-.')
@@ -126,6 +128,8 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         plt.show()
         plt.close('all')
     rel_pol = sign * np.min(ccc[raw_max] - second_pk_vals)
+    if debug > 0:
+        print('Relative polarity: {}'.format(rel_pol))
     return rel_pol
 
 def _prepare_data(template_streams, detection_streams, template_cat,
@@ -422,6 +426,9 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
     for i, stachan in enumerate(z_chans):
         svd_pols = z_mat[:, i]
         cat_pols = cat_pol_dict[stachan]
+        print('At {}:\n Numerator: {}\n Denominator:{}'.format(
+            stachan, np.sum(svd_pols * cat_pols)
+        ))
         stachan_wt[stachan] = (np.sum(svd_pols * cat_pols) /
                                np.sum(np.abs(svd_pols * cat_pols)))
         # Multiply corresponding column of z_mat by this value

@@ -3,6 +3,9 @@
 """
 Functions for running creating models and running pyFEHM simulations
 """
+import sys
+sys.path.insert(0, '/home/chet/pyfehm/')
+
 import fdata
 import fpost
 import numpy as np
