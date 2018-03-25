@@ -91,7 +91,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
     # sign = np.sign(ccc[raw_max])
     sign = np.sign(np.amax(ccc))
     if debug > 0:
-        max_neg = np.max(ccc[np.where(ccc < 0.)])
+        max_neg = np.max(np.abs(ccc[np.where(ccc < 0.)]))
         print('Sign: {}'.format(sign))
         print('Max neg: {}'.format(max_neg))
     # Find pks
