@@ -88,7 +88,8 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         if debug > 1:
             print('Correlation below threshold. Skipping.')
         return 0.0
-    sign = np.sign(ccc[raw_max])
+    # sign = np.sign(ccc[raw_max])
+    sign = np.sign(np.amax(ccc))
     if debug > 0:
         print('Sign: {}'.format(sign))
     # Find pks
