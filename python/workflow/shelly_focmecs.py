@@ -77,15 +77,15 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
     ccc = normxcorr2(data1, data2)[0]
     raw_max = np.argmax(np.abs(ccc))
     if raw_max == 0:
-        if debug > 0:
+        if debug > 1:
             print('Max absolute data point is at end of ccc array. Skipping.')
         return 0.0
     elif raw_max == np.max(ccc.shape) - 1:
-        if debug > 0:
+        if debug > 1:
             print('Max absolute data point is at end of ccc array. Skipping.')
         return 0.0
     elif ccc[raw_max] < min_cc:
-        if debug > 0:
+        if debug > 1:
             print('Correlation below threshold. Skipping.')
         return 0.0
     sign = np.sign(ccc[raw_max])
