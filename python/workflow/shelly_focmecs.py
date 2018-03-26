@@ -88,19 +88,22 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         if debug > 1:
             print('Correlation below threshold. Skipping.')
         return 0.0
-    sign = np.sign(ccc[raw_max])
+    if ccc[raw_max] < 0:
+        sign = -1.0
+    else:
+        sign = 1.0
+    # sign = np.sign(ccc[raw_max])
     if debug > 0:
         max_neg = np.max(np.abs(ccc[np.where(ccc < 0.)]))
-        if max_neg >= ccc[raw_max]:
-            print('Sign: {}'.format(sign))
-            print('Max neg: {}'.format(max_neg))
-            print('Max pos: {}'.format(ccc[raw_max]))
+        print('Sign: {}'.format(sign))
+        print('Max neg: {}'.format(max_neg))
+        print('Max pos: {}'.format(ccc[raw_max]))
     # Find pks
     pk_locs = argrelmax(np.abs(ccc), order=2)[0]
     # Make sure theres more than one peak
     if pk_locs.shape[0] <= 1:
         if debug > 0:
-            print('Only one pick found. Skip this polarity.')
+            print('Only one peak found. Skip this polarity.')
         return 0.0
     # Find index of the maximum peak in pk_locs
     try:
@@ -132,7 +135,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         plt.show()
         plt.close('all')
     rel_pol = sign * np.min(ccc[raw_max] - second_pk_vals)
-    if debug > 0:
+    if debug > 1:
         print('Relative polarity: {}'.format(rel_pol))
     return rel_pol
 
@@ -303,27 +306,17 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
         print('Starting up pool')
         rel_pols = []
         for phase in phases:
-            if method == 'multiprocessing': # Error from multiprocessing...
-                pool = Pool(processes=cores)
-                results = [pool.apply_async(
-                    _stachan_loop,
-                    (phase, stachan,
-                     temp_traces[phase][stachan],
-                     det_traces[phase][stachan]),
-                     {'min_cc': min_cc, 'debug': debug})
-                    for stachan in ph_stachans[phase]]
-                pool.close()
-                rel_pols.extend([p.get() for p in results])
-                pool.join()
-            elif method == 'joblib':
-                results = Parallel(n_jobs=cores)(
-                    delayed(_stachan_loop)(
-                        phase=phase, stachan=stachan,
-                        temp_traces=temp_traces[phase][stachan],
-                        det_traces=det_traces[phase][stachan],
-                        min_cc=min_cc, debug=debug)
-                    for stachan in ph_stachans[phase])
-                rel_pols.extend(results)
+            pool = Pool(processes=cores)
+            results = [pool.apply_async(
+                _stachan_loop,
+                (phase, stachan,
+                 temp_traces[phase][stachan],
+                 det_traces[phase][stachan]),
+                 {'min_cc': min_cc, 'debug': debug})
+                for stachan in ph_stachans[phase]]
+            pool.close()
+            rel_pols.extend([p.get() for p in results])
+            pool.join()
     else:
         # Python loop..?
         rel_pols = []
