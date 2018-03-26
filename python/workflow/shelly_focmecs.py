@@ -92,6 +92,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         return 0.0
     # Sign of max abs corr
     sign = np.sign(ccc[raw_max])
+    print(sign)
     # Find pks
     pk_locs = argrelmax(np.abs(ccc), order=2)[0]
     # Make sure theres more than one peak
@@ -129,6 +130,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         plt.show()
         plt.close('all')
     rel_pol = sign * np.min(ccc[raw_max] - second_pk_vals)
+    print(rel_pol)
     if debug > 1:
         print('Relative polarity: {}'.format(rel_pol))
     return rel_pol
