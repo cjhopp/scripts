@@ -7,17 +7,19 @@ import matplotlib
 matplotlib.use('Agg')
 
 import numpy as np
+import random
+import unittest
 import matplotlib.pyplot as plt
 
 from glob import glob
 from multiprocessing import Pool
-from joblib import Parallel, delayed
 from scipy.signal import argrelmax
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from obspy import read, Catalog
 from obspy.core.event import Comment
 from eqcorrscan.core.match_filter import normxcorr2
 from eqcorrscan.utils.pre_processing import shortproc
+from eqcorrscan.utils.synth_seis import seis_sim
 
 def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
     det_streams = []
@@ -84,7 +86,7 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
         if debug > 1:
             print('Max absolute data point is at end of ccc array. Skipping.')
         return 0.0
-    elif ccc[raw_max] < min_cc:
+    elif np.abs(ccc[raw_max]) < min_cc:
         if debug > 1:
             print('Correlation below threshold. Skipping.')
         return 0.0
@@ -525,3 +527,32 @@ def run_rel_pols(template_streams, detection_streams, template_cat,
         svd_mat, stachans, detection_cat, plot=plot)
     clust_cats = cluster_cat(indices, cat_pol)
     return clust_cats, cat_pol_dict, z_mat, z_chans
+
+
+class TestRelPols(unittest.TestCase):
+    """
+    Testing class for above functions
+    """
+    # Generate test set of 10 template and 20 detection traces with random
+    # pols for P and S
+    rand_pols_temps = np.asarray([random.choice((-1, 1))
+                                  for i in range(20)]).reshape((2, 10))
+    rand_pols_dets = np.asarray([random.choice((-1, 1))
+                                 for i in range(40)]).reshape((2, 20))
+    temp_traces = [seis_sim(15, amp_ratio=1.2) for i in range(10)]
+    det_traces = [seis_sim(15, amp_ratio=1.2) for i in range(20)]
+    # Flip the phases around randomly
+    for i in range(len(temp_traces)):
+        temp_traces[i][:10] *= rand_pols_temps[0, i]
+        temp_traces[i][10:] *= rand_pols_temps[1, i]
+    for i in range(len(det_traces)):
+        det_traces[i][:10] *= rand_pols_dets[0, i]
+        det_traces[i][10:] *= rand_pols_dets[1, i]
+
+    def test_rel_pol(self):
+        trace_1 = seis_sim(sp=10, amp_ratio=1.2)
+        trace_2 = trace_1 * -1.
+        data_1 = trace_1[10:20]
+        data_2 = trace_2[5:25]
+        rel_pol = _rel_polarity(data_1, data_2)
+        self.assertEqual(rel_pol, 0)
