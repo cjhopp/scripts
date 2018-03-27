@@ -9,6 +9,7 @@ Functions for running Shelly et al. focal mechanism methods for MF detections
 import numpy as np
 import random
 import unittest
+import pickle
 import matplotlib.pyplot as plt
 
 from glob import glob
@@ -232,7 +233,7 @@ def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
 
 def make_corr_matrices(template_streams, detection_streams, template_cat,
                        detection_cat, corr_dict, min_cc, filt_params,
-                       phases=('P', 'S'), cores=4, debug=0, method='joblib'):
+                       phases=('P', 'S'), cores=4, debug=0, save=False):
     """
     Create the correlation matrices
     :type template_streams: list
@@ -257,6 +258,12 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     :param phases: List of phases used: ['P'], ['S'], or ['P', 'S']
     :type cores: int
     :param cores: Number of cores to use for multiprocessing
+    :type debug: int
+    :param debug: Debugging level for print output
+    :type save: bool or str
+    :param save: If a directory is provided, will save the relative polarity
+        array to a pickle object called 'rel_pols.pkl' for later, repeated use
+        by svd_matrix()
     :return:
     """
     # Get unique sta.chan combos
@@ -299,18 +306,18 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     if cores > 1:
         print('Starting up pool')
         rel_pols = []
-        for phase in phases:
-            pool = Pool(processes=cores)
-            results = [pool.apply_async(
-                _stachan_loop,
-                (phase, stachan,
-                 temp_traces[phase][stachan],
-                 det_traces[phase][stachan]),
-                 {'min_cc': min_cc, 'debug': debug})
-                for stachan in ph_stachans[phase]]
-            pool.close()
-            rel_pols.extend([p.get() for p in results])
-            pool.join()
+        pool = Pool(processes=cores)
+        results = [pool.apply_async(
+            _stachan_loop,
+            (phase, stachan,
+             temp_traces[phase][stachan],
+             det_traces[phase][stachan]),
+             {'min_cc': min_cc, 'debug': debug})
+            for phase in phases
+            for stachan in ph_stachans[phase]]
+        pool.close()
+        rel_pols.extend([p.get() for p in results])
+        pool.join()
     else:
         # Python loop..?
         rel_pols = []
@@ -326,6 +333,9 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                                             min_cc, debug)
                         pol_array[n][m] = pol
                 rel_pols.append((phase, stachan, pol_array))
+    if save:
+        with open('{}/rel_pols.pkl'.format(save), 'wb') as f:
+            pickle.dump(rel_pols, f)
     return rel_pols
 
 def svd_matrix(rel_pols):
