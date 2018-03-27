@@ -405,7 +405,6 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                     pol = -1. * wt
                 elif pk.polarity == 'positive':
                     pol = 1. * wt
-                print(pol)
                 cat_pol_dict['{}.{}'.format(sta, chan)][i] = pol
     if plot:
         plot_svd_pols = np.array([])
@@ -418,8 +417,8 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
         svd_pols = z_mat[:, i]
         cat_pols = cat_pol_dict[stachan]
         print('At {}:\n Numerator: {}\n Denominator:{}'.format(
-            stachan, np.sum(svd_pols * cat_pols)
-        ))
+            stachan, np.sum(svd_pols * cat_pols),
+            np.sum(np.abs(svd_pols * cat_pols))))
         stachan_wt[stachan] = (np.sum(svd_pols * cat_pols) /
                                np.sum(np.abs(svd_pols * cat_pols)))
         # Multiply corresponding column of z_mat by this value
@@ -437,7 +436,6 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
         plt.savefig('test_pols.png')
         plt.close('all')
     # Put the final polarities into a new catalog
-    print(z_chans)
     cat_pols = cat_dets.copy()
     for i, ev in enumerate(cat_pols):
         for pk in ev.picks:
