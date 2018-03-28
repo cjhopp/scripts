@@ -21,6 +21,8 @@ from obspy.core.event import Comment
 from eqcorrscan.core.match_filter import normxcorr2
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.synth_seis import seis_sim
+from matplotlib.patches import Rectangle
+from matplotlib.collections import PatchCollection
 
 def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
     det_streams = []
@@ -500,6 +502,31 @@ def cluster_cat(indices, det_cat):
     # Get final group
     clust_cats.append(cat)
     return clust_cats
+
+def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
+    """
+    Plot weighted relative polarities vs catalog polarities
+    :return:
+    """
+    mags = [ev.magnitudes[-1].mag for ev in cat_pols]
+    for i, stachan in enumerate(z_chans):
+        fig, ax = plt.subplots()
+        rectpos = Rectangle((0, 0), 0.08, 0.1)
+        rectneg = Rectangle((-0.08, -0.1), 0.08, 0.1)
+        patches = PatchCollection([rectneg, rectpos], facecolor='lightgray',
+                                  alpha=0.5)
+        ax.add_collection(patches)
+        s = ax.scatter(z_mat[:, i], cat_pol_dict[stachan], c=mags, cmap='cool')
+        ax.set_title(stachan)
+        ax.set_ylim([-0.1, 0.1])
+        ax.set_xlim([-0.08, 0.08])
+        ax.axvline(0)
+        ax.axhline(0)
+        plt.colorbar(s)
+        if show:
+            plt.show()
+            plt.close('all')
+    return
 
 def run_rel_pols(template_streams, detection_streams, template_cat,
                  detection_cat, corr_dict, min_cc, filt_params,
