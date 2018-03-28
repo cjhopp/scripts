@@ -316,6 +316,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
             for phase in phases
             for stachan in ph_stachans[phase]]
         pool.close()
+        print('Retrieving results')
         rel_pols.extend([p.get() for p in results])
         pool.join()
     else:
@@ -406,9 +407,9 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                     # Invert uncertainty measure for confidence
                     if te.uncertainty or te.upper_uncertainty:
                         try:
-                            wt = 1. - te.uncertainty
+                            wt = 0.1 - te.uncertainty
                         except TypeError:
-                            wt = 1. - te.upper_uncertainty
+                            wt = 0.1 - te.upper_uncertainty
                     elif te.confidence_level:
                         wt = 5 - te.confidence_level
                 if pk.polarity == 'negative':
