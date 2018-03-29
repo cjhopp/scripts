@@ -4,6 +4,7 @@ from future.utils import iteritems
 
 import csv
 import copy
+import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -188,13 +189,13 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False):
                 if len(ev) > 0:
                     ev = ev[0]
                     o = ev.preferred_origin()
-                    if names: name = str(ev.resource_id).split('/')[-1]
-                    else: name = ''
+                    if names:
+                        name = str(ev.resource_id).split('/')[-1]
+                    else:
+                        name = ''
                     of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
                         o.longitude, o.latitude, o.depth / 1000., line[1],
-                        line[2], line[3], ev.preferred_magnitude().mag,
-                        name
-                    ))
+                        line[2], line[3], ev.preferred_magnitude().mag, name))
     return
 
 def arnold_focmec_2_clust(sdr_err_file, clust_dict, outdir, window=None):
@@ -272,12 +273,23 @@ def write_obspy_focmec_2_gmt(catalog, outfile, names=False, strike_range=45,
                     'Range of strikes for {} too large. Skipping.'.format(eid))
     return
 
-def add_pols_to_hyp(catalog, nlloc_dir):
+def add_pols_to_hyp(catalog, nlloc_dir, outdir, ev_type='temp'):
+    """
+    Add polarities to the nlloc hyp files to be used by Arnold focmec stuff
+    :param catalog:
+    :param nlloc_dir:
+    :return:
+    """
     for ev in catalog:
         print('{}'.format(str(ev.resource_id).split('/')[-1]))
-        nlloc_fs = glob('{}/{}*'.format(
-            nlloc_dir,
-            str(ev.resource_id).split('/')[-1].split('_')[0]))
+        if ev_type == 'temp':
+            nlloc_fs = glob('{}/{}*'.format(
+                nlloc_dir,
+                str(ev.resource_id).split('/')[-1].split('_')[0]))
+        elif ev_type == 'det':
+            nlloc_fs = glob('{}/{}*'.format(
+                nlloc_dir,
+                str(ev.resource_id).split('/')[-1]))
         try:
             hyp_path = [path for path in nlloc_fs
                         if path.endswith('.hyp')
@@ -286,9 +298,16 @@ def add_pols_to_hyp(catalog, nlloc_dir):
             print('No NLLoc location for this event. Probably low SNR?')
             continue
         print(hyp_path)
+        # Move hdr and scat files to outdir
+        scat_hdr = [path for path in nlloc_fs
+                    if (path.endswith('.hdr')
+                        or path.endswith('.scat'))
+                    and 'sum' not in path.split('.')]
+        for fl in scat_hdr:
+            shutil.copyfile(fl, '{}/{}'.format(outdir, fl.split('/')[-1]))
         with open(hyp_path, 'r') as orig:
-            with open('{}_pols.hyp'.format(hyp_path.rstrip('.hyp')),
-                      'w') as new:
+            with open('{}/{}'.format(outdir,
+                                     hyp_path.split('/')[-1]), 'w') as new:
                 phase = False
                 for ln in orig:
                     line = ln.rstrip()
@@ -306,7 +325,8 @@ def add_pols_to_hyp(catalog, nlloc_dir):
                         print('Try adding for {}'.format(line[0]))
                         try:
                             pk = [pk for pk in ev.picks
-                                  if pk.waveform_id.station_code == line[0]][0]
+                                  if pk.waveform_id.station_code == line[0]
+                                  and line[2] == 'Z'][0]
                         except IndexError:
                             print('No pick for this.....pick??')
                             continue

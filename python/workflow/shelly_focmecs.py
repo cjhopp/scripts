@@ -369,6 +369,8 @@ def cluster_svd_mat(svd_mat, metric='cosine', criterion='maxclust',
     Z = linkage(svd_mat, method='single', metric=metric)
     if show:
         dendrogram(Z)
+        plt.show()
+        plt.close('all')
     indices = fcluster(Z, t=clusts, criterion=criterion)
     return indices
 
