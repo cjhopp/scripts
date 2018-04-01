@@ -237,15 +237,22 @@ def set_permmodel(dat, zonelist, index, permmodel_dict):
     dat.add(perm_mod)
     return
 
-def make_NM08_grid(work_dir):
+def make_NM08_grid(work_dir, log_base, max_range):
+    """
+    Set up the NM08 grid for pyFEHM
+    :param work_dir: Directory to run the simulation
+    :param log_base: Base of the logrithmic spacing of nodes in xy
+    :param max_range: Half no. of nodes in x or y
+    :return:
+    """
     base_name = 'NM08'
     dat = fdata.fdata(work_dir=work_dir)
     dat.files.root = base_name
     pad_1 = [1500., 1500.]
     # Symmetric grid in x-y
-    base = 3
+    base = log_base
     dx = pad_1[0]
-    x1 = dx ** (1 - base) * np.linspace(0, dx, 10) ** base
+    x1 = dx ** (1 - base) * np.linspace(0, dx, max_range) ** base
     X = np.sort(list(pad_1[0] - x1) + list(pad_1[0] + x1)[1:] + [pad_1[0]])
     # If no. z nodes > 100, temperature_gradient will not like it...
     surface_deps = np.linspace(350, -750, 10)
