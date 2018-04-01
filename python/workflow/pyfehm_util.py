@@ -258,7 +258,7 @@ def make_NM08_grid(work_dir, log_base, max_range):
     surface_deps = np.linspace(350, -750, 4)
     cap_grid = np.linspace(-750, -1200, 3)
     perm_zone = np.linspace(-1200., -2100., 30)
-    lower_reservoir = np.linspace(-2100, -3000, 20)
+    lower_reservoir = np.linspace(-2100, -3000, 15)
     Z = np.sort(list(surface_deps) + list(cap_grid) + list(perm_zone)
                 + list(lower_reservoir))
     dat.grid.make('{}_GRID.inp'.format(base_name), x=X, y=X, z=Z,
