@@ -257,7 +257,7 @@ def make_NM08_grid(work_dir, log_base, max_range):
     # If no. z nodes > 100, temperature_gradient will not like it...
     surface_deps = np.linspace(350, -750, 5)
     cap_grid = np.linspace(-750, -1200, 3)
-    perm_zone = np.linspace(-1200., -2100., 60)
+    perm_zone = np.linspace(-1200., -2100., 50)
     lower_reservoir = np.linspace(-2100, -3000, 20)
     Z = np.sort(list(surface_deps) + list(cap_grid) + list(perm_zone)
                 + list(lower_reservoir))
