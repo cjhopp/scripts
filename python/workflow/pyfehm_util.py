@@ -320,11 +320,10 @@ def model_run(dat, param_dict, verbose=True, diagnostic=False):
          'permeability'])
     dat.cont.format = 'surf'
     dat.cont.time_interval = param_dict['output_interval']
-    dat.hist.variables.append(['temperature', 'pressure', 'flow', 'zfl'])
+    dat.hist.variables.append(['temperature', 'pressure', 'flow', 'stress'])
     dat.hist.time_interval = param_dict['output_interval']
     dat.hist.format = 'surf'
-    dat.hist.zonelist = [dat.zone[30], dat.zone[31], dat.zone[32],
-                         dat.zone[33], dat.zone['tahorakuri']]
+    dat.hist.zonelist = [dat.zone['tahorakuri'], dat.zone['intrusive']]
     # Now run this thing
     dat.run('{}/{}_INPUT.dat'.format(dat.work_dir, dat.files.root),
             use_paths=True, files=['hist', 'outp', 'check'], verbose=verbose,
