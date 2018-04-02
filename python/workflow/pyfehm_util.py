@@ -255,10 +255,10 @@ def make_NM08_grid(work_dir, log_base, max_range):
     x1 = dx ** (1 - base) * np.linspace(0, dx, max_range) ** base
     X = np.sort(list(pad_1[0] - x1) + list(pad_1[0] + x1)[1:] + [pad_1[0]])
     # If no. z nodes > 100, temperature_gradient will not like it...
-    surface_deps = np.linspace(350, -750, 3)
-    cap_grid = np.linspace(-750, -1200, 2)
+    surface_deps = np.linspace(350, -750, 4)
+    cap_grid = np.linspace(-750, -1200, 4)
     perm_zone = np.linspace(-1200., -2100., 30)
-    lower_reservoir = np.linspace(-2100, -3000, 20)
+    lower_reservoir = np.linspace(-2100, -3100, 10)
     Z = np.sort(list(surface_deps) + list(cap_grid) + list(perm_zone)
                 + list(lower_reservoir))
     dat.grid.make('{}_GRID.inp'.format(base_name), x=X, y=X, z=Z,
@@ -293,7 +293,7 @@ def reservoir_params(dat, temp_file, reservoir_dict, show=False):
     dat.new_zone(4, 'intrusive', rect=[[-0.1, -0.1, -2300.],
                                        [grid_dims[0] + 0.1,
                                         grid_dims[1] + 0.1,
-                                        -3000 - 0.1]],
+                                        -3100 - 0.1]],
                  permeability=reservoir_dict['intrusive']['perms'],
                  porosity=0.03, density=2500, specific_heat=1200.,
                  conductivity=2.2, youngs_modulus=33., poissons_ratio=0.33)
