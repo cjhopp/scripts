@@ -14,6 +14,7 @@ import pandas as pd
 from glob import glob
 from copy import deepcopy
 from datetime import datetime
+from joblib import Parallel, delayed
 from multiprocessing import Pool
 
 import matplotlib.pyplot as plt
@@ -379,12 +380,12 @@ def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
 def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
                        cores=2, machine='laptop', parallel=False):
     if parallel:
-        pool = Pool(processes=cores)
-        res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict,
-                                                  dual_list, machine,
-                                                  100, k+j))
-               for j, res_dict in enumerate(reservoir_dicts)
-               for k, dual_list in enumerate(dual_lists)]
+        Parallel(n_jobs=cores)(
+            delayed(NM08_model_loop)(root, run_dict, res_dict, dual_list,
+                                     machine, 100, k+j)
+            for j, res_dict in enumerate(reservoir_dicts)
+            for k, dual_list in enumerate(dual_lists)
+        )
     else:
         for r_dict in reservoir_dicts:
             NM08_model_loop(root, run_dict, r_dict, machine)
