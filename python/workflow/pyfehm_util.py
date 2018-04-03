@@ -202,7 +202,7 @@ def set_well_boundary(dat, excel_file, sheet_name, well_name,
     dat.add(bound)
     return dat
 
-def set_dual(dat, zone, dual_list):
+def set_dual(dat, zonelist, dual_list):
     """
     General function to set an fgeneral macro for non-implemented
     :param dat:
@@ -211,7 +211,7 @@ def set_dual(dat, zone, dual_list):
     :return:
     """
     dual = fdata.fmacro(type='dual', param=dual_list,
-                        zone=zone)
+                        zone=zonelist)
     dat.add(dual)
     return dat
 
@@ -332,15 +332,13 @@ def model_run(dat, param_dict, verbose=True, diagnostic=False):
             diagnostic=diagnostic)
     return dat
 
-def NM08_model_loop(root, run_dict, res_dict, dual_dict, machine,
-                    decimate=100):
+def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
+                    decimate=100, i=1):
     """
     Function to run multiple models in parallel with differing perms (for now)
     on sgees018
     :return:
     """
-    # Making the directory
-    perm_xx, perm_yy, perm_zz = res_dict['tahorakuri']['perms']
     if machine == 'laptop':
         fz_file_pat = '/home/chet/gmt/data/NZ/wells/feedzones/' \
                       'NM08_feedzones_?.csv'
@@ -358,11 +356,7 @@ def NM08_model_loop(root, run_dict, res_dict, dual_dict, machine,
     # Make the directory for this object
     print('Making grid')
     # Extract just floats and exponent from perms
-    px = '{:.1E}'.format(perm_xx)[:3]
-    py = '{:.1E}'.format(perm_yy)[:3]
-    pz = '{:.1E}'.format(perm_zz)[:3]
-    exp = '{:.1E}'.format(perm_xx)[-4:]
-    work_dir = '{}/perms_{}x{}x{}{}'.format(root, px, py, pz, exp)
+    work_dir = '{}/run_{}'.format(root, i)
     dat = make_NM08_grid(work_dir=work_dir)
     print('Assigning reservoir parameters')
     dat = reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
@@ -378,7 +372,7 @@ def NM08_model_loop(root, run_dict, res_dict, dual_dict, machine,
         well_name='NM08', dates=[datetime(2012, 6, 7), datetime(2012, 7, 12)],
         t_step='day', decimate=decimate, debug=0)
     dat = set_stress(dat)
-    dat = set_dual(dat, zonelist=['tahorakuri'], dual_dict=dual_dict)
+    dat = set_dual(dat, zonelist=['tahorakuri'], dual_list=dual_list)
     dat = model_run(dat, run_dict)
     return dat
 
@@ -387,9 +381,10 @@ def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
     if parallel:
         pool = Pool(processes=cores)
         res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict,
-                                                  dual_list, machine))
-               for res_dict in reservoir_dicts
-               for dual_list in dual_lists]
+                                                  dual_list, machine,
+                                                  100, k+j))
+               for j, res_dict in enumerate(reservoir_dicts)
+               for k, dual_list in enumerate(dual_lists)]
     else:
         for r_dict in reservoir_dicts:
             NM08_model_loop(root, run_dict, r_dict, machine)
