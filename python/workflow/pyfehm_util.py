@@ -202,7 +202,7 @@ def set_well_boundary(dat, excel_file, sheet_name, well_name,
     dat.add(bound)
     return dat
 
-def set_fgeneral(dat, zonelist, general_dict):
+def set_dual(dat, zonelist, dual_dict):
     """
     General function to set an fgeneral macro for non-implemented
     :param dat:
@@ -210,8 +210,10 @@ def set_fgeneral(dat, zonelist, general_dict):
     :param general_dict:
     :return:
     """
-
-    return
+    dual = fdata.fmacro(type='dual', param=[0.005, 0.33, 0.1],
+                        zone='tahorakuri')
+    dat.add(dual)
+    return dat
 
 def set_permmodel(dat, zonelist, index, permmodel_dict):
     """
@@ -330,7 +332,8 @@ def model_run(dat, param_dict, verbose=True, diagnostic=False):
             diagnostic=diagnostic)
     return dat
 
-def NM08_model_loop(root, run_dict, res_dict, machine, decimate=100):
+def NM08_model_loop(root, run_dict, res_dict, dual_dict, machine,
+                    decimate=100):
     """
     Function to run multiple models in parallel with differing perms (for now)
     on sgees018
@@ -375,17 +378,18 @@ def NM08_model_loop(root, run_dict, res_dict, machine, decimate=100):
         well_name='NM08', dates=[datetime(2012, 6, 7), datetime(2012, 7, 12)],
         t_step='day', decimate=decimate, debug=0)
     dat = set_stress(dat)
+    dat = set_dual(dat, zonelist=['tahorakuri'], dual_dict=dual_dict)
     dat = model_run(dat, run_dict)
     return dat
 
-def model_multiprocess(reservoir_dicts, root, run_dict, machine='laptop',
-                       parallel=False):
+def model_multiprocess(reservoir_dicts, dual_dicts, root, run_dict,
+                       cores=2, machine='laptop', parallel=False):
     if parallel:
-        cores = len(reservoir_dicts)
         pool = Pool(processes=cores)
         res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict,
-                                                  machine))
-               for i, res_dict in enumerate(reservoir_dicts)]
+                                                  dual_dict, machine))
+               for res_dict in reservoir_dicts
+               for dual_dict in dual_dicts]
     else:
         for r_dict in reservoir_dicts:
             NM08_model_loop(root, run_dict, r_dict, machine)
