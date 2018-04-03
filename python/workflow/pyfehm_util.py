@@ -323,7 +323,7 @@ def model_run(dat, param_dict, verbose=True, diagnostic=False):
     dat.hist.variables.append(['temperature', 'pressure', 'flow', 'stress'])
     dat.hist.time_interval = param_dict['output_interval']
     dat.hist.format = 'surf'
-    dat.hist.zonelist = [dat.zone['tahorakuri'], dat.zone['intrusive']]
+    dat.hist.nodelist = dat.zone['tahorakuri'].nodelist
     # Now run this thing
     dat.run('{}/{}_INPUT.dat'.format(dat.work_dir, dat.files.root),
             use_paths=True, files=['hist', 'outp', 'check'], verbose=verbose,
@@ -456,6 +456,7 @@ def process_output(outdirs, contour=True, history=False, elevation=-1300):
                 title='Stress from well', color='g',
                 marker='o--', method='linear')
         if history:
+            hist = fpost.fhistory('{}/*_his.csv'.format(outdir))
             continue
         plt.close('all')
     return
