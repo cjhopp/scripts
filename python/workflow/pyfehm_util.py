@@ -357,7 +357,7 @@ def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
     print('Making grid')
     # Extract just floats and exponent from perms
     work_dir = '{}/run_{}'.format(root, i)
-    dat = make_NM08_grid(work_dir=work_dir)
+    dat = make_NM08_grid(work_dir=work_dir, log_base=3, max_range=15)
     print('Assigning reservoir parameters')
     dat = reservoir_params(dat, temp_file=T_file, reservoir_dict=res_dict,
                            show=False)
