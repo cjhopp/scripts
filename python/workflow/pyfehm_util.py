@@ -202,7 +202,7 @@ def set_well_boundary(dat, excel_file, sheet_name, well_name,
     dat.add(bound)
     return dat
 
-def set_dual(dat, zonelist, dual_dict):
+def set_dual(dat, zone, dual_list):
     """
     General function to set an fgeneral macro for non-implemented
     :param dat:
@@ -210,8 +210,8 @@ def set_dual(dat, zonelist, dual_dict):
     :param general_dict:
     :return:
     """
-    dual = fdata.fmacro(type='dual', param=[0.005, 0.33, 0.1],
-                        zone='tahorakuri')
+    dual = fdata.fmacro(type='dual', param=dual_list,
+                        zone=zone)
     dat.add(dual)
     return dat
 
@@ -382,14 +382,14 @@ def NM08_model_loop(root, run_dict, res_dict, dual_dict, machine,
     dat = model_run(dat, run_dict)
     return dat
 
-def model_multiprocess(reservoir_dicts, dual_dicts, root, run_dict,
+def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
                        cores=2, machine='laptop', parallel=False):
     if parallel:
         pool = Pool(processes=cores)
         res = [pool.apply_async(NM08_model_loop, (root, run_dict, res_dict,
-                                                  dual_dict, machine))
+                                                  dual_list, machine))
                for res_dict in reservoir_dicts
-               for dual_dict in dual_dicts]
+               for dual_list in dual_lists]
     else:
         for r_dict in reservoir_dicts:
             NM08_model_loop(root, run_dict, r_dict, machine)
