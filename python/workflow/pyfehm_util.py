@@ -374,11 +374,12 @@ def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
         t_step='day', decimate=decimate, debug=0)
     dat = set_stress(dat)
     dat = set_dual(dat, zonelist=['tahorakuri'], dual_list=dual_list)
-    dat = model_run(dat, run_dict)
-    return dat
+    model_run(dat, run_dict)
+    return
 
 def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
                        cores=2, machine='laptop', parallel=False):
+    sys.setrecursionlimit(5000000)
     if parallel:
         Parallel(n_jobs=cores)(
             delayed(NM08_model_loop)(root, run_dict, res_dict, dual_list,
