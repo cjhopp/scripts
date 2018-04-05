@@ -312,7 +312,7 @@ def reservoir_params(dat, temp_file, reservoir_dict, show=False):
         dat.paraview()
     return dat
 
-def model_run(dat, param_dict, verbose=True, diagnostic=False):
+def model_run(dat, param_dict, verbose, diagnostic=False):
     # run simulation
     dat.ti = 0
     dat.tf = 40
@@ -334,7 +334,7 @@ def model_run(dat, param_dict, verbose=True, diagnostic=False):
     return dat
 
 def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
-                    decimate=100, i=1):
+                    decimate=100, i=1, verbose=False):
     """
     Function to run multiple models in parallel with differing perms (for now)
     on sgees018
@@ -374,7 +374,7 @@ def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
         t_step='day', decimate=decimate, debug=0)
     dat = set_stress(dat)
     dat = set_dual(dat, zonelist=['tahorakuri'], dual_list=dual_list)
-    model_run(dat, run_dict)
+    model_run(dat, run_dict, verbose=verbose)
     return
 
 def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
