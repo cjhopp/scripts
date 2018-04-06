@@ -399,6 +399,8 @@ def process_output(outdirs, nodes, contour=True, history=False,
             cont = fpost.fcontour('{}/*sca_node.csv'.format(outdir),
                                   latest=True)
             for var in cont.variables:
+                if not any(var.startswith(v) for v in ['strs', 'P', 'T']):
+                    continue
                 # Set labels
                 if var.startswith('strs'):
                     label = 'Stress (MPa)'
@@ -407,6 +409,7 @@ def process_output(outdirs, nodes, contour=True, history=False,
                 else:
                     label = 'Temperature $^oC$'
                 for elev in elevations:
+                    strs_cnt = 0
                     # Slice plot
                     cont.slice_plot(
                         save='{}/{}_slice_{}.png'.format(outdir, var, elev),
@@ -422,21 +425,44 @@ def process_output(outdirs, nodes, contour=True, history=False,
                         grid_lines='k:', cbar_label=label,
                         title='NM08 {} cutaway'.format(var))
                     # Profile N-S (or y-axis)
-                    cont.profile_plot(
-                        save='{}/{}_prof_Y_{}m.png'.format(outdir, var, elev),
-                        profile=np.array([[1500, 0, elev],
-                                          [1500, 3000, elev]]),
-                        variable=var, ylabel=label,
-                        title='Y-profile {} m: {}'.format(elev, var),
-                        color='b', marker='o--', method='linear')
-                    # Profile E-W (x-axis)
-                    cont.profile_plot(
-                        save='{}/{}_prof_X_{}m.png'.format(outdir, var, elev),
-                        profile=np.array([[0, 1500, elev],
-                                          [3000, 31500, elev]]),
-                        variable=var, ylabel=label,
-                        title='Y-profile {} m: {}'.format(elev, var),
-                        color='b', marker='o--', method='linear')
+                    if not var.startswith('strs'):
+                        cont.profile_plot(
+                            save='{}/{}_prof_Y_{}m.png'.format(outdir, var, elev),
+                            profile=np.array([[1500, 0, elev],
+                                              [1500, 3000, elev]]),
+                            variable=var, ylabel=label,
+                            title='Y-profile {} m: {}'.format(elev, var),
+                            color='b', marker='o--', method='linear')
+                        # Profile E-W (x-axis)
+                        cont.profile_plot(
+                            save='{}/{}_prof_X_{}m.png'.format(outdir, var, elev),
+                            profile=np.array([[0, 1500, elev],
+                                              [3000, 31500, elev]]),
+                            variable=var, ylabel=label,
+                            title='Y-profile {} m: {}'.format(elev, var),
+                            color='b', marker='o--', method='linear')
+                    else:
+                        if strs_cnt == 0:
+                            ax_Y = None
+                            ax_X = None
+                        ax_Y = cont.profile_plot(
+                            save='{}/{}_prof_Y_{}m.png'.format(outdir, var,
+                                                               elev),
+                            profile=np.array([[1500, 0, elev],
+                                              [1500, 3000, elev]]),
+                            variable=var, ylabel=label,
+                            title='Y-profile {} m: {}'.format(elev, var),
+                            color='b', marker='o--', method='linear', ax=ax_Y)
+                        # Profile E-W (x-axis)
+                        ax_X = cont.profile_plot(
+                            save='{}/{}_prof_X_{}m.png'.format(outdir, var,
+                                                               elev),
+                            profile=np.array([[0, 1500, elev],
+                                              [3000, 31500, elev]]),
+                            variable=var, ylabel=label,
+                            title='Y-profile {} m: {}'.format(elev, var),
+                            color='b', marker='o--', method='linear', ax=ax_X)
+                        strs_cnt += 1
         if history:
             hist = fpost.fhistory('{}/*_his.csv'.format(outdir))
             for var in hist.variables:
