@@ -392,72 +392,64 @@ def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
             NM08_model_loop(root, run_dict, r_dict, machine)
     return
 
-def process_output(outdirs, contour=True, history=False, elevation=-1300):
+def process_output(outdirs, nodes, contour=True, history=False,
+                   elevations=(-1300)):
     for outdir in outdirs:
         if contour:
             cont = fpost.fcontour('{}/*sca_node.csv'.format(outdir),
                                   latest=True)
-            # Slice plots of T, P and stress
-            cont.slice_plot(
-                save='{}/T_slice_{}.png'.format(outdir, elevation), cbar=True,
-                levels=10, slice=['z', elevation], divisions=[150, 150],
-                variable='T', xlims=[0, 3000], ylims=[0, 3000],
-                title='NM08 T slice: {} m'.format(elevation))
-            cont.slice_plot(
-                save='{}/P_slice_{}.png'.format(outdir, elevation), cbar=True,
-                levels=10, slice=['z', elevation], divisions=[150, 150],
-                variable='P', xlims=[0, 3000], ylims=[0, 3000],
-                title='NM08 P slice: {} m'.format(elevation))
-            cont.slice_plot(
-                save='{}/strs_xx_slice_{}.png'.format(outdir, elevation),
-                cbar=True, levels=10, slice=['z', elevation],
-                divisions=[150, 150], variable='strs_xx', xlims=[0, 3000],
-                ylims=[0, 3000],
-                title='NM08 strs_xx slice: {} m'.format(elevation))
-            # Cutaway plots
-            cont.cutaway_plot(
-                save='{}/T_cutaway_{}.png'.format(outdir, elevation),
-                cbar=True, levels=np.linspace(240, 270, 10),
-                variable='T', xlims=[1500, 2000], ylims=[1500, 2000],
-                zlims=[-2000, -1200], grid_lines='k:',
-                title='NM08 T cutaway / $^o$C'.format(elevation))
-            cont.cutaway_plot(
-                save='{}/P_cutaway_{}.png'.format(outdir, elevation),
-                cbar=True, levels=np.linspace(9, 15, 10),
-                variable='P', xlims=[1500, 2000], ylims=[1500, 2000],
-                zlims=[-2000, -1200], grid_lines='k:',
-                title='NM08 P cutaway / MPa'.format(elevation))
-            cont.cutaway_plot(
-                save='{}/strs_xx_cutaway_{}.png'.format(outdir, elevation),
-                cbar=True, levels=np.linspace(20, 40, 10),
-                variable='strs_xx', xlims=[1500, 2000], ylims=[1500, 2000],
-                zlims=[-2000, -1200], grid_lines='k:',
-                title='NM08 strs_xx cutaway / MPa'.format(elevation))
-            # Profile plots
-            cont.profile_plot(
-                save='{}/T_prof_from_NM08_{}.png'.format(outdir, elevation),
-                profile=np.array([[1500, 1500, elevation],
-                                  [3000, 3000, elevation]]),
-                variable='T', ylabel='Temperature $^o$C',
-                title='Temp from well', color='g',
-                marker='o--', method='linear')
-            cont.profile_plot(
-                save='{}/P_prof_from_NM08_{}.png'.format(outdir, elevation),
-                profile=np.array([[1500, 1500, elevation],
-                                  [3000, 3000, elevation]]),
-                variable='P', ylabel='Pressure MPa',
-                title='Pressure from well', color='g',
-                marker='o--', method='linear')
-            cont.profile_plot(
-                save='{}/H_stress_prof_from_NM08_{}.png'.format(outdir,
-                                                                elevation),
-                profile=np.array([[1500, 1500, elevation],
-                                  [3000, 3000, elevation]]),
-                variable='strs_xx', ylabel='Stress_xx MPa',
-                title='Stress from well', color='g',
-                marker='o--', method='linear')
+            for var in cont.variables:
+                # Set labels
+                if var.startswith('strs'):
+                    label = 'Stress (MPa)'
+                elif var.startswith('P'):
+                    label = 'Pressure (MPa)'
+                else:
+                    label = 'Temperature $^oC$'
+                for elev in elevations:
+                    # Slice plot
+                    cont.slice_plot(
+                        save='{}/{}_slice_{}.png'.format(outdir, var, elev),
+                        cbar=True, slice=['z', elev], divisions=[150, 150],
+                        variable=var, xlims=[1000, 2000], ylims=[1000, 2000],
+                        cbar_label=label,
+                        title='NM08 {} slice: {} m'.format(var, elev))
+                    # Cutaway plot
+                    cont.cutaway_plot(
+                        save='{}/{}_cutaway.png'.format(outdir, var),
+                        cbar=True, variable=var, xlims=[1500, 2000],
+                        ylims=[1500, 2000], zlims=[-2500, -1100],
+                        grid_lines='k:', cbar_label=label,
+                        title='NM08 {} cutaway'.format(var))
+                    # Profile N-S (or y-axis)
+                    cont.profile_plot(
+                        save='{}/{}_prof_Y_{}m.png'.format(outdir, var, elev),
+                        profile=np.array([[1500, 0, elev],
+                                          [1500, 3000, elev]]),
+                        variable=var, ylabel=label,
+                        title='Y-profile {} m: {}'.format(elev, var),
+                        color='b', marker='o--', method='linear')
+                    # Profile E-W (x-axis)
+                    cont.profile_plot(
+                        save='{}/{}_prof_X_{}m.png'.format(outdir, var, elev),
+                        profile=np.array([[0, 1500, elev],
+                                          [3000, 31500, elev]]),
+                        variable=var, ylabel=label,
+                        title='Y-profile {} m: {}'.format(elev, var),
+                        color='b', marker='o--', method='linear')
         if history:
             hist = fpost.fhistory('{}/*_his.csv'.format(outdir))
-            continue
+            for var in hist.variables:
+                if var.startswith('strs'):
+                    label = 'Stress (MPa)'
+                elif var.startswith('P'):
+                    label = 'Pressure (MPa)'
+                else:
+                    label = 'Temperature $^oC$'
+                for node in nodes:
+                    title = '{} at node {}'.format(var, str(node))
+                    hist.time_plot(variable=var, node=node, title=title,
+                                   ylabel=label, xlabel='Days',
+                                   save='{}_node_{}.png'.format(var, node))
         plt.close('all')
     return

@@ -234,7 +234,7 @@ def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
     return phase, stachan, pol_array
 
 def make_corr_matrices(template_streams, detection_streams, template_cat,
-                       detection_cat, corr_dict, min_cc, filt_params,
+                       detection_cat, corr_dict, filt_params,
                        phases=('P', 'S'), cores=4, debug=0, save=False):
     """
     Create the correlation matrices
@@ -314,7 +314,8 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
             (phase, stachan,
              temp_traces[phase][stachan],
              det_traces[phase][stachan]),
-             {'min_cc': min_cc, 'debug': debug})
+             {'min_cc': corr_dict[phase]['min_cc'],
+              'debug': debug})
             for phase in phases
             for stachan in ph_stachans[phase]]
         pool.close()
@@ -333,7 +334,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                     for n in range(len(detection_streams)):
                         pol = _rel_polarity(temp_traces[phase][stachan][m],
                                             det_traces[phase][stachan][n],
-                                            min_cc, debug)
+                                            corr_dict[phase]['min_cc'], debug)
                         pol_array[n][m] = pol
                 rel_pols.append((phase, stachan, pol_array))
     if save:
