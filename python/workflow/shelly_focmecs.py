@@ -477,7 +477,10 @@ def compare_rel_cat_pols(cat_pols, cat_dets):
     cat_picks_dict = {ev.resource_id.id.split('/')[-1]: ev
                       for ev in cat_dets if len([pk for pk in ev.picks
                                                  if pk.polarity]) > 0}
-    matches = {}  # This will contain bools for stachans and rel_pol weights
+    # This will contain bools for stachans and rel_pol_weights
+    matches = {stachan: [] for stachan in
+               list(set([pk.waveform_id.station_code for ev in cat_pols
+                         for pk in ev.picks]))}
     for ev in cat_pols:
          if ev.resource_id.id.split('/')[-1] in cat_picks_dict:
              eid = ev.resource_id.id.split('/')[-1]
