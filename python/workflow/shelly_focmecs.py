@@ -400,7 +400,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5, plot=False):
     # Create dictionary of all weighted catalog polarities
     cat_pol_dict = {stachan: np.zeros((len(cat_dets))) for stachan in z_chans}
     for i, ev in enumerate(cat_dets):
-        for pk in ev.picks:
+        for pk in ev.picks and pk.hint == 'P':
             if pk.polarity:
                 sta = pk.waveform_id.station_code
                 chan = pk.waveform_id.channel_code
