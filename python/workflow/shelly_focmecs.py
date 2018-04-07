@@ -486,7 +486,8 @@ def compare_rel_cat_pols(cat_pols, cat_dets):
              eid = ev.resource_id.id.split('/')[-1]
              for pk in ev.picks:
                  stachan = pk.waveform_id.station_code
-                 if pk.phase_hint == 'P' and pk.polarity:
+                 if (pk.phase_hint == 'P' and pk.polarity
+                     and len(pk.comments) != 0):
                     pol = [p for p in cat_picks_dict[eid].picks
                            if p.waveform_id.station_code ==
                            pk.waveform_id.station_code]
