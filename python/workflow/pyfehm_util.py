@@ -456,7 +456,8 @@ def process_output(outdirs, nodes, contour=True, history=True,
                     title = '{} at node {}'.format(var, str(node))
                     hist.time_plot(variable=var, node=node, title=title,
                                    ylabel=label, xlabel='Days',
-                                   save='{}_node_{}.png'.format(var, node))
+                                   save='{}/{}_node_{}.png'.format(outdir, var,
+                                                                   node))
         plt.close('all')
     return
 

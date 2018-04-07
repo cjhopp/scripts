@@ -443,8 +443,8 @@ def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5, plot=False):
         else:
             z_mat[:, i] *= stachan_wt[stachan]
     # Put the final polarities into a new catalog
-    cat_pols = cat_dets.copy()
-    for i, ev in enumerate(cat_pols):
+    catalog_pols = cat_dets.copy()
+    for i, ev in enumerate(catalog_pols):
         for pk in ev.picks:
             sta = pk.waveform_id.station_code
             chan = pk.waveform_id.channel_code
@@ -470,7 +470,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5, plot=False):
                 pk.comments.append(
                     Comment(text='pol_wt: {}'.format(
                         np.abs(z_mat[i, stach_i]))))
-    return cat_pols, cat_pol_dict, z_mat, z_chans
+    return catalog_pols, cat_pol_dict, z_mat, z_chans
 
 def compare_rel_cat_pols(cat_pols, cat_dets):
     # Make dict of eid: event for detections with polarity picks
