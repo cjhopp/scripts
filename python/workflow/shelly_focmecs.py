@@ -490,7 +490,9 @@ def compare_rel_cat_pols(cat_pols, cat_dets):
                      and len(pk.comments) != 0):
                     pol = [p for p in cat_picks_dict[eid].picks
                            if p.waveform_id.station_code ==
-                           pk.waveform_id.station_code]
+                           pk.waveform_id.station_code
+                           and p.waveform_id.channel_code ==
+                           pk.waveform_id.channel_code]
                     if len(pol) > 0:
                         matches[stachan].append(
                             (pol[0].polarity == pk.polarity,
