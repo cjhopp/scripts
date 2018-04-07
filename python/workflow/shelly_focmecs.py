@@ -351,7 +351,7 @@ def svd_matrix(rel_pols):
     stachans = []
     for i, rel_pol in enumerate(rel_pols):
         u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
-        lsv = u[:, 0]
+        lsv = u[:, 0] # First left sigular vector
         if i == 0:
             stachans.append((rel_pol[0], rel_pol[1]))
             svd_mat = lsv[~np.isnan(lsv)]
@@ -375,15 +375,17 @@ def cluster_svd_mat(svd_mat, metric='cosine', criterion='maxclust',
     indices = fcluster(Z, t=clusts, criterion=criterion)
     return indices
 
-def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
+def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5, plot=False):
     """
 
     :param svd_mat: nxm matrix output from svd_matrix
     :param stachans: List of tuples of (phase, stachan) output from
         svd_matrix
-    :param cat_dets:
-    :param indices:
-    :param plot:
+    :param cat_dets: Original catalog of detections to copy and reassign
+        relative polarities to
+    :type cat_dets: obspy.core.Catalog
+    :param min_weight: Threshold for final polarity weights to accept
+    :type min_weight: float
     :return:
 
      ..Note We assume values for any of pick.time_errors.uncertainty
@@ -422,9 +424,6 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                 elif pk.polarity == 'positive':
                     pol = 1. * wt
                 cat_pol_dict['{}.{}'.format(sta, chan)][i] = pol
-    if plot:
-        plot_svd_pols = np.array([])
-        plot_cat_pols = np.array([])
     # Establish stachan weighting by comparing SVD pols with cat pols
     # Apply to z_mat
     stachan_wt = {}
@@ -443,14 +442,6 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
             continue
         else:
             z_mat[:, i] *= stachan_wt[stachan]
-        if plot:
-            plot_svd_pols = np.hstack((plot_svd_pols, z_mat[i, :]))
-            plot_cat_pols = np.hstack((plot_cat_pols, cat_pol_dict[stachan]))
-    if plot:
-        plt.plot(plot_svd_pols, plot_cat_pols)
-        # plt.show()
-        plt.savefig('test_pols.png')
-        plt.close('all')
     # Put the final polarities into a new catalog
     cat_pols = cat_dets.copy()
     for i, ev in enumerate(cat_pols):
@@ -467,6 +458,8 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                 continue
             # Assign polarity by the sign. Put the weight in a Comment at the
             # moment. User will have to decide what to do with this.
+            if np.abs(z_mat[i, stach_i]) < min_weight:
+                continue  # Skip if below threshold
             if z_mat[i, stach_i] < 0.0:
                 pk.polarity = 'negative'
                 pk.comments.append(
@@ -478,6 +471,27 @@ def catalog_resolve(svd_mat, stachans, cat_dets, plot=False):
                     Comment(text='pol_wt: {}'.format(
                         np.abs(z_mat[i, stach_i]))))
     return cat_pols, cat_pol_dict, z_mat, z_chans
+
+def compare_rel_cat_pols(cat_pols, cat_dets):
+    # Make dict of eid: event for detections with polarity picks
+    cat_picks_dict = {ev.resource_id.id.split('/')[-1]: ev
+                      for ev in cat_dets if len([pk for pk in ev.picks
+                                                 if pk.polarity]) > 0}
+    matches = {}  # This will contain bools for stachans and rel_pol weights
+    for ev in cat_pols:
+         if ev.resource_id.id.split('/')[-1] in cat_picks_dict:
+             eid = ev.resource_id.id.split('/')[-1]
+             for pk in ev.picks:
+                 stachan = pk.waveform_id.station_code
+                 if pk.phase_hint == 'P' and pk.polarity:
+                    pol = [p for p in cat_picks_dict[eid].picks
+                           if p.waveform_id.station_code ==
+                           pk.waveform_id.station_code]
+                    if len(pol) > 0:
+                        matches[stachan].append(
+                            (pol[0].polarity == pk.polarity,
+                             pk.comments[-1].text))
+    return matches
 
 def cluster_cat(indices, det_cat):
     """

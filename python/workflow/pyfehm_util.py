@@ -3,9 +3,6 @@
 """
 Functions for running creating models and running pyFEHM simulations
 """
-import sys
-sys.path.insert(0, '/home/chet/pyfehm/')
-
 import fdata
 import fpost
 import numpy as np
@@ -392,24 +389,24 @@ def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
             NM08_model_loop(root, run_dict, r_dict, machine)
     return
 
-def process_output(outdirs, nodes, contour=True, history=False,
-                   elevations=(-1300)):
+def process_output(outdirs, nodes, contour=True, history=True,
+                   elevations=[-1300]):
     for outdir in outdirs:
         if contour:
             cont = fpost.fcontour('{}/*sca_node.csv'.format(outdir),
                                   latest=True)
-            for var in cont.variables:
-                if not any(var.startswith(v) for v in ['strs', 'P', 'T']):
-                    continue
-                # Set labels
-                if var.startswith('strs'):
-                    label = 'Stress (MPa)'
-                elif var.startswith('P'):
-                    label = 'Pressure (MPa)'
-                else:
-                    label = 'Temperature $^oC$'
-                for elev in elevations:
-                    strs_cnt = 0
+            for elev in elevations:
+                for var in cont.variables:
+                    print('Plotting variable: {}'.format(var))
+                    if not any(var.startswith(v) for v in ['strs', 'P', 'T']):
+                        continue
+                    # Set labels
+                    if var.startswith('strs'):
+                        label = 'Stress (MPa)'
+                    elif var.startswith('P'):
+                        label = 'Pressure (MPa)'
+                    else:
+                        label = 'Temperature $^oC$'
                     # Slice plot
                     cont.slice_plot(
                         save='{}/{}_slice_{}.png'.format(outdir, var, elev),
@@ -426,46 +423,29 @@ def process_output(outdirs, nodes, contour=True, history=False,
                         title='NM08 {} cutaway'.format(var))
                     # Profile N-S (or y-axis)
                     if not var.startswith('strs'):
-                        cont.profile_plot(
-                            save='{}/{}_prof_Y_{}m.png'.format(outdir, var, elev),
+                        ax_pro = cont.profile_plot(
                             profile=np.array([[1500, 0, elev],
                                               [1500, 3000, elev]]),
-                            variable=var, ylabel=label,
-                            title='Y-profile {} m: {}'.format(elev, var),
-                            color='b', marker='o--', method='linear')
+                            variable=var, ylabel=label, line_label='X-profile',
+                            color='r', marker='o--', method='linear')
                         # Profile E-W (x-axis)
                         cont.profile_plot(
-                            save='{}/{}_prof_X_{}m.png'.format(outdir, var, elev),
+                            save='{}/{}_prof_{}m.png'.format(outdir, var, elev),
                             profile=np.array([[0, 1500, elev],
-                                              [3000, 31500, elev]]),
-                            variable=var, ylabel=label,
-                            title='Y-profile {} m: {}'.format(elev, var),
-                            color='b', marker='o--', method='linear')
-                    else:
-                        if strs_cnt == 0:
-                            ax_Y = None
-                            ax_X = None
-                        ax_Y = cont.profile_plot(
-                            save='{}/{}_prof_Y_{}m.png'.format(outdir, var,
-                                                               elev),
-                            profile=np.array([[1500, 0, elev],
-                                              [1500, 3000, elev]]),
-                            variable=var, ylabel=label,
-                            title='Y-profile {} m: {}'.format(elev, var),
-                            color='b', marker='o--', method='linear', ax=ax_Y)
-                        # Profile E-W (x-axis)
-                        ax_X = cont.profile_plot(
-                            save='{}/{}_prof_X_{}m.png'.format(outdir, var,
-                                                               elev),
-                            profile=np.array([[0, 1500, elev],
-                                              [3000, 31500, elev]]),
-                            variable=var, ylabel=label,
-                            title='Y-profile {} m: {}'.format(elev, var),
-                            color='b', marker='o--', method='linear', ax=ax_X)
-                        strs_cnt += 1
+                                              [3000, 1500, elev]]),
+                            variable=var, ylabel=label, legend=True,
+                            line_label='Y-profile',
+                            title='Profiles {} m: {}'.format(elev, var),
+                            color='b', marker='o--', method='linear',
+                            ax=ax_pro)
+                # Make the stress profs
+                _stress_profile(cont, outdir, elev)
         if history:
             hist = fpost.fhistory('{}/*_his.csv'.format(outdir))
             for var in hist.variables:
+                print('Plotting history for: {}'.format(var))
+                if not any(var.startswith(v) for v in ['strs', 'P', 'T']):
+                    continue
                 if var.startswith('strs'):
                     label = 'Stress (MPa)'
                 elif var.startswith('P'):
@@ -477,5 +457,67 @@ def process_output(outdirs, nodes, contour=True, history=False,
                     hist.time_plot(variable=var, node=node, title=title,
                                    ylabel=label, xlabel='Days',
                                    save='{}_node_{}.png'.format(var, node))
+        plt.close('all')
+    return
+
+def _stress_profile(hist_obj, outdir, elev):
+    # Making combined plots of stress (time or profile)
+    if isinstance(hist_obj, fpost.fcontour):
+        for var, col in zip(['strs_xx', 'strs_yy', 'strs_zz'],
+                            ['b', 'r', 'purple']):
+            label = 'Stress (MPa)'
+            if var == 'strs_xx':
+                ax_Y = hist_obj.profile_plot(
+                    profile=np.array([[1500, 0, elev], [1500, 3000, elev]]),
+                    variable=var, ylabel=label,
+                    title='Y-profile {} m: Stress'.format(elev, var),
+                    color=col, marker='o--', method='linear')
+                ax_X = hist_obj.profile_plot(
+                    profile=np.array([[0, 1500, elev], [3000, 1500, elev]]),
+                    variable=var, ylabel=label,
+                    title='X-profile {} m: Stress'.format(elev, var),
+                    color=col, marker='o--', method='linear')
+            else:
+                ax_Y = hist_obj.profile_plot(
+                    save='{}/Stress_prof_Y_{}m.png'.format(outdir, elev),
+                    profile=np.array([[1500, 0, elev], [1500, 3000, elev]]),
+                    variable=var, ylabel=label, legend=True,
+                    title='Y-profile {} m: Stress'.format(elev, var),
+                    color=col, marker='o--', method='linear', ax=ax_Y)
+                ax_X = hist_obj.profile_plot(
+                    save='{}/Stress_prof_X_{}m.png'.format(outdir, elev),
+                    profile=np.array([[0, 1500, elev], [3000, 1500, elev]]),
+                    variable=var, ylabel=label, legend=True,
+                    title='X-profile {} m: Stress'.format(elev, var),
+                    color=col, marker='o--', method='linear', ax=ax_X)
+        for var, col in zip(['strs_xy', 'strs_xz', 'strs_yz'],
+                            ['g', 'pink', 'orange']):
+            label = 'Diff. Stress (MPa)'
+            if var == 'strs_xy':
+                diff_Y = hist_obj.profile_plot(
+                    profile=np.array([[1500, 0, elev], [1500, 3000, elev]]),
+                    variable=var, ylabel=label,
+                    title='Y-profile {} m: Stress'.format(elev, var),
+                    color=col, marker='o--', method='linear')
+                diff_X = hist_obj.profile_plot(
+                    profile=np.array([[0, 1500, elev], [3000, 1500, elev]]),
+                    variable=var, ylabel=label,
+                    title='X-profile {} m: Stress'.format(elev, var),
+                    color=col, marker='o--', method='linear')
+            else:
+                diff_Y = hist_obj.profile_plot(
+                    save='{}/Diff_stress_prof_Y_{}m.png'.format(outdir, elev),
+                    profile=np.array([[1500, 0, elev], [1500, 3000, elev]]),
+                    variable=var, ylabel=label, legend=True,
+                    title='Y-profile {} m: Differential Stress'.format(elev,
+                                                                       var),
+                    color=col, marker='o--', method='linear', ax=diff_Y)
+                diff_X = hist_obj.profile_plot(
+                    save='{}/Diff_stress_prof_X_{}m.png'.format(outdir, elev),
+                    profile=np.array([[0, 1500, elev], [3000, 1500, elev]]),
+                    variable=var, ylabel=label, legend=True,
+                    title='X-profile {} m: Differential Stress'.format(elev,
+                                                                       var),
+                    color=col, marker='o--', method='linear', ax=diff_X)
         plt.close('all')
     return
