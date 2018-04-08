@@ -391,7 +391,7 @@ def NM08_model_loop(root, run_dict, res_dict, dual_list, perm_tup, machine,
 
 
 def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
-                       perm_dicts=None, cores=2, machine='laptop',
+                       perm_tups=None, cores=2, machine='laptop',
                        parallel=False):
     """
     Top-level function to run various models for NM08 stimulation in parallel
@@ -420,7 +420,7 @@ def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
                                      machine, 100, k+j+m)
             for j, res_dict in enumerate(reservoir_dicts)
             for k, dual_list in enumerate(dual_lists)
-            for m, perm_dict in enumerate(perm_dicts)
+            for m, perm_dict in enumerate(perm_tups)
         )
     else:
         for r_dict in reservoir_dicts:
