@@ -234,7 +234,7 @@ def set_permmodel(dat, zonelist, index, permmodel_dict):
     :type permmodel_dict: dict
     :param permmodel_dict: Dictionary of parameters for this particular model.
         All of the available parameters must be assigned (see fdata.py lines
-        70-90). No defaults will be set.
+        80-90). No defaults will be set.
     :return:
     """
     perm_mod = fdata.fmodel('permmodel', index=index,
@@ -243,7 +243,7 @@ def set_permmodel(dat, zonelist, index, permmodel_dict):
     for key, value in permmodel_dict.iteritems():
         perm_mod.param[key] = value
     dat.add(perm_mod)
-    return
+    return dat
 
 
 def make_NM08_grid(work_dir, log_base, max_range):
