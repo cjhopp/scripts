@@ -331,7 +331,8 @@ def model_run(dat, param_dict, verbose, diagnostic=False):
          'permeability'])
     dat.cont.format = 'surf'
     dat.cont.time_interval = param_dict['output_interval']
-    dat.hist.variables.append(['temperature', 'pressure', 'flow', 'stress'])
+    dat.hist.variables.append(['temperature', 'pressure', 'flow', 'stress',
+                               'permeability'])
     dat.hist.time_interval = param_dict['output_interval']
     dat.hist.format = 'surf'
     dat.hist.nodelist = dat.zone['tahorakuri'].nodelist
@@ -342,7 +343,7 @@ def model_run(dat, param_dict, verbose, diagnostic=False):
     return dat
 
 
-def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
+def NM08_model_loop(root, run_dict, res_dict, dual_list, perm_tup, machine,
                     decimate=100, i=1, verbose=False):
     """
     Function to run multiple models in parallel with differing perms (for now)
@@ -383,19 +384,43 @@ def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
         t_step='day', decimate=decimate, debug=0)
     dat = set_stress(dat)
     dat = set_dual(dat, zonelist=['tahorakuri'], dual_list=dual_list)
+    if perm_tup:
+        dat = set_permmodel(dat, perm_tup[0], )
     model_run(dat, run_dict, verbose=verbose)
     return
 
 
 def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
-                       cores=2, machine='laptop', parallel=False):
+                       perm_dicts=None, cores=2, machine='laptop',
+                       parallel=False):
+    """
+    Top-level function to run various models for NM08 stimulation in parallel
+    for all combinations of reservoir parameters, dual macro parameters and
+    permeability model parameters.
+
+    :param reservoir_dicts: List of dictionaries containing xyz perms for
+        the tahorakuri and the intrusive
+    :param dual_lists: List of lists of the three parameters needed to define
+        a 'dual' macro.
+    :param root: Root directory into which the output will be written
+    :param run_dict: Dictionary of time and output parameters for these runs
+    :param perm_dicts: List of tuples of (index, dict) with dict being a
+        dictionary containing all the necessary parameters needed to define
+        the permmodel for the given index.
+    :param cores: Number of worker processes spawned to run these combos
+    :param machine: Flag to specify hard-coded paths to flow rates and other
+        info files on the VUW network, or my laptop.
+    :param parallel: Are we running this in parallel? (Uses joblib)
+    :return:
+    """
     sys.setrecursionlimit(5000000)
     if parallel:
         Parallel(n_jobs=cores)(
             delayed(NM08_model_loop)(root, run_dict, res_dict, dual_list,
-                                     machine, 100, k+j)
+                                     machine, 100, k+j+m)
             for j, res_dict in enumerate(reservoir_dicts)
             for k, dual_list in enumerate(dual_lists)
+            for m, perm_dict in enumerate(perm_dicts)
         )
     else:
         for r_dict in reservoir_dicts:
