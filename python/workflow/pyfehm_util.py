@@ -3,6 +3,7 @@
 """
 Functions for running creating models and running pyFEHM simulations
 """
+import sys
 import fdata
 import fpost
 import numpy as np
@@ -28,6 +29,7 @@ def latlon_2_grid(x, y, z, origin):
     new_y = (y - origin[1]) * 111111
     new_x = (x - origin[0]) * (111111 * np.cos(origin[1] * (np.pi/180)))
     return new_x, new_y, z
+
 
 def feedzones_2_rects(fz_file_pattern, surf_loc=None):
     """
@@ -61,6 +63,7 @@ def feedzones_2_rects(fz_file_pattern, surf_loc=None):
         fz_rects.append(rect)
     return fz_rects
 
+
 def run_initial_conditions(dat):
     # initial run allowing equilibration
     dat.tf = 365.25
@@ -75,6 +78,7 @@ def run_initial_conditions(dat):
     dat.delete(
         [zn for zn in dat.zonelist if (zn.index >= 600 and zn.index <= 700)])
     return dat
+
 
 def set_stress(dat):
     """
@@ -107,6 +111,7 @@ def set_stress(dat):
                          calculate_vertical=True, vertical_fraction=True)
     return dat
 
+
 def define_well_nodes(dat, well_file_pattern, well_name, surf_loc=None,
                       type='injection'):
     """
@@ -133,6 +138,7 @@ def define_well_nodes(dat, well_file_pattern, well_name, surf_loc=None,
         dat.new_zone(ind + i, name='{}_fzone_{}'.format(well_name, i),
                      rect=rect)
     return dat
+
 
 def set_well_boundary(dat, excel_file, sheet_name, well_name,
                       dates, parameters=['Flow (t/h)', 'WHP (barg)'],
@@ -200,6 +206,7 @@ def set_well_boundary(dat, excel_file, sheet_name, well_name,
     dat.add(bound)
     return dat
 
+
 def set_dual(dat, zonelist, dual_list):
     """
     General function to set an fgeneral macro for non-implemented
@@ -212,6 +219,7 @@ def set_dual(dat, zonelist, dual_list):
                         zone=zonelist)
     dat.add(dual)
     return dat
+
 
 def set_permmodel(dat, zonelist, index, permmodel_dict):
     """
@@ -236,6 +244,7 @@ def set_permmodel(dat, zonelist, index, permmodel_dict):
         perm_mod.param[key] = value
     dat.add(perm_mod)
     return
+
 
 def make_NM08_grid(work_dir, log_base, max_range):
     """
@@ -279,6 +288,7 @@ def make_NM08_grid(work_dir, log_base, max_range):
                  specific_heat=1200., conductivity=2.2)
     return dat
 
+
 def reservoir_params(dat, temp_file, reservoir_dict, show=False):
     grid_dims = [3000., 3000.] # 5x7x5 km grid
     # Intrusive properties from Cant et al., 2018
@@ -309,6 +319,7 @@ def reservoir_params(dat, temp_file, reservoir_dict, show=False):
         dat.paraview()
     return dat
 
+
 def model_run(dat, param_dict, verbose, diagnostic=False):
     # run simulation
     dat.ti = 0
@@ -329,6 +340,7 @@ def model_run(dat, param_dict, verbose, diagnostic=False):
             use_paths=True, files=['hist', 'outp', 'check'], verbose=verbose,
             diagnostic=diagnostic)
     return dat
+
 
 def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
                     decimate=100, i=1, verbose=False):
@@ -374,6 +386,7 @@ def NM08_model_loop(root, run_dict, res_dict, dual_list, machine,
     model_run(dat, run_dict, verbose=verbose)
     return
 
+
 def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
                        cores=2, machine='laptop', parallel=False):
     sys.setrecursionlimit(5000000)
@@ -388,6 +401,7 @@ def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
         for r_dict in reservoir_dicts:
             NM08_model_loop(root, run_dict, r_dict, machine)
     return
+
 
 def process_output(outdirs, nodes, contour=True, history=True,
                    elevations=[-1300]):
@@ -442,24 +456,60 @@ def process_output(outdirs, nodes, contour=True, history=True,
                 _stress_profile(cont, outdir, elev)
         if history:
             hist = fpost.fhistory('{}/*_his.csv'.format(outdir))
-            for var in hist.variables:
-                print('Plotting history for: {}'.format(var))
-                if not any(var.startswith(v) for v in ['strs', 'P', 'T']):
-                    continue
-                if var.startswith('strs'):
-                    label = 'Stress (MPa)'
-                elif var.startswith('P'):
-                    label = 'Pressure (MPa)'
-                else:
-                    label = 'Temperature $^oC$'
-                for node in nodes:
+            for node in nodes:
+                for var in hist.variables:
+                    print('Plotting history for: {}'.format(var))
+                    if not any(var.startswith(v) for v in ['strs', 'P', 'T']):
+                        continue
+                    if var.startswith('strs'):
+                        label = 'Stress (MPa)'
+                    elif var.startswith('P'):
+                        label = 'Pressure (MPa)'
+                    else:
+                        label = 'Temperature $^oC$'
                     title = '{} at node {}'.format(var, str(node))
-                    hist.time_plot(variable=var, node=node, title=title,
-                                   ylabel=label, xlabel='Days',
-                                   save='{}/{}_node_{}.png'.format(outdir, var,
-                                                                   node))
+                    if not var.startswith('strs'):
+                        hist.time_plot(variable=var, node=node, title=title,
+                                       ylabel=label, xlabel='Days',
+                                       save='{}/{}_node_{}.png'.format(
+                                           outdir, var, node))
+                _stress_history(hist, outdir, node)
         plt.close('all')
     return
+
+
+def _stress_history(hist_obj, outdir, node):
+    if isinstance(hist_obj, fpost.fhistory):
+        label = 'Stress (MPa)'
+        for var, col in zip(['strs_xx', 'strs_yy', 'strs_zz'],
+                            ['b', 'r', 'purple']):
+            label = 'Stress (MPa)'
+            if var == 'strs_xx':
+                ax = hist_obj.time_plot(
+                    variable=var, ylabel=label, xlabel='Days', node=node,
+                    title='Stress with time at node: {}'.format(node),
+                    color=col, marker='x--')
+            else:
+                ax = hist_obj.time_plot(
+                    save='{}/Stress_time_node_{}.png'.format(outdir, node),
+                    variable=var, legend=True, node=node,
+                    color=col, marker='x--', ax=ax)
+        for var, col in zip(['strs_xy', 'strs_xz', 'strs_yz'],
+                            ['g', 'pink', 'orange']):
+            label = 'Diff. Stress (MPa)'
+            if var == 'strs_xy':
+                diff = hist_obj.time_plot(
+                    variable=var, ylabel=label, node=node,
+                    title='Diff_stress_time_node_{}'.format(node),
+                    color=col, marker='x--')
+            else:
+                diff = hist_obj.time_plot(
+                    save='{}/Diff_stress_node_{}.png'.format(outdir, node),
+                    variable=var, ylabel=label, legend=True, node=node,
+                    color=col, marker='x--', ax=diff)
+        plt.close('all')
+    return
+
 
 def _stress_profile(hist_obj, outdir, elev):
     # Making combined plots of stress (time or profile)
