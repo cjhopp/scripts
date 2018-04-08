@@ -385,7 +385,8 @@ def NM08_model_loop(root, run_dict, res_dict, dual_list, perm_tup, machine,
     dat = set_stress(dat)
     dat = set_dual(dat, zonelist=['tahorakuri'], dual_list=dual_list)
     if perm_tup:
-        dat = set_permmodel(dat, perm_tup[0], )
+        dat = set_permmodel(dat, zonelist=['tahorakuri'], index=perm_tup[0],
+                            permmodel_dict=perm_tup[1])
     model_run(dat, run_dict, verbose=verbose)
     return
 
