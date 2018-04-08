@@ -418,10 +418,10 @@ def model_multiprocess(reservoir_dicts, dual_lists, root, run_dict,
     if parallel:
         Parallel(n_jobs=cores)(
             delayed(NM08_model_loop)(root, run_dict, res_dict, dual_list,
-                                     machine, 100, k+j+m)
+                                     perm_tup, machine, 100, k+j+m)
             for j, res_dict in enumerate(reservoir_dicts)
             for k, dual_list in enumerate(dual_lists)
-            for m, perm_dict in enumerate(perm_tups)
+            for m, perm_tup in enumerate(perm_tups)
         )
     else:
         for r_dict in reservoir_dicts:
