@@ -21,6 +21,7 @@ from obspy.core.event import Comment
 from eqcorrscan.core.match_filter import normxcorr2
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.synth_seis import seis_sim
+from eqcorrscan.utils.plotting import xcorr_plot
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 
@@ -61,7 +62,9 @@ def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
             cat_dets.events.remove(ev)
     return temp_streams, det_streams
 
-def _rel_polarity(data1, data2, min_cc, debug=0):
+
+def _rel_polarity(data1, data2, min_cc, m, n, stachan, phase, plotdir,
+                  debug=0):
     """
     Compute the relative polarity between two traces
 
@@ -71,6 +74,14 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
     :param data2: Detection data
     :type min_cc: float
     :param min_cc: Minimum accepted cros-correlation value for a polarity pick
+    :type m: int
+    :param m: Index of template event
+    :type n: int
+    :param n: Index of detection event
+    :type stachan: str
+    :param stachan: Station/channel string
+    :type phase: str
+    :param phase: Phase string
 
     :returns:
         Value of the relative polarity measurement between template and
@@ -123,18 +134,47 @@ def _rel_polarity(data1, data2, min_cc, debug=0):
                                                pk_locs[pk_ind + 1]])]
         sec_pk_locs = np.array([pk_locs[pk_ind - 1],
                                 pk_locs[pk_ind + 1]])
-    if debug > 1:
-        plt.plot(np.abs(ccc), color='k')
-        for loc in sec_pk_locs:
-            plt.axvline(loc, color='blue', linestyle='-.')
-        plt.axvline(raw_max, color='r')
-        plt.axvline(pk_locs[pk_ind], color='grey', linestyle='--')
-        plt.show()
-        plt.close('all')
     rel_pol = sign * np.min(np.abs(ccc[raw_max]) - second_pk_vals)
     if debug > 1:
         print('Relative polarity: {}'.format(rel_pol))
+        _rel_pol_plot(data1, data2, ccc, sec_pk_locs, raw_max, pk_locs,
+                      pk_ind, rel_pol, second_pk_vals, m, n, stachan, phase,
+                      plotdir)
     return rel_pol
+
+
+def _rel_pol_plot(temp, image, ccc, sec_pk_locs, raw_max, pk_locs, pk_ind,
+                  rel_pol, second_pk_vals, m, n, stachan, phase, plotdir):
+    # Plot shifted waveforms and the correlation coefficient with time
+    fig, (ax1, ax2) = plt.subplots(2)
+    # Plot the shifted waveforms
+    shift = np.abs(ccc).argmax()
+    cc = ccc[shift]
+    xi = np.arange(len(image))
+    ax1.plot(xi, image / abs(image).max(), 'k', lw=1.3, label='Image')
+    xt = np.arange(len(temp)) + shift
+    ax1.plot(xt, temp / abs(temp).max(), 'r', lw=1.1, label='Template')
+    ax1.set_title('Shift=%s, Correlation=%s' % (shift, cc))
+    handles, labels = ax1.get_legend_handles_labels()
+    lgd1 = ax1.legend(handles, labels, loc='upper center',
+                     bbox_to_anchor=(1.2, 0.5))
+    # Now plot the cc vector as in shelly 2016
+    ax2.plot(np.abs(ccc), color='purple')
+    for loc in sec_pk_locs:
+        ax2.axvline(loc, color='blue', linestyle='-.', label='Secondary peak')
+    ax2.axvline(raw_max, color='r', label='Absolute CCC max')
+    ax2.axhline(np.max(second_pk_vals), color='gray', linestyle='-.',
+                label='Secondary peak value')
+    ax2.set_title('Relative polarity weight: {}'.format(rel_pol))
+    handles, labels = ax2.get_legend_handles_labels()
+    lgd2 = ax2.legend(handles, labels, loc='upper center',
+                      bbox_to_anchor=(1.3, 0.5))
+    fig.savefig('{}/{}_{}_temp_{}_det_{}.png'.format(plotdir, stachan, phase,
+                                                     m, n),
+                bbox_extra_artists=(lgd1, lgd2), bbox_inches='tight')
+    plt.close('all')
+    return fig
+
 
 def _prepare_data(template_streams, detection_streams, template_cat,
                   detection_cat, temp_traces, det_traces, filt_params,
@@ -218,7 +258,9 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                         nearest_sample=False).data[:-2]
     return temp_traces, det_traces
 
-def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
+
+def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, plotdir,
+                  debug):
     """
     Inner loop to parallel over stachan matrices
     :return:
@@ -227,15 +269,16 @@ def _stachan_loop(phase, stachan, temp_traces, det_traces, min_cc, debug):
     print('Looping stachan: {}'.format(stachan))
     for m in range(len(temp_traces)):
         for n in range(len(det_traces)):
-            pol = _rel_polarity(temp_traces[m],
-                                det_traces[n],
-                                min_cc, debug)
+            pol = _rel_polarity(temp_traces[m], det_traces[n], min_cc, m, n,
+                                stachan, phase, plotdir, debug)
             pol_array[n][m] = pol
     return phase, stachan, pol_array
 
+
 def make_corr_matrices(template_streams, detection_streams, template_cat,
                        detection_cat, corr_dict, filt_params,
-                       phases=('P', 'S'), cores=4, debug=0, save=False):
+                       phases=('P', 'S'), cores=4, debug=0, save=False,
+                       plotdir='.'):
     """
     Create the correlation matrices
     :type template_streams: list
@@ -315,7 +358,8 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
              temp_traces[phase][stachan],
              det_traces[phase][stachan]),
              {'min_cc': corr_dict[phase]['min_cc'],
-              'debug': debug})
+              'debug': debug,
+              'plotdir': plotdir})
             for phase in phases
             for stachan in ph_stachans[phase]]
         pool.close()
@@ -334,13 +378,15 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                     for n in range(len(detection_streams)):
                         pol = _rel_polarity(temp_traces[phase][stachan][m],
                                             det_traces[phase][stachan][n],
-                                            corr_dict[phase]['min_cc'], debug)
+                                            corr_dict[phase]['min_cc'], m, n,
+                                            stachan, phase, plotdir, debug)
                         pol_array[n][m] = pol
                 rel_pols.append((phase, stachan, pol_array))
     if save:
         with open('{}/rel_pols.pkl'.format(save), 'wb') as f:
             pickle.dump(rel_pols, f)
     return rel_pols
+
 
 def svd_matrix(rel_pols):
     """
@@ -375,7 +421,7 @@ def cluster_svd_mat(svd_mat, metric='cosine', criterion='maxclust',
     indices = fcluster(Z, t=clusts, criterion=criterion)
     return indices
 
-def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5, plot=False):
+def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5):
     """
 
     :param svd_mat: nxm matrix output from svd_matrix
@@ -531,7 +577,7 @@ def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
     Plot weighted relative polarities vs catalog polarities
     :return:
     """
-    mags = [ev.magnitudes[-1].mag for ev in cat_pols]
+    # mags = [ev.magnitudes[-1].mag for ev in cat_pols]
     for i, stachan in enumerate(z_chans):
         fig, ax = plt.subplots()
         rectpos = Rectangle((0, 0), 0.08, 0.1)
@@ -539,13 +585,13 @@ def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
         patches = PatchCollection([rectneg, rectpos], facecolor='lightgray',
                                   alpha=0.5)
         ax.add_collection(patches)
-        s = ax.scatter(z_mat[:, i], cat_pol_dict[stachan], c=mags, cmap='cool')
+        s = ax.scatter(z_mat[:, i], cat_pol_dict[stachan])
         ax.set_title(stachan)
         ax.set_ylim([-0.1, 0.1])
         ax.set_xlim([-0.08, 0.08])
         ax.axvline(0)
         ax.axhline(0)
-        plt.colorbar(s)
+        # plt.colorbar(s)
         if show:
             plt.show()
             plt.close('all')
