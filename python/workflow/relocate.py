@@ -5,9 +5,11 @@ Script to handle pick refinement/removal and relocation of catalog earthquakes.
 """
 
 import os
+import numpy as np
+
 from glob import glob
 from subprocess import call
-import numpy as np
+from obspy.core.event import Arrival
 from obspy.io.nlloc.core import read_nlloc_hyp
 
 
@@ -121,11 +123,26 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
         call(["NLLoc", new_ctrl])
         out_file_hyp = glob(
             '{}.????????.??????.grid0.loc.hyp'.format(loc_file))
-        new_o = read_nlloc_hyp(out_file_hyp[0],
-                               coordinate_converter=my_conversion,
-                               picks=ev.picks)
-        print(new_o)
-        ev.preferred_origin().arrivals = new_o[0].origins[0].arrivals
+        pk_stas = [pk.waveform_id.station_code for pk in ev.picks]
+        with open(out_file_hyp, 'r') as f:
+            for i, line in enumerate(f):
+                if (i > 15 and not line.startswith('END')
+                    and not line.startswith('\n')):
+                    ln = line.split()
+                    pha = ln[4]
+                    sta = ln[0]
+                    if sta not in pk_stas:
+                        continue
+                    toa = ln[-3]
+                    to_az = ln[-4]
+                    try:
+                        pk = [pk for pk in ev.picks
+                              if pk.waveform_id.station_code == sta][0]
+                    except IndexError:
+                        continue
+                    ev.preferred_origin().arrivals.append(
+                        Arrival(phase=pha, pick_id = pk.resource_id.id,
+                                takeoff_angle=toa, azimuth=to_az))
     return
 
 
