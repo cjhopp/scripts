@@ -124,7 +124,7 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
         out_file_hyp = glob(
             '{}.????????.??????.grid0.loc.hyp'.format(loc_file))
         pk_stas = [pk.waveform_id.station_code for pk in ev.picks]
-        with open(out_file_hyp, 'r') as f:
+        with open(out_file_hyp[0], 'r') as f:
             for i, line in enumerate(f):
                 if (i > 15 and not line.startswith('END')
                     and not line.startswith('\n')):
