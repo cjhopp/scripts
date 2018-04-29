@@ -111,7 +111,7 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
                     line = line.split()
                     line = '{} {} {}'.format(line[0], line[1], obs_file)
                 elif line.startswith("EQSRCE"):
-                    line = "EQEVENT {} LATLON {} {} {} 0.0\n".format(
+                    line = "EQSRCE {} LATLON {} {} {} 0.0\n".format(
                         eid, o.latitude, o.longitude, o.depth / 1000.)
                 elif line.startswith('LOCFILES'):
                     ln = line.split()
