@@ -671,7 +671,10 @@ def plot_clust_cats_3d(cluster_cats, xlims=None, ylims=None, zlims=None,
     for cat in cluster_cats:
         pt_list = []
         for ev in cat:
-            o = ev.preferred_origin() or ev.origins[-1]
+            o = ev.preferred_origin()
+            if not o.method_id:
+                print('Not accepting non-dd locations')
+                continue
             try:
                 m = ev.magnitudes[-1].mag
             except IndexError:
@@ -715,13 +718,38 @@ def plot_clust_cats_3d(cluster_cats, xlims=None, ylims=None, zlims=None,
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
                        title='Relative polarity clusters')
-    zoom = layout.scene.camera.zoom
-    frames = [{'layout': layout.scene.update(camera={'eye': {'x': np.cos(rad) * 2,
-                                                       'y': np.sin(rad) * 2,
-                                                       'z': 0.2}})}
-              for rad in np.linspace(0, 6.3, 63)]
-    fig = go.Figure(data=datas, layout=layout,
-                    frames=frames)
+    if video:
+        layout.update(
+            updatemenus=[{'type': 'buttons',
+                          'buttons': [{'label': 'Play',
+                                       'method': 'animate',
+                                       'args': [None,
+                                                {'frame': {'duration': 0,
+                                                           'redraw': False},
+                                                 'fromcurrent': True,
+                                                 'transition': {
+                                                    'duration': 0.25,
+                                                    'easing': 'quadratic-in-out'}}
+                                                          ]},
+                                      {'label': 'Pause',
+                                       'method': 'animate',
+                                       'args': [[None],
+                                                {'frame': {'duration': 0,
+                                                           'redraw': False},
+                                                           'mode': 'immediate',
+                                                           'transition': {
+                                                               'duration': 0}}
+                                                          ]}]}])
+    # Start figure
+    fig = go.Figure(data=datas, layout=layout)
+    if video:
+        zoom = 2
+        frames = [dict(layout=dict(
+            scene=dict(camera={'eye':{'x': np.cos(rad) * zoom,
+                                      'y': np.sin(rad) * zoom,
+                                      'z': 0.2}})))
+                  for rad in np.linspace(0, 6.3, 630)]
+        fig.frames = frames
     plotly.offline.plot(fig, filename='clust_cats_3d.html')
     return
 
