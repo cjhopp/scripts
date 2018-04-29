@@ -11,10 +11,16 @@ import random
 import unittest
 import pickle
 import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly
+import plotly.plotly as py
+import plotly.graph_objs as go
 
 from glob import glob
+from itertools import cycle
 from multiprocessing import Pool
 from scipy.signal import argrelmax
+from scipy.spatial.distance import pdist
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from obspy import read, Catalog
 from obspy.core.event import Comment
@@ -24,6 +30,7 @@ from eqcorrscan.utils.synth_seis import seis_sim
 from eqcorrscan.utils.plotting import xcorr_plot
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
+from mpl_toolkits.mplot3d import Axes3D
 
 def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
     det_streams = []
@@ -169,6 +176,7 @@ def _rel_pol_plot(temp, image, ccc, sec_pk_locs, raw_max, pk_locs, pk_ind,
     handles, labels = ax2.get_legend_handles_labels()
     lgd2 = ax2.legend(handles, labels, loc='upper center',
                       bbox_to_anchor=(1.3, 0.5))
+    plt.tight_layout()
     fig.savefig('{}/{}_{}_temp_{}_det_{}.png'.format(plotdir, stachan, phase,
                                                      m, n),
                 bbox_extra_artists=(lgd1, lgd2), bbox_inches='tight')
@@ -406,22 +414,8 @@ def svd_matrix(rel_pols):
             svd_mat = np.column_stack((svd_mat, lsv[~np.isnan(lsv)]))
     return svd_mat, stachans
 
-def cluster_svd_mat(svd_mat, metric='cosine', criterion='maxclust',
-                    clusts=100, show=False):
-    """
-    Function to cluster the rows of the nxk matrix of relative polarity
-    measurements
-    :return: List of group indices for each of the n detected events
-    """
-    Z = linkage(svd_mat, method='single', metric=metric)
-    if show:
-        dendrogram(Z)
-        plt.show()
-        plt.close('all')
-    indices = fcluster(Z, t=clusts, criterion=criterion)
-    return indices
 
-def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5):
+def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-3):
     """
 
     :param svd_mat: nxm matrix output from svd_matrix
@@ -459,10 +453,12 @@ def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5):
                 else:
                     # Invert uncertainty measure for confidence
                     if te.uncertainty or te.upper_uncertainty:
+                        # Careful here as some of the picks in our catalog
+                        # have uncertainties of up to 0.3...
                         try:
-                            wt = 0.1 - te.uncertainty
+                            wt = 0.5 - te.uncertainty
                         except TypeError:
-                            wt = 0.1 - te.upper_uncertainty
+                            wt = 0.5 - te.upper_uncertainty
                     elif te.confidence_level:
                         wt = 5 - te.confidence_level
                 if pk.polarity == 'negative':
@@ -518,7 +514,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5):
                         np.abs(z_mat[i, stach_i]))))
     return catalog_pols, cat_pol_dict, z_mat, z_chans
 
-def compare_rel_cat_pols(cat_pols, cat_dets):
+def compare_rel_cat_pols(cat_pols, cat_dets, show=True):
     # Make dict of eid: event for detections with polarity picks
     cat_picks_dict = {ev.resource_id.id.split('/')[-1]: ev
                       for ev in cat_dets if len([pk for pk in ev.picks
@@ -538,14 +534,106 @@ def compare_rel_cat_pols(cat_pols, cat_dets):
                            if p.waveform_id.station_code ==
                            pk.waveform_id.station_code
                            and p.waveform_id.channel_code ==
-                           pk.waveform_id.channel_code]
+                           pk.waveform_id.channel_code
+                           and p.polarity]
                     if len(pol) == 1:
                         matches[stachan].append(
                             (pol[0].polarity == pk.polarity,
-                             pk.comments[-1].text))
+                             pk.comments[-1].text,
+                             pk.time_errors.upper_uncertainty))
+    # Plot distributions of weights and uncertainties for matches and non-match
+    trues = [(float(mat[1].split()[-1]), mat[-1])
+             for stach, mats in matches.items()
+             for mat in mats if mat[0] == True]
+    falses = [(float(mat[1].split()[-1]), mat[-1])
+              for stach, mats in matches.items()
+              for mat in mats if mat[0] == False]
+    t_wts, t_uncerts = zip(*trues)
+    f_wts, f_uncerts = zip(*falses)
+    fig, (ax1, ax2) = plt.subplots(2)
+    sns.distplot(t_wts, ax=ax1, color='r',
+                 label='Correct matches', kde=False)
+    sns.distplot(f_wts, ax=ax1, color='b',
+                 label='Incorrect matches', kde=False)
+    sns.distplot(t_uncerts, ax=ax2, color='r',
+                 label='Correct matches', kde=False)
+    sns.distplot(f_uncerts, ax=ax2, color='b',
+                 label='Incorrect matches', kde=False)
+    ax1.text(0.7, 0.9, 'Correct matches: {}'.format(len(t_wts)),
+             fontsize=10, transform=ax1.transAxes)
+    ax1.text(0.7, 0.8, 'Incorrect matches: {}'.format(len(f_wts)),
+             fontsize=10, transform=ax1.transAxes)
+    ax1.set_title('Pick weights')
+    ax2.set_title('Pick uncertainty')
+    plt.legend()
+    plt.tight_layout()
+    if show:
+        plt.show()
+        plt.close()
     return matches
 
-def cluster_cat(indices, det_cat):
+
+def partition_Nga(cat, svd_mat):
+    """
+    Split the svd_mat and det_cat into NgaN and NgaS clusters
+    :return:
+    """
+    NgaN_cat = Catalog(); NgaS_cat = Catalog()
+    NgaN_svd = np.zeros(svd_mat.shape[1])
+    NgaS_svd = np.zeros(svd_mat.shape[1])
+    for i, ev in enumerate(cat):
+        o = ev.preferred_origin() or ev.origins[-1]
+        if o.latitude > -38.55:
+            # Ngatamariki North
+            NgaN_cat.append(ev)
+            NgaN_svd = np.vstack((NgaN_svd, svd_mat[i]))
+        elif o.latitude < -38.55:
+            # Ngatamariki South
+            NgaS_cat.append(ev)
+            NgaS_svd = np.vstack((NgaS_svd, svd_mat[i]))
+    return NgaN_cat, NgaS_cat, NgaN_svd[1:], NgaS_svd[1:]
+
+
+def cluster_svd_mat(svd_mat, stachans=None, exclude_sta=[],
+                    exclude_phase=[], metric='cosine', criterion='maxclust',
+                    thresh=None, show=False):
+    """
+    Function to cluster the rows of the nxk matrix of relative polarity
+    measurements
+    :return: List of group indices for each of the n detected events
+    """
+    # arg checks
+    if (len(exclude_sta) > 0 or len(exclude_phase) > 0) and not stachans:
+        print('If specifying phases or stations to use in clustering '
+              + 'you must provide stachans for mapping to svd_mat')
+        return
+    if not thresh:
+        print('Must provide a threshold for your chosen criterion: {}'.format(
+            criterion))
+        return
+    if len(exclude_sta) > 0 or len(exclude_phase) > 0:
+        inds = np.array([i for i, stach in enumerate(stachans)
+                         if stach[0] not in exclude_phase
+                         and stach[1].split('.')[0] not in exclude_sta])
+        clust_mat = svd_mat[:, inds]
+    else:
+        clust_mat = svd_mat
+    print('Matrix for clustering has shape: {}'.format(clust_mat.shape))
+    # Compute dist matrix outside linkage for debugging
+    Y = pdist(clust_mat, metric=metric)
+    Z = linkage(Y[~np.isnan(Y)], method='single') # Mask nans
+    if show:
+        if criterion == 'distance':
+            dendrogram(Z, color_threshold=thresh)
+        else:
+            dendrogram(Z, color_threshold=0)
+        plt.show()
+        plt.close('all')
+    indices = fcluster(Z, t=thresh, criterion=criterion)
+    return indices
+
+
+def cluster_cat(indices, det_cat, min_events=2):
     """
     Group detection catalog into the clusters determined by the relative
     polarity measurements.
@@ -566,11 +654,114 @@ def cluster_cat(indices, det_cat):
                 # Go through picks and assign polarity from relative pols
                 cat.append(ev)
             elif ind[0] > clust_id:
-                clust_cats.append(cat)
+                if len(cat) > min_events:
+                    clust_cats.append(cat)
                 break
     # Get final group
-    clust_cats.append(cat)
+    if len(cat) > min_events:
+        clust_cats.append(cat)
     return clust_cats
+
+
+def plot_clust_cats_3d(cluster_cats, xlims=None, ylims=None, zlims=None,
+                       wells=None, video=False):
+    pt_lists = []
+    colors = cycle(['red', 'green', 'blue', 'cyan', 'magenta', 'black',
+                    'firebrick', 'purple', 'darkgoldenrod', 'gray'])
+    for cat in cluster_cats:
+        pt_list = []
+        for ev in cat:
+            o = ev.preferred_origin() or ev.origins[-1]
+            try:
+                m = ev.magnitudes[-1].mag
+            except IndexError:
+                continue
+            if (xlims[0] < o.longitude < xlims[1]
+                and ylims[0] > o.latitude > ylims[1]
+                and np.abs(zlims[0]) > o.depth > (-1 * zlims[1])):
+                pt_list.append((o.longitude, o.latitude, o.depth, m))
+        if len(pt_list) > 0:
+            pt_lists.append(pt_list)
+    datas = []
+    if wells:
+        for key, pts in wells.items():
+            x, y, z = zip(*pts)
+            z = -np.array(z)
+            datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
+                                      line=dict(color='blue', width=7)))
+    for lst in pt_lists:
+        x, y, z, m = zip(*lst)
+        z = -np.array(z)
+        datas.append(go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
+                                  mode='markers',
+                                  marker=dict(color=next(colors),
+                                  size=7 * np.array(m) ** 2,
+                                  symbol='circle',
+                                  line=dict(color='rgb(204, 204, 204)',
+                                            width=1),
+                                  opacity=0.9)))
+    xax = go.XAxis(nticks=10, gridcolor='rgb(255, 255, 255)', gridwidth=2,
+                   zerolinecolor='rgb(255, 255, 255)', zerolinewidth=2,
+                   title='Longitude (deg)', autorange=False, range=xlims)
+    yax = go.YAxis(nticks=10, gridcolor='rgb(255, 255, 255)', gridwidth=2,
+                   zerolinecolor='rgb(255, 255, 255)', zerolinewidth=2,
+                   title='Latitude (deg)', autorange=False, range=[ylims[1],
+                                                                   ylims[0]])
+    zax = go.ZAxis(nticks=10, gridcolor='rgb(255, 255, 255)', gridwidth=2,
+                   zerolinecolor='rgb(255, 255, 255)', zerolinewidth=2,
+                   title='Elevation (m)', autorange=False, range=zlims)
+    layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax,
+                                  zaxis=zax,
+                                  bgcolor="rgb(244, 244, 248)"),
+                       autosize=True,
+                       title='Relative polarity clusters')
+    zoom = layout.scene.camera.zoom
+    frames = [{'layout': layout.scene.update(camera={'eye': {'x': np.cos(rad) * 2,
+                                                       'y': np.sin(rad) * 2,
+                                                       'z': 0.2}})}
+              for rad in np.linspace(0, 6.3, 63)]
+    fig = go.Figure(data=datas, layout=layout,
+                    frames=frames)
+    plotly.offline.plot(fig, filename='clust_cats_3d.html')
+    return
+
+
+def plot_picks_on_stereonet(catalog, z_mat, z_chans):
+    """
+    Plot relative polarities for catalog (presumably a cluster) on stereonet
+
+    :param catalog: Catalog of events for which to plot pols
+    :param z_mat: Weighted and reconciled matrix of polarity values
+    :param z_chans: List of the channel column in order of cols of z_mat
+    :return:
+    """
+    # Merge z_mat and z_chans into dict
+    pol_dict = {stach: z_mat[:, i] for i, stach in enumerate(z_chans)}
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='stereonet')
+    for ev in catalog:
+        for arrival in ev.preferred_origin().arrivals:
+            if arrival.pick_id.get_referred_object():
+                toa = arrival.takeoff_angle
+                az = arrival.azimuth
+                if toa > 90.:
+                    up = True
+                    plunge = toa - 90.
+                else:
+                    up = False
+                    plunge = 90. - toa
+                if up and az < 180.:
+                    bearing = az + 180.
+                elif up and az > 180.:
+                    bearing = az - 180.
+                elif not up:
+                    bearing = az
+                ax.line(plunge, bearing, color='blue')
+    plt.show()
+    plt.close('all')
+    return
+
+
 
 def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
     """
@@ -585,9 +776,9 @@ def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
         patches = PatchCollection([rectneg, rectpos], facecolor='lightgray',
                                   alpha=0.5)
         ax.add_collection(patches)
-        s = ax.scatter(z_mat[:, i], cat_pol_dict[stachan])
+        s = ax.scatter(z_mat[:, i], cat_pol_dict[stachan], s=2)
         ax.set_title(stachan)
-        ax.set_ylim([-0.1, 0.1])
+        ax.set_ylim([-0.5, 0.5])
         ax.set_xlim([-0.08, 0.08])
         ax.axvline(0)
         ax.axhline(0)

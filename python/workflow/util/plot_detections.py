@@ -753,7 +753,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
 
 ##### OTHER MISC FUNCTIONS #####
 
-def qgis_csv_to_elapsed_days(csv_file, outfile, mag_multiplier):
+def cat_to_elapsed_days(cat, outfile, mag_multiplier):
     """
     Take the csv file output from qgis (formatted specifically) and
     convert the dates to days since start of catalog.
@@ -768,19 +768,22 @@ def qgis_csv_to_elapsed_days(csv_file, outfile, mag_multiplier):
     next_rows = []
     dates = []
     mags = []
-    with open(csv_file, 'r') as f:
-        next(f)
-        for row in f:
-            splits = row.split(',')
-            date = UTCDateTime().strptime(splits[6], '%Y/%m/%d')
-            dates.append(date)
-            next_rows.append([splits[0], splits[1], splits[11],
-                              splits[-1].rstrip('\n')])
-            mags.append(float(splits[-1].rstrip('\n')))
+    for ev in cat:
+        o = ev.preferred_origin()
+        try:
+            m = ev.magnitudes[-1].mag
+            mags.append(m)
+        except IndexError:
+            print('No magnitude for: {}'.format(ev))
+            continue
+        dates.append(o.time)
+        next_rows.append([o.longitude, o.latitude, o.depth / 1000., m])
     start_date = min(dates)
     mm = max(mags) * mag_multiplier
     with open(outfile, 'w') as nf:
         for date, new_r in zip(dates, next_rows):
+            if not new_r[3]: # catch rare NoneType magnitude
+                continue
             elapsed = (date.datetime - start_date.datetime).days
             nf.write('{} {} {} {} {}\n'.format(new_r[0], new_r[1], new_r[2],
                                                str(elapsed),

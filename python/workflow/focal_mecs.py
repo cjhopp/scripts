@@ -168,26 +168,53 @@ def plot_mtfit_output(directory, outdir):
 ##############################################################################
 ################# Richard's focmec and stress inversion formatting ############
 
-def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False):
+def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
+                         id_type='detection', date_range=[]):
     """
     Take *_sdr.dat output file from Arnold FM software
     add magnitudes, and output to psmeca format
     :param arnold_file: Output from arnold
     :param catalog: catalog including events in arnold file which need mags
     :param outfile: Name of output file to be used by psmeca
+    :param names: Whether to include event names in psmeca file
+    :param id_type: Whether catalog ids are in detection or template format
     :return:
     """
+    if date_range:
+        dates = date_range
+    else:
+        dats = [ev.picks[-1].time for ev in catalog]
+        dates = [min(dats), max(dats)]
+    if id_type == 'detection':
+        # Dict keyed to detection id formatting from focmec package
+        id_dict = {'{}.{}.{}'.format(
+            ev.resource_id.id.split('/')[-1].split('_')[0],
+            ev.resource_id.id.split('_')[-2],
+            ev.resource_id.id.split('_')[-1][:6]): ev
+            for ev in catalog
+            if dates[0] < ev.picks[-1].time < dates[1]}
     with open(arnold_file, 'r') as f:
         next(f)
         with open(outfile, 'w') as of:
             for line in f:
                 line = line.rstrip('\n')
                 line = line.split(',')
-                ev = [ev for ev in catalog
-                      if str(ev.resource_id).split('/')[-1]
-                      == line[0].split('.')[0]]
+                if id_type == 'detection':
+                    try:
+                        ev = [id_dict[line[0]]]
+                    except KeyError:
+                        ev = []
+                elif id_type == 'template':
+                    ev = [ev for ev in catalog
+                          if str(ev.resource_id).split('/')[-1]
+                          == line[0].split('.')[0]
+                          if dates[0] < ev.picks[-1].time < dates[1]]
                 if len(ev) > 0:
                     ev = ev[0]
+                    if len(ev.magnitudes) == 0:
+                        print('No mags for event: {}'.format(ev.resource_id))
+                        print(ev)
+                        continue
                     o = ev.preferred_origin()
                     if names:
                         name = str(ev.resource_id).split('/')[-1]
@@ -340,7 +367,8 @@ def add_pols_to_hyp(catalog, nlloc_dir, outdir, ev_type='temp'):
                     new.write(' '.join(line) + '\n')
     return
 
-def foc_mec_from_event(catalog, station_names=False, wavdir=False,
+
+def foc_mec_from_event(catalog, station_names=False, picks_only=False,
                        outdir=False):
     """
     Just taking Tobias' plotting function out of obspyck
@@ -408,7 +436,7 @@ def foc_mec_from_event(catalog, station_names=False, wavdir=False,
         ax.axison = False
         axFocMecStations = fig.add_axes([0.00, 0.02, 1.00, 0.84], polar=True)
         ax = axFocMecStations
-        ax.set_title(text)
+        # ax.set_title(text)
         ax.set_axis_off()
         azims = []
         incis = []
