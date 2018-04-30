@@ -107,25 +107,28 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
         print('Raytracing for: {}'.format(eid))
         obs_file = '{}/obs/{}'.format(nlloc_root, eid)
         loc_file = '{}/loc/{}'.format(nlloc_root, eid)
-        with open(in_file, 'r') as f, open(new_ctrl, 'w') as fo:
-            for line in f:
-                if line.startswith('EQFILES'):
-                    line = line.split()
-                    line = '{} {} {}'.format(line[0], line[1], obs_file)
-                elif line.startswith("EQSRCE"):
-                    line = "EQSRCE {} LATLON {} {} {} 0.0\n".format(
-                        eid, o.latitude, o.longitude, o.depth / 1000.)
-                elif line.startswith('LOCFILES'):
-                    ln = line.split()
-                    line = ' '.join([ln[0], obs_file, ln[2], ln[3], loc_file])
-                fo.write(line)
-        call(["Time2EQ", new_ctrl])
-        call(["NLLoc", new_ctrl])
         out_file_hyp = glob(
             '{}.????????.??????.grid0.loc.hyp'.format(loc_file))
         if len(out_file_hyp) == 0:
-            print('No observations produced. Skip.')
-            continue
+            with open(in_file, 'r') as f, open(new_ctrl, 'w') as fo:
+                for line in f:
+                    if line.startswith('EQFILES'):
+                        line = line.split()
+                        line = '{} {} {}'.format(line[0], line[1], obs_file)
+                    elif line.startswith("EQSRCE"):
+                        line = "EQSRCE {} LATLON {} {} {} 0.0\n".format(
+                            eid, o.latitude, o.longitude, o.depth / 1000.)
+                    elif line.startswith('LOCFILES'):
+                        ln = line.split()
+                        line = ' '.join([ln[0], obs_file, ln[2], ln[3], loc_file])
+                    fo.write(line)
+            call(["Time2EQ", new_ctrl])
+            call(["NLLoc", new_ctrl])
+            out_file_hyp = glob(
+                '{}.????????.??????.grid0.loc.hyp'.format(loc_file))
+            if len(out_file_hyp) == 0:
+                print('No observations produced. Skip.')
+                continue
         pk_stas = [pk.waveform_id.station_code for pk in ev.picks]
         # Instead of using the obspy 'read_nlloc_hyp' method, like above,
         # we'll just take the toa and dip from the phases. There was some

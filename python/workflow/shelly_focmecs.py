@@ -12,6 +12,8 @@ import unittest
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
+import mplstereonet
+import colorlover as cl
 import plotly
 import plotly.plotly as py
 import plotly.graph_objs as go
@@ -663,11 +665,44 @@ def cluster_cat(indices, det_cat, min_events=2):
     return clust_cats
 
 
-def plot_clust_cats_3d(cluster_cats, xlims=None, ylims=None, zlims=None,
-                       wells=None, video=False):
+def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
+                   perm_zones_dir='/home/chet/gmt/data/NZ/wells/feedzones',
+                   wells=['NM08', 'NM09', 'NM10', 'NM06']):
+    track_files = glob('{}/*_xyz_pts.csv'.format(track_dir))
+    p_zone_files = glob('{}/*_feedzones_?.csv'.format(perm_zones_dir))
+    well_dict = {}
+    for well in wells:
+        for track_file in track_files:
+            if track_file.split('/')[-1][:4] == well:
+                with open(track_file, 'r') as f:
+                    well_dict[well] = {'track': [], 'p_zones': []}
+                    for line in f:
+                        ln = line.split()
+                        well_dict[well]['track'].append(
+                            (float(ln[0]), float(ln[1]), float(ln[-1]))
+                        )
+        for p_zone_f in p_zone_files:
+            if p_zone_f.split('/')[-1][:4] == well:
+                with open(p_zone_f, 'r') as f:
+                    z_pts = []
+                    for line in f:
+                        ln = line.split()
+                        z_pts.append(
+                            (float(ln[0]), float(ln[1]), float(ln[-1]))
+                        )
+                    well_dict[well]['p_zones'].append(z_pts)
+    return well_dict
+
+
+def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
+                       zlims=None, wells=True, video=False,
+                       title=None, offline=False):
     pt_lists = []
     colors = cycle(['red', 'green', 'blue', 'cyan', 'magenta', 'black',
                     'firebrick', 'purple', 'darkgoldenrod', 'gray'])
+    well_colors = cl.scales['8']['seq']['Blues']
+    if not title:
+        title = 'Relative polarity clusters'
     for cat in cluster_cats:
         pt_list = []
         for ev in cat:
@@ -682,27 +717,41 @@ def plot_clust_cats_3d(cluster_cats, xlims=None, ylims=None, zlims=None,
             if (xlims[0] < o.longitude < xlims[1]
                 and ylims[0] > o.latitude > ylims[1]
                 and np.abs(zlims[0]) > o.depth > (-1 * zlims[1])):
-                pt_list.append((o.longitude, o.latitude, o.depth, m))
+                pt_list.append((o.longitude, o.latitude, o.depth, m,
+                                ev.resource_id.id.split('/')[-1]))
         if len(pt_list) > 0:
             pt_lists.append(pt_list)
     datas = []
     if wells:
-        for key, pts in wells.items():
-            x, y, z = zip(*pts)
-            z = -np.array(z)
+        wells = make_well_dict()
+        for i, (key, pts) in enumerate(wells.items()):
+            x, y, z = zip(*wells[key]['track'])
+            # z = -np.array(z)
             datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
-                                      line=dict(color='blue', width=7)))
-    for lst in pt_lists:
-        x, y, z, m = zip(*lst)
+                                      name='Well: {}'.format(key),
+                                      line=dict(color=well_colors[i + 3],
+                                                width=7)))
+            # Now perm zones
+            for pz in wells[key]['p_zones']:
+                x, y, z = zip(*pz)
+                datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
+                                          showlegend=False,
+                                          line=dict(color=well_colors[i + 3],
+                                                    width=20)))
+    for i, lst in enumerate(pt_lists):
+        x, y, z, m, id = zip(*lst)
         z = -np.array(z)
         datas.append(go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
                                   mode='markers',
+                                  name='Cluster {}'.format(i),
+                                  hoverinfo='text',
+                                  text=id,
                                   marker=dict(color=next(colors),
-                                  size=7 * np.array(m) ** 2,
-                                  symbol='circle',
-                                  line=dict(color='rgb(204, 204, 204)',
-                                            width=1),
-                                  opacity=0.9)))
+                                    size=7 * np.array(m) ** 2,
+                                    symbol='circle',
+                                    line=dict(color='rgb(204, 204, 204)',
+                                              width=1),
+                                    opacity=0.9)))
     xax = go.XAxis(nticks=10, gridcolor='rgb(255, 255, 255)', gridwidth=2,
                    zerolinecolor='rgb(255, 255, 255)', zerolinewidth=2,
                    title='Longitude (deg)', autorange=False, range=xlims)
@@ -717,25 +766,25 @@ def plot_clust_cats_3d(cluster_cats, xlims=None, ylims=None, zlims=None,
                                   zaxis=zax,
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
-                       title='Relative polarity clusters')
+                       title=title)
     if video:
         layout.update(
-            updatemenus=[{'type': 'buttons',
+            updatemenus=[{'type': 'buttons', 'showactive': False,
                           'buttons': [{'label': 'Play',
                                        'method': 'animate',
                                        'args': [None,
-                                                {'frame': {'duration': 0,
-                                                           'redraw': False},
+                                                {'frame': {'duration': 1,
+                                                           'redraw': True},
                                                  'fromcurrent': True,
                                                  'transition': {
-                                                    'duration': 0.25,
-                                                    'easing': 'quadratic-in-out'}}
+                                                    'duration': 0,
+                                                    'mode': 'immediate'}}
                                                           ]},
                                       {'label': 'Pause',
                                        'method': 'animate',
                                        'args': [[None],
                                                 {'frame': {'duration': 0,
-                                                           'redraw': False},
+                                                           'redraw': True},
                                                            'mode': 'immediate',
                                                            'transition': {
                                                                'duration': 0}}
@@ -750,11 +799,14 @@ def plot_clust_cats_3d(cluster_cats, xlims=None, ylims=None, zlims=None,
                                       'z': 0.2}})))
                   for rad in np.linspace(0, 6.3, 630)]
         fig.frames = frames
-    plotly.offline.plot(fig, filename='clust_cats_3d.html')
+    if offline:
+        plotly.offline.plot(fig, filename=outfile)
+    else:
+        py.plot(fig, filename=outfile)
     return
 
 
-def plot_picks_on_stereonet(catalog, z_mat, z_chans):
+def plot_picks_on_stereonet(catalog):#, z_mat, z_chans):
     """
     Plot relative polarities for catalog (presumably a cluster) on stereonet
 
@@ -764,12 +816,13 @@ def plot_picks_on_stereonet(catalog, z_mat, z_chans):
     :return:
     """
     # Merge z_mat and z_chans into dict
-    pol_dict = {stach: z_mat[:, i] for i, stach in enumerate(z_chans)}
+    # pol_dict = {stach: z_mat[:, i] for i, stach in enumerate(z_chans)}
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='stereonet')
     for ev in catalog:
         for arrival in ev.preferred_origin().arrivals:
-            if arrival.pick_id.get_referred_object():
+            pk = arrival.pick_id.get_referred_object()
+            if pk:
                 toa = arrival.takeoff_angle
                 az = arrival.azimuth
                 if toa > 90.:
@@ -784,7 +837,12 @@ def plot_picks_on_stereonet(catalog, z_mat, z_chans):
                     bearing = az - 180.
                 elif not up:
                     bearing = az
-                ax.line(plunge, bearing, color='blue')
+                if pk.polarity == 'positive':
+                    ax.line(plunge, bearing, color='red')
+                elif pk.polarity == 'negative':
+                    ax.line(plunge, bearing, color='blue')
+                # else:
+                #     ax.line(plunge, bearing, color='grey')
     plt.show()
     plt.close('all')
     return

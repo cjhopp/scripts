@@ -9,6 +9,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.dates as mdates
 
+from collections import defaultdict
 from datetime import timedelta, datetime
 from itertools import cycle
 from mpl_toolkits.basemap import Basemap
@@ -16,7 +17,7 @@ from matplotlib.patches import Ellipse
 from matplotlib.dates import date2num
 from matplotlib.ticker import ScalarFormatter
 from pyproj import Proj, transform
-from obspy import Catalog, UTCDateTime
+from obspy import Catalog, UTCDateTime, Stream
 from obspy.core.event import ResourceIdentifier
 from eqcorrscan.utils import plotting, pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
@@ -753,12 +754,54 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
 
 ##### OTHER MISC FUNCTIONS #####
 
+def simple_pick_plot(event, stream):
+    """
+    Plot picks from event over streams
+    :return:
+    """
+    fig = plt.figure()
+    pk_stachs = defaultdict(list)
+    wav_stachs = defaultdict(list)
+    pk_codes = [(pk.waveform_id.station_code,
+                 pk.waveform_id.channel_code) for pk in event.picks]
+    wav_codes = [(tr.stats.station, tr.stats.channel) for tr in stream]
+    for sta, chan in wav_codes:
+        wav_stachs[sta].append(chan)
+    for sta, chan in pk_codes:
+        pk_stachs[sta].append(chan)
+    pk_stream = Stream(traces=[tr for tr in stream
+                               if tr.stats.station in pk_stachs
+                               and tr.stats.channel in
+                               pk_stachs[tr.stats.station]])
+    i = 0
+    axes = []
+    for pk in event.picks:
+        sta = pk.waveform_id.station_code
+        chan = pk.waveform_id.channel_code
+        if sta not in wav_stachs and chan not in wav_stachs[sta]:
+            print('No wav for {}.{}'.format(sta, chan))
+            continue
+        tr = stream.select(station=pk.waveform_id.station_code,
+                           channel=pk.waveform_id.channel_code)[0]
+        if i == 0:
+            ax = fig.add_subplot(len(pk_stream), 1, i + 1)
+            axes.append(ax)
+            i += 1
+        else:
+            ax = fig.add_subplot(len(pk_stream), 1, i + 1, sharex=axes[-1])
+            i += 1
+        x = ((tr.times() / 86400.) + date2num(tr.stats.starttime.datetime))
+        ax.plot(x, tr.data, color='k', linewidth=1,
+                label='{}.{}'.format(sta, chan))
+        ax.legend()
+        ax.axvline(date2num(pk.time.datetime), color='red')
+    plt.show()
+    plt.close('all')
+    return
+
 def cat_to_elapsed_days(cat, outfile, mag_multiplier):
     """
-    Take the csv file output from qgis (formatted specifically) and
-    convert the dates to days since start of catalog.
-
-    In QGIS, must export layer as csv with GEOMETRY set to AS_XYZ
+    Take catalog and convert the dates to days since start of catalog.
 
     :param csv_file: File path
     :return:
