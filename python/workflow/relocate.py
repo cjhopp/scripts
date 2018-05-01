@@ -10,6 +10,7 @@ import numpy as np
 from glob import glob
 from subprocess import call
 from obspy.core.event import Arrival
+from obspy.geodetics import kilometer2degrees
 from obspy.io.nlloc.core import read_nlloc_hyp
 
 
@@ -143,6 +144,7 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
                         ln = line.split()
                         pha = ln[4]
                         sta = ln[0]
+                        dist = kilometer2degrees(float(ln[-6]))
                         if sta not in pk_stas:
                             continue
                         toa = ln[-3]
@@ -153,8 +155,9 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
                         except IndexError:
                             continue
                         ev.preferred_origin().arrivals.append(
-                            Arrival(phase=pha, pick_id = pk.resource_id.id,
-                                    takeoff_angle=toa, azimuth=to_az))
+                            Arrival(phase=pha, pick_id=pk.resource_id.id,
+                                    takeoff_angle=toa, azimuth=to_az,
+                                    distance=dist))
         except:
             print('Issue openning file. Event may not have been located')
             continue
