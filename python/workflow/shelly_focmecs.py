@@ -7,6 +7,7 @@ Functions for running Shelly et al. focal mechanism methods for MF detections
 # matplotlib.use('Agg')
 
 import numpy as np
+import imageio
 import random
 import unittest
 import pickle
@@ -20,6 +21,7 @@ import plotly.graph_objs as go
 
 from glob import glob
 from itertools import cycle
+from collections import OrderedDict
 from multiprocessing import Pool
 from scipy.signal import argrelmax
 from scipy.spatial.distance import pdist
@@ -417,7 +419,7 @@ def svd_matrix(rel_pols):
     return svd_mat, stachans
 
 
-def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-3):
+def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5):
     """
 
     :param svd_mat: nxm matrix output from svd_matrix
@@ -585,11 +587,11 @@ def partition_Nga(cat, svd_mat):
     NgaS_svd = np.zeros(svd_mat.shape[1])
     for i, ev in enumerate(cat):
         o = ev.preferred_origin() or ev.origins[-1]
-        if o.latitude > -38.55:
+        if -38.526 > o.latitude > -38.55 and 176.17 < o.longitude < 176.20:
             # Ngatamariki North
             NgaN_cat.append(ev)
             NgaN_svd = np.vstack((NgaN_svd, svd_mat[i]))
-        elif o.latitude < -38.55:
+        elif -38.575 < o.latitude < -38.55 and 176.178 < o.longitude < 176.21:
             # Ngatamariki South
             NgaS_cat.append(ev)
             NgaS_svd = np.vstack((NgaS_svd, svd_mat[i]))
@@ -695,11 +697,10 @@ def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
 
 
 def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
-                       zlims=None, wells=True, video=False,
+                       zlims=None, wells=True, video=True, animation=False,
                        title=None, offline=False):
     pt_lists = []
-    colors = cycle(['red', 'green', 'blue', 'cyan', 'magenta', 'black',
-                    'firebrick', 'purple', 'darkgoldenrod', 'gray'])
+    colors = cycle(cl.scales['11']['qual']['Paired'])
     well_colors = cl.scales['8']['seq']['Blues']
     if not title:
         title = 'Relative polarity clusters'
@@ -767,7 +768,7 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
                        title=title)
-    if video:
+    if video and animation:
         layout.update(
             updatemenus=[{'type': 'buttons', 'showactive': False,
                           'buttons': [{'label': 'Play',
@@ -791,7 +792,7 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
                                                           ]}]}])
     # Start figure
     fig = go.Figure(data=datas, layout=layout)
-    if video:
+    if video and animation:
         zoom = 2
         frames = [dict(layout=dict(
             scene=dict(camera={'eye':{'x': np.cos(rad) * zoom,
@@ -799,14 +800,33 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
                                       'z': 0.2}})))
                   for rad in np.linspace(0, 6.3, 630)]
         fig.frames = frames
-    if offline:
-        plotly.offline.plot(fig, filename=outfile)
+        if offline:
+            plotly.offline.plot(fig, filename=outfile)
+        else:
+            py.plot(fig, filename=outfile)
+    elif video and not animation:
+        # For now, save all images locally and combine into gif
+        # Shitty solution, but works
+        zoom = 1
+        for rad in np.linspace(0, 6.3, 630):
+            fig.layout.scene.camera = {'eye':{'x': np.cos(rad) * zoom,
+                                              'y': np.sin(rad) * zoom,
+                                              'z': 0.2}}
+            py.image.save_as(fig, '{}_{}.png'.format(outfile, rad),
+                             scale=5)
+        ims = []
+        for im in glob('{}*.png'.format(outfile)):
+            ims.append(imageio.imread(im))
+        imageio.mimsave('{}.gif'.format(outfile), ims, duration=0.2)
     else:
-        py.plot(fig, filename=outfile)
+        if offline:
+            plotly.offline.plot(fig, filename=outfile)
+        else:
+            py.plot(fig, filename=outfile)
     return
 
 
-def plot_picks_on_stereonet(catalog):#, z_mat, z_chans):
+def plot_picks_on_stereonet(catalog, station_plot=False):
     """
     Plot relative polarities for catalog (presumably a cluster) on stereonet
 
@@ -815,34 +835,56 @@ def plot_picks_on_stereonet(catalog):#, z_mat, z_chans):
     :param z_chans: List of the channel column in order of cols of z_mat
     :return:
     """
-    # Merge z_mat and z_chans into dict
-    # pol_dict = {stach: z_mat[:, i] for i, stach in enumerate(z_chans)}
+    if not station_plot:
+        pol_plot = True
     fig = plt.figure()
+    colors = cycle(['red', 'green', 'blue', 'cyan', 'magenta', 'yellow',
+                    'black', 'firebrick', 'purple', 'darkgoldenrod', 'gray'])
     ax = fig.add_subplot(111, projection='stereonet')
+    sta_dict = {sta: {'plunge': [],
+                      'bearing': [],
+                      'pol': []}
+                for sta in list(set([pk.waveform_id.station_code
+                                     for ev in catalog for pk in ev.picks]))}
     for ev in catalog:
-        for arrival in ev.preferred_origin().arrivals:
-            pk = arrival.pick_id.get_referred_object()
-            if pk:
-                toa = arrival.takeoff_angle
-                az = arrival.azimuth
-                if toa > 90.:
-                    up = True
-                    plunge = toa - 90.
-                else:
-                    up = False
-                    plunge = 90. - toa
-                if up and az < 180.:
-                    bearing = az + 180.
-                elif up and az > 180.:
-                    bearing = az - 180.
-                elif not up:
-                    bearing = az
-                if pk.polarity == 'positive':
-                    ax.line(plunge, bearing, color='red')
-                elif pk.polarity == 'negative':
-                    ax.line(plunge, bearing, color='blue')
-                # else:
-                #     ax.line(plunge, bearing, color='grey')
+        if ev.preferred_origin().method_id:
+            for arrival in ev.preferred_origin().arrivals:
+                pk = arrival.pick_id.get_referred_object()
+                if pk and pk.polarity:
+                    sta = pk.waveform_id.station_code
+                    toa = arrival.takeoff_angle
+                    az = arrival.azimuth
+                    if toa > 90.:
+                        up = True
+                        sta_dict[sta]['plunge'].append(toa - 90.)
+                    else:
+                        up = False
+                        sta_dict[sta]['plunge'].append(90. - toa)
+                    if up and az < 180.:
+                        sta_dict[sta]['bearing'].append(az + 180.)
+                    elif up and az > 180.:
+                        sta_dict[sta]['bearing'].append(az - 180.)
+                    elif not up:
+                        sta_dict[sta]['bearing'].append(az)
+                    if pk.polarity == 'positive':
+                        sta_dict[sta]['pol'].append('b')
+                    elif pk.polarity == 'negative':
+                        sta_dict[sta]['pol'].append('r')
+    if station_plot:
+        for sta, p_dict in sta_dict.items():
+            col = next(colors)
+            for i in range(len(p_dict['bearing'])):
+                ax.line(p_dict['plunge'][i], p_dict['bearing'][i], label=sta,
+                        markersize=2, color=col)
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = OrderedDict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys(),
+                   ncol=2, fontsize=5, loc='upper right', bbox_to_anchor=(1.3, 1.1))
+    elif pol_plot:
+        for sta, p_dict in sta_dict.items():
+            for i in range(len(p_dict['bearing'])):
+                ax.line(p_dict['plunge'][i], p_dict['bearing'][i],
+                        c=p_dict['pol'][i], markersize=2)
     plt.show()
     plt.close('all')
     return

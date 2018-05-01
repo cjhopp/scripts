@@ -525,7 +525,7 @@ def dec_2_merc_meters(dec_x, dec_y, z):
 
 ############################### HASHPY STUFF #################################
 
-def run_hashpy(catalog, config, outfile):
+def run_hashpy(catalog, config, outfile, mode=None):
     """
     Wrapper on hashpy for calculating HASH focal mechanisms
     :param catalog: :class: obspy.core.event.Catalog
@@ -533,31 +533,66 @@ def run_hashpy(catalog, config, outfile):
     :return:
     """
     new_cat = Catalog()
-    for ev in catalog:
-        eid = str(ev.resource_id).split('/')[-1]
-        # Set up hashpy object
-        hp = HashPype(**config)
-        hp.input(ev, format="OBSPY")
-        hp.load_velocity_models()
+    hp = HashPype(**config)
+    hp.load_velocity_models()
+    if mode == 'consensus':
+        hp.input(catalog, format="OBSPY_CONSENSUS")
         hp.generate_trial_data()
         try:
             hp.calculate_takeoff_angles()
         except:
-            print('Error in toa calc for eid: {}'.format(eid))
-            continue
+            print('Error in toa calc for consensus')
         pass1 = hp.check_minimum_polarity()
         pass2 = hp.check_maximum_gap()
+        print(hp.p_azi_mc)
         if pass1 and pass2:
             try:
                 hp.calculate_hash_focalmech()
                 hp.calculate_quality()
             except:
-                print('Error in fm calc for eid: {}'.format(eid))
-                continue
+                print('Error in fm calc for consensus')
         else:
             print("Minimum polarity and/or maximum gap check failed")
-            continue
         new_cat += hp.output(format="OBSPY")
+    elif mode == 'composite':
+        hp.input(catalog, format='OBSPY_COMPOSITE')
+        pass1 = hp.check_minimum_polarity()
+        pass2 = hp.check_maximum_gap()
+        print(hp.magap, hp.mpgap, hp.p_azi_mc, hp.p_the_mc)
+        if pass1 and pass2:
+            try:
+                hp.calculate_hash_focalmech()
+                hp.calculate_quality()
+            except:
+                print('Error in fm calc for composite')
+        else:
+            print('Minimum polarity and/or maximum gap check failed')
+        new_cat += hp.output(format="OBSPY")
+    else:
+        for ev in catalog:
+            eid = str(ev.resource_id).split('/')[-1]
+            # Set up hashpy object
+            hp.input(ev, format="OBSPY")
+            hp.generate_trial_data()
+            try:
+                hp.calculate_takeoff_angles()
+            except:
+                print('Error in toa calc for eid: {}'.format(eid))
+                continue
+            pass1 = hp.check_minimum_polarity()
+            pass2 = hp.check_maximum_gap()
+            print(hp.p_azi_mc)
+            if pass1 and pass2:
+                try:
+                    hp.calculate_hash_focalmech()
+                    hp.calculate_quality()
+                except:
+                    print('Error in fm calc for eid: {}'.format(eid))
+                    continue
+            else:
+                print("Minimum polarity and/or maximum gap check failed")
+                continue
+            new_cat += hp.output(format="OBSPY")
     new_cat.write(outfile, format="QUAKEML")
     return
 

@@ -102,8 +102,9 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
             print('Preferred origin not hypoDD: {}'.format(eid))
             continue
         if len(o.arrivals) > 0:
-            print('HypoDD origin has some Arrivals. Moving on.')
-            continue
+            print('HypoDD origin has some Arrivals. '
+                  + 'Removing and adding again.')
+            o.arrivals = []
         print('Raytracing for: {}'.format(eid))
         obs_file = '{}/obs/{}'.format(nlloc_root, eid)
         loc_file = '{}/loc/{}'.format(nlloc_root, eid)
