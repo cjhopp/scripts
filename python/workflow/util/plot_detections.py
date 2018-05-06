@@ -640,7 +640,7 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
 
 def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                    cumulative=False, ax=None, dates=None, show=True,
-                   ylims=False):
+                   ylims=False, outdir=None):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
     :param excel_file: Excel file to read
@@ -699,6 +699,13 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
             dtos = df.xs((well, parameter), level=(0, 1),
                          axis=1).index.to_pydatetime()
             values = df.xs((well, parameter), level=(0, 1), axis=1).cumsum()
+            if outdir:
+                # Write to file
+                filename = 'Cumulative_flow_{}'.format(well)
+                with open('{}/{}.csv'.format(outdir, filename), 'w') as f:
+                    for dto, val in zip(dtos, values):
+                        f.write('{} {}'.format(dto.strftime('%Y-%m-%d'), val))
+                continue
             ax1a.plot(dtos, values, label='{}: {}'.format(well,
                                                           'Cumulative Vol.'),
                       color=colr)
@@ -721,6 +728,15 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                          axis=1).index.to_pydatetime()
             values = df.xs((well, parameter), level=(0, 1), axis=1)
             maxs.append(np.max(values.dropna().values))
+            if outdir:
+                # Write to file
+                filename = '{}_{}_{}'.format(well, sheetname.split()[-1],
+                                             parameter.split()[0])
+                with open('{}/{}.csv'.format(outdir, filename), 'w') as f:
+                    for dto, val in zip(dtos, values.values):
+                        f.write('{} {}\n'.format(
+                            dto.strftime('%Y-%m-%dT%H:%M:%S'), val[0]))
+                continue
             if color:
                 colr = color
             else:
@@ -733,6 +749,9 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
             ax1a.set_ylim(ylims)
         else:
             ax1a.set_ylim([0, max(maxs) * 1.2])
+    if outdir:
+        # Not plotting if just writing to outfile
+        return
     # Add the new handles to the prexisting ones
     handles.extend(ax1a.legend_.get_lines())
     # Redo the legend

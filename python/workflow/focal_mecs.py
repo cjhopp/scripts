@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from glob import glob
+from shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
 from scipy.stats import circmean
@@ -525,6 +526,20 @@ def dec_2_merc_meters(dec_x, dec_y, z):
 
 ############################### HASHPY STUFF #################################
 
+
+def clusts_to_hashpy(clust_cats, config, outdir):
+    """
+    Loop over cluster catalogs and compute consensus mechanisms for each
+    :return:
+    """
+    for i, clust in enumerate(clust_cats):
+        cons, stach_dict, arr_dict = cluster_to_consensus(clust)
+        soln_cat = run_hashpy(cons, config,
+                              outfile='{}/Cat_consensus_{}.xml'.format(
+                                  outdir, i))
+    return
+
+
 def run_hashpy(catalog, config, outfile, mode=None):
     """
     Wrapper on hashpy for calculating HASH focal mechanisms
@@ -544,7 +559,6 @@ def run_hashpy(catalog, config, outfile, mode=None):
             print('Error in toa calc for consensus')
         pass1 = hp.check_minimum_polarity()
         pass2 = hp.check_maximum_gap()
-        print(hp.p_azi_mc)
         if pass1 and pass2:
             try:
                 hp.calculate_hash_focalmech()
@@ -556,17 +570,21 @@ def run_hashpy(catalog, config, outfile, mode=None):
         new_cat += hp.output(format="OBSPY")
     elif mode == 'composite':
         hp.input(catalog, format='OBSPY_COMPOSITE')
-        pass1 = hp.check_minimum_polarity()
-        pass2 = hp.check_maximum_gap()
-        print(hp.magap, hp.mpgap, hp.p_azi_mc, hp.p_the_mc)
-        if pass1 and pass2:
-            try:
-                hp.calculate_hash_focalmech()
-                hp.calculate_quality()
-            except:
-                print('Error in fm calc for composite')
-        else:
-            print('Minimum polarity and/or maximum gap check failed')
+        print(hp.p_azi_mc)
+        print(hp.p_the_mc)
+        print(hp.magap)
+        print(hp.mpgap)
+        # pass1 = hp.check_minimum_polarity()
+        # pass2 = hp.check_maximum_gap()
+        # pass1 = True, pass2 = True
+        # if pass1 and pass2:
+        try:
+            hp.calculate_hash_focalmech()
+            hp.calculate_quality()
+        except:
+            print('Error in fm calc for composite')
+        # else:
+        #     print('Minimum polarity and/or maximum gap check failed')
         new_cat += hp.output(format="OBSPY")
     else:
         for ev in catalog:
@@ -581,7 +599,6 @@ def run_hashpy(catalog, config, outfile, mode=None):
                 continue
             pass1 = hp.check_minimum_polarity()
             pass2 = hp.check_maximum_gap()
-            print(hp.p_azi_mc)
             if pass1 and pass2:
                 try:
                     hp.calculate_hash_focalmech()
@@ -594,7 +611,7 @@ def run_hashpy(catalog, config, outfile, mode=None):
                 continue
             new_cat += hp.output(format="OBSPY")
     new_cat.write(outfile, format="QUAKEML")
-    return
+    return new_cat
 
 def plot_hashpy(catalog, outdir):
     """

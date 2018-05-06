@@ -21,13 +21,16 @@ import plotly.graph_objs as go
 
 from glob import glob
 from itertools import cycle
+from operator import attrgetter
 from collections import OrderedDict
 from multiprocessing import Pool
 from scipy.signal import argrelmax
 from scipy.spatial.distance import pdist
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
-from obspy import read, Catalog
-from obspy.core.event import Comment
+from obspy import read, Catalog, read_events
+from obspy.core.event import (Comment, Event, Arrival, Origin, Pick,
+                              WaveformStreamID, OriginUncertainty,
+                              QuantityError)
 from eqcorrscan.core.match_filter import normxcorr2
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.synth_seis import seis_sim
@@ -540,7 +543,7 @@ def compare_rel_cat_pols(cat_pols, cat_dets, show=True):
                            and p.waveform_id.channel_code ==
                            pk.waveform_id.channel_code
                            and p.polarity]
-                    if len(pol) == 1:
+                    if len(pol) == 1 and pk.time_errors.upper_uncertainty:
                         matches[stachan].append(
                             (pol[0].polarity == pk.polarity,
                              pk.comments[-1].text,
@@ -554,6 +557,7 @@ def compare_rel_cat_pols(cat_pols, cat_dets, show=True):
               for mat in mats if mat[0] == False]
     t_wts, t_uncerts = zip(*trues)
     f_wts, f_uncerts = zip(*falses)
+    print(t_uncerts)
     fig, (ax1, ax2) = plt.subplots(2)
     sns.distplot(t_wts, ax=ax1, color='r',
                  label='Correct matches', kde=False)
@@ -664,6 +668,8 @@ def cluster_cat(indices, det_cat, min_events=2):
     # Get final group
     if len(cat) > min_events:
         clust_cats.append(cat)
+    # Sort by size of catalog
+    clust_cats.sort(key=lambda x: len(x), reverse=True)
     return clust_cats
 
 
@@ -826,26 +832,72 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
     return
 
 
-def plot_picks_on_stereonet(catalog, station_plot=False):
+def cluster_to_stereonets(cluster_cats, cons_cat_dir, outdir, pols='all'):
+    """
+    Helper to loop clusters and save output plots to a directory
+
+    :param cluster_cats: List of cats where each catalog represents a polarity
+        cluster
+    :param cons_cat_dir: Directory where the consensus catalogs for each
+        cluster are kept. Named as: Cat_consensus_i where i is cluster no.
+    :param outdir: Output directory for plots
+    :return:
+    """
+    for i, clust in enumerate(cluster_cats):
+        cons_cat = read_events('{}/Cat_consensus_{}.xml'.format(cons_cat_dir,
+                                                                i))
+        plot_picks_on_stereonet(clust, fm_cat=cons_cat,
+                                title='Cluster {} consensus'.format(i),
+                                outdir=outdir, pols=pols,
+                                savefig='Consensus_{}_{}.png'.format(i, pols))
+    return
+
+
+def plot_picks_on_stereonet(catalog, fm_cat=None, pols='all', title=None,
+                            station_plot=False, savefig=False, outdir='.',
+                            ax=None):
     """
     Plot relative polarities for catalog (presumably a cluster) on stereonet
 
     :param catalog: Catalog of events for which to plot pols
-    :param z_mat: Weighted and reconciled matrix of polarity values
-    :param z_chans: List of the channel column in order of cols of z_mat
+    :param fm_cat: Catalog of one event which contains fm solutions.
+        Will plot the soln with lowest misfit
+    :param pols: If 'all', will plot all polarities from cluster. If
+        'consensus', will plot only the consensus polarities.
+    :param title: Title of plot (optional)
+    :param station_plot: If True, will plot the arrival points for each station
+        as a different color. If False, will plot arrivals colored by polarity
+        and sized by relative polarity weighting.
+    :param savefig: If False, will show plot. Else savefig must be the name of
+        the desired file (with extension).
+    :param outdir: Output directory for files if savefig
+    :param ax: Axes instance on top of which to plot
     :return:
     """
+    # check args
     if not station_plot:
         pol_plot = True
+    if pols == 'consensus' and not fm_cat:
+        print('Cant plot consensus polarities without fm_cat arg')
+        return
     fig = plt.figure()
     colors = cycle(['red', 'green', 'blue', 'cyan', 'magenta', 'yellow',
                     'black', 'firebrick', 'purple', 'darkgoldenrod', 'gray'])
-    ax = fig.add_subplot(111, projection='stereonet')
+    if not ax:
+        ax = fig.add_subplot(111, projection='stereonet')
     sta_dict = {sta: {'plunge': [],
                       'bearing': [],
-                      'pol': []}
+                      'pol': [],
+                      'wt': []}
                 for sta in list(set([pk.waveform_id.station_code
                                      for ev in catalog for pk in ev.picks]))}
+    wts = []
+    for ev in catalog:
+        for pk in ev.picks:
+            if pk.comments:
+                if 'pol_wt' in pk.comments[-1].text:
+                    wts.append(float(pk.comments[-1].text.split()[-1]))
+    max_wt = np.max(np.abs(wts))
     for ev in catalog:
         if ev.preferred_origin().method_id:
             for arrival in ev.preferred_origin().arrivals:
@@ -854,6 +906,14 @@ def plot_picks_on_stereonet(catalog, station_plot=False):
                     sta = pk.waveform_id.station_code
                     toa = arrival.takeoff_angle
                     az = arrival.azimuth
+                    try:
+                        wt = float(pk.comments[-1].text.split()[-1]) / max_wt
+                    except IndexError:
+                        if pk.creation_info.version.startswith('ObsPyck'):
+                            wt = max_wt
+                        else:
+                            continue
+                    sta_dict[sta]['wt'].append(wt)
                     if toa > 90.:
                         up = True
                         sta_dict[sta]['plunge'].append(toa - 90.)
@@ -867,9 +927,9 @@ def plot_picks_on_stereonet(catalog, station_plot=False):
                     elif not up:
                         sta_dict[sta]['bearing'].append(az)
                     if pk.polarity == 'positive':
-                        sta_dict[sta]['pol'].append('b')
+                        sta_dict[sta]['pol'].append('$+$')
                     elif pk.polarity == 'negative':
-                        sta_dict[sta]['pol'].append('r')
+                        sta_dict[sta]['pol'].append('$-$')
     if station_plot:
         for sta, p_dict in sta_dict.items():
             col = next(colors)
@@ -881,14 +941,66 @@ def plot_picks_on_stereonet(catalog, station_plot=False):
         plt.legend(by_label.values(), by_label.keys(),
                    ncol=2, fontsize=5, loc='upper right', bbox_to_anchor=(1.3, 1.1))
     elif pol_plot:
-        for sta, p_dict in sta_dict.items():
-            for i in range(len(p_dict['bearing'])):
-                ax.line(p_dict['plunge'][i], p_dict['bearing'][i],
-                        c=p_dict['pol'][i], markersize=2)
-    plt.show()
-    plt.close('all')
+        if fm_cat:
+            fms = fm_cat[0].focal_mechanisms
+            fm = min(fms, key=attrgetter('misfit'))
+            ax.text(1.09, 0.85, 'Misfit: {:.3f}'.format(fm.misfit),
+                    transform=ax.transAxes, fontdict=dict(fontsize=8))
+            np1 = fm.nodal_planes.nodal_plane_1
+            np2 = fm.nodal_planes.nodal_plane_2
+            ax.plane(np1.strike, np1.dip, color='k')
+            ax.plane(np2.strike, np2.dip, color='k')
+        if pols == 'consensus':
+            for arr in fm_cat[0].origins[0].arrivals:
+                pk = arr.pick_id.get_referred_object()
+                toa = arr.takeoff_angle
+                az = arr.azimuth
+                if toa > 90.:
+                    up = True
+                    plunge = toa - 90.
+                else:
+                    up = False
+                    plunge = 90. - toa
+                if up and az < 180.:
+                    bearing = az + 180.
+                elif up and az > 180.:
+                    bearing = az - 180.
+                elif not up:
+                    bearing = az
+                if pk.polarity == 'positive':
+                    pol = '$+$'
+                elif pk.polarity == 'negative':
+                    pol = '$-$'
+                if pol == '$+$':
+                    color = 'blue'
+                elif pol == '$-$':
+                    color = 'red'
+                ax.line(plunge, bearing, c=color, label=pol)
+        elif pols == 'all':
+            for sta, p_dict in sta_dict.items():
+                for i in range(len(p_dict['bearing'])):
+                    if p_dict['pol'][i] == '$+$':
+                        color = 'blue'
+                    elif p_dict['pol'][i] == '$-$':
+                        color = 'red'
+                    ax.line(p_dict['plunge'][i], p_dict['bearing'][i],
+                            c=color, markersize=10 * p_dict['wt'][i],
+                            label=p_dict['pol'][i])
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = OrderedDict(zip(labels, handles))
+        for text, handle in by_label.items():
+            handle.set_markersize(5)
+        plt.legend(by_label.values(), by_label.keys(), loc='upper right',
+                   fontsize=12, bbox_to_anchor=(1.3, 1.1))
+    if title:
+        plt.suptitle(title)
+    if savefig:
+        plt.savefig('{}/{}'.format(outdir, savefig), dpi=300)
+        plt.close('all')
+    else:
+        plt.show()
+        plt.close('all')
     return
-
 
 
 def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
@@ -915,6 +1027,94 @@ def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
             plt.show()
             plt.close('all')
     return
+
+def cluster_to_consensus(catalog):
+    """
+    Take the median location from a cluster, determine consensus polarity
+    for each stachan, output to single event for HASH
+    :return:
+    """
+    # TODO Add weighting based on fraction of stations with zero values?
+    stas = list(set([pk.waveform_id.station_code for ev in catalog
+                       for pk in ev.picks if pk.phase_hint == 'P'
+                       and pk.comments]))
+    print(stas)
+    stach_dict = {stach: {'wts': [],
+                          'consensus': 0}
+                  for stach in stas}
+    arr_dict = {stach: {'toas': [],
+                        'dists': [],
+                        'azs': []}
+                for stach in stas}
+    for ev in catalog:
+        for pk in ev.picks:
+            if pk.comments:
+                if pk.comments[-1].text.startswith('pol_wt'):
+                    sta = pk.waveform_id.station_code
+                    if pk.polarity:
+                        if pk.polarity == 'positive':
+                            wt = float(pk.comments[-1].text.split()[-1])
+                        elif pk.polarity == 'negative':
+                            wt = -float(pk.comments[-1].text.split()[-1])
+                        stach_dict[sta]['wts'].append(wt)
+        if ev.preferred_origin():
+            for arr in ev.preferred_origin().arrivals:
+                sta = arr.pick_id.get_referred_object().waveform_id.station_code
+                if sta in stas:
+                    arr_dict[sta]['toas'].append(arr.takeoff_angle)
+                    arr_dict[sta]['dists'].append(arr.distance)
+                    arr_dict[sta]['azs'].append(arr.azimuth)
+    for sta, sta_dict in stach_dict.items():
+        sta_dict['consensus'] = (np.sum(sta_dict['wts'])
+                                 / np.sum(np.abs(sta_dict['wts'])))
+    consensus_catalog = Catalog()
+    event = Event()
+    first_ts = catalog[0].preferred_origin().time.timestamp
+    med_lat = np.median([ev.preferred_origin().latitude
+                         for ev in catalog])
+    lat_dev = np.std([ev.preferred_origin().latitude
+                         for ev in catalog])
+    med_lonlon = np.median([ev.preferred_origin().longitude
+                         for ev in catalog])
+    lon_dev = np.std([ev.preferred_origin().longitude
+                         for ev in catalog])
+    med_dep = np.median([ev.preferred_origin().depth
+                         for ev in catalog])
+    dep_dev = np.std([ev.preferred_origin().depth
+                         for ev in catalog])
+    event.origins = [Origin(time=first_ts, latitude=med_lat,
+                            longitude=med_lonlon, depth=med_dep,
+                            origin_uncertainty=OriginUncertainty(),
+                            longitude_errors=QuantityError(
+                                uncertainty=lon_dev
+                            ),
+                            latitude_errors=QuantityError(
+                                uncertainty=lat_dev
+                            ),
+                            depth_errors=QuantityError(
+                                uncertainty=dep_dev
+                            ))]
+    event.preferred_origin_id = event.origins[-1].resource_id.id
+    for sta, sta_dict in stach_dict.items():
+        pk = Pick()
+        ar = Arrival()
+        if sta_dict['consensus'] < 0:
+            pk.polarity = 'negative'
+        elif sta_dict['consensus'] > 0:
+            pk.polarity = 'positive'
+        pk.waveform_id = WaveformStreamID(station_code=sta,
+                                          channel_code='EHZ')
+        pk.phase_hint = 'P'
+        ar.pick_id = pk.resource_id.id
+        ar.phase = 'P'
+        ar.azimuth = np.median(arr_dict[sta]['azs'])
+        ar.takeoff_angle = np.median(arr_dict[sta]['toas'])
+        ar.distance = np.median(arr_dict[sta]['dists'])
+        event.picks.append(pk)
+        event.origins[-1].arrivals.append(ar)
+    consensus_catalog.append(event)
+    return consensus_catalog, stach_dict, arr_dict
+
 
 def run_rel_pols(template_streams, detection_streams, template_cat,
                  detection_cat, corr_dict, min_cc, filt_params,

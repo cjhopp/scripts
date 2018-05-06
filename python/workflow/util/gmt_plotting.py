@@ -4,20 +4,27 @@
 Functions to replace gmt shell scripts
 """
 import gmt
+import os
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 
 from glob import glob
 from subprocess import call
-from obspy import read_events, UTCDateTime
+from obspy import UTCDateTime
+from focal_mecs import format_arnold_to_gmt
 from gmt.clib import LibGMT
+from itertools import cycle
 from gmt.base_plotting import BasePlotting
 from gmt.utils import build_arg_string, dummy_context, data_kind
+
 
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
+
 
 def catalog_arrays(catalog):
     # Make array of elapsed seconds since start of catalog and normalized magnitudes
@@ -30,53 +37,76 @@ def catalog_arrays(catalog):
     mags /= np.max(mags)
     return secs, mags
 
-def gmt_project(catalog, center, end, mags, secs):
+
+def gmt_project(catalog, center, end, mags=None, secs=None, fm_file=None):
     """
     System call of gmt project at this point is best way to get what we want
     """
     # Write temporary file
-    with open('/home/chet/gmt/tmp/cat.tmp', 'w') as f:
-        for ev, mag, sec in zip(catalog, mags, secs):
-            f.write('{} {} {} {} {}\n'.format(ev.preferred_origin().longitude,
-                                        ev.preferred_origin().latitude,
-                                        ev.preferred_origin().depth,
-                                        mag, sec))
-    outfile = '/home/chet/gmt/tmp/cat_proj.tmp'
-    cmd = 'gmt project /home/chet/gmt/tmp/cat.tmp'
+    if mags and secs:
+        with open('/home/chet/gmt/tmp/cat.tmp', 'w') as f:
+            for ev, mag, sec in zip(catalog, mags, secs):
+                f.write('{} {} {} {} {}\n'.format(ev.preferred_origin().longitude,
+                                            ev.preferred_origin().latitude,
+                                            ev.preferred_origin().depth,
+                                            mag, sec))
+        outfile = '/home/chet/gmt/tmp/cat_proj.tmp'
+        cmd = 'gmt project /home/chet/gmt/tmp/cat.tmp'
+    elif fm_file:
+        outfile = '/home/chet/gmt/tmp/fm_proj.tmp'
+        cmd = 'gmt project {}'.format(fm_file)
     args = '-C{:.3f}/{:.3f} -E{}/{} -Fpz -Q -V > {}'.format(center[0], center[1],
                                                     end[0], end[1],
                                                     outfile)
     call(' '.join([cmd, args]), shell=True)
+    if fm_file:
+        # Need to put a dummy 'depth' column in the projected fm file
+        with open(outfile, 'r') as f:
+            with open('{}.new'.format(outfile), 'w') as fo:
+                for line in f:
+                    ln = line.split()
+                    ln.insert(2, '0.0')
+                    fo.write(' '.join(ln))
     return outfile
 
-def plot_Nga_well_map(fig):
+
+def plot_Nga_well_map(fig, dto):
     # Well tracks
-    fig.plot(data='/home/chet/gmt/data/NZ/wells/NM_tracks_injection.gmt',
-             W='1.5,blue', S='qn1:+f8p,blue+Lh')
-    fig.plot(data='/home/chet/gmt/data/NZ/wells/NM_tracks_production.gmt',
-             W='1.5,red', S='qn1:+f8p,red+Lh')
-    fig.plot(data='/home/chet/gmt/data/NZ/wells/NM06_track.gmt', W='1.5,blue',
-             S='qn1:+f8p,blue+Lh+n-.2/0.2')
-    fig.plot(data='/home/chet/gmt/data/NZ/wells/NM08_track.gmt', W='1.5,blue',
-             S='qn1:+f8p,blue+Lh+n0/-0.15')
-    fig.plot(data='/home/chet/gmt/data/NZ/wells/NM10_track.gmt', W='1.5,blue',
-             S='qn1:+f8p,blue+Lh+n0/0')
-    fig.plot(data='/home/chet/gmt/data/NZ/wells/NM09_track.gmt', W='1.5,blue',
-             S='qn1:+f8p,blue+Lh+n0/0')
-    fig.plot(data='/home/chet/gmt/data/NZ/wells/NM12_track.gmt', W='1.5,red',
-             S='qn1:+f8p,red+Lh')
+    if dto:
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM_tracks_injection.gmt',
+                 W='1.5,blue')
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM_tracks_production.gmt',
+                 W='1.5,red')
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM10_track.gmt',
+                 W='1.5,blue')
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM09_track.gmt',
+                 W='1.5,blue')
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM12_track.gmt',
+                 W='1.5,red')
+    else:
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM_tracks_injection.gmt',
+                 W='1.5,blue', S='qn1:+f8p,blue+Lh')
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM_tracks_production.gmt',
+                 W='1.5,red', S='qn1:+f8p,red+Lh')
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM10_track.gmt', W='1.5,blue',
+                 S='qn1:+f8p,blue+Lh+n0/0')
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM09_track.gmt', W='1.5,blue',
+                 S='qn1:+f8p,blue+Lh+n0/0')
+        fig.plot(data='/home/chet/gmt/data/NZ/wells/NM12_track.gmt', W='1.5,red',
+                 S='qn1:+f8p,red+Lh')
     # Wellhead points
     fig.plot(data='/home/chet/gmt/data/NZ/wells/NM_injection_pts.gmt',
-             color='blue', style='c0.2c')
+             color='blue', style='c0.1')
     fig.plot(data='/home/chet/gmt/data/NZ/wells/NM_production_pts.gmt',
-             color='red', style='c0.2c')
+             color='red', style='c0.1')
     return
+
 
 def plot_Nga_well_depth(fig):
     proj_wells = glob('/home/chet/gmt/data/NZ/wells/*project.txt')
     for well in proj_wells:
         well_nm = well.split('/')[-1].split('_')[0]
-        if well_nm in ['NM10', 'NM06', 'NM08', 'NM09']:
+        if well_nm in ['NM10', 'NM06', 'NM08', 'NM09', 'NM04']:
             fig.plot(data=well, W='0.9p,blue')
         else:
             fig.plot(data=well, W='0.9p,red')
@@ -85,15 +115,40 @@ def plot_Nga_well_depth(fig):
         fig.plot(data=well, W='6.5p,blue')
     return
 
-def plot_earthquakes_map(catalog, mags, secs, fig):
+
+def plot_earthquakes_map(catalog, mags, secs, fig, old_cat=None,
+                         old_mags=None):
     lons = np.asarray([ev.preferred_origin().longitude for ev in catalog])
     lats = np.asarray([ev.preferred_origin().latitude for ev in catalog])
+    if old_cat:
+        lons_old = np.asarray([ev.preferred_origin().longitude
+                               for ev in old_cat])
+        lats_old = np.asarray([ev.preferred_origin().latitude
+                               for ev in old_cat])
+        fig.plot(x=lons_old, y=lats_old, sizes=old_mags/4, style='cc',
+                 color='grey')
     fig.plot(x=lons, y=lats, sizes=mags/4, color=secs,
              style='cc', cmap='cool')
     return
 
+
 def plot_earthquakes_depth(catalog, mags, secs, center_pt, end_pt,
-                           region, scale, B_list, Y, fig):
+                           region, scale, B_list, Y, fig, old_cat=None,
+                           old_mags=None, old_secs=None):
+    if old_cat:
+        tmpfile_old = gmt_project(old_cat, center_pt, end_pt, old_mags,
+                                  old_secs)
+        with open(tmpfile_old, 'r') as f:
+            xo = []; yo = []; pmagso = []; psecso = []
+            for line in f:
+                ln = line.split('\t')
+                xo.append(float(ln[0]))
+                yo.append(float(ln[1]) / 1000.)
+                pmagso.append(float(ln[2]))
+                psecso.append(float(ln[3].rstrip('\n')))
+        fig.plot(x=np.array(xo), y=np.array(yo), sizes=np.array(pmagso) / 4,
+                 color='grey', style='cc', R=region, J=scale, B=B_list, Y=Y)
+        Y = 0
     tmpfile = gmt_project(catalog, center_pt, end_pt, mags, secs)
     with open(tmpfile, 'r') as f:
         x = []; y = []; pmags = []; psecs = []
@@ -108,6 +163,7 @@ def plot_earthquakes_depth(catalog, mags, secs, center_pt, end_pt,
              J=scale, B=B_list, Y=Y)
     return
 
+
 def plot_water(fig):
     # Water
     fig.plot(data='/home/chet/gmt/data/NZ/water/taupo_lakes.gmt',
@@ -115,6 +171,7 @@ def plot_water(fig):
     fig.plot(data='/home/chet/gmt/data/NZ/water/taupo_river_polygons.gmt',
              color='cornflowerblue')
     return
+
 
 def plot_background_datasets(fig, region):
     fig.plot(region=region, projection='M13', Y='10',
@@ -134,10 +191,12 @@ def plot_background_datasets(fig, region):
     fig.basemap(L='x11.5/1/-38/1', frame=['0.02', 'wsEN'])
     return
 
+
 def plot_stations(fig):
     fig.plot(data='/home/chet/gmt/data/NZ/stations/mrp_inventory.gmt',
              style='t0.3c', color='black', W='0.07')
     return
+
 
 def plot_Nga_section_line(start_pt, end_pt, fig):
     fig.plot(x=np.asarray([start_pt[0], end_pt[0]]),
@@ -152,6 +211,7 @@ def plot_Nga_section_line(start_pt, end_pt, fig):
             lib.call_module('pstext', arg_str)
     return
 
+
 def plot_Nga_scale():
     scale_args = {'C': 'cool', 'D': '10.25/13.75/3.5/0.5h',
                   'B': 'px1+l"Date of occurrence"',
@@ -161,6 +221,7 @@ def plot_Nga_scale():
                                              '--FONT_ANNOT_PRIMARY=7p',
                                              '--FONT_LABEL=9p']))
     return
+
 
 def plot_NM5_7_4():
     pts5_7 = '/home/chet/gmt/data/NZ/wells/NM05_NM07_pts.gmt'
@@ -175,8 +236,165 @@ def plot_NM5_7_4():
                 lib.call_module('pstext', arg_str)
     return
 
-def plot_Nga_static(catalog, start_pt, end_pt, secs=[],
-                    mags=[], show=True, outfile=None):
+
+def plot_date_text(dto):
+    pt = '176.21 -38.515'
+    with open('tmp_text.csv', 'w') as f:
+        f.write('{} @:14:Date: {}'.format(pt, dto.strftime('%d-%m-%Y')))
+    with LibGMT() as lib:
+        file_context = dummy_context('tmp_text.csv')
+        with file_context as fname:
+            lib.call_module('pstext', fname)
+    os.remove('tmp_text.csv')
+    return
+
+
+def plot_date_line(dto, fig):
+    with open('tmp_line.csv', 'w') as f:
+        f.write('{} 0\n'.format(dto.strftime('%Y-%m-%dT%H:%M:%S')))
+        f.write('{} 1300\n'.format(dto.strftime('%Y-%m-%dT%H:%M:%S')))
+    fig.plot(data='tmp_line.csv', W='1.0,black,--')
+    return
+
+
+def plot_injection_rates(fig, dto=None, field='North', data='Flow'):
+    """
+    Plot injection rates on separate axis, as well as time of plot as vertical
+    line for video purposes
+    :return:
+    """
+    well_dir = '/home/chet/data/mrp_data/well_data/flow_rates/July_2017_final'
+    well_fs = glob('{}/????_all.csv'.format(well_dir))
+    well_whps = glob('{}/*WHP_all.csv'.format(well_dir))
+    well_fs.sort()
+    colors = cycle(['darkturquoise', 'lightblue', 'darkseagreen', 'lawngreen'])
+    region = '2012T/2016T/0/1300' # Time on x, flow rate on y
+    proj = 'X15/9.7'
+    with LibGMT() as lib:
+        lib.call_module('gmtset', 'FONT_ANNOT_PRIMARY 10p')
+        lib.call_module('gmtset', 'FORMAT_DATE_MAP o')
+        lib.call_module('gmtset', 'FORMAT_TIME_PRIMARY_MAP Character')
+        lib.call_module('gmtset', 'FONT_TITLE 14p')
+    if dto: # Set parameters for animation next to map
+        fig.plot(data=well_fs[1], Y=12, X=16, R=region,
+                 projection=proj, W='0.7,{}'.format(next(colors)))
+        fig.plot(data=well_fs[2], W='0.7,{}'.format(next(colors)))
+        plot_date_line(dto, fig)
+        fig.basemap(B=['pxa1Y', 'pya100+l"Flow rate (t/h)"',
+                       'SE+t"Ngatamariki North"'])
+        fig.plot(data=well_fs[0], Y=-12, R=region,
+                 projection=proj, W='0.7,{}'.format(next(colors)))
+        fig.plot(data=well_fs[-1], W='0.7,{}'.format(next(colors)))
+        if dto:
+            plot_date_line(dto, fig)
+        fig.basemap(B=['pxa1Y', 'pya100+l"Flow rate (t/h)"',
+                       'wSEn+t"Ngatamariki South"'])
+    else: # Standalone plot of flow rates
+        if data == 'Flow':
+            for f in well_fs:
+                well = f.split('/')[-1].split('_')[0]
+                if well in ['NM08', 'NM09'] and field == 'North':
+                    fig.plot(data=f, R=region, projection=proj,
+                             W='0.7,{}'.format(next(colors)))
+                elif well in ['NM06', 'NM10'] and field == 'South':
+                    fig.plot(data=f, R=region, projection=proj,
+                             W='0.7,{}'.format(next(colors)))
+            fig.basemap(B=['pxa1Y', 'pya100+l"Flow rate (t/h)"',
+                           'SEwn+t"Ngatamariki {}"'.format(field)])
+        elif data == 'WHP':
+            for f in well_whps:
+                region = '2012T/2016T/0/35' # Time on x, WHP on y
+                well = f.split('/')[-1].split('_')[0]
+                if well in ['NM08', 'NM09'] and field == 'North':
+                    fig.plot(data=f, R=region, projection=proj,
+                             W='0.7,{}'.format(next(colors)))
+                elif well in ['NM06', 'NM10'] and field == 'South':
+                    fig.plot(data=f, R=region, projection=proj,
+                             W='0.7,{}'.format(next(colors)))
+                fig.basemap(B=['pxa1Y', 'pya5+l"WHP (barg)"',
+                               'syf1', 'WSen+t"Ngatamariki {}"'.format(field)],
+                            R=region)
+    return
+
+
+def plot_well_files(well_list, params, show=True, outfile=None):
+    """
+    Plot well data from file (with matplotlib) to avoid issues with multiple
+    y axes in gmt...
+
+    :param welldir:
+    :return:
+    """
+    well_dir = '/home/chet/data/mrp_data/well_data/flow_rates/July_2017_final'
+    well_fs = glob('{}/*_all.csv'.format(well_dir))
+    well_fs.sort()
+    colors = cycle(['darkturquoise', 'purple', 'lightblue', 'darkred'])
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax2 = ax.twinx()
+    for f in well_fs:
+        well = f.split('/')[-1].split('_')[0]
+        param = f.split('/')[-1].split('_')[-2]
+        dtos = []
+        vals = []
+        if well in well_list and param in params:
+            with open(f, 'r') as f:
+                for line in f:
+                    ln = line.split()
+                    dtos.append(
+                        UTCDateTime().strptime(ln[0],
+                                               '%Y-%m-%dT%H:%M:%S').datetime)
+                    vals.append(float(ln[-1].rstrip('\n')))
+            if param == 'flow':
+                ln = ax.plot(dtos, vals, label='{}: Flow (t/h)'.format(well),
+                             color=next(colors), linewidth=1.0)
+            elif param == 'WHP':
+                ln = ax2.plot(dtos, vals, label='{}: WHP (barg)'.format(well),
+                              color=next(colors), linewidth=1.0)
+    ax.set_ylim([0, 1300])
+    ax2.set_ylim([0, 35])
+    ax.set_ylabel('Flow rate (t/h)')
+    ax2.set_ylabel('WHP (barg)')
+    fig.autofmt_xdate()
+    handles = ax.legend().get_lines()  # Grab these lines for legend
+    if isinstance(ax.legend_, matplotlib.legend.Legend):
+        ax.legend_.remove()  # Need to manually remove this, apparently
+    handles.extend(ax2.legend().get_lines())
+    plt.legend(handles=handles, loc=2)
+    if show:
+        plt.show()
+    elif outfile:
+        plt.tight_layout()
+        plt.savefig(outfile, dpi=300)
+    return
+
+
+def plot_fm_map(catalog, fm_file, color):
+    # Write temporary outfile for psmeca plotting
+    tmp_file = 'tmp.psmeca'
+    format_arnold_to_gmt(catalog, fm_file, outfile=tmp_file, names=False,
+                         id_type='detection')
+    args = {'S': 'a2.0', 'G': color, 'C': '0.5P0.1'}
+    with LibGMT() as lib:
+        file_context = dummy_context(tmp_file)
+        with file_context as fname:
+            arg_str = ' '.join([fname, build_arg_string(args)])
+            lib.call_module('psmeca', arg_str)
+    return
+
+
+def plot_fm_depth(catalog, center_pt, end_pt, fm_file, color):
+    tmp_file = gmt_project(catalog, center_pt, end_pt, fm_file=fm_file)
+    args = {'S': 'a2.0', 'G': color, 'C': '0.5P0.1'}
+    with LibGMT() as lib:
+        file_context = dummy_context(tmp_file)
+        with file_context as fname:
+            arg_str = ' '.join([fname, build_arg_string(args)])
+            lib.call_module('psmeca', arg_str)
+    return
+
+def plot_Nga_static(catalog, start_pt, end_pt, secs=[], mags=[], dto=None,
+                    flows=False, show=True, outfile=None, old_cat=None,
+                    old_mags=None, old_secs=None, fm_file=None):
     """
     Main code for plotting Ngatamariki seismicity
     :param catalog: Catalog of events to plot
@@ -192,22 +410,37 @@ def plot_Nga_static(catalog, start_pt, end_pt, secs=[],
     # Calculate mid-point of cross_section
     c_lon = start_pt[0] + ((end_pt[0] - start_pt[0]) / 2.)
     c_lat = start_pt[1] + ((end_pt[1] - start_pt[1]) / 2.)
-    if len(secs) == 0 and len(mags) == 0:
+    if len(secs) == 0 and len(mags) == 0 and len(catalog) > 0:
         secs, mags = catalog_arrays(catalog)
     # Set prefs
     with LibGMT() as lib:
         lib.call_module('gmtset', 'FONT_ANNOT_PRIMARY 10p')
         lib.call_module('gmtset', 'FORMAT_GEO_MAP ddd.xx')
         lib.call_module('gmtset', 'MAP_FRAME_TYPE plain')
+        lib.call_module('gmtset', 'PS_MEDIA A3')
     region = [176.15, 176.23, -38.58, -38.51]
     # Set up figure
     fig = gmt.Figure()
     plot_background_datasets(fig, region=region)
-    plot_earthquakes_map(catalog, mags, secs, fig)
-    plot_Nga_well_map(fig)
-    plot_NM5_7_4()
+    if not fm_file:
+        plot_earthquakes_map(catalog, mags, secs, fig, old_cat, old_mags)
+    else:
+        # New guys
+        plot_fm_map(catalog, fm_file, color='blue')
+        if old_cat:
+            # Old guys
+            plot_fm_map(old_cat, fm_file, color='grey')
+    if dto:
+        plot_Nga_well_map(fig, dto=dto)
+    else:
+        plot_Nga_well_map(fig, dto=None)
+        plot_NM5_7_4()
     plot_stations(fig)
-    plot_Nga_scale()
+    if dto:
+        # pstext the date instead of the color scale
+        plot_date_text(dto)
+    else:
+        plot_Nga_scale()
     plot_Nga_section_line(start_pt=start_pt, end_pt=end_pt, fig=fig)
     # Cross section
     scale = 'X13/-6'
@@ -219,18 +452,29 @@ def plot_Nga_static(catalog, start_pt, end_pt, secs=[],
         lib.call_module('gmtset', 'FONT_ANNOT_PRIMARY 10p')
         lib.call_module('gmtset', 'FONT_LABEL 12p')
     # Eq cross section
-    x_region = [-3.635, 3.635, -0.5, 4.5]
-    plot_earthquakes_depth(catalog, mags, secs, center_pt=(c_lon, c_lat),
-                           end_pt=end_pt, region=x_region, scale=scale,
-                           B_list=B_list, Y=Y, fig=fig)
+    x_region = [-3.635, 3.635, -1.0, 4.5]
+    if not fm_file:
+        plot_earthquakes_depth(catalog, mags, secs, center_pt=(c_lon, c_lat),
+                               end_pt=end_pt, region=x_region, scale=scale,
+                               B_list=B_list, Y=Y, fig=fig, old_cat=old_cat,
+                               old_mags=old_mags, old_secs=old_secs)
+    else:
+        plot_fm_depth(catalog, center_pt=(c_lon, c_lat), end_pt=end_pt,
+                      fm_file=fm_file, color='blue')
+        if old_cat:
+            plot_fm_depth(old_cat, center_pt=(c_lon, c_lat), end_pt=end_pt,
+                          fm_file=fm_file, color='grey')
     plot_Nga_well_depth(fig)
+    if flows:
+        plot_injection_rates(fig, dto)
     if show:
         fig.show(external=True)
     elif outfile:
         fig.savefig(outfile)
     return
 
-def earthquake_video(catalog, outdir, field='Nga', buffer=100):
+
+def earthquake_video(catalog, outdir, flows=True, field='Nga', fm_file=None):
     """
     Overarching function for plotting a series of pngs and compiling videos
     :param catalog:
@@ -243,8 +487,9 @@ def earthquake_video(catalog, outdir, field='Nga', buffer=100):
     secs, mags = catalog_arrays(catalog)
     # Loop over specified steps
     counter = 0
-    for date in date_generator(catalog[0].origins[-1].time.date,
-                               catalog[-1].origins[-1].time.date):
+    last_10_cnt = []
+    for i, date in enumerate(date_generator(UTCDateTime(2012, 5, 1).date,
+                             catalog[-1].origins[-1].time.date)):
         dto = UTCDateTime(date)
         print('Plotting {}'.format(dto))
         start_str = 'time >= %s' % str(dto)
@@ -252,16 +497,30 @@ def earthquake_video(catalog, outdir, field='Nga', buffer=100):
         day_cat = catalog.filter(start_str, end_str)
         no_evs = len(day_cat)
         counter += no_evs
-        plot_cat = catalog[:counter]
-        tmp_mags = mags[:counter]
-        tmp_secs = secs[:counter]
+        last_10_cnt.append(no_evs)
+        # Plot old events as grey, color for events in last 10 days
+        if i < 10:
+            new_cat = catalog[:counter]
+            tmp_mags_new = mags[:counter]
+            tmp_secs_new = secs[:counter]
+            old_cat = None
+            tmp_mags_old = None
+            tmp_secs_old = None
+        else:
+            last_10 = np.sum(last_10_cnt[-10:])
+            print(last_10)
+            new_cat = catalog[counter - last_10:counter]
+            tmp_mags_new = mags[counter - last_10:counter]
+            tmp_secs_new = secs[counter - last_10:counter]
+            old_cat = catalog[:counter - last_10]
+            tmp_mags_old = mags[:counter - last_10]
+            tmp_secs_old = secs[:counter - last_10]
         if field == 'Nga':
             start_pt = (176.171, -38.517)
             end_pt = (176.209, -38.575)
-            plot_Nga_static(plot_cat, start_pt, end_pt, tmp_secs, tmp_mags,
-                            outfile='{}/Nga_static_{:s}.png'.format(
-                                outdir, str(dto)))
-    return
-
-def plot_flow_rates():
+            plot_Nga_static(new_cat, start_pt, end_pt, tmp_secs_new,
+                            tmp_mags_new, flows=flows, dto=dto,
+                            outfile='{}/img{}.png'.format(outdir, i + 1),
+                            old_cat=old_cat, old_mags=tmp_mags_old,
+                            old_secs=tmp_secs_old, fm_file=fm_file)
     return

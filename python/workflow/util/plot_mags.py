@@ -49,11 +49,13 @@ def plot_mags(cat, dates=None, metric='time',
         else:
             start = dates[0].datetime
             end = dates[1].datetime
+    else:
+        fig, ax1 = plt.subplots()
     cat.events.sort(key=lambda x: x.picks[-1].time)
     # Make all event times UTC for purposes of dto compare
     mag_tup = []
     for ev in cat:
-        if start < pytz.utc.localize(ev.picks[-1].time.datetime) < end:
+        if not ax or start < pytz.utc.localize(ev.picks[-1].time.datetime) < end:
             try:
                 if metric == 'time':
                     mag_tup.append(
@@ -84,8 +86,8 @@ def plot_mags(cat, dates=None, metric='time',
         ax1.set_title(title)
     plt.tight_layout()
     if show:
-        ax1.show()
-        ax1.close()
+        plt.show()
+        plt.close('all')
     return ax1
 
 def Mc_test(cat, n_bins, start_mag=None):
