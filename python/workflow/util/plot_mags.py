@@ -12,6 +12,7 @@ from dateutil import rrule
 from scipy.io import loadmat
 from operator import itemgetter
 from datetime import timedelta
+from obspy.imaging.beachball import beach
 from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
 
 
@@ -27,10 +28,16 @@ def avg_dto(dto_list):
 """Magnitude and b-val functions"""
 
 def plot_mags(cat, dates=None, metric='time',
-              ax=None, title=None, show=True):
+              ax=None, title=None, show=True,
+              fm_file=None):
     """
     Plot earthquake magnitude as a function of time
     :param cat: catalog of earthquakes with mag info
+    :param dates: list of UTCDateTime objects defining start and end of plot.
+        Defaults to None.
+    :param metric: Are we plotting magnitudes with depth or with time?
+    :param ax: matplotlib.Axes object to plot on top of (optional)
+    :param title: Plot title (optional)
     :param show: whether or not to show plot
     :return: matplotlib.pyplot.Figure
     """
@@ -50,20 +57,43 @@ def plot_mags(cat, dates=None, metric='time',
             start = dates[0].datetime
             end = dates[1].datetime
     else:
-        fig, ax1 = plt.subplots()
+        start = pytz.utc.localize(dates[0].datetime)
+        end = pytz.utc.localize(dates[1].datetime)
     cat.events.sort(key=lambda x: x.picks[-1].time)
     # Make all event times UTC for purposes of dto compare
     mag_tup = []
+    fm_tup = []
+    sdrs = {}
+    # Dictionary of fm strike-dip-rake from Arnold/Townend pkg
+    with open(fm_file, 'r') as f:
+        next(f)
+        for line in f:
+            line = line.rstrip('\n')
+            line = line.split(',')
+            sdrs[line[0]] = (float(line[1]), float(line[2]), float(line[3]))
     for ev in cat:
-        if not ax or start < pytz.utc.localize(ev.picks[-1].time.datetime) < end:
+        if start < pytz.utc.localize(ev.picks[-1].time.datetime) < end:
+            fm_id = '{}.{}.{}'.format(
+                ev.resource_id.id.split('/')[-1].split('_')[0],
+                ev.resource_id.id.split('_')[-2],
+                ev.resource_id.id.split('_')[-1][:6])
             try:
                 if metric == 'time':
                     mag_tup.append(
-                        (pytz.utc.localize(ev.picks[-1].time.datetime),
+                        (mdates.date2num(
+                            pytz.utc.localize(ev.picks[-1].time.datetime)),
                          ev.magnitudes[-1].mag))
+                    if fm_id in sdrs:
+                        fm_tup.append(sdrs[fm_id])
+                    else:
+                        fm_tup.append(None)
                 elif metric == 'depth':
                     mag_tup.append((ev.picks[-1].depth,
                                     ev.magnitudes[-1].mag))
+                    if fm_id in sdrs:
+                        fm_tup.append(sdrs[fm_id])
+                    else:
+                        fm_tup.append(None)
             except AttributeError:
                 print('Event {} has no associated magnitude'.format(
                     str(ev.resource_id)))
@@ -74,17 +104,27 @@ def plot_mags(cat, dates=None, metric='time',
     ax1.set_ylim([0, max(ys) * 1.2])
     # Eliminate the side padding
     ax1.margins(0, 0)
-    if metric == 'time':
-        ax1.set_xlabel('Date')
-        ax1.stem(xs, ys)
-    elif metric == 'depth':
+    if metric == 'depth':
         ax1.set_xlabel('Depth (m)')
         fn = np.poly1d(np.polyfit(xs, ys, 1))
-        ax1.plot(xs, ys, 'yo', xs, fn(xs), '--k', markersize=2)
-        ax1.set_xlim([0, 10000])
+        ax1.plot(xs, ys, 'yo', xs, fn(xs), '--k',
+                 markersize=2)
+    elif metric == 'time':
+        ax1.stem(xs, ys)
+        ax1.set_xlabel('Date')
+    for x, y, fm in zip(xs, ys, fm_tup):
+        if metric == 'time' and fm:
+            bball = beach(fm, xy=(x, y), width=100, linewidth=1, axes=ax1)
+            ax1.add_collection(bball)
+        elif metric == 'depth' and fm:
+            bball = beach(fm, xy=(x, y))
+            ax1.add_collection(bball)
+    # ax1.set_xlim([0, 10000])
     if title:
         ax1.set_title(title)
     plt.tight_layout()
+    if not ax:
+        fig.autofmt_xdate()
     if show:
         plt.show()
         plt.close('all')

@@ -181,6 +181,13 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
     :param id_type: Whether catalog ids are in detection or template format
     :return:
     """
+    # If len 0 catalog, warn and write empty file for gmt-plotting loop
+    # conveneience
+    if len(catalog) == 0:
+        with open(outfile, 'w') as of:
+            of.write('')
+        print('Length 0 catalog: writing empty output file.')
+        return
     if date_range:
         dates = date_range
     else:
