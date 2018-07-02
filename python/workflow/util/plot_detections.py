@@ -15,6 +15,7 @@ from itertools import cycle
 from mpl_toolkits.basemap import Basemap
 from matplotlib.patches import Ellipse
 from matplotlib.dates import date2num
+from matplotlib.colors import ListedColormap
 from matplotlib.ticker import ScalarFormatter
 from pyproj import Proj, transform
 from obspy import Catalog, UTCDateTime, Stream
@@ -640,7 +641,7 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
 
 def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                    cumulative=False, ax=None, dates=None, show=True,
-                   ylims=False, outdir=None):
+                   ylims=False, outdir=None, figsize=(8, 6)):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
     :param excel_file: Excel file to read
@@ -658,11 +659,16 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
     # All flow info is local time
     df.index = df.index.tz_localize('Pacific/Auckland')
+    colors = cycle(sns.color_palette())
     print('Flow data tz set to: {}'.format(df.index.tzinfo))
     if not ax:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=figsize)
         handles = []
         plain = True
+        if dates:
+            start = dates[0].datetime
+            end = dates[1].datetime
+            df = df.truncate(before=start, after=end)
     else:
         plain = False
         xlims = ax.get_xlim()
@@ -678,9 +684,12 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
             start = dates[0].datetime
             end = dates[1].datetime
         df = df.truncate(before=start, after=end)
-        handles = ax.legend().get_lines() # Grab these lines for legend
-        if isinstance(ax.legend_, matplotlib.legend.Legend):
-            ax.legend_.remove() # Need to manually remove this, apparently
+        try:
+            handles = ax.legend().get_lines() # Grab these lines for legend
+            if isinstance(ax.legend_, matplotlib.legend.Legend):
+                ax.legend_.remove() # Need to manually remove this, apparently
+        except AttributeError:
+            print('Empty axes. No legend to incorporate.')
     # Set color (this is only a good idea for one line atm)
     # Loop over well list (although there must be slicing option here)
     # Maybe do some checks here on your kwargs (Are these wells in this sheet?)
@@ -695,7 +704,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
             if color:
                 colr = color
             else:
-                colr = np.random.rand(3, 1)
+                colr = next(colors)
             dtos = df.xs((well, parameter), level=(0, 1),
                          axis=1).index.to_pydatetime()
             values = df.xs((well, parameter), level=(0, 1), axis=1).cumsum()
@@ -708,11 +717,11 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                 continue
             ax1a.plot(dtos, values, label='{}: {}'.format(well,
                                                           'Cumulative Vol.'),
-                      color=colr)
+                      color=next(colors))
             plt.legend() # This is annoying
             maxs.append(np.max(df.xs((well, parameter),
                                level=(0, 1), axis=1).values))
-        plt.gca().set_ylabel('Cumulative Volume (Tonnes)')
+        plt.gca().set_ylabel('Cumulative Volume (Tonnes)', fontsize=16)
         # Force scientific notation for cumulative y axis
         plt.gca().ticklabel_format(style='sci', scilimits=(0, 0), axis='y')
     else:
@@ -740,11 +749,24 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
             if color:
                 colr = color
             else:
-                colr = np.random.rand(3, 1)
-            ax1a.plot(dtos, values, label='{}: {}'.format(well, parameter),
-                      color=colr)
+                colr = next(colors)
+            # Force MPa instead of bar units
+            if parameter in ['WHP (bar)', 'WHP (barg)']:
+                label = '{}: WHP (MPa)'.format(well)
+                values *= 0.1
+            elif parameter == 'DHP (barg)':
+                label = '{}: DHP (MPa)'.format(well)
+                values *= 0.1
+            else:
+                label = '{}: {}'.format(well, parameter)
+            ax1a.plot(dtos, values, label=label, color=colr)
             plt.legend()
-        ax1a.set_ylabel(parameter)
+        if parameter in ['WHP (bar)', 'WHP (barg)']:
+            ax1a.set_ylabel('WHP (MPa)', fontsize=16)
+        elif parameter == 'DHP (barg)':
+            ax1a.set_ylabel('DHP (MPa)', fontsize=16)
+        else:
+            ax1a.set_ylabel(parameter, fontsize=16)
         if ylims:
             ax1a.set_ylim(ylims)
         else:
@@ -752,13 +774,17 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     if outdir:
         # Not plotting if just writing to outfile
         return
-    # Add the new handles to the prexisting ones
-    handles.extend(ax1a.legend_.get_lines())
-    # Redo the legend
-    if len(handles) > 4:
-        plt.legend(handles=handles, fontsize=5, loc=2)
-    else:
-        plt.legend(handles=handles, loc=2)
+    try:
+        # Add the new handles to the prexisting ones
+        handles.extend(ax1a.legend_.get_lines())
+        # Redo the legend
+        if len(handles) > 4:
+            plt.legend(handles=handles, fontsize=5, loc=2)
+        else:
+            plt.legend(handles=handles, loc=2)
+    except UnboundLocalError:
+        print('Plotting on empty axes. No handles to add to.')
+        plt.legend()
     # Now plot formatting
     if not plain:
         ax.set_xlim(start, end)

@@ -43,7 +43,7 @@ def gmt_project(catalog, center, end, mags=None, secs=None, fm_file=None):
     System call of gmt project at this point is best way to get what we want
     """
     # Write temporary file
-    if mags and secs:
+    if not (mags is None and secs is None):
         with open('/home/chet/gmt/tmp/cat.tmp', 'w') as f:
             for ev, mag, sec in zip(catalog, mags, secs):
                 f.write('{} {} {} {} {}\n'.format(ev.preferred_origin().longitude,
@@ -55,6 +55,13 @@ def gmt_project(catalog, center, end, mags=None, secs=None, fm_file=None):
     elif fm_file:
         outfile = '/home/chet/gmt/tmp/fm_proj.tmp'
         cmd = 'gmt project {}'.format(fm_file)
+    else:
+        # If plotting seis but no events in catalog, write empty file to proj
+        outfile = '/home/chet/gmt/tmp/cat_proj.tmp'
+        infile = '/home/chet/gmt/tmp/cat.tmp'
+        cmd = 'gmt project {}'.format(infile)
+        with open(infile, 'w') as f:
+            f.write('\n')
     args = '-C{:.3f}/{:.3f} -E{}/{} -Fpz -Q -V > {}'.format(center[0],
                                                             center[1],
                                                             end[0], end[1],
@@ -127,9 +134,9 @@ def plot_earthquakes_map(catalog, mags, secs, fig, old_cat=None,
                                for ev in old_cat])
         lats_old = np.asarray([ev.preferred_origin().latitude
                                for ev in old_cat])
-        fig.plot(x=lons_old, y=lats_old, sizes=old_mags/4, style='cc',
+        fig.plot(x=lons_old, y=lats_old, sizes=old_mags / 2, style='cc',
                  color='grey')
-    fig.plot(x=lons, y=lats, sizes=mags/4, color=secs,
+    fig.plot(x=lons, y=lats, sizes=mags / 2, color=secs,
              style='cc', cmap='cool')
     return
 
@@ -148,7 +155,7 @@ def plot_earthquakes_depth(catalog, mags, secs, center_pt, end_pt,
                 yo.append(float(ln[1]) / 1000.)
                 pmagso.append(float(ln[2]))
                 psecso.append(float(ln[3].rstrip('\n')))
-        fig.plot(x=np.array(xo), y=np.array(yo), sizes=np.array(pmagso) / 4,
+        fig.plot(x=np.array(xo), y=np.array(yo), sizes=np.array(pmagso) / 2,
                  color='grey', style='cc', R=region, J=scale, B=B_list, Y=Y)
         Y = 0
     tmpfile = gmt_project(catalog, center_pt, end_pt, mags, secs)
@@ -160,7 +167,7 @@ def plot_earthquakes_depth(catalog, mags, secs, center_pt, end_pt,
             y.append(float(ln[1]) / 1000.)
             pmags.append(float(ln[2]))
             psecs.append(float(ln[3].rstrip('\n')))
-    fig.plot(x=np.array(x), y=np.array(y), sizes=np.array(pmags)/4,
+    fig.plot(x=np.array(x), y=np.array(y), sizes=np.array(pmags) / 2,
              color=np.array(psecs), cmap='cool', style='cc', R=region,
              J=scale, B=B_list, Y=Y)
     return
@@ -190,6 +197,13 @@ def plot_background_datasets(fig, region):
     # Faults
     fig.plot(data='/home/chet/gmt/data/NZ/faults/NZ_active_faults.gmt',
              W='0.85')
+    # AFZ label
+    with LibGMT() as lib:
+        label_args = {'F': '+f10p+a50'}
+        file_context = dummy_context('/home/chet/gmt/data/NZ/faults/afz_text.txt')
+        with file_context as fname:
+            arg_str = ' '.join([fname, build_arg_string(label_args)])
+            lib.call_module('pstext', arg_str)
     fig.basemap(L='x11.5/1/-38/1', frame=['0.02', 'wsEN'])
     return
 
@@ -259,6 +273,17 @@ def plot_date_line(dto, fig):
     return
 
 
+def injection_legend(leg_file):
+    args = {'D': 'x0.1/7.5+w4/2/TC',
+            'C': '0.1i/0.1i', 'F': '+gwhite+p'}
+    with LibGMT() as lib:
+        file_context = dummy_context(leg_file)
+        with file_context as fname:
+            arg_str = ' '.join([fname, build_arg_string(args)])
+            lib.call_module('pslegend', arg_str)
+    return
+
+
 def plot_injection_rates(fig, dto=None, field='North', data='Flow'):
     """
     Plot injection rates on separate axis, as well as time of plot as vertical
@@ -273,15 +298,17 @@ def plot_injection_rates(fig, dto=None, field='North', data='Flow'):
     region = '2012T/2016T/0/1300' # Time on x, flow rate on y
     proj = 'X15/9.7'
     with LibGMT() as lib:
-        lib.call_module('gmtset', 'FONT_ANNOT_PRIMARY 10p')
+        lib.call_module('gmtset', 'FONT_ANNOT_PRIMARY 12p')
         lib.call_module('gmtset', 'FORMAT_DATE_MAP o')
         lib.call_module('gmtset', 'FORMAT_TIME_PRIMARY_MAP Character')
-        lib.call_module('gmtset', 'FONT_TITLE 14p')
+        lib.call_module('gmtset', 'FONT_TITLE 16p')
     if dto: # Set parameters for animation next to map
         fig.plot(data=well_fs[1], Y=12, X=16, R=region,
                  projection=proj, W='0.7,{}'.format(next(colors)))
         fig.plot(data=well_fs[2], W='0.7,{}'.format(next(colors)))
         plot_date_line(dto, fig)
+        # Legend North
+        injection_legend('/home/chet/gmt/data/NZ/misc/ngaN_legend_flow.txt')
         fig.basemap(B=['pxa1Y', 'pya100+l"Flow rate (t/h)"',
                        'SEwn+t"Ngatamariki North"'])
         fig.plot(data=well_fs[0], Y=-12, R=region,
@@ -289,6 +316,8 @@ def plot_injection_rates(fig, dto=None, field='North', data='Flow'):
         fig.plot(data=well_fs[-1], W='0.7,{}'.format(next(colors)))
         if dto:
             plot_date_line(dto, fig)
+            # Legend South
+        injection_legend('/home/chet/gmt/data/NZ/misc/ngaS_legend_flow.txt')
         fig.basemap(B=['pxa1Y', 'pya100+l"Flow rate (t/h)"',
                        'wSEn+t"Ngatamariki South"'])
     else: # Standalone plot of flow rates
@@ -350,18 +379,22 @@ def plot_well_files(well_list, params, show=True, outfile=None):
                 ln = ax.plot(dtos, vals, label='{}: Flow (t/h)'.format(well),
                              color=next(colors), linewidth=1.0)
             elif param == 'WHP':
-                ln = ax2.plot(dtos, vals, label='{}: WHP (barg)'.format(well),
+                ln = ax2.plot(dtos, np.array(vals) / 10.,
+                              label='{}: WHP (MPa)'.format(well),
                               color=next(colors), linewidth=1.0)
     ax.set_ylim([0, 1300])
-    ax2.set_ylim([0, 35])
-    ax.set_ylabel('Flow rate (t/h)')
-    ax2.set_ylabel('WHP (barg)')
+    ax2.set_ylim([0, 3.5])
+    ax.set_ylabel('Flow rate (t/h)', fontsize=16)
+    ax2.set_ylabel('WHP (MPa)', fontsize=16)
+    ax2.tick_params(axis='y', labelsize=14)
+    ax.tick_params(axis='y', labelsize=14)
     fig.autofmt_xdate()
+    ax2.tick_params(axis='x', labelsize=14)
     handles = ax.legend().get_lines()  # Grab these lines for legend
     if isinstance(ax.legend_, matplotlib.legend.Legend):
         ax.legend_.remove()  # Need to manually remove this, apparently
     handles.extend(ax2.legend().get_lines())
-    plt.legend(handles=handles, loc=2)
+    plt.legend(handles=handles, loc=2, fontsize=12)
     if show:
         plt.show()
     elif outfile:
@@ -453,7 +486,10 @@ def plot_Nga_static(catalog, start_pt, end_pt, secs=[], mags=[], dto=None,
         lib.call_module('gmtset', 'FORMAT_GEO_MAP ddd.xx')
         lib.call_module('gmtset', 'MAP_FRAME_TYPE plain')
         lib.call_module('gmtset', 'PS_MEDIA A3')
-    region = [176.15, 176.23, -38.58, -38.51]
+    if field == 'Nga':
+        region = [176.15, 176.23, -38.58, -38.51]
+    elif field == 'Rot':
+        region = []
     # Set up figure
     fig = gmt.Figure()
     plot_background_datasets(fig, region=region)
@@ -521,7 +557,7 @@ def earthquake_video(catalog, outdir, flows=True, field='Nga', fm_file=None):
     # Loop over specified steps
     counter = 0
     last_10_cnt = []
-    for i, date in enumerate(date_generator(UTCDateTime(2012, 6, 1).date,
+    for i, date in enumerate(date_generator(UTCDateTime(2012, 5, 1).date,
                              catalog[-1].origins[-1].time.date)):
         dto = UTCDateTime(date)
         print('Plotting {}'.format(dto))

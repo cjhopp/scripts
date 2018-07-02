@@ -27,9 +27,8 @@ def avg_dto(dto_list):
 
 """Magnitude and b-val functions"""
 
-def plot_mags(cat, dates=None, metric='time',
-              ax=None, title=None, show=True,
-              fm_file=None):
+def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
+              fm_file=None, just_fms=False, fm_color=None):
     """
     Plot earthquake magnitude as a function of time
     :param cat: catalog of earthquakes with mag info
@@ -54,8 +53,8 @@ def plot_mags(cat, dates=None, metric='time',
                       'and end date')
                 return
         else:
-            start = dates[0].datetime
-            end = dates[1].datetime
+            start = pytz.utc.localize(dates[0].datetime)
+            end = pytz.utc.localize(dates[1].datetime)
     else:
         start = pytz.utc.localize(dates[0].datetime)
         end = pytz.utc.localize(dates[1].datetime)
@@ -80,15 +79,14 @@ def plot_mags(cat, dates=None, metric='time',
             try:
                 if metric == 'time':
                     mag_tup.append(
-                        (mdates.date2num(
-                            pytz.utc.localize(ev.picks[-1].time.datetime)),
+                        (pytz.utc.localize(ev.picks[-1].time.datetime),
                          ev.magnitudes[-1].mag))
                     if fm_id in sdrs:
                         fm_tup.append(sdrs[fm_id])
                     else:
                         fm_tup.append(None)
                 elif metric == 'depth':
-                    mag_tup.append((ev.picks[-1].depth,
+                    mag_tup.append((ev.preferred_origin().depth,
                                     ev.magnitudes[-1].mag))
                     if fm_id in sdrs:
                         fm_tup.append(sdrs[fm_id])
@@ -100,29 +98,40 @@ def plot_mags(cat, dates=None, metric='time',
     xs, ys = zip(*mag_tup)
     if not ax:
         fig, ax1 = plt.subplots()
-    ax1.set_ylabel('Magnitude')
+    ax1.set_ylabel('Magnitude', fontsize=16)
     ax1.set_ylim([0, max(ys) * 1.2])
     # Eliminate the side padding
     ax1.margins(0, 0)
     if metric == 'depth':
-        ax1.set_xlabel('Depth (m)')
+        ax1.set_xlabel('Depth (m)', fontsize=16)
         fn = np.poly1d(np.polyfit(xs, ys, 1))
         ax1.plot(xs, ys, 'yo', xs, fn(xs), '--k',
                  markersize=2)
-    elif metric == 'time':
+        ax1.set_xlim([0, 5000])
+    elif metric == 'time' and not just_fms:
         ax1.stem(xs, ys)
-        ax1.set_xlabel('Date')
+        ax1.set_xlabel('Date', fontsize=16)
+        ax1.set_xlim([start, end])
+    elif metric == 'time':
+        ax1.set_xlabel('Date', fontsize=16)
+        ax1.set_xlim([start, end])
+    if fm_color:
+        col = fm_color
+    else:
+        col = 'b'
     for x, y, fm in zip(xs, ys, fm_tup):
         if metric == 'time' and fm:
-            bball = beach(fm, xy=(x, y), width=100, linewidth=1, axes=ax1)
+            bball = beach(fm, xy=(mdates.date2num(x), y), width=70,
+                          linewidth=1, axes=ax1, facecolor=col)
             ax1.add_collection(bball)
         elif metric == 'depth' and fm:
-            bball = beach(fm, xy=(x, y))
+            bball = beach(fm, xy=(x, y), width=70,
+                          linewidth=1, axes=ax1, facecolor=col)
             ax1.add_collection(bball)
     # ax1.set_xlim([0, 10000])
     if title:
         ax1.set_title(title)
-    plt.tight_layout()
+        plt.tight_layout()
     if not ax:
         fig.autofmt_xdate()
     if show:

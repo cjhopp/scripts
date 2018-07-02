@@ -87,7 +87,7 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
     attribute for that origin using specified NLLoc Grid files through
     time2EQ
 
-    :param catalog: Catalog containing evnets which we need Arrivals for
+    :param catalog: Catalog containing events which we need Arrivals for
     :param nlloc_root: Root directory for file IO
     :param in_file: NLLoc/Time2EQ run file. User is responsible for defining
         the path to grid files in this control file. This file will be modified

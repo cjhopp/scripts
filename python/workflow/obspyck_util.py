@@ -137,10 +137,14 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
                 if wav_format == 'SAC' and not wav_file:
                     sac_dirs = glob(wav_dirs[0] + '/*')
                     if cat_id_format == 'temps':
-                        wav_files = [
-                            glob('{}/*'.format(dir)) for dir
-                            in sac_dirs if dir.split('/')[-1].split('_')[0] ==
-                            str(ev.resource_id).split('/')[-1]][0]
+                        try:
+                            wav_files = [
+                                glob('{}/*'.format(dir)) for dir
+                                in sac_dirs if dir.split('/')[-1].split('_')[0] ==
+                                str(ev.resource_id).split('/')[-1]][0]
+                        except IndexError:
+                            print('Unable to find waveform directory!!')
+                            continue
                     elif cat_id_format == 'dets':
                         wav_files = [
                             glob('{}/*'.format(dir)) for dir

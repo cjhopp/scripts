@@ -581,25 +581,41 @@ def compare_rel_cat_pols(cat_pols, cat_dets, show=True):
     return matches
 
 
-def partition_Nga(cat, svd_mat):
+def partition_Nga(cat, svd_mat=None, threshold='tight'):
     """
     Split the svd_mat and det_cat into NgaN and NgaS clusters
     :return:
     """
     NgaN_cat = Catalog(); NgaS_cat = Catalog()
-    NgaN_svd = np.zeros(svd_mat.shape[1])
-    NgaS_svd = np.zeros(svd_mat.shape[1])
+    if svd_mat:
+        NgaN_svd = np.zeros(svd_mat.shape[1])
+        NgaS_svd = np.zeros(svd_mat.shape[1])
     for i, ev in enumerate(cat):
         o = ev.preferred_origin() or ev.origins[-1]
-        if -38.526 > o.latitude > -38.55 and 176.17 < o.longitude < 176.20:
-            # Ngatamariki North
-            NgaN_cat.append(ev)
-            NgaN_svd = np.vstack((NgaN_svd, svd_mat[i]))
-        elif -38.575 < o.latitude < -38.55 and 176.178 < o.longitude < 176.21:
-            # Ngatamariki South
-            NgaS_cat.append(ev)
-            NgaS_svd = np.vstack((NgaS_svd, svd_mat[i]))
-    return NgaN_cat, NgaS_cat, NgaN_svd[1:], NgaS_svd[1:]
+        if threshold == 'tight': # Stringent cropping to Nga clusters
+            if -38.526 > o.latitude > -38.55 and 176.17 < o.longitude < 176.20:
+                # Ngatamariki North
+                NgaN_cat.append(ev)
+                if svd_mat:
+                    NgaN_svd = np.vstack((NgaN_svd, svd_mat[i]))
+            elif -38.575 < o.latitude < -38.55 and 176.178 < o.longitude < 176.21:
+                # Ngatamariki South
+                NgaS_cat.append(ev)
+                if svd_mat:
+                    NgaS_svd = np.vstack((NgaS_svd, svd_mat[i]))
+        elif threshold == 'loose': # More general split on latitude
+            if o.latitude > -38.55:
+                NgaN_cat.append(ev)
+                if svd_mat:
+                    NgaN_svd = np.vstack((NgaN_svd, svd_mat[i]))
+            elif o.latitude < -38.55:
+                NgaS_cat.append(ev)
+                if svd_mat:
+                    NgaS_svd = np.vstack((NgaS_svd, svd_mat[i]))
+    if svd_mat:
+        return NgaN_cat, NgaS_cat, NgaN_svd[1:], NgaS_svd[1:]
+    else:
+        return NgaN_cat, NgaS_cat
 
 
 def cluster_svd_mat(svd_mat, stachans=None, exclude_sta=[],
@@ -813,17 +829,17 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
     elif video and not animation:
         # For now, save all images locally and combine into gif
         # Shitty solution, but works
-        zoom = 1
-        for rad in np.linspace(0, 6.3, 630):
-            fig.layout.scene.camera = {'eye':{'x': np.cos(rad) * zoom,
-                                              'y': np.sin(rad) * zoom,
-                                              'z': 0.2}}
-            py.image.save_as(fig, '{}_{}.png'.format(outfile, rad),
-                             scale=5)
-        ims = []
-        for im in glob('{}*.png'.format(outfile)):
-            ims.append(imageio.imread(im))
-        imageio.mimsave('{}.gif'.format(outfile), ims, duration=0.2)
+        # zoom = 1
+        # for rad in np.linspace(0, 6.3, 630):
+        #     fig.layout.scene.camera = {'eye':{'x': np.cos(rad) * zoom,
+        #                                       'y': np.sin(rad) * zoom,
+        #                                       'z': 0.2}}
+        #     py.image.save_as(fig, '{}_{}.png'.format(outfile, rad),
+        #                      scale=5)
+        # ims = []
+        # for im in glob('{}*.png'.format(outfile)):
+        #     ims.append(imageio.imread(im))
+        # imageio.mimsave('{}.gif'.format(outfile), ims, duration=0.2)
     else:
         if offline:
             plotly.offline.plot(fig, filename=outfile)
