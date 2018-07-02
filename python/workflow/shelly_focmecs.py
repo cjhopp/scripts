@@ -12,11 +12,12 @@ import unittest
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
-import mplstereonet
-import colorlover as cl
-import plotly
-import plotly.plotly as py
-import plotly.graph_objs as go
+try:
+    import mplstereonet
+    import colorlover as cl
+    import plotly
+    import plotly.plotly as py
+    import plotly.graph_objs as go
 
 from glob import glob
 from itertools import cycle
