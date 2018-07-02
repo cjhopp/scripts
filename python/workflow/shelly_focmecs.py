@@ -827,6 +827,7 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
         else:
             py.plot(fig, filename=outfile)
     elif video and not animation:
+        print('You dont need a video')
         # For now, save all images locally and combine into gif
         # Shitty solution, but works
         # zoom = 1
