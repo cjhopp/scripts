@@ -18,7 +18,8 @@ try:
     import plotly
     import plotly.plotly as py
     import plotly.graph_objs as go
-
+except:
+    print('Youre probably on the server. Dont try any plotting')
 from glob import glob
 from itertools import cycle
 from operator import attrgetter
