@@ -7,7 +7,6 @@ Functions for running Shelly et al. focal mechanism methods for MF detections
 # matplotlib.use('Agg')
 
 import numpy as np
-import imageio
 import random
 import unittest
 import pickle
