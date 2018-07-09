@@ -8,7 +8,12 @@ import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 
+try:
+    from plotFMC import circles
+except:
+    print('FMC files not on your path')
 from glob import glob
+from subprocess import Popen, PIPE
 from shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
@@ -84,6 +89,34 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     else:
         print('All traces long enough to proceed to dayproc')
     return st
+########################## FMC PLOTTING ######################################
+
+def arnold2FMC(input_files, outfile='test.png', show=True):
+    """
+    Wrapper on FMC to take control of the output and have access to the
+    matplotlib Figure instance for custom plotting
+
+    :param input_files: List of input psmeca files for plotting
+    :param outfile: Optional output figure
+    :return:
+    """
+    # Example using subprocess and grabbing stdout for use in plotting
+    for input in input_files:
+        cmd = '/home/chet/FMC_1.01/FMC.py -i AR -o K {}'.format(input)
+        print(cmd)
+        p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+        stdout, stderr = p.communicate()
+        out_list = stdout.decode('utf-8').split('\n')
+        X_kaverina = [float(ln.split()[0]) for ln in out_list[2:-1]]
+        Y_kaverina = [float(ln.split()[1]) for ln in out_list[2:-1]]
+    # TODO Still not complete, more functionality and formatting needed
+    # TODO Also should add time dependent capability...
+    # TODO ...prefereably static but possibly video?
+    fig = circles(X_kaverina, Y_kaverina, size=0.5, color='b',
+                  plotname=outfile)
+    if show:
+        plt.show()
+    return fig
 
 ########################## MTFIT STUFF #######################################
 

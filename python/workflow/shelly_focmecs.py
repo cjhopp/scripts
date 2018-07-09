@@ -28,7 +28,7 @@ from multiprocessing import Pool
 from scipy.signal import argrelmax
 from scipy.spatial.distance import pdist
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
-from obspy import read, Catalog, read_events
+from obspy import read, Catalog, read_events, Stream
 from obspy.core.event import (Comment, Event, Arrival, Origin, Pick,
                               WaveformStreamID, OriginUncertainty,
                               QuantityError)
@@ -199,18 +199,29 @@ def _prepare_data(template_streams, detection_streams, template_cat,
     filt_temps = []
     filt_dets = []
     print('Filtering data')
+    print('Filtering templates')
     for st in template_streams:
-        filt_temps.append(shortproc(st.copy(), filt_params['lowcut'],
-                                    filt_params['highcut'],
-                                    filt_params['filt_order'],
-                                    filt_params['samp_rate'],
-                                    num_cores=cores))
+        try:
+            filt_temps.append(shortproc(st.copy(), filt_params['lowcut'],
+                                        filt_params['highcut'],
+                                        filt_params['filt_order'],
+                                        filt_params['samp_rate'],
+                                        num_cores=cores))
+        except ValueError:
+            # If there's an issue with filtering the streams, add an empty
+            # one. If the corresponding trace doesn't exist in the next loop
+            # that gets accounted for by preallocation of zero arrays
+            filt_temps.append(Stream())
+    print('Filtering detections')
     for st in detection_streams:
-        filt_dets.append(shortproc(st.copy(), filt_params['lowcut'],
-                                   filt_params['highcut'],
-                                   filt_params['filt_order'],
-                                   filt_params['samp_rate'],
-                                   num_cores=cores))
+        try:
+            filt_dets.append(shortproc(st.copy(), filt_params['lowcut'],
+                                       filt_params['highcut'],
+                                       filt_params['filt_order'],
+                                       filt_params['samp_rate'],
+                                       num_cores=cores))
+        except ValueError:
+            filt_dets.append(Stream())
     # Populate trace arrays for all picks
     for i, (st, ev) in enumerate(zip(filt_temps, template_cat.events)):
         for pk in ev.picks:
