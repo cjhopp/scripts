@@ -464,13 +464,16 @@ def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, ev_type='temp'):
                     elif line[0] == 'END_PHASE':
                         phase = False
                     if phase:
+                        # Skip all the S phases
+                        if line[4] == 'S':
+                            print('Ignore S phases')
+                            continue
                         # Try to find a corresponding polarity pick in catalog
                         # Because P and S traced to all stations, we find only
                         # phase lines corresponding to actual picks in the
                         # catalog and populate the FM column. These will be the
                         # only ones used by the Focal mech package anyways.
                         print('Try adding for {}'.format(line[0]))
-                        print('{} {}'.format(line[0], line[2]))
                         try:
                             pk = [pk for pk in ev.picks
                                   if pk.waveform_id.station_code == line[0]
