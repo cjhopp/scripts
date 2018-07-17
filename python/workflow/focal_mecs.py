@@ -18,10 +18,13 @@ from shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
 from scipy.stats import circmean
-from sklearn.cluster import KMeans
 from obspy.imaging.beachball import beach
 from eqcorrscan.utils import pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
+try:
+    from sklearn.cluster import KMeans
+except:
+    print('Probably on the server, no sklearn for you')
 # Try to import plotly 3D plotting from shelly_focmecs
 try:
     from shelly_focmecs import plot_clust_cats_3d
