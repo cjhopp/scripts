@@ -733,9 +733,13 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
             ax1a = ax
         for i, well in enumerate(well_list):
             # Just grab the dates for the flow column as it shouldn't matter
-            dtos = df.xs((well, parameter), level=(0, 1),
-                         axis=1).index.to_pydatetime()
-            values = df.xs((well, parameter), level=(0, 1), axis=1)
+            if parameter == 'Injectivity':
+                values = df[(well, 'Flow (t/h)')] / df[(well, 'WHP (barg)')]
+                dtos = values.index.to_pydatetime()
+            else:
+                values = df.xs((well, parameter), level=(0, 1), axis=1)
+                dtos = df.xs((well, parameter), level=(0, 1),
+                             axis=1).index.to_pydatetime()
             maxs.append(np.max(values.dropna().values))
             if outdir:
                 # Write to file
@@ -795,7 +799,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     plt.tight_layout()
     if show:
         plt.show()
-    return ax
+    return ax, values
 
 ##### OTHER MISC FUNCTIONS #####
 

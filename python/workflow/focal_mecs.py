@@ -18,9 +18,15 @@ from shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
 from scipy.stats import circmean
+from sklearn.cluster import KMeans
 from obspy.imaging.beachball import beach
 from eqcorrscan.utils import pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
+# Try to import plotly 3D plotting from shelly_focmecs
+try:
+    from shelly_focmecs import plot_clust_cats_3d
+except:
+    print('Shelly_focmecs not in path...')
 # Try to import hashpype if in active env
 try:
     from hashpy.hashpype import HashPype, HashError
@@ -33,6 +39,7 @@ try:
     from mtfit.utilities.file_io import parse_hyp
 except:
     print('MTfit not installed in this env, fool')
+
 
 def grab_day_wavs(wav_dirs, dto, stachans):
     # Helper to recursively crawl paths searching for waveforms from a dict of
@@ -89,34 +96,35 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     else:
         print('All traces long enough to proceed to dayproc')
     return st
-########################## FMC PLOTTING ######################################
 
-def arnold2FMC(input_files, outfile='test.png', show=True):
+def cluster_cat_kmeans(catalog, n_clusters, plot=False, field='Nga',
+                       title='kmeans clusters', **kwargs):
     """
-    Wrapper on FMC to take control of the output and have access to the
-    matplotlib Figure instance for custom plotting
+    Use scikit-learn kmeans clustering to group catalog locations into
+    a specified number of clusters
 
-    :param input_files: List of input psmeca files for plotting
-    :param outfile: Optional output figure
+    :param catalog: Catalog of events to cluster
+    :param n_clusters: Number of clusters to create
+    :param kwargs: Any other arguments accepted by sklearn.cluster.KMeans
     :return:
     """
-    # Example using subprocess and grabbing stdout for use in plotting
-    for input in input_files:
-        cmd = '/home/chet/FMC_1.01/FMC.py -i AR -o K {}'.format(input)
-        print(cmd)
-        p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-        stdout, stderr = p.communicate()
-        out_list = stdout.decode('utf-8').split('\n')
-        X_kaverina = [float(ln.split()[0]) for ln in out_list[2:-1]]
-        Y_kaverina = [float(ln.split()[1]) for ln in out_list[2:-1]]
-    # TODO Still not complete, more functionality and formatting needed
-    # TODO Also should add time dependent capability...
-    # TODO ...prefereably static but possibly video?
-    fig = circles(X_kaverina, Y_kaverina, size=0.5, color='b',
-                  plotname=outfile)
-    if show:
-        plt.show()
-    return fig
+    # Make the location array
+    loc_array = []
+    # Populate it
+    for ev in catalog:
+        o = ev.preferred_origin()
+        loc_array.append([o.longitude, o.latitude, o.depth])
+    # Run kmeans algorithm
+    kmeans = KMeans(n_clusters=n_clusters, **kwargs).fit(loc_array)
+    # Get group index for each event
+    indices = kmeans.fit_predict(loc_array)
+    # Preallocate group catalogs
+    group_cats = [Catalog() for i in range(n_clusters)]
+    for i, ev in enumerate(catalog):
+        group_cats[indices[i]].append(ev)
+    if plot:
+        plot_clust_cats_3d(group_cats, outfile=plot, field=field, title=title)
+    return group_cats
 
 ########################## MTFIT STUFF #######################################
 
@@ -202,8 +210,55 @@ def plot_mtfit_output(directory, outdir):
 ##############################################################################
 ################# Richard's focmec and stress inversion formatting ############
 
+########################## FMC PLOTTING ######################################
+
+def arnold2FMC(input_files, plotname='Test', outfile='test.png', show=True):
+    """
+    Wrapper on FMC to take control of the output and have access to the
+    matplotlib Figure instance for custom plotting
+
+    :type input_files: List
+    :param input_files: List of input psmeca files for plotting. At the moment
+        this only plots the first input file, but will use multiple for time-
+        dependent plotting later.
+    :type plotname: str
+    :param plotname: Name of the plot, fed to plotFMC.circles
+    :type outfile: str
+    :param outfile: Optional path to output file
+    :type show: bool
+    :param show: Show the plot?
+    :return:
+    """
+    # Example using subprocess and grabbing stdout for use in plotting
+    for input in input_files:
+        # Shitty hard-coded line for Chet's laptop
+        # Assumes Aki-Richards convention output from Richard's focmec code
+        cmd = '/home/chet/FMC_1.01/FMC.py -i AR -o K {}'.format(input)
+        print(cmd) # Make sure this looks right
+        p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+        # Pipe stdout to a variable which we will parse into the format we
+        # want for plotting
+        stdout, stderr = p.communicate()
+        out_list = stdout.decode('utf-8').split('\n')
+        # Take the x and y positions on the Kaverina diagram from stdout
+        X_kaverina = [float(ln.split()[0]) for ln in out_list[2:-1]]
+        Y_kaverina = [float(ln.split()[1]) for ln in out_list[2:-1]]
+        # Mags and depths too
+        sizes = [float(ln.split()[2]) for ln in out_list[2:-1]]
+        depths = [float(ln.split()[3]) for ln in out_list[2:-1]]
+    # TODO Should add time dependent capability...
+    # TODO ...prefereably static but possibly video?
+    # Plot em
+    fig = circles(X_kaverina, Y_kaverina, size=sizes, color=depths,
+                  plotname=plotname)
+    if show:
+        plt.show()
+    else:
+        plt.savefig(outfile, dpi=300)
+    return fig
+
 def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
-                         id_type='detection', date_range=[]):
+                         id_type='detection', dd=True, date_range=[]):
     """
     Take *_sdr.dat output file from Arnold FM software
     add magnitudes, and output to psmeca format
@@ -212,6 +267,7 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
     :param outfile: Name of output file to be used by psmeca
     :param names: Whether to include event names in psmeca file
     :param id_type: Whether catalog ids are in detection or template format
+    :param dd: Use only dd locations?
     :return:
     """
     # If len 0 catalog, warn and write empty file for gmt-plotting loop
@@ -257,6 +313,8 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                         print(ev)
                         continue
                     o = ev.preferred_origin()
+                    if dd and not o.method_id.id.split('/')[-1] == 'HypoDD':
+                        continue
                     if names:
                         name = str(ev.resource_id).split('/')[-1]
                     else:
@@ -341,11 +399,22 @@ def write_obspy_focmec_2_gmt(catalog, outfile, names=False, strike_range=45,
                     'Range of strikes for {} too large. Skipping.'.format(eid))
     return
 
-def add_pols_to_hyp(catalog, nlloc_dir, outdir, ev_type='temp'):
+def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, ev_type='temp'):
     """
-    Add polarities to the nlloc hyp files to be used by Arnold focmec stuff
-    :param catalog:
-    :param nlloc_dir:
+    Add polarities to the nlloc hyp files produced from Time2EQ. This is the
+    last part of the workflow which takes hypoDD locations, retraces the
+    raypaths with Time2EQ, relocates these with NLLoc and then repopulates
+    the PHASE lines in the .hyp file with the polarities picked in Obspyck
+    (this function). These are then fed into the Arnold focmec stuff.
+
+    :param catalog: Catalog with polarity picks to use
+    :param nlloc_dir: Path to the NLLoc loc/ directory with corresponding
+        location files for the catalog provided
+    :param outdir: Path to output directory for the .scat, .hdr and .hyp files
+        Usually this will be in an Arnold_Townend projects/ directory
+    :param ev_type: Naming convention for the event resource_id of each event.
+        Templates are just the GNS cuspid, detections have an additional
+        timing element.
     :return:
     """
     for ev in catalog:
@@ -373,6 +442,7 @@ def add_pols_to_hyp(catalog, nlloc_dir, outdir, ev_type='temp'):
                     and 'sum' not in path.split('.')]
         for fl in scat_hdr:
             shutil.copyfile(fl, '{}/{}'.format(outdir, fl.split('/')[-1]))
+        # Now edit the loc file and write it to outdir
         with open(hyp_path, 'r') as orig:
             with open('{}/{}'.format(outdir,
                                      hyp_path.split('/')[-1]), 'w') as new:
@@ -383,6 +453,7 @@ def add_pols_to_hyp(catalog, nlloc_dir, outdir, ev_type='temp'):
                     if len(line) == 0:
                         print('End of file')
                         break
+                    # Write top of file as usual until we get to PHASE lines
                     if line[0] == 'PHASE':
                         phase = True
                         new.write(' '.join(line) + '\n')
@@ -390,13 +461,19 @@ def add_pols_to_hyp(catalog, nlloc_dir, outdir, ev_type='temp'):
                     elif line[0] == 'END_PHASE':
                         phase = False
                     if phase:
+                        # Try to find a corresponding polarity pick in catalog
+                        # Because P and S traced to all stations, we find only
+                        # phase lines corresponding to actual picks in the
+                        # catalog and populate the FM column. These will be the
+                        # only ones used by the Focal mech package anyways.
                         print('Try adding for {}'.format(line[0]))
+                        print('{} {}'.format(line[0], line[2]))
                         try:
                             pk = [pk for pk in ev.picks
                                   if pk.waveform_id.station_code == line[0]
-                                  and line[2] == 'Z'][0]
+                                  and line[4] == 'P'][0]
                         except IndexError:
-                            print('No pick for this.....pick??')
+                            print('No polarity pick for {}'.format(line[0]))
                             continue
                         if pk.polarity not in ['positive', 'negative']:
                             print('No polarity for station {}'.format(line[0]))

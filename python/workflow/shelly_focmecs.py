@@ -703,9 +703,17 @@ def cluster_cat(indices, det_cat, min_events=2):
 
 def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
                    perm_zones_dir='/home/chet/gmt/data/NZ/wells/feedzones',
-                   wells=['NM08', 'NM09', 'NM10', 'NM06']):
+                   field='Nga', nga_wells=['NM08', 'NM09', 'NM10', 'NM06'],
+                   rot_wells=['RK20', 'RK21', 'RK22', 'RK23', 'RK24']):
     track_files = glob('{}/*_xyz_pts.csv'.format(track_dir))
     p_zone_files = glob('{}/*_feedzones_?.csv'.format(perm_zones_dir))
+    if field == 'Nga':
+        wells = nga_wells
+    elif field == 'Rot':
+        wells = rot_wells
+    else:
+        print('Where is {}?'.format(field))
+        return
     well_dict = {}
     for well in wells:
         for track_file in track_files:
@@ -730,14 +738,43 @@ def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
     return well_dict
 
 
-def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
-                       zlims=None, wells=True, video=True, animation=False,
+def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
+                       zlims=None, wells=True, video=False, animation=False,
                        title=None, offline=False):
+    """
+    Plot a list of catalogs as a plotly 3D figure
+    :param cluster_cats: List of obspy.event.Catalog objects
+    :param outfile: Name of the output figure
+    :param field: Either 'Rot' or 'Nga' depending on which field we want
+    :param xlims: List of [min, max] longitude to plot
+    :param ylims: List of [max, min] latitude to plot
+    :param zlims: List of [max neg., max pos.] depths to plot
+    :param wells: Boolean for whether to plot the wells
+    :param video: Deprecated because it's impossible to deal with
+    :param animation: (See above)
+    :param title: Plot title
+    :param offline: Boolean for whether to plot to plotly account (online)
+        or to local disk (offline)
+    :return:
+    """
     pt_lists = []
+    # Establish color scales from colorlover (import colorlover as cl)
     colors = cycle(cl.scales['11']['qual']['Paired'])
-    well_colors = cl.scales['8']['seq']['Blues']
+    well_colors = cl.scales['9']['seq']['BuPu']
     if not title:
-        title = 'Relative polarity clusters'
+        title = 'Boogers'
+    # If no limits specified, take them from catalogs
+    if not xlims:
+        xs = [ev.preferred_origin().longitude for cat in cluster_cats
+              for ev in cat]
+        ys = [ev.preferred_origin().latitude for cat in cluster_cats
+              for ev in cat]
+        zs = [ev.preferred_origin().depth for cat in cluster_cats
+              for ev in cat]
+        xlims = [min(xs), max(xs)]
+        ylims = [max(ys), min(ys)]
+        zlims = [-7000, 500]
+    # Populate the lists of x y z mag id for each catalog
     for cat in cluster_cats:
         pt_list = []
         for ev in cat:
@@ -756,23 +793,30 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
                                 ev.resource_id.id.split('/')[-1]))
         if len(pt_list) > 0:
             pt_lists.append(pt_list)
+    # Make well point lists
     datas = []
     if wells:
-        wells = make_well_dict()
+        wells = make_well_dict(field=field)
         for i, (key, pts) in enumerate(wells.items()):
             x, y, z = zip(*wells[key]['track'])
             # z = -np.array(z)
             datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
                                       name='Well: {}'.format(key),
-                                      line=dict(color=well_colors[i + 3],
+                                      line=dict(color=well_colors[i + 2],
                                                 width=7)))
             # Now perm zones
             for pz in wells[key]['p_zones']:
                 x, y, z = zip(*pz)
                 datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
                                           showlegend=False,
-                                          line=dict(color=well_colors[i + 3],
+                                          line=dict(color=well_colors[i + 2],
                                                     width=20)))
+    # Set magnitude scaling multiplier for each field
+    if field == 'Rot':
+        multiplier = 4
+    elif field == 'Nga':
+        multiplier = 7
+    # Add arrays to the plotly objects
     for i, lst in enumerate(pt_lists):
         x, y, z, m, id = zip(*lst)
         z = -np.array(z)
@@ -782,26 +826,27 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
                                   hoverinfo='text',
                                   text=id,
                                   marker=dict(color=next(colors),
-                                    size=7 * np.array(m) ** 2,
+                                    size=multiplier * np.array(m) ** 2,
                                     symbol='circle',
                                     line=dict(color='rgb(204, 204, 204)',
                                               width=1),
                                     opacity=0.9)))
-    xax = go.XAxis(nticks=10, gridcolor='rgb(255, 255, 255)', gridwidth=2,
-                   zerolinecolor='rgb(255, 255, 255)', zerolinewidth=2,
+    xax = go.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
+                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
                    title='Longitude (deg)', autorange=False, range=xlims)
-    yax = go.YAxis(nticks=10, gridcolor='rgb(255, 255, 255)', gridwidth=2,
-                   zerolinecolor='rgb(255, 255, 255)', zerolinewidth=2,
+    yax = go.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
+                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
                    title='Latitude (deg)', autorange=False, range=[ylims[1],
                                                                    ylims[0]])
-    zax = go.ZAxis(nticks=10, gridcolor='rgb(255, 255, 255)', gridwidth=2,
-                   zerolinecolor='rgb(255, 255, 255)', zerolinewidth=2,
+    zax = go.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
+                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
                    title='Elevation (m)', autorange=False, range=zlims)
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax,
                                   zaxis=zax,
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
                        title=title)
+    # This is a bunch of hooey
     if video and animation:
         layout.update(
             updatemenus=[{'type': 'buttons', 'showactive': False,
@@ -840,19 +885,6 @@ def plot_clust_cats_3d(cluster_cats, outfile, xlims=None, ylims=None,
             py.plot(fig, filename=outfile)
     elif video and not animation:
         print('You dont need a video')
-        # For now, save all images locally and combine into gif
-        # Shitty solution, but works
-        # zoom = 1
-        # for rad in np.linspace(0, 6.3, 630):
-        #     fig.layout.scene.camera = {'eye':{'x': np.cos(rad) * zoom,
-        #                                       'y': np.sin(rad) * zoom,
-        #                                       'z': 0.2}}
-        #     py.image.save_as(fig, '{}_{}.png'.format(outfile, rad),
-        #                      scale=5)
-        # ims = []
-        # for im in glob('{}*.png'.format(outfile)):
-        #     ims.append(imageio.imread(im))
-        # imageio.mimsave('{}.gif'.format(outfile), ims, duration=0.2)
     else:
         if offline:
             plotly.offline.plot(fig, filename=outfile)

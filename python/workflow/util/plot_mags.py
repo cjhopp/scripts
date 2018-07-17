@@ -28,7 +28,8 @@ def avg_dto(dto_list):
 """Magnitude and b-val functions"""
 
 def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
-              fm_file=None, just_fms=False, fm_color=None):
+              fm_file=None, just_fms=False, fm_color=None,
+              cat_format='templates', focmecs=False):
     """
     Plot earthquake magnitude as a function of time
     :param cat: catalog of earthquakes with mag info
@@ -56,8 +57,13 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
             start = pytz.utc.localize(dates[0].datetime)
             end = pytz.utc.localize(dates[1].datetime)
     else:
-        start = pytz.utc.localize(dates[0].datetime)
-        end = pytz.utc.localize(dates[1].datetime)
+        if dates:
+            start = pytz.utc.localize(dates[0].datetime)
+            end = pytz.utc.localize(dates[1].datetime)
+        else:
+            cat.events.sort(key=lambda x: x.picks[-1].time)
+            start = pytz.utc.localize(cat[0].origins[0].time.datetime)
+            end = pytz.utc.localize(cat[-1].origins[0].time.datetime)
     cat.events.sort(key=lambda x: x.picks[-1].time)
     # Make all event times UTC for purposes of dto compare
     mag_tup = []
@@ -69,13 +75,23 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
         for line in f:
             line = line.rstrip('\n')
             line = line.split(',')
-            sdrs[line[0]] = (float(line[1]), float(line[2]), float(line[3]))
+            if cat_format == 'detections':
+                sdrs[line[0]] = (float(line[1]), float(line[2]),
+                                 float(line[3]))
+            elif cat_format == 'templates':
+                sdrs[line[0].split('.')[0]] = (float(line[1]), float(line[2]),
+                                               float(line[3]))
     for ev in cat:
         if start < pytz.utc.localize(ev.picks[-1].time.datetime) < end:
-            fm_id = '{}.{}.{}'.format(
-                ev.resource_id.id.split('/')[-1].split('_')[0],
-                ev.resource_id.id.split('_')[-2],
-                ev.resource_id.id.split('_')[-1][:6])
+            if cat_format == 'detections' and focmecs:
+                fm_id = '{}.{}.{}'.format(
+                    ev.resource_id.id.split('/')[-1].split('_')[0],
+                    ev.resource_id.id.split('_')[-2],
+                    ev.resource_id.id.split('_')[-1][:6])
+            elif cat_format == 'templates' and focmecs:
+                fm_id = ev.resource_id.id.split('/')[-1]
+            elif not focmecs:
+                fm_id = 'foo'
             try:
                 if metric == 'time':
                     mag_tup.append(
@@ -105,7 +121,7 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
     if metric == 'depth':
         ax1.set_xlabel('Depth (m)', fontsize=16)
         fn = np.poly1d(np.polyfit(xs, ys, 1))
-        ax1.plot(xs, ys, 'yo', xs, fn(xs), '--k',
+        ax1.plot(xs, ys, 'mo', xs, fn(xs), '--k',
                  markersize=2)
         ax1.set_xlim([0, 5000])
     elif metric == 'time' and not just_fms:
