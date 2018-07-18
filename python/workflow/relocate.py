@@ -108,23 +108,49 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
             o.arrivals = []
         print('Raytracing for: {}'.format(eid))
         obs_file = '{}/obs/{}'.format(nlloc_root, eid)
+        new_obs = '{}.obs'.format(obs_file) # Only real picks in this one
         loc_file = '{}/loc/{}'.format(nlloc_root, eid)
         out_file_hyp = glob(
             '{}.????????.??????.grid0.loc.hyp'.format(loc_file))
+        # Edit the ctrl file for both Time2EQ and NLLoc statements
         if len(out_file_hyp) == 0:
             with open(in_file, 'r') as f, open(new_ctrl, 'w') as fo:
                 for line in f:
+                    # Time2EQ
                     if line.startswith('EQFILES'):
                         line = line.split()
                         line = '{} {} {}'.format(line[0], line[1], obs_file)
                     elif line.startswith("EQSRCE"):
                         line = "EQSRCE {} LATLON {} {} {} 0.0\n".format(
                             eid, o.latitude, o.longitude, o.depth / 1000.)
+                    # NLLoc
                     elif line.startswith('LOCFILES'):
                         ln = line.split()
-                        line = ' '.join([ln[0], obs_file, ln[2], ln[3], loc_file])
+                        line = ' '.join([ln[0], new_obs, ln[2], ln[3], loc_file])
                     fo.write(line)
             call(["Time2EQ", new_ctrl])
+            # Edit obs_file to have just the Time2EQ phases for which we
+            # have picks!
+            # Make list of sta.phase
+            sta_phz = {'{}.{}'.format(pk.waveform_id.station_code,
+                                      pk.phase_hint): pk
+                       for ev in catalog for pk in ev.picks}
+            # Also will add the polarities in here to eliminate separate func
+            with open(obs_file, 'r') as of, open(new_obs, 'w') as nof:
+                for line in of:
+                    ln = line.split()
+                    # Write the first line
+                    if ln[0] == '#':
+                        nof.write(' '.join(ln) + '\n')
+                        continue
+                    staph = '{}.{}'.format(ln[0], ln[4])
+                    # Now only write phases we picked to the obs file
+                    if staph in sta_phz:
+                        if sta_phz[staph].polarity == 'positive':
+                            ln[5] = 'U'
+                        elif sta_phz[staph].polarity == 'negative':
+                            ln[5] = 'D'
+                        nof.write(' '.join(ln) + '\n')
             call(["NLLoc", new_ctrl])
             out_file_hyp = glob(
                 '{}.????????.??????.grid0.loc.hyp'.format(loc_file))
