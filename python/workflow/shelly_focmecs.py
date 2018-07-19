@@ -12,6 +12,7 @@ import unittest
 import pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pyproj
 try:
     import mplstereonet
     import colorlover as cl
@@ -761,6 +762,8 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
     # Establish color scales from colorlover (import colorlover as cl)
     colors = cycle(cl.scales['11']['qual']['Paired'])
     well_colors = cl.scales['9']['seq']['BuPu']
+    wgs84 = pyproj.Proj("+init=EPSG:4326")
+    nztm = pyproj.Proj("+init=EPSG:27200")
     if not title:
         title = 'Boogers'
     # If no limits specified, take them from catalogs
@@ -769,16 +772,16 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
               for ev in cat]
         ys = [ev.preferred_origin().latitude for cat in cluster_cats
               for ev in cat]
-        zs = [ev.preferred_origin().depth for cat in cluster_cats
-              for ev in cat]
-        xlims = [min(xs), max(xs)]
-        ylims = [max(ys), min(ys)]
+        utms = pyproj.transform(wgs84, nztm, xs, ys)
+        xlims = [min(utms[0]), max(utms[0])]
+        ylims = [min(utms[1]), max(utms[1])]
         zlims = [-7000, 500]
     # Populate the lists of x y z mag id for each catalog
     for cat in cluster_cats:
         pt_list = []
         for ev in cat:
             o = ev.preferred_origin()
+            utm_ev = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
             if not o.method_id:
                 print('Not accepting non-dd locations')
                 continue
@@ -786,10 +789,10 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
                 m = ev.magnitudes[-1].mag
             except IndexError:
                 continue
-            if (xlims[0] < o.longitude < xlims[1]
-                and ylims[0] > o.latitude > ylims[1]
+            if (xlims[0] < utm_ev[0] < xlims[1]
+                and ylims[0] < utm_ev[1] < ylims[1]
                 and np.abs(zlims[0]) > o.depth > (-1 * zlims[1])):
-                pt_list.append((o.longitude, o.latitude, o.depth, m,
+                pt_list.append((utm_ev[0], utm_ev[1], o.depth, m,
                                 ev.resource_id.id.split('/')[-1]))
         if len(pt_list) > 0:
             pt_lists.append(pt_list)
@@ -799,16 +802,18 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
         wells = make_well_dict(field=field)
         for i, (key, pts) in enumerate(wells.items()):
             x, y, z = zip(*wells[key]['track'])
-            # z = -np.array(z)
-            datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
+            utm_well = pyproj.transform(wgs84, nztm, x, y)
+            datas.append(go.Scatter3d(x=utm_well[0], y=utm_well[1], z=z,
+                                      mode='lines',
                                       name='Well: {}'.format(key),
                                       line=dict(color=well_colors[i + 2],
                                                 width=7)))
             # Now perm zones
             for pz in wells[key]['p_zones']:
                 x, y, z = zip(*pz)
-                datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
-                                          showlegend=False,
+                utm_z = pyproj.transform(wgs84, nztm, x, y)
+                datas.append(go.Scatter3d(x=utm_z[0], y=utm_z[1], z=z,
+                                          mode='lines', showlegend=False,
                                           line=dict(color=well_colors[i + 2],
                                                     width=20)))
     # Set magnitude scaling multiplier for each field
@@ -833,14 +838,13 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
                                     opacity=0.9)))
     xax = go.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
                    zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Longitude (deg)', autorange=False, range=xlims)
+                   title='Easting (m)', autorange=True, range=xlims)
     yax = go.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
                    zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Latitude (deg)', autorange=False, range=[ylims[1],
-                                                                   ylims[0]])
+                   title='Northing (m)', autorange=True, range=ylims)
     zax = go.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
                    zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Elevation (m)', autorange=False, range=zlims)
+                   title='Elevation (m)', autorange=True, range=zlims)
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax,
                                   zaxis=zax,
                                   bgcolor="rgb(244, 244, 248)"),

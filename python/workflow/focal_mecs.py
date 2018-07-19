@@ -7,6 +7,7 @@ import copy
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
+import pyproj
 
 try:
     from plotFMC import circles
@@ -116,7 +117,10 @@ def cluster_cat_kmeans(catalog, n_clusters, plot=False, field='Nga',
     # Populate it
     for ev in catalog:
         o = ev.preferred_origin()
-        loc_array.append([o.longitude, o.latitude, o.depth])
+        wgs84 = pyproj.Proj("+init=EPSG:4326")
+        nztm = pyproj.Proj("+init=EPSG:27200")
+        utmz = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
+        loc_array.append([utmz[0], utmz[1], o.depth / 1000.])
     # Run kmeans algorithm
     kmeans = KMeans(n_clusters=n_clusters, **kwargs).fit(loc_array)
     # Get group index for each event

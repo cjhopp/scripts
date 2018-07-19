@@ -134,7 +134,7 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
             # Make list of sta.phase
             sta_phz = {'{}.{}'.format(pk.waveform_id.station_code,
                                       pk.phase_hint): pk
-                       for ev in catalog for pk in ev.picks}
+                       for pk in ev.picks}
             # Also will add the polarities in here to eliminate separate func
             with open(obs_file, 'r') as of, open(new_obs, 'w') as nof:
                 for line in of:
