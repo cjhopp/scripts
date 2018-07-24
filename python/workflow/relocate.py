@@ -53,8 +53,8 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
                 chan = pk.waveform_id.channel_code[-1]
                 pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
         id_str = str(ev.resource_id).split('/')[-1]
-        filename = root_name + 'obs/' + id_str + '.nll'
-        outfile = root_name + 'loc/' + id_str
+        filename = '{}/obs/{}.nll'.format(root_name, id_str)
+        outfile = '{}/loc/{}'.format(root_name, id_str)
         # TODO This clause needs faster file existece check. Do 25-7.
         if os.path.isfile(outfile):
             if len(glob(outfile + '.????????.??????.grid0.loc.hyp')) > 0:

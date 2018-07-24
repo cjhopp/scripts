@@ -741,7 +741,7 @@ def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
 
 def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
                        zlims=None, wells=True, video=False, animation=False,
-                       title=None, offline=False):
+                       title=None, offline=False, dd_only=False):
     """
     Plot a list of catalogs as a plotly 3D figure
     :param cluster_cats: List of obspy.event.Catalog objects
@@ -782,7 +782,7 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
         for ev in cat:
             o = ev.preferred_origin()
             utm_ev = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
-            if not o.method_id:
+            if dd_only and not o.method_id:
                 print('Not accepting non-dd locations')
                 continue
             try:

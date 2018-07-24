@@ -331,7 +331,7 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                         line[2], line[3], ev.preferred_magnitude().mag, name))
     return
 
-def arnold_focmec_2_clust(sdr_err_file, clust_dict, outdir, window=None):
+def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, window=None):
     """
     Function to break output file from arnold focmec into clusters
 
@@ -341,6 +341,8 @@ def arnold_focmec_2_clust(sdr_err_file, clust_dict, outdir, window=None):
     :param time_dict (optional): Dict with the size of window and overlap
     :return:
     """
+    clust_dict = {i: [ev.resource_id.id.split('/')[-1] for ev in grp]
+                  for i, grp in enumerate(group_cats)}
     for clust_name, big_ev_list in clust_dict.items():
         print('Doing cluster: {}'.format(clust_name))
         with open(sdr_err_file, 'r') as f:
