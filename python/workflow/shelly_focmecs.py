@@ -224,6 +224,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
         except ValueError:
             filt_dets.append(Stream())
     # Populate trace arrays for all picks
+    print('Populating trace array for templates')
     for i, (st, ev) in enumerate(zip(filt_temps, template_cat.events)):
         for pk in ev.picks:
             sta = pk.waveform_id.station_code
@@ -236,6 +237,9 @@ def _prepare_data(template_streams, detection_streams, template_cat,
             try:
                 tr = st.select(station=sta, channel=chan)[0]
             except IndexError:
+                continue
+            if hint == 'P' and stch[-1] == 'Z':
+                print('You have a P pick on a horizontal channel. Skipping')
                 continue
             # Put this data in corresponding row of the array
             try:
@@ -254,6 +258,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                 except ValueError:
                     # Just ignore now. We tried.
                     continue
+    print('Populating trace array for detections')
     for i, (st, ev) in enumerate(zip(filt_dets, detection_cat.events)):
         for pk in ev.picks:
             sta = pk.waveform_id.station_code
@@ -265,6 +270,9 @@ def _prepare_data(template_streams, detection_streams, template_cat,
             try:
                 tr = st.select(station=sta, channel=chan)[0]
             except IndexError:
+                continue
+            if hint == 'P' and stch[-1] == 'Z':
+                print('You have a P pick on a horizontal channel. Skipping')
                 continue
             # Put this data in corresponding row of the array
             try:
