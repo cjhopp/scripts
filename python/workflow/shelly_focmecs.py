@@ -243,11 +243,15 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                     endtime=pk.time + corr_dict[hint]['post_pick'],
                     nearest_sample=False).data
             except ValueError:
-                # Clip last sample off data in this case?
-                temp_traces[hint][stch][i] = tr.slice(
-                    starttime=pk.time - corr_dict[hint]['pre_pick'],
-                    endtime=pk.time + corr_dict[hint]['post_pick'],
-                    nearest_sample=False).data[:-1]
+                # Try to clip last sample off data in this case
+                try:
+                    temp_traces[hint][stch][i] = tr.slice(
+                        starttime=pk.time - corr_dict[hint]['pre_pick'],
+                        endtime=pk.time + corr_dict[hint]['post_pick'],
+                        nearest_sample=False).data[:-1]
+                except ValueError:
+                    # Just ignore now. We tried.
+                    continue
     for i, (st, ev) in enumerate(zip(filt_dets, detection_cat.events)):
         for pk in ev.picks:
             sta = pk.waveform_id.station_code
