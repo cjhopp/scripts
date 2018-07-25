@@ -229,6 +229,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
             sta = pk.waveform_id.station_code
             chan = pk.waveform_id.channel_code
             stch = '{}.{}'.format(sta, chan)
+            # Run some checks for wierdness
             if pk.phase_hint not in phases:
                 continue
             hint = pk.phase_hint
@@ -238,6 +239,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                 continue
             # Put this data in corresponding row of the array
             try:
+                print(hint, stch)
                 temp_traces[hint][stch][i] = tr.slice(
                     starttime=pk.time - corr_dict[hint]['pre_pick'],
                     endtime=pk.time + corr_dict[hint]['post_pick'],
