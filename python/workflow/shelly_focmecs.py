@@ -238,7 +238,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                 tr = st.select(station=sta, channel=chan)[0]
             except IndexError:
                 continue
-            if hint == 'P' and stch[-1] == 'Z':
+            if hint == 'P' and stch[-1] != 'Z':
                 print('You have a P pick on a horizontal channel. Skipping')
                 continue
             # Put this data in corresponding row of the array
