@@ -43,7 +43,23 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
     """
     if ax: # If axis passed in, set x-axis limits accordingly
         plain = False
-        ax1 = ax.twinx()
+        if ax.get_ylim()[-1] == 1.0:
+            ax1 = ax
+        else:
+            ax1 = ax.twinx()
+            try:
+                # Grab these lines for legend
+                handles, leg_labels = ax.get_legend_handles_labels()
+                if isinstance(ax.legend_, matplotlib.legend.Legend):
+                    ax.legend_.remove()  # Need to manually remove this, apparently
+            except AttributeError:
+                print('Empty axes. No legend to incorporate.')
+        if ax.yaxis.get_ticks_position() == 'right':
+            ax1.yaxis.set_label_position('left')
+            ax1.yaxis.set_ticks_position('left')
+        elif ax.yaxis.get_ticks_position() == 'left':
+            ax1.yaxis.set_label_position('right')
+            ax1.yaxis.set_ticks_position('right')
         xlims = ax.get_xlim()
         if not dates:
             try:
@@ -61,28 +77,29 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
             start = pytz.utc.localize(dates[0].datetime)
             end = pytz.utc.localize(dates[1].datetime)
         else:
-            cat.events.sort(key=lambda x: x.picks[-1].time)
+            cat.events.sort(key=lambda x: x.origins[-1].time)
             start = pytz.utc.localize(cat[0].origins[0].time.datetime)
             end = pytz.utc.localize(cat[-1].origins[0].time.datetime)
-    cat.events.sort(key=lambda x: x.picks[-1].time)
+    cat.events.sort(key=lambda x: x.origins[-1].time)
     # Make all event times UTC for purposes of dto compare
     mag_tup = []
     fm_tup = []
     sdrs = {}
     # Dictionary of fm strike-dip-rake from Arnold/Townend pkg
-    with open(fm_file, 'r') as f:
-        next(f)
-        for line in f:
-            line = line.rstrip('\n')
-            line = line.split(',')
-            if cat_format == 'detections':
-                sdrs[line[0]] = (float(line[1]), float(line[2]),
-                                 float(line[3]))
-            elif cat_format == 'templates':
-                sdrs[line[0].split('.')[0]] = (float(line[1]), float(line[2]),
-                                               float(line[3]))
+    if fm_file:
+        with open(fm_file, 'r') as f:
+            next(f)
+            for line in f:
+                line = line.rstrip('\n')
+                line = line.split(',')
+                if cat_format == 'detections':
+                    sdrs[line[0]] = (float(line[1]), float(line[2]),
+                                     float(line[3]))
+                elif cat_format == 'templates':
+                    sdrs[line[0].split('.')[0]] = (float(line[1]), float(line[2]),
+                                                   float(line[3]))
     for ev in cat:
-        if start < pytz.utc.localize(ev.picks[-1].time.datetime) < end:
+        if start < pytz.utc.localize(ev.origins[-1].time.datetime) < end:
             if cat_format == 'detections' and focmecs:
                 fm_id = '{}.{}.{}'.format(
                     ev.resource_id.id.split('/')[-1].split('_')[0],
@@ -95,7 +112,7 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
             try:
                 if metric == 'time':
                     mag_tup.append(
-                        (pytz.utc.localize(ev.picks[-1].time.datetime),
+                        (pytz.utc.localize(ev.origins[-1].time.datetime),
                          ev.magnitudes[-1].mag))
                     if fm_id in sdrs:
                         fm_tup.append(sdrs[fm_id])
@@ -125,7 +142,17 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
                  markersize=2)
         ax1.set_xlim([0, 5000])
     elif metric == 'time' and not just_fms:
-        ax1.stem(xs, ys)
+        mkline, stlines, bsline = ax1.stem(xs, ys, markerfmt='o',
+                                           label='Magnitudes')
+        plt.setp(stlines, 'color', 'darkgray')
+        plt.setp(stlines, 'linewidth', 1.)
+        plt.setp(bsline, 'color', 'black')
+        plt.setp(bsline, 'linewidth', 1.)
+        plt.setp(mkline, 'color', 'darkgray')
+        plt.setp(mkline, 'zorder', 3)
+        plt.setp(mkline, 'markeredgecolor', 'k')
+        plt.setp(mkline, 'markersize', 4.)
+        # ax1.stem(xs, ys, 'gray', 'gray', label='Magnitudes')
         ax1.set_xlabel('Date', fontsize=16)
         ax1.set_xlim([start, end])
     elif metric == 'time':
@@ -144,6 +171,23 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
             bball = beach(fm, xy=(x, y), width=70,
                           linewidth=1, axes=ax1, facecolor=col)
             ax1.add_collection(bball)
+    if ax:
+        try:
+            ax1.legend()
+            hands, labs = ax1.get_legend_handles_labels()
+            # Add the new handles to the prexisting ones
+            handles.extend(hands)
+            leg_labels.extend(labs)
+            # Redo the legend
+            if len(handles) > 4:
+                ax1.legend(handles=handles, labels=leg_labels,
+                           fontsize=5, loc=2, numpoints=1)
+            else:
+                ax1.legend(handles=handles, labels=leg_labels, loc=2,
+                           numpoints=1)
+        except UnboundLocalError:
+            print('Plotting on empty axes. No handles to add to.')
+            ax1.legend()
     # ax1.set_xlim([0, 10000])
     if title:
         ax1.set_title(title)

@@ -26,6 +26,7 @@ from itertools import cycle
 from operator import attrgetter
 from collections import OrderedDict
 from multiprocessing import Pool
+from numpy.linalg import LinAlgError
 from scipy.signal import argrelmax
 from scipy.spatial.distance import pdist
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
@@ -438,7 +439,12 @@ def svd_matrix(rel_pols):
     """
     stachans = []
     for i, rel_pol in enumerate(rel_pols):
-        u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
+        try:
+            u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
+        # If rel_pols read back in from marshal binary, array is a buffer
+        except LinAlgError:
+            u, s, v = np.linalg.svd(np.frombuffer(rel_pol[2]),
+                                    full_matrices=True)
         lsv = u[:, 0] # First left sigular vector
         if i == 0:
             stachans.append((rel_pol[0], rel_pol[1]))

@@ -84,7 +84,7 @@ def plot_displacement_spectra(trace, ev, inv, savefig=False):
     yf = scipy.fft(tr.data)
     fig, ax = plt.subplots()
     plt.loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]))
-    ax.set_xlabel('Frequancy (Hz)')
+    ax.set_xlabel('Frequency (Hz)')
     ax.set_ylabel('Displacement (m/Hz)')
     plt.title('{}: {}.{} Displacement Spectra'.format(eid, sta, chan))
     if savefig:

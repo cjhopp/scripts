@@ -102,7 +102,7 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     return st
 
 def cluster_cat_kmeans(catalog, n_clusters, plot=False, field='Nga',
-                       title='kmeans clusters', **kwargs):
+                       title='kmeans clusters', dd_only=False, **kwargs):
     """
     Use scikit-learn kmeans clustering to group catalog locations into
     a specified number of clusters
@@ -130,7 +130,8 @@ def cluster_cat_kmeans(catalog, n_clusters, plot=False, field='Nga',
     for i, ev in enumerate(catalog):
         group_cats[indices[i]].append(ev)
     if plot:
-        plot_clust_cats_3d(group_cats, outfile=plot, field=field, title=title)
+        plot_clust_cats_3d(group_cats, outfile=plot, field=field, title=title,
+                           dd_only=dd_only)
     return group_cats
 
 ########################## MTFIT STUFF #######################################

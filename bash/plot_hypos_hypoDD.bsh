@@ -1,0 +1,64 @@
+#!/bin/bash
+# Basemap settings
+# region west/east/south/north
+region="-R176.145/176.240/-38.650/-38.500"
+# projection to use
+projection="-JM10c"
+# plot tick marks, annotations, gridlines
+bounds1="-Ba"
+bounds2=""
+# misc
+misc="-P"
+# depth colour scale min/max/interval
+depth_cpt="1/5/0.5"
+# output postscript
+PS=./PostScripts/hypos.ps
+# well head xy's
+inj_heads=Injection_well_heads.csv
+prod_heads=Production_well_heads.csv
+other_heads=Other_well_heads.csv
+# well track xyz's
+inj_tracks=Injection_well_tracks.csv
+prod_tracks=Production_well_tracks.csv
+other_tracks=Other_well_tracks.csv
+# stations
+statext=2015_mrp_inv.csv
+stafile=2015_mrp_inv.gmt
+NS14_pt=NS14_pt.gmt # Separated to resolve overlap w/NS11
+
+# Colour map for depth
+gmt makecpt -Cno_green -T$depth_cpt -I > depth.cpt
+
+#basemap
+gmt psbasemap $region $projection -Xc -Yr4.5c $bounds1 $bounds2 $misc -K > $PS
+
+# hypos
+#gmt psxy -R -J hypoDD.loc -i2,1 -W -Sc0.15c -Ggrey -t60 -O -K >> $PS 
+gmt psxy -R -J hypoDD.reloc -i2,1,3 -W -Sc0.15c -Cdepth.cpt -t30 -O -K >> $PS 
+
+# Well tracks
+# other
+gmt psxy -R -J $other_tracks -i1,2 -Sc0.05c -Gblack -O -K >> $PS
+# production
+gmt psxy -R -J $prod_tracks -i1,2 -Sc0.05c -Gred -O -K >> $PS
+# injection
+gmt psxy -R -J $inj_tracks -i1,2 -Sc0.05c -Gblue -O -K >> $PS
+# Well heads
+# other
+gmt psxy -R -J $other_heads -i1,2 -W -Sc0.25c -Gblack -O -K >> $PS
+# production
+gmt psxy -R -J $prod_heads -i1,2 -W -Sc0.25c -Gred -O -K >> $PS
+# injection
+gmt psxy -R -J $inj_heads -i1,2 -W -Sc0.25c -Gblue -O -K >> $PS
+
+# stations
+#gmt psxy -R -J stations_ALL.gmt -W -Si0.3c -i1,2 -Gpurple -O -K >> $PS
+gmt psxy $stafile -R -J -St0.1 -Gblack -W0.05 -O -K -V >> $PS
+#awk '{ print $1,$2,$4 }' $statext | gmt pstext -R -J -Dj0.15 -F+jCB+f8p -K -O -V >> $PS
+#gmt pstext $NS14_pt -R -J -D0.35/0.15 -F+jCB+f8p -O -V -K >> $PS
+# scale bar
+gmt psscale -R -J -Cdepth.cpt -DjBC+w5i/0.2i+h+o0/-1i -Bxaf+l"Depth (km)" \
+-By+lkm -O >> $PS
+# convert to pdf
+gmt psconvert $PS -Tf
+

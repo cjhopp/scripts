@@ -9,6 +9,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.dates as mdates
 
+from copy import deepcopy
 from collections import defaultdict
 from datetime import timedelta, datetime
 from itertools import cycle
@@ -639,6 +640,208 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
             fig = plotting.cumulative_detections(dates=det_times, template_names=temp_names)
     return fig
 
+def cumulative_detections(dates=None, template_names=None, detections=None,
+                          plot_grouped=False, group_name=None, rate=False,
+                          show=True, plot_legend=True, axes=None, save=False,
+                          savefile=None, color=None):
+    """
+    Plot cumulative detections or detecton rate in time.
+
+    Simple plotting function to take a list of either datetime objects or
+    :class:`eqcorrscan.core.match_filter.Detection` objects and plot
+    a cumulative detections list.  Can take dates as a list of lists and will
+    plot each list separately, e.g. if you have dates from more than one
+    template it will overlay them in different colours.
+
+    :type dates: list
+    :param dates: Must be a list of lists of datetime.datetime objects
+    :type template_names: list
+    :param template_names: List of the template names in order of the dates
+    :type detections: list
+    :param detections: List of :class:`eqcorrscan.core.match_filter.Detection`
+    :type plot_grouped: bool
+    :param plot_grouped: Plot detections for each template individually, or \
+        group them all together - set to False (plot template detections \
+        individually) by default.
+    :type rate: bool
+    :param rate: Whether or not to plot the rate of detection per day. Only
+        works for plot_grouped=True
+    :type show: bool
+    :param show: Whether or not to show the plot, defaults to True.
+    :type plot_legend: bool
+    :param plot_legend: Specify whether to plot legend of template names. \
+        Defaults to True.
+    :type axes: matplotlib.Axes
+    :param axes: Axes object on which to plot cumulative detections
+    :type save: bool
+    :param save: Save figure or show to screen, optional
+    :type savefile: str
+    :param savefile: String to save to, required is save=True
+
+    :returns: :class:`matplotlib.figure.Figure`
+
+    """
+    from eqcorrscan.core.match_filter import Detection
+    # Set up a default series of parameters for lines
+    colors = cycle(['red', 'green', 'blue', 'cyan', 'magenta', 'yellow',
+                    'black', 'firebrick', 'purple', 'darkgoldenrod', 'gray'])
+    linestyles = cycle(['-', '-.', '--', ':'])
+    # Check that dates is a list of lists
+    if not detections:
+        if type(dates[0]) != list:
+            dates = [dates]
+    else:
+        dates = []
+        template_names = []
+        for detection in detections:
+            if not type(detection) == Detection:
+                msg = 'detection not of type: ' +\
+                    'eqcorrscan.core.match_filter.Detection'
+                raise IOError(msg)
+            dates.append(detection.detect_time.datetime)
+            template_names.append(detection.template_name)
+        _dates = []
+        _template_names = []
+        for template_name in list(set(template_names)):
+            _template_names.append(template_name)
+            _dates.append([date for i, date in enumerate(dates)
+                           if template_names[i] == template_name])
+        dates = _dates
+        template_names = _template_names
+    if plot_grouped:
+        _dates = []
+        for template_dates in dates:
+            _dates += template_dates
+        dates = [_dates]
+        if group_name:
+            template_names = group_name
+        else:
+            template_names = ['All templates']
+    if axes is None:
+        ax = plt.gca()
+    else:
+        if axes.get_ylim()[-1] == 1.0:
+            ax = axes
+        else:
+            ax = axes.twinx()
+            try:
+                # Grab these lines for legend
+                handles, leg_labels = axes.get_legend_handles_labels()
+                if isinstance(axes.legend_, matplotlib.legend.Legend):
+                    axes.legend_.remove()  # Need to manually remove this, apparently
+            except AttributeError:
+                print('Empty axes. No legend to incorporate.')
+        xlims = ax.get_xlim()
+    # Make sure not to pad at edges
+    ax.margins(0, 0)
+    min_date = min([min(_d) for _d in dates])
+    max_date = max([max(_d) for _d in dates])
+    for k, template_dates in enumerate(dates):
+        template_dates.sort()
+        plot_dates = deepcopy(template_dates)
+        plot_dates.insert(0, min_date)
+        if not color:
+            color = next(colors)
+        if color == 'red':
+            linestyle = next(linestyles)
+        counts = np.arange(-1, len(template_dates))
+        if rate:
+            if not plot_grouped:
+                msg = 'Plotting rate only implemented for plot_grouped=True'
+                raise NotImplementedError(msg)
+            if 31 < (max_date - min_date).days < 365:
+                bins = (max_date - min_date).days
+                ax.set_ylabel('Detections per day')
+            elif (max_date - min_date).days <= 31:
+                bins = (max_date - min_date).days * 4
+                ax.set_ylabel('Detections per 6 hour bin')
+            else:
+                bins = (max_date - min_date).days // 7
+                ax.set_ylabel('Detections per week')
+            ax.hist(mdates.date2num(plot_dates), bins=bins,
+                    label='Rate of detections', color='darkgrey',
+                    alpha=0.5)
+        else:
+            ax.plot(plot_dates, counts, linestyle,
+                    color=color, label=template_names[k],
+                    linewidth=1.0, drawstyle='steps-post',
+                    zorder=1)
+            ax.set_ylabel('# of Events', fontsize=16)
+    ax.set_xlabel('Date', fontsize=16)
+    # Set formatters for x-labels
+    mins = mdates.MinuteLocator()
+    max_date = dates[0][0]
+    min_date = max_date
+    for date_list in dates:
+        if max(date_list) > max_date:
+            max_date = max(date_list)
+        if min(date_list) < min_date:
+            min_date = min(date_list)
+    timedif = max_date - min_date
+    if 10800 <= timedif.total_seconds() <= 25200:
+        hours = mdates.MinuteLocator(byminute=[0, 30])
+        mins = mdates.MinuteLocator(byminute=np.arange(0, 60, 10))
+    elif 7200 <= timedif.total_seconds() < 10800:
+        hours = mdates.MinuteLocator(byminute=[0, 15, 30, 45])
+        mins = mdates.MinuteLocator(byminute=np.arange(0, 60, 5))
+    elif timedif.total_seconds() <= 1200:
+        hours = mdates.MinuteLocator(byminute=np.arange(0, 60, 2))
+        mins = mdates.MinuteLocator(byminute=np.arange(0, 60, 0.5))
+    elif 25200 < timedif.total_seconds() <= 86400:
+        hours = mdates.HourLocator(byhour=np.arange(0, 24, 3))
+        mins = mdates.HourLocator(byhour=np.arange(0, 24, 1))
+    elif 86400 < timedif.total_seconds() <= 172800:
+        hours = mdates.HourLocator(byhour=np.arange(0, 24, 6))
+        mins = mdates.HourLocator(byhour=np.arange(0, 24, 1))
+    elif timedif.total_seconds() > 172800:
+        hours = mdates.AutoDateLocator()
+        mins = mdates.HourLocator(byhour=np.arange(0, 24, 3))
+    else:
+        hours = mdates.MinuteLocator(byminute=np.arange(0, 60, 5))
+    # Minor locator overruns maxticks for ~year-long datasets
+    if timedif.total_seconds() < 172800:
+        ax.xaxis.set_minor_locator(mins)
+        hrFMT = mdates.DateFormatter('%Y/%m/%d %H:%M:%S')
+    else:
+        hrFMT = mdates.DateFormatter('%Y/%m/%d')
+    ax.xaxis.set_major_locator(hours)
+    ax.xaxis.set_major_formatter(hrFMT)
+    plt.gcf().autofmt_xdate()
+    locs, labels = plt.xticks()
+    plt.setp(labels, rotation=15)
+    if not rate:
+        ax.set_ylim([0, max([len(_d) for _d in dates]) * 1.1])
+    if plot_legend:
+        if axes:
+            try:
+                ax.legend()
+                hands, labs = ax.get_legend_handles_labels()
+                # Add the new handles to the prexisting ones
+                handles.extend(hands)
+                leg_labels.extend(labs)
+                # Redo the legend
+                if len(handles) > 4:
+                    ax.legend(handles=handles, labels=leg_labels,
+                               fontsize=5, loc=2, scatterpoints=10)
+                else:
+                    ax.legend(handles=handles, labels=leg_labels, loc=2,
+                               scatterpoints=10)
+            except UnboundLocalError:
+                print('Plotting on empty axes. No handles to add to.')
+                ax.legend()
+            ax.set_xlim(xlims)
+        elif ax.legend() is not None:
+            leg = ax.legend(loc=2, prop={'size': 8}, ncol=2)
+            leg.get_frame().set_alpha(0.5)
+    if save:
+        plt.gcf().savefig(savefile)
+        plt.close()
+    else:
+        if show:
+            plt.show()
+    return ax
+
+
 def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                    cumulative=False, ax=None, dates=None, show=True,
                    ylims=False, outdir=None, figsize=(8, 6)):
@@ -654,9 +857,17 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
         empty Axes.
     :param show: Are we showing this Axis automatically?
     :param ylims: To force the ylims for the well data.
-    :return: matplotlib.pyplot.Axis
+    :return: matplotlib.pyplot.Axes
     """
-    df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
+    # Yet another shit hack for silly merc data
+    if sheetname == 'NM10 Stimulation' and parameter == 'Injectivity':
+        # Combine sheets for DHP and Flow with different samp rates into one
+        df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
+        df2 = pd.read_excel(excel_file, header=[0, 1],
+                            sheetname='NM10 Stimulation DHP')
+        df[('NM10', 'DHP (barg)')] = df2[('NM10', 'DHP (barg)')].asof(df.index)
+    else:
+        df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
     # All flow info is local time
     df.index = df.index.tz_localize('Pacific/Auckland')
     colors = cycle(sns.color_palette())
@@ -690,6 +901,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                 ax.legend_.remove() # Need to manually remove this, apparently
         except AttributeError:
             print('Empty axes. No legend to incorporate.')
+            handles = []
     # Set color (this is only a good idea for one line atm)
     # Loop over well list (although there must be slicing option here)
     # Maybe do some checks here on your kwargs (Are these wells in this sheet?)
@@ -727,14 +939,27 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     else:
         # Loop over wells, slice dataframe to each and plot
         maxs = []
-        if not plain:
+        if not plain and ax.get_ylim()[-1] != 1.0:
             ax1a = ax.twinx()
+            # Check for existing position of labels (and probably ticks as well)
+            # then put the new ones on the opposite side
+            if ax.yaxis.get_ticks_position() == 'right':
+                ax1a.yaxis.set_label_position('left')
+                ax1a.yaxis.set_ticks_position('left')
+            elif ax.yaxis.get_ticks_position() == 'left':
+                ax1a.yaxis.set_label_position('right')
+                ax1a.yaxis.set_ticks_position('right')
         else:
             ax1a = ax
         for i, well in enumerate(well_list):
             # Just grab the dates for the flow column as it shouldn't matter
             if parameter == 'Injectivity':
-                values = df[(well, 'Flow (t/h)')] / df[(well, 'WHP (barg)')]
+                if (well in ['NM10', 'NM09']
+                    and sheetname.endswith('Stimulation')):
+                    vals = df[(well, 'Flow (t/h)')] / df[(well, 'DHP (barg)')]
+                else: # should happen for NM10 stimulation
+                    vals = df[(well, 'Flow (t/h)')] / df[(well, 'WHP (barg)')]
+                values = vals.where(vals < 1000.) # Careful with this shiz
                 dtos = values.index.to_pydatetime()
             else:
                 values = df.xs((well, parameter), level=(0, 1), axis=1)
@@ -763,12 +988,17 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                 values *= 0.1
             else:
                 label = '{}: {}'.format(well, parameter)
-            ax1a.plot(dtos, values, label=label, color=colr)
-            plt.legend()
+            if parameter == 'Injectivity':
+                ax1a.scatter(dtos, values, label=label, color=colr, s=0.05)
+            else:
+                ax1a.plot(dtos, values, label=label, color=colr, linewidth=1.0)
+            ax1a.legend()
         if parameter in ['WHP (bar)', 'WHP (barg)']:
             ax1a.set_ylabel('WHP (MPa)', fontsize=16)
         elif parameter == 'DHP (barg)':
             ax1a.set_ylabel('DHP (MPa)', fontsize=16)
+        elif parameter == 'Injectivity':
+            ax1a.set_ylabel('Injectivity (t/h/bar)', fontsize=16)
         else:
             ax1a.set_ylabel(parameter, fontsize=16)
         if ylims:
@@ -778,17 +1008,21 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     if outdir:
         # Not plotting if just writing to outfile
         return
-    try:
-        # Add the new handles to the prexisting ones
+    # try:
+    #     # Add the new handles to the prexisting ones
+    if len(handles) == 0:
+        print('Plotting on empty axes. No handles to add to.')
+        ax1a.legend()
+    else:
         handles.extend(ax1a.legend_.get_lines())
         # Redo the legend
         if len(handles) > 4:
-            plt.legend(handles=handles, fontsize=5, loc=2)
+            ax1a.legend(handles=handles, fontsize=5, loc=2)
         else:
-            plt.legend(handles=handles, loc=2)
-    except UnboundLocalError:
-        print('Plotting on empty axes. No handles to add to.')
-        plt.legend()
+            ax1a.legend(handles=handles, loc=2)
+    # except UnboundLocalError:
+    #     print('Plotting on empty axes. No handles to add to.')
+    #     ax.legend()
     # Now plot formatting
     if not plain:
         ax.set_xlim(start, end)
@@ -799,7 +1033,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     plt.tight_layout()
     if show:
         plt.show()
-    return ax, values
+    return ax1a, values
 
 ##### OTHER MISC FUNCTIONS #####
 
@@ -1130,3 +1364,163 @@ def find_common_events(catP, catS):
             comm_cat_S.events.append(ev)
             comm_cat_P.events.append(catP[i])
     return comm_cat_P, comm_cat_S
+
+def plot_hypoDD_log(hypoDDpy_dir, save=False):
+    # Load log file and make utf-8 text file
+    lines = []
+    with open('{}/output_files/hypoDD_log.txt'.format(hypoDDpy_dir),
+              'rb') as f_in:
+        for ln in f_in:
+            try:
+                lines.append(ln.decode('utf-8'))
+            except UnicodeDecodeError:
+                continue
+    # Create dictionary for each inversion for each cluster
+    clusters = {}
+    index = 0
+    cc_ct, cc_only, ct_only = False, False, False
+    for line in lines:
+        index += 1
+        if line.startswith('RELOCATION OF CLUSTER:'):
+            print(line)
+            clust_num = int(line.split('RELOCATION OF CLUSTER:')[1][0:4])
+            clusters[clust_num] = {}
+        if line.startswith('  IT   EV  CT  CC'):
+            cc_ct = True
+            line_spl = lines[index + 1][5:].split()
+            it_num = int(lines[index + 1][:5].split()[0])
+            clusters[clust_num][it_num] = {'ev%': int(line_spl[0]),
+                                           'ct%': int(line_spl[1]),
+                                           'cc%': int(line_spl[2]),
+                                           'rmsct': int(line_spl[3]),
+                                           'rmscc': int(line_spl[5]),
+                                           'rmsst': int(line_spl[7]),
+                                           'dx': int(line_spl[8]),
+                                           'dy': int(line_spl[9]),
+                                           'dz': int(line_spl[10]),
+                                           'os': int(line_spl[12]),
+                                           'aq': int(line_spl[13]),
+                                           'cnd': int(line_spl[14])}
+        elif line.startswith('  IT   EV  CT'):
+            ct_only = True
+            line_spl = lines[index + 1][5:].split()
+            it_num = int(lines[index + 1][:5].split()[0])
+            clusters[clust_num][it_num] = {'ev%': int(line_spl[0]),
+                                           'ct%': int(line_spl[1]),
+                                           'rmsct': int(line_spl[2]),
+                                           'rmsst': int(line_spl[4]),
+                                           'dx': int(line_spl[5]),
+                                           'dy': int(line_spl[6]),
+                                           'dz': int(line_spl[7]),
+                                           'os': int(line_spl[9]),
+                                           'aq': int(line_spl[10]),
+                                           'cnd': int(line_spl[11])}
+        elif line.startswith('  IT   EV  CC'):
+            cc_only = True
+            line_spl = lines[index + 1][5:].split()
+            it_num = int(lines[index + 1][:5].split()[0])
+            clusters[clust_num][it_num] = {'ev%': int(line_spl[0]),
+                                           'cc%': int(line_spl[1]),
+                                           'rmscc': int(line_spl[2]),
+                                           'rmsst': int(line_spl[4]),
+                                           'dx': int(line_spl[5]),
+                                           'dy': int(line_spl[6]),
+                                           'dz': int(line_spl[7]),
+                                           'os': int(line_spl[9]),
+                                           'aq': int(line_spl[10]),
+                                           'cnd': int(line_spl[11])}
+    print(clusters)
+    # Inversion summary plot
+    for clust_num, iter_dict in clusters.items():
+        # create lists for plotting
+        ev, ct, cc, rmsct, rmscc, rmsst, dx, dy, dz, osh, aq, cnd = (
+        [], [], [], [], [], [],
+        [], [], [], [], [], [])
+        for ind, params in iter_dict.items():
+            ev.append(params['ev%'])
+            if cc_ct:
+                ct.append(params['ct%'])
+                cc.append(params['cc%'])
+                rmsct.append(params['rmsct'])
+                rmscc.append(params['rmscc'])
+            elif ct_only:
+                ct.append(params['ct%'])
+                rmsct.append(params['rmsct'])
+            elif cc_only:
+                cc.append(params['cc%'])
+                rmscc.append(params['rmscc'])
+            rmsst.append(params['rmsst'])
+            dx.append(params['dx'])
+            dy.append(params['dy'])
+            dz.append(params['dz'])
+            osh.append(params['os'])
+            aq.append(params['aq'])
+            cnd.append(params['cnd'])
+        iters = np.arange(1, len(ev) + 1, 1)
+        # Event, ct and cc percentage (of initial number of data of each type)
+        # and number of air quakes
+        ax1 = plt.subplot(611)
+        ax1.plot(iters, ev, marker='o', label='Event %')
+        if cc_ct:
+            ax1.plot(iters, ct, marker='o', label='Catalog %')
+            ax1.plot(iters, cc, marker='o', label='Cross-corr %')
+        elif ct_only:
+            ax1.plot(iters, ct, marker='o', label='Catalog %')
+        elif cc_only:
+            ax1.plot(iters, cc, marker='o', label='Cross-corr %')
+        ax1_2 = ax1.twinx()
+        ax1_2.plot(iters, aq, marker='x', label='Air-quakes')
+        ax1.set_ylabel('Percent')
+        ax1.legend()
+        ax1_2.set_ylabel('Count')
+        ax1_2.legend()
+        ax1.set_title(
+            'HypoDD Inversion Stats for Cluster ' + str(clust_num) + '\n',
+            horizontalalignment='center', verticalalignment='center',
+            fontsize=10)
+        # RMS residual for catalog and cross-corr (RMS CT and CC)
+        ax2 = plt.subplot(612)
+        if cc_ct:
+            ax2.plot(iters, rmsct, marker='o', label='Catalog RMS')
+            ax2_1 = ax2.twinx()
+            ax2_1.plot(iters, rmscc, marker='x', color='g',
+                       label='Cross-corr RMS')
+            ax2_1.set_ylabel('RMS residual (ms)')
+            ax2_1.legend(bbox_to_anchor=(0.2, 0.2))
+        elif ct_only:
+            ax2.plot(iters, rmsct, marker='o', label='Catalog RMS')
+        elif cc_only:
+            ax2.plot(iters, rmscc, marker='o', label='Cross-corr RMS')
+        ax2.set_ylabel('RMS residual (ms)')
+        ax2.legend()
+        # Largest rms residual at station (RMS ST)
+        ax3 = plt.subplot(613)
+        ax3.plot(iters, rmsst, marker='o', label='Largest Stat RMS')
+        ax3.set_ylabel('RMS residual (ms)')
+        ax3.legend()
+        # Average absolute of change in hypocentre (DX, DY, DZ)
+        ax4 = plt.subplot(614)
+        ax4.plot(iters, dx, marker='o', label='Hypo Shift DX')
+        ax4.plot(iters, dy, marker='o', label='Hypo Shift DY')
+        ax4.plot(iters, dz, marker='o', label='Hypo Shift DZ')
+        ax4.set_ylabel('Hypo Shift (m)')
+        ax4.legend()
+        # Origin shift of each cluster (OS)
+        ax5 = plt.subplot(615)
+        ax5.plot(iters, osh, marker='o', label='Ave Cluster Shift')
+        ax5.set_ylabel('Cluster Shift (m)')
+        # Condition number
+        ax6 = plt.subplot(616)
+        ax6.plot(iters, cnd, marker='o', label='Condition Number')
+        ax6.set_ylabel('Condition Number')
+        ax6.set_xlabel('Iteration Number')
+        # get figure
+        fig = plt.gcf()
+        fig.set_size_inches(8.27, 11.69)
+        fig.tight_layout()
+        if save:
+            fig.savefig('{}/log_plot.pdf'.format(hypoDDpy_dir), format='PDF')
+        else:
+            plt.show()
+            plt.close()
+    return
