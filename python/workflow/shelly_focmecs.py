@@ -442,9 +442,10 @@ def svd_matrix(rel_pols):
         try:
             u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
         # If rel_pols read back in from marshal binary, array is a buffer
-        # Reshape it to size of template_streams x detection_streams
+        # Reshape it to size of detection_streams x template_streams
+        # For Rotokawa case: 3114 template streams
         except LinAlgError:
-            u, s, v = np.linalg.svd(np.frombuffer(rel_pol[2]).reshape(3114, -1),
+            u, s, v = np.linalg.svd(np.frombuffer(rel_pol[2]).reshape(-1, 3114),
                                     full_matrices=True)
         lsv = u[:, 0] # First left sigular vector
         if i == 0:
