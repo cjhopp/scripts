@@ -442,8 +442,9 @@ def svd_matrix(rel_pols):
         try:
             u, s, v = np.linalg.svd(rel_pol[2], full_matrices=True)
         # If rel_pols read back in from marshal binary, array is a buffer
+        # Reshape it to size of template_streams x detection_streams
         except LinAlgError:
-            u, s, v = np.linalg.svd(np.frombuffer(rel_pol[2]),
+            u, s, v = np.linalg.svd(np.frombuffer(rel_pol[2]).reshape(3114, -1),
                                     full_matrices=True)
         lsv = u[:, 0] # First left sigular vector
         if i == 0:
