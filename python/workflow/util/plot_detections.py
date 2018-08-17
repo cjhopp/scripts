@@ -2,10 +2,8 @@
 import matplotlib
 import matplotlib.pyplot as plt
 
-import subprocess
 import csv
 import numpy as np
-import pandas as pd
 import seaborn as sns
 import matplotlib.dates as mdates
 
@@ -16,8 +14,6 @@ from itertools import cycle
 from mpl_toolkits.basemap import Basemap
 from matplotlib.patches import Ellipse
 from matplotlib.dates import date2num
-from matplotlib.colors import ListedColormap
-from matplotlib.ticker import ScalarFormatter
 from pyproj import Proj, transform
 from obspy import Catalog, UTCDateTime, Stream
 from obspy.core.event import ResourceIdentifier
@@ -138,131 +134,6 @@ def template_det_cats(cat, temp_list, outdir=False):
             cat.write('%s/%s_detections.xml' % (outdir, temp), format="QUAKEML")
             cat.write('%s/%s_detections.shp' % (outdir, temp), format="SHAPEFILE")
     return temp_det_dict
-
-def format_well_data(well_file):
-    """
-    Helper to format well txt files into (lat, lon, depth(km)) tups
-    :param well_file: Well txt file
-    :return: list of tuples
-    """
-    pts = []
-    with open(well_file) as f:
-        rdr = csv.reader(f, delimiter=' ')
-        for row in rdr:
-            if row[2] == '0':
-                pts.append((float(row[1]), float(row[0]),
-                            float(row[4]) / 1000.))
-            else:
-                pts.append((float(row[1]), float(row[0]),
-                            float(row[3]) / 1000.))
-    return pts
-
-def plot_event_well_dist(catalog, well_file, flow_start, diffs,
-                         temp_list='all', method='scatter', starttime=None,
-                         endtime=None, title=None, show=True):
-    """
-    Function to plot events with distance from well as a function of time.
-    :param cat: catalog of events
-    :param well_file: text file of xyz feedzone pts
-    :param flow_start: Start UTCdt of well flow to model
-    :param diffs: list of diffusion values to plot
-    :param temp_list: list of templates for which we'll plot detections
-    :param method: plot the 'scatter' or daily 'average' distance or both
-    :return: matplotlib.pyplot.Axes
-    """
-    well_pts = format_well_data(well_file)
-    # Grab only templates in the list
-    cat = Catalog()
-    filt_cat = Catalog()
-    if starttime and endtime:
-        filt_cat.events = [ev for ev in catalog if ev.origins[-1].time
-                           < endtime and ev.origins[-1].time >= starttime]
-    else:
-        filt_cat = catalog
-    cat.events = [ev for ev in filt_cat if
-                  str(ev.resource_id).split('/')[-1].split('_')[0] in
-                  temp_list or temp_list == 'all']
-    time_dist_tups = []
-    cat_start = min([ev.origins[-1].time.datetime for ev in cat])
-    cat_end = max([ev.origins[-1].time.datetime for ev in cat])
-    for ev in cat:
-        if ev.origins[-1]:
-            dist = min([dist_calc((ev.origins[-1].latitude,
-                                   ev.origins[-1].longitude,
-                                   ev.origins[-1].depth / 1000.),
-                                  pt) for pt in well_pts])
-            time_dist_tups.append((ev.origins[-1].time.datetime,
-                                  dist))
-    times, dists = zip(*time_dist_tups)
-    # Make DataFrame for boxplotting
-    dist_df = pd.DataFrame()
-    dist_df['dists'] = pd.Series(dists, index=times)
-    # Add daily grouping column to df (this is crap, but can't find better)
-    dist_df['day_num'] =  [date2num(dto.replace(hour=12, minute=0, second=0,
-                                                microsecond=0).to_pydatetime())
-                           for dto in dist_df.index]
-    dist_df['dto_num'] =  [date2num(dt) for dt in dist_df.index]
-    # Now create the pressure envelopes
-    # Creating hourly datetime increments
-    start = pd.Timestamp(flow_start.datetime)
-    end = pd.Timestamp(cat_end)
-    t = pd.to_datetime(pd.date_range(start, end, freq='H'))
-    t = [date2num(d) for d in t]
-    # Now diffusion y vals
-    diff_ys = []
-    for d in diffs:
-        diff_ys.append([np.sqrt(60 * d * i / 4000 * np.pi) # account for kms
-                        for i in range(len(t))])
-    # Plot 'em up
-    fig, ax = plt.subplots(figsize=(7, 6))
-    # First boxplots
-    u_days = list(set(dist_df.day_num))
-    bins = [dist_df.loc[dist_df['day_num'] == d]['dists'].values
-            for d in u_days]
-    positions = [d for d in u_days]
-    bplots = ax.boxplot(bins, positions=positions, patch_artist=True,
-                        flierprops={'markersize': 0}, manage_xticks=False)
-    for patch in bplots['boxes']:
-        patch.set_facecolor('lightblue')
-        patch.set_alpha(0.5)
-    # First diffusions
-    for i, diff_y in enumerate(diff_ys):
-        ax.plot(t, diff_y,
-                label='Diffusion envelope, D={} $m^2/s$'.format(str(diffs[i])))
-    # Now events
-    if method != 'scatter':
-        dates = []
-        day_avg_dist = []
-        for date in date_generator(cat_start, cat_end):
-            dates.append(date)
-            tdds = [tdd[1] for tdd in time_dist_tups if tdd[0] > date
-                    and tdd[0] < date + timedelta(days=1)]
-            day_avg_dist.append(np.mean(tdds))
-    if method == 'scatter':
-        ax.scatter(times, dists, color='gray', label='Event', s=10, alpha=0.5)
-    elif method == 'average':
-        ax.plot(dates, day_avg_dist)
-    elif method == 'both':
-        ax.scatter(times, dists)
-        ax.plot(dates, day_avg_dist, color='r')
-    # Plot formatting
-    fig.autofmt_xdate()
-    ax.legend()
-    ax.set_ylim([0, 6])
-    if title:
-        ax.set_title(title, fontsize=19)
-    else:
-        ax.set_title('Fluid diffusion envelopes and earthquake distance')
-    if starttime:
-        ax.set_xlim([date2num(starttime.datetime), max(t)])
-    else:
-        ax.set_xlim([min(t), max(t)])
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Distance (km)')
-    fig.tight_layout()
-    if show:
-        fig.show()
-    return ax
 
 def plot_detection_wavs(family, tribe, wav_dirs, start=None, end=None,
                         save=False, save_dir=None, no_dets=5):
@@ -643,7 +514,7 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
 def cumulative_detections(dates=None, template_names=None, detections=None,
                           plot_grouped=False, group_name=None, rate=False,
                           show=True, plot_legend=True, axes=None, save=False,
-                          savefile=None, color=None):
+                          savefile=None, color=None, plot_dates=None):
     """
     Plot cumulative detections or detecton rate in time.
 
@@ -731,7 +602,10 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
                     axes.legend_.remove()  # Need to manually remove this, apparently
             except AttributeError:
                 print('Empty axes. No legend to incorporate.')
-        xlims = ax.get_xlim()
+        if not plot_dates:
+            xlims = ax.get_xlim()
+        else:
+            xlims = (plot_dates[0].datetime, plot_dates[1].datetime)
     # Make sure not to pad at edges
     ax.margins(0, 0)
     min_date = min([min(_d) for _d in dates])
@@ -751,13 +625,13 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
                 raise NotImplementedError(msg)
             if 31 < (max_date - min_date).days < 365:
                 bins = (max_date - min_date).days
-                ax.set_ylabel('Detections per day')
+                ax.set_ylabel('Detections / day', fontsize=16)
             elif (max_date - min_date).days <= 31:
                 bins = (max_date - min_date).days * 4
-                ax.set_ylabel('Detections per 6 hour bin')
+                ax.set_ylabel('Detections / 6 hour bin', fontsize=16)
             else:
                 bins = (max_date - min_date).days // 7
-                ax.set_ylabel('Detections per week')
+                ax.set_ylabel('Detections / week', fontsize=16)
             ax.hist(mdates.date2num(plot_dates), bins=bins,
                     label='Rate of detections', color='darkgrey',
                     alpha=0.5)
@@ -840,200 +714,6 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
         if show:
             plt.show()
     return ax
-
-
-def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
-                   cumulative=False, ax=None, dates=None, show=True,
-                   ylims=False, outdir=None, figsize=(8, 6)):
-    """
-    New flow/pressure plotting function utilizing DataFrame functionality
-    :param excel_file: Excel file to read
-    :param sheetname: Which sheet of the spreadsheet do you want?
-    :param parameter: Either 'WHP (bar)' or 'Flow (t/h)' at the moment
-    :param well_list: List of wells you want plotted
-    :param cumulative: Plot the total injected volume?
-    :param ax: If plotting on existing Axis, pass it here
-    :param dates: Specify start and end dates if plotting to preexisting
-        empty Axes.
-    :param show: Are we showing this Axis automatically?
-    :param ylims: To force the ylims for the well data.
-    :return: matplotlib.pyplot.Axes
-    """
-    # Yet another shit hack for silly merc data
-    if sheetname == 'NM10 Stimulation' and parameter == 'Injectivity':
-        # Combine sheets for DHP and Flow with different samp rates into one
-        df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
-        df2 = pd.read_excel(excel_file, header=[0, 1],
-                            sheetname='NM10 Stimulation DHP')
-        df[('NM10', 'DHP (barg)')] = df2[('NM10', 'DHP (barg)')].asof(df.index)
-    else:
-        df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
-    # All flow info is local time
-    df.index = df.index.tz_localize('Pacific/Auckland')
-    colors = cycle(sns.color_palette())
-    print('Flow data tz set to: {}'.format(df.index.tzinfo))
-    if not ax:
-        fig, ax = plt.subplots(figsize=figsize)
-        handles = []
-        plain = True
-        if dates:
-            start = dates[0].datetime
-            end = dates[1].datetime
-            df = df.truncate(before=start, after=end)
-    else:
-        plain = False
-        xlims = ax.get_xlim()
-        if not dates:
-            try:
-                start = mdates.num2date(xlims[0])
-                end = mdates.num2date(xlims[1])
-            except ValueError:
-                print('If plotting on empty Axes, please specify start'
-                      'and end date')
-                return
-        else:
-            start = dates[0].datetime
-            end = dates[1].datetime
-        df = df.truncate(before=start, after=end)
-        try:
-            handles = ax.legend().get_lines() # Grab these lines for legend
-            if isinstance(ax.legend_, matplotlib.legend.Legend):
-                ax.legend_.remove() # Need to manually remove this, apparently
-        except AttributeError:
-            print('Empty axes. No legend to incorporate.')
-            handles = []
-    # Set color (this is only a good idea for one line atm)
-    # Loop over well list (although there must be slicing option here)
-    # Maybe do some checks here on your kwargs (Are these wells in this sheet?)
-    if cumulative:
-        if parameter != 'Flow (t/h)':
-            print('Will not plot cumulative %s. Only for Flow (t/h)'
-                  % parameter)
-            return
-        maxs = []
-        ax1a = ax.twinx()
-        for i, well in enumerate(well_list):
-            if color:
-                colr = color
-            else:
-                colr = next(colors)
-            dtos = df.xs((well, parameter), level=(0, 1),
-                         axis=1).index.to_pydatetime()
-            values = df.xs((well, parameter), level=(0, 1), axis=1).cumsum()
-            if outdir:
-                # Write to file
-                filename = 'Cumulative_flow_{}'.format(well)
-                with open('{}/{}.csv'.format(outdir, filename), 'w') as f:
-                    for dto, val in zip(dtos, values):
-                        f.write('{} {}'.format(dto.strftime('%Y-%m-%d'), val))
-                continue
-            ax1a.plot(dtos, values, label='{}: {}'.format(well,
-                                                          'Cumulative Vol.'),
-                      color=next(colors))
-            plt.legend() # This is annoying
-            maxs.append(np.max(df.xs((well, parameter),
-                               level=(0, 1), axis=1).values))
-        plt.gca().set_ylabel('Cumulative Volume (Tonnes)', fontsize=16)
-        # Force scientific notation for cumulative y axis
-        plt.gca().ticklabel_format(style='sci', scilimits=(0, 0), axis='y')
-    else:
-        # Loop over wells, slice dataframe to each and plot
-        maxs = []
-        if not plain and ax.get_ylim()[-1] != 1.0:
-            ax1a = ax.twinx()
-            # Check for existing position of labels (and probably ticks as well)
-            # then put the new ones on the opposite side
-            if ax.yaxis.get_ticks_position() == 'right':
-                ax1a.yaxis.set_label_position('left')
-                ax1a.yaxis.set_ticks_position('left')
-            elif ax.yaxis.get_ticks_position() == 'left':
-                ax1a.yaxis.set_label_position('right')
-                ax1a.yaxis.set_ticks_position('right')
-        else:
-            ax1a = ax
-        for i, well in enumerate(well_list):
-            # Just grab the dates for the flow column as it shouldn't matter
-            if parameter == 'Injectivity':
-                if (well in ['NM10', 'NM09']
-                    and sheetname.endswith('Stimulation')):
-                    vals = df[(well, 'Flow (t/h)')] / df[(well, 'DHP (barg)')]
-                else: # should happen for NM10 stimulation
-                    vals = df[(well, 'Flow (t/h)')] / df[(well, 'WHP (barg)')]
-                values = vals.where(vals < 1000.) # Careful with this shiz
-                dtos = values.index.to_pydatetime()
-            else:
-                values = df.xs((well, parameter), level=(0, 1), axis=1)
-                dtos = df.xs((well, parameter), level=(0, 1),
-                             axis=1).index.to_pydatetime()
-            maxs.append(np.max(values.dropna().values))
-            if outdir:
-                # Write to file
-                filename = '{}_{}_{}'.format(well, sheetname.split()[-1],
-                                             parameter.split()[0])
-                with open('{}/{}.csv'.format(outdir, filename), 'w') as f:
-                    for dto, val in zip(dtos, values.values):
-                        f.write('{} {}\n'.format(
-                            dto.strftime('%Y-%m-%dT%H:%M:%S'), val[0]))
-                continue
-            if color:
-                colr = color
-            else:
-                colr = next(colors)
-            # Force MPa instead of bar units
-            if parameter in ['WHP (bar)', 'WHP (barg)']:
-                label = '{}: WHP (MPa)'.format(well)
-                values *= 0.1
-            elif parameter == 'DHP (barg)':
-                label = '{}: DHP (MPa)'.format(well)
-                values *= 0.1
-            else:
-                label = '{}: {}'.format(well, parameter)
-            if parameter == 'Injectivity':
-                ax1a.scatter(dtos, values, label=label, color=colr, s=0.05)
-            else:
-                ax1a.plot(dtos, values, label=label, color=colr, linewidth=1.0)
-            ax1a.legend()
-        if parameter in ['WHP (bar)', 'WHP (barg)']:
-            ax1a.set_ylabel('WHP (MPa)', fontsize=16)
-        elif parameter == 'DHP (barg)':
-            ax1a.set_ylabel('DHP (MPa)', fontsize=16)
-        elif parameter == 'Injectivity':
-            ax1a.set_ylabel('Injectivity (t/h/bar)', fontsize=16)
-        else:
-            ax1a.set_ylabel(parameter, fontsize=16)
-        if ylims:
-            ax1a.set_ylim(ylims)
-        else:
-            ax1a.set_ylim([0, max(maxs) * 1.2])
-    if outdir:
-        # Not plotting if just writing to outfile
-        return
-    # try:
-    #     # Add the new handles to the prexisting ones
-    if len(handles) == 0:
-        print('Plotting on empty axes. No handles to add to.')
-        ax1a.legend()
-    else:
-        handles.extend(ax1a.legend_.get_lines())
-        # Redo the legend
-        if len(handles) > 4:
-            ax1a.legend(handles=handles, fontsize=5, loc=2)
-        else:
-            ax1a.legend(handles=handles, loc=2)
-    # except UnboundLocalError:
-    #     print('Plotting on empty axes. No handles to add to.')
-    #     ax.legend()
-    # Now plot formatting
-    if not plain:
-        ax.set_xlim(start, end)
-    else:
-        fig.autofmt_xdate()
-    if not ylims:
-        plt.ylim(ymin=0) # Make bottom always zero
-    plt.tight_layout()
-    if show:
-        plt.show()
-    return ax1a, values
 
 ##### OTHER MISC FUNCTIONS #####
 

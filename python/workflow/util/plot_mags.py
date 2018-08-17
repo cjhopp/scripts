@@ -43,7 +43,7 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
     """
     if ax: # If axis passed in, set x-axis limits accordingly
         plain = False
-        if ax.get_ylim()[-1] == 1.0:
+        if ax.get_ylim()[-1] == 1.0 or metric == 'depth_w_time':
             ax1 = ax
         else:
             ax1 = ax.twinx()
@@ -119,12 +119,35 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
                     else:
                         fm_tup.append(None)
                 elif metric == 'depth':
-                    mag_tup.append((ev.preferred_origin().depth,
-                                    ev.magnitudes[-1].mag))
+                    if ev.preferred_origin().method_id:
+                        if ev.preferred_origin().method_id.id.endswith('HypoDD'):
+                            mag_tup.append((ev.preferred_origin().depth - 350.,
+                                            ev.magnitudes[-1].mag))
+                        else:
+                            mag_tup.append((ev.preferred_origin().depth,
+                                            ev.magnitudes[-1].mag))
+                    else:
+                        mag_tup.append((ev.preferred_origin().depth,
+                                        ev.magnitudes[-1].mag))
                     if fm_id in sdrs:
                         fm_tup.append(sdrs[fm_id])
                     else:
                         fm_tup.append(None)
+                elif metric == 'depth_w_time':
+                    if ev.preferred_origin().method_id:
+                        if ev.preferred_origin().method_id.id.endswith('HypoDD'):
+                            mag_tup.append(
+                                (pytz.utc.localize(ev.preferred_origin().time.datetime),
+                                 ev.preferred_origin().depth - 350.))
+                        else:
+                            mag_tup.append(
+                                (pytz.utc.localize(ev.preferred_origin().time.datetime),
+                                 ev.preferred_origin().depth))
+                    else:
+                        mag_tup.append(
+                            (pytz.utc.localize(
+                                ev.preferred_origin().time.datetime),
+                             ev.preferred_origin().depth))
             except AttributeError:
                 print('Event {} has no associated magnitude'.format(
                     str(ev.resource_id)))
@@ -158,6 +181,26 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
     elif metric == 'time':
         ax1.set_xlabel('Date', fontsize=16)
         ax1.set_xlim([start, end])
+    elif metric == 'depth_w_time':
+        ax1.set_ylabel('Depth (m)')
+        ax1.scatter(xs, ys, s=5., marker='o', color='lightgreen',
+                    edgecolor='k', linewidth=0.3, label='Events')
+        # plot Rot Andesite extents
+        ax1.set_xlim([start, end])
+        xlims = ax1.get_xlim()
+        xz = [xlims[0], xlims[1], xlims[1], xlims[0]]
+        yz_tkri = [1182., 1182., 2490., 2490.]
+        yz_and = [2490., 2490., 3390., 3390.]
+        # Tahorakuri
+        ax1.fill(xz, yz_tkri, color='gainsboro', zorder=0, alpha=0.5)
+        ax1.text(0.1, 0.7, 'Volcaniclastic', fontsize=8, color='gray',
+                transform=ax1.transAxes)
+        # Andesite
+        ax1.fill(xz, yz_and, color='palegoldenrod', zorder=0, alpha=0.5)
+        ax1.text(0.1, 0.45, 'Andesite', fontsize=8, color='gray',
+                transform=ax1.transAxes)
+        ax1.set_xlabel('Date', fontsize=16)
+        ax1.invert_yaxis()
     if fm_color:
         col = fm_color
     else:

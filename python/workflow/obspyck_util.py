@@ -132,34 +132,21 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
         if not os.path.isdir('tmp'):
             os.mkdir('tmp')
         if catalog:
+            sac_dirs = glob(wav_dirs[0] + '/*')
+            sac_names = [s.split('/')[-1] for s in sac_dirs]
             for ev in tmp_cat:
                 # If getting from SAC directory, grab wavs
+                eid = ev.resource_id.id.split('/')[-1]
+                print('Looking for {}'.format(eid))
+                print('In directory {}')
                 if wav_format == 'SAC' and not wav_file:
-                    sac_dirs = glob(wav_dirs[0] + '/*')
+                    if eid not in sac_names:
+                        print('Unable to find waveform directory!!')
+                        continue
                     if cat_id_format == 'temps':
-                        try:
-                            wav_files = [
-                                glob('{}/*'.format(dir)) for dir
-                                in sac_dirs if dir.split('/')[-1].split('_')[0] ==
-                                str(ev.resource_id).split('/')[-1]][0]
-                        except IndexError:
-                            print('Unable to find waveform directory!!')
-                            continue
+                        wav_files = glob('{}/{}/*'.format(sac_dirs, eid))
                     elif cat_id_format == 'dets':
-                        wav_files = [
-                            glob('{}/*'.format(dir)) for dir
-                            in sac_dirs if dir.split('/')[-1] ==
-                            str(ev.resource_id).split('/')[-1]][0]
-                    # except IndexError:
-                    #     try:
-                    #         wav_files = [
-                    #             glob('{}/*'.format(dir)) for dir
-                    #             in sac_dirs if
-                    #             dir.split('/')[-1].split('_')[0] ==
-                    #             str(ev.resource_id).split('/')[-1].split('_')[0]][0]
-                    #     except IndexError:
-                    #         print('No SAC file for this event.')
-                    #         continue
+                        wav_files = glob('{}/{}/*'.format(wav_dirs[0], eid))
                 elif wav_file:
                     wav_files = [wav_file]
                 # First, remove amplitudes and station mags not set with obspyck
@@ -171,6 +158,13 @@ def obspyck_from_local(inv_dir, wav_dirs=None, wav_file=None, catalog=None,
                         rm_amps.append(amp)
                 for ampl in rm_amps:
                     ev.amplitudes.remove(ampl)
+                # If not pick uncertainties, assign some arbitrary ones
+                for pk in ev.picks:
+                    if not pk.time_errors:
+                        pk.time_errors.uncertainty = 0.1
+                    # Set location codes if not already set
+                    if not pk.waveform_id.location_code:
+                        pk.waveform_id.location_code = '10'
                 tmp_name = 'tmp/%s' % str(ev.resource_id).split('/')[-1]
                 ev.write(tmp_name, format='QUAKEML')
                 if len(ev.origins) > 0:

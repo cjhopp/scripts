@@ -272,7 +272,7 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                 tr = st.select(station=sta, channel=chan)[0]
             except IndexError:
                 continue
-            if hint == 'P' and stch[-1] == 'Z':
+            if hint == 'P' and stch[-1] != 'Z':
                 print('You have a P pick on a horizontal channel. Skipping')
                 continue
             # Put this data in corresponding row of the array
@@ -723,202 +723,6 @@ def cluster_cat(indices, det_cat, min_events=2):
     clust_cats.sort(key=lambda x: len(x), reverse=True)
     return clust_cats
 
-
-def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
-                   perm_zones_dir='/home/chet/gmt/data/NZ/wells/feedzones',
-                   field='Nga', nga_wells=['NM08', 'NM09', 'NM10', 'NM06'],
-                   rot_wells=['RK20', 'RK21', 'RK22', 'RK23', 'RK24']):
-    track_files = glob('{}/*_xyz_pts.csv'.format(track_dir))
-    p_zone_files = glob('{}/*_feedzones_?.csv'.format(perm_zones_dir))
-    if field == 'Nga':
-        wells = nga_wells
-    elif field == 'Rot':
-        wells = rot_wells
-    else:
-        print('Where is {}?'.format(field))
-        return
-    well_dict = {}
-    for well in wells:
-        for track_file in track_files:
-            if track_file.split('/')[-1][:4] == well:
-                with open(track_file, 'r') as f:
-                    well_dict[well] = {'track': [], 'p_zones': []}
-                    for line in f:
-                        ln = line.split()
-                        well_dict[well]['track'].append(
-                            (float(ln[0]), float(ln[1]), float(ln[-1]))
-                        )
-        for p_zone_f in p_zone_files:
-            if p_zone_f.split('/')[-1][:4] == well:
-                with open(p_zone_f, 'r') as f:
-                    z_pts = []
-                    for line in f:
-                        ln = line.split()
-                        z_pts.append(
-                            (float(ln[0]), float(ln[1]), float(ln[-1]))
-                        )
-                    well_dict[well]['p_zones'].append(z_pts)
-    return well_dict
-
-
-def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
-                       zlims=None, wells=True, video=False, animation=False,
-                       title=None, offline=False, dd_only=False):
-    """
-    Plot a list of catalogs as a plotly 3D figure
-    :param cluster_cats: List of obspy.event.Catalog objects
-    :param outfile: Name of the output figure
-    :param field: Either 'Rot' or 'Nga' depending on which field we want
-    :param xlims: List of [min, max] longitude to plot
-    :param ylims: List of [max, min] latitude to plot
-    :param zlims: List of [max neg., max pos.] depths to plot
-    :param wells: Boolean for whether to plot the wells
-    :param video: Deprecated because it's impossible to deal with
-    :param animation: (See above)
-    :param title: Plot title
-    :param offline: Boolean for whether to plot to plotly account (online)
-        or to local disk (offline)
-    :return:
-    """
-    pt_lists = []
-    # Establish color scales from colorlover (import colorlover as cl)
-    colors = cycle(cl.scales['11']['qual']['Paired'])
-    well_colors = cl.scales['9']['seq']['BuPu']
-    wgs84 = pyproj.Proj("+init=EPSG:4326")
-    nztm = pyproj.Proj("+init=EPSG:27200")
-    if not title:
-        title = 'Boogers'
-    # If no limits specified, take them from catalogs
-    if not xlims:
-        xs = [ev.preferred_origin().longitude for cat in cluster_cats
-              for ev in cat]
-        ys = [ev.preferred_origin().latitude for cat in cluster_cats
-              for ev in cat]
-        utms = pyproj.transform(wgs84, nztm, xs, ys)
-        xlims = [min(utms[0]), max(utms[0])]
-        ylims = [min(utms[1]), max(utms[1])]
-        zlims = [-7000, 500]
-    # Populate the lists of x y z mag id for each catalog
-    for cat in cluster_cats:
-        pt_list = []
-        for ev in cat:
-            o = ev.preferred_origin()
-            utm_ev = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
-            if dd_only and not o.method_id:
-                print('Not accepting non-dd locations')
-                continue
-            try:
-                m = ev.magnitudes[-1].mag
-            except IndexError:
-                continue
-            if (xlims[0] < utm_ev[0] < xlims[1]
-                and ylims[0] < utm_ev[1] < ylims[1]
-                and np.abs(zlims[0]) > o.depth > (-1 * zlims[1])):
-                pt_list.append((utm_ev[0], utm_ev[1], o.depth, m,
-                                ev.resource_id.id.split('/')[-1]))
-        if len(pt_list) > 0:
-            pt_lists.append(pt_list)
-    # Make well point lists
-    datas = []
-    if wells:
-        wells = make_well_dict(field=field)
-        for i, (key, pts) in enumerate(wells.items()):
-            x, y, z = zip(*wells[key]['track'])
-            utm_well = pyproj.transform(wgs84, nztm, x, y)
-            datas.append(go.Scatter3d(x=utm_well[0], y=utm_well[1], z=z,
-                                      mode='lines',
-                                      name='Well: {}'.format(key),
-                                      line=dict(color=well_colors[i + 2],
-                                                width=7)))
-            # Now perm zones
-            for pz in wells[key]['p_zones']:
-                x, y, z = zip(*pz)
-                utm_z = pyproj.transform(wgs84, nztm, x, y)
-                datas.append(go.Scatter3d(x=utm_z[0], y=utm_z[1], z=z,
-                                          mode='lines', showlegend=False,
-                                          line=dict(color=well_colors[i + 2],
-                                                    width=20)))
-    # Set magnitude scaling multiplier for each field
-    if field == 'Rot':
-        multiplier = 4
-    elif field == 'Nga':
-        multiplier = 7
-    # Add arrays to the plotly objects
-    for i, lst in enumerate(pt_lists):
-        x, y, z, m, id = zip(*lst)
-        z = -np.array(z)
-        datas.append(go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
-                                  mode='markers',
-                                  name='Cluster {}'.format(i),
-                                  hoverinfo='text',
-                                  text=id,
-                                  marker=dict(color=next(colors),
-                                    size=multiplier * np.array(m) ** 2,
-                                    symbol='circle',
-                                    line=dict(color='rgb(204, 204, 204)',
-                                              width=1),
-                                    opacity=0.9)))
-    xax = go.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Easting (m)', autorange=True, range=xlims)
-    yax = go.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Northing (m)', autorange=True, range=ylims)
-    zax = go.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Elevation (m)', autorange=True, range=zlims)
-    layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax,
-                                  zaxis=zax,
-                                  bgcolor="rgb(244, 244, 248)"),
-                       autosize=True,
-                       title=title)
-    # This is a bunch of hooey
-    if video and animation:
-        layout.update(
-            updatemenus=[{'type': 'buttons', 'showactive': False,
-                          'buttons': [{'label': 'Play',
-                                       'method': 'animate',
-                                       'args': [None,
-                                                {'frame': {'duration': 1,
-                                                           'redraw': True},
-                                                 'fromcurrent': True,
-                                                 'transition': {
-                                                    'duration': 0,
-                                                    'mode': 'immediate'}}
-                                                          ]},
-                                      {'label': 'Pause',
-                                       'method': 'animate',
-                                       'args': [[None],
-                                                {'frame': {'duration': 0,
-                                                           'redraw': True},
-                                                           'mode': 'immediate',
-                                                           'transition': {
-                                                               'duration': 0}}
-                                                          ]}]}])
-    # Start figure
-    fig = go.Figure(data=datas, layout=layout)
-    if video and animation:
-        zoom = 2
-        frames = [dict(layout=dict(
-            scene=dict(camera={'eye':{'x': np.cos(rad) * zoom,
-                                      'y': np.sin(rad) * zoom,
-                                      'z': 0.2}})))
-                  for rad in np.linspace(0, 6.3, 630)]
-        fig.frames = frames
-        if offline:
-            plotly.offline.plot(fig, filename=outfile)
-        else:
-            py.plot(fig, filename=outfile)
-    elif video and not animation:
-        print('You dont need a video')
-    else:
-        if offline:
-            plotly.offline.plot(fig, filename=outfile)
-        else:
-            py.plot(fig, filename=outfile)
-    return
-
-
 def cluster_to_stereonets(cluster_cats, cons_cat_dir, outdir, pols='all'):
     """
     Helper to loop clusters and save output plots to a directory
@@ -938,7 +742,6 @@ def cluster_to_stereonets(cluster_cats, cons_cat_dir, outdir, pols='all'):
                                 outdir=outdir, pols=pols,
                                 savefig='Consensus_{}_{}.png'.format(i, pols))
     return
-
 
 def plot_picks_on_stereonet(catalog, fm_cat=None, pols='all', title=None,
                             station_plot=False, savefig=False, outdir='.',

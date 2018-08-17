@@ -13,12 +13,22 @@ try:
     from plotFMC import circles
 except:
     print('FMC files not on your path')
+try:
+    import mplstereonet
+    import colorlover as cl
+    import plotly
+    import plotly.plotly as py
+    import plotly.graph_objs as go
+except:
+    print('Youre probably on the server. Dont try any plotting')
 from glob import glob
+from itertools import cycle
 from subprocess import Popen, PIPE
 from shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
 from scipy.stats import circmean
+from scipy.linalg import lstsq
 from obspy.imaging.beachball import beach
 from eqcorrscan.utils import pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
@@ -26,11 +36,6 @@ try:
     from sklearn.cluster import KMeans
 except:
     print('Probably on the server, no sklearn for you')
-# Try to import plotly 3D plotting from shelly_focmecs
-try:
-    from shelly_focmecs import plot_clust_cats_3d
-except:
-    print('Shelly_focmecs not in path...')
 # Try to import hashpype if in active env
 try:
     from hashpy.hashpype import HashPype, HashError
@@ -102,7 +107,8 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     return st
 
 def cluster_cat_kmeans(catalog, n_clusters, plot=False, field='Nga',
-                       title='kmeans clusters', dd_only=False, **kwargs):
+                       title='kmeans clusters', dd_only=False,
+                       surface='plane',**kwargs):
     """
     Use scikit-learn kmeans clustering to group catalog locations into
     a specified number of clusters
@@ -131,7 +137,7 @@ def cluster_cat_kmeans(catalog, n_clusters, plot=False, field='Nga',
         group_cats[indices[i]].append(ev)
     if plot:
         plot_clust_cats_3d(group_cats, outfile=plot, field=field, title=title,
-                           dd_only=dd_only)
+                           dd_only=dd_only, surface=surface)
     return group_cats
 
 ########################## MTFIT STUFF #######################################
@@ -1007,3 +1013,337 @@ def write_hybridMT_input(cat, sac_dir, inv, self_files, outfile,
                 fo.write(dict['header'])
                 fo.writelines(dict['phases'])
     return
+
+# Planes and shiz
+
+def pts_to_plane(x, y, z, method='lstsq'):
+    # Create a grid over the desired area
+    # Here just define it over the x and y range of the cluster (100 pts)
+    x_ran = max(x) - min(x)
+    y_ran = max(y) - max(y)
+    if method == 'lstsq':
+        # Add 20 percent to x and y dimensions for viz purposes
+        X, Y = np.meshgrid(np.arange(min(x) - (0.2 * x_ran),
+                                     max(x) + (0.2 * x_ran),
+                                     (max(x) - min(x)) / 10.),
+                           np.arange(min(y) - (0.2 * y_ran),
+                                     max(y) + (0.2 * y_ran),
+                                     (max(y) - min(y)) / 10.))
+        # Now do the linear fit and generate the coefficients of the plane
+        A = np.c_[x, y, np.ones(len(x))]
+        C, _, _, _ = lstsq(A, z)  # Coefficients (also the vector normal?)
+    elif method == 'svd':
+        print('SVD not implemented')
+        return
+    # Evaluate the plane for the points of the grid
+    Z = C[0] * X + C[1] * Y + C[2]
+    # strike and dip
+    pt1 = (X[0][2], Y[0][2], Z[0][2])
+    pt2 = (X[3][1], Y[3][1], Z[3][1])
+    pt3 = (X[0][0], Y[0][0], Z[0][0])
+    strike, dip = strike_dip_from_pts(pt1, pt2, pt3)
+    return X.flatten(), Y.flatten(), Z.flatten(), strike, dip
+
+def pts_to_ellipsoid(x, y, z):
+    # Function from:
+    # https://github.com/aleksandrbazhin/ellipsoid_fit_python/blob/master/ellipsoid_fit.py
+    # http://www.mathworks.com/matlabcentral/fileexchange/24693-ellipsoid-fit
+    # for arbitrary axes
+    D = np.array([x * x,
+                  y * y,
+                  z * z,
+                  2 * x * y,
+                  2 * x * z,
+                  2 * y * z,
+                  2 * x,
+                  2 * y,
+                  2 * z])
+    DT = D.conj().T
+    v = np.linalg.solve(D.dot(DT), D.dot(np.ones(np.size(x))))
+    A = np.array([[v[0], v[3], v[4], v[6]],
+                  [v[3], v[1], v[5], v[7]],
+                  [v[4], v[5], v[2], v[8]],
+                  [v[6], v[7], v[8], -1]])
+    center = np.linalg.solve(- A[:3, :3], [[v[6]], [v[7]], [v[8]]])
+    T = np.eye(4)
+    T[3, :3] = center.T
+    R = T.dot(A).dot(T.conj().T)
+    evals, evecs = np.linalg.eig(R[:3, :3] / -R[3, 3])
+    radii = np.sqrt(1. / np.abs(evals)) # Absolute value to eliminate imaginaries?
+    return center, radii, evecs, v
+
+def strike_dip_from_pts(pt1, pt2, pt3):
+    # Take the output from the best fit plane and calculate strike and dip
+    vec_1 = np.array(pt3) - np.array(pt1)
+    vec_2 = np.array(pt3) - np.array(pt2)
+    U = np.cross(vec_1, vec_2)
+    # Standard rectifying for right-hand rule
+    if U[2] < 0:
+        easting = U[1]
+        northing = -U[0]
+    else:
+        easting = -U[1]
+        northing = U[0]
+    if easting >= 0:
+        partA_strike = easting**2 + northing**2
+        strike = np.rad2deg(np.arccos(northing / np.sqrt(partA_strike)))
+    else:
+        partA_strike = northing / np.sqrt(easting**2 + northing**2)
+        strike = 360. - np.rad2deg(np.arccos(partA_strike))
+    part1_dip = np.sqrt(U[1]**2 + U[0]**2)
+    part2_dip = np.sqrt(part1_dip**2 + U[2]**2)
+    dip = np.rad2deg(np.arcsin(part1_dip / part2_dip))
+    return strike, dip
+
+def ellipsoid_to_pts(center, radii, evecs):
+    """
+    Take the center and radii solved for in pts_to_ellipsoid and convert them
+    to a bunch of points to be meshed by plotly
+    :param center: Center of ellipsoid
+    :param radii: Radii of ellipsoid
+    :return:
+    """
+    center = center.flatten()
+    print(center)
+    u = np.linspace(0.0, 2.0 * np.pi, 100)
+    v = np.linspace(0.0, np.pi, 100)
+    # cartesian coordinates that correspond to the spherical angles:
+    X = radii[0] * np.outer(np.cos(u), np.sin(v))
+    Y = radii[1] * np.outer(np.sin(u), np.sin(v))
+    Z = radii[2] * np.outer(np.ones_like(u), np.cos(v))
+    # rotate accordingly
+    for i in range(len(X)):
+        for j in range(len(X)):
+            [X[i, j], Y[i, j], Z[i, j]] = np.dot([X[i, j], Y[i, j], Z[i, j]],
+                                                 evecs) + center
+    return X.flatten(), Y.flatten(), Z.flatten()
+
+def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
+                       zlims=None, wells=True, video=False, animation=False,
+                       title=None, offline=False, dd_only=False,
+                       surface='plane'):
+    """
+    Plot a list of catalogs as a plotly 3D figure
+    :param cluster_cats: List of obspy.event.Catalog objects
+    :param outfile: Name of the output figure
+    :param field: Either 'Rot' or 'Nga' depending on which field we want
+    :param xlims: List of [min, max] longitude to plot
+    :param ylims: List of [max, min] latitude to plot
+    :param zlims: List of [max neg., max pos.] depths to plot
+    :param wells: Boolean for whether to plot the wells
+    :param video: Deprecated because it's impossible to deal with
+    :param animation: (See above)
+    :param title: Plot title
+    :param offline: Boolean for whether to plot to plotly account (online)
+        or to local disk (offline)
+    :return:
+    """
+    pt_lists = []
+    # Establish color scales from colorlover (import colorlover as cl)
+    colors = cycle(cl.scales['11']['qual']['Paired'])
+    well_colors = cl.scales['9']['seq']['BuPu']
+    wgs84 = pyproj.Proj("+init=EPSG:4326")
+    nztm = pyproj.Proj("+init=EPSG:27200")
+    if not title:
+        title = 'Boogers'
+    # If no limits specified, take them from catalogs
+    if not xlims:
+        xs = [ev.preferred_origin().longitude for cat in cluster_cats
+              for ev in cat]
+        ys = [ev.preferred_origin().latitude for cat in cluster_cats
+              for ev in cat]
+        utms = pyproj.transform(wgs84, nztm, xs, ys)
+        xlims = [min(utms[0]), max(utms[0])]
+        ylims = [min(utms[1]), max(utms[1])]
+        zlims = [-15000, 500]
+    # Populate the lists of x y z mag id for each catalog
+    # Have made the correction on 16-8-2018 to make elevation of NS12 0
+    # HypoDD cats report depth relative to zero.
+    # We want depths as elevation for this plot so add the difference between
+    # 0 elevation and depth of NS12 (164 m) to all depths.
+    if dd_only:
+        z_correct = 164.
+    else:
+        z_correct = 0.
+    for cat in cluster_cats:
+        pt_list = []
+        for ev in cat:
+            o = ev.preferred_origin()
+            utm_ev = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
+            if dd_only and not o.method_id:
+                print('Not accepting non-dd locations')
+                continue
+            try:
+                m = ev.magnitudes[-1].mag
+            except IndexError:
+                continue
+            if (xlims[0] < utm_ev[0] < xlims[1]
+                and ylims[0] < utm_ev[1] < ylims[1]
+                and np.abs(zlims[0]) > o.depth > (-1 * zlims[1])):
+                dpt = o.depth + z_correct
+                pt_list.append((utm_ev[0], utm_ev[1], dpt, m,
+                                ev.resource_id.id.split('/')[-1]))
+        # if len(pt_list) > 0:
+        pt_lists.append(pt_list)
+    # Make well point lists
+    datas = []
+    if wells:
+        wells = make_well_dict(field=field)
+        for i, (key, pts) in enumerate(wells.items()):
+            x, y, z = zip(*wells[key]['track'])
+            utm_well = pyproj.transform(wgs84, nztm, x, y)
+            datas.append(go.Scatter3d(x=utm_well[0], y=utm_well[1], z=z,
+                                      mode='lines',
+                                      name='Well: {}'.format(key),
+                                      line=dict(color=well_colors[i + 2],
+                                                width=7)))
+            # Now perm zones
+            for pz in wells[key]['p_zones']:
+                x, y, z = zip(*pz)
+                utm_z = pyproj.transform(wgs84, nztm, x, y)
+                datas.append(go.Scatter3d(x=utm_z[0], y=utm_z[1], z=z,
+                                          mode='lines', showlegend=False,
+                                          line=dict(color=well_colors[i + 2],
+                                                    width=20)))
+    # Set magnitude scaling multiplier for each field
+    if field == 'Rot':
+        multiplier = 4
+    elif field == 'Nga':
+        multiplier = 7
+    # Add arrays to the plotly objects
+    for i, lst in enumerate(pt_lists):
+        if len(lst) == 0:
+            continue
+        x, y, z, m, id = zip(*lst)
+        z = -np.array(z)
+        clust_col = next(colors)
+        datas.append(go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
+                                  mode='markers',
+                                  name='Cluster {}'.format(i),
+                                  hoverinfo='text',
+                                  text=id,
+                                  marker=dict(color=clust_col,
+                                    size=multiplier * np.array(m) ** 2,
+                                    symbol='circle',
+                                    line=dict(color='rgb(204, 204, 204)',
+                                              width=1),
+                                    opacity=0.9)))
+        if surface == 'plane':
+            if len(x) <= 2:
+                continue # Cluster just 1-2 events
+            # Fit plane to this cluster
+            X, Y, Z, stk, dip = pts_to_plane(np.array(x), np.array(y),
+                                             np.array(z))
+            # Add mesh3d object to plotly
+            datas.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
+                                   opacity=0.3, delaunayaxis='z',
+                                   text='Strike: {}, Dip {}'.format(stk, dip),
+                                   showlegend=True))
+        elif surface == 'ellipsoid':
+            if len(x) <= 2:
+                continue # Cluster just 1-2 events
+            # Fit plane to this cluster
+            center, radii, evecs, v = pts_to_ellipsoid(np.array(x),
+                                                       np.array(y),
+                                                       np.array(z))
+            X, Y, Z = ellipsoid_to_pts(center, radii, evecs)
+            # Add mesh3d object to plotly
+            datas.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
+                                   opacity=0.3, delaunayaxis='z',
+                                   # text='A-axis Trend: {}, Plunge {}'.format(stk, dip),
+                                   showlegend=True))
+    xax = go.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
+                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
+                   title='Easting (m)', autorange=True, range=xlims)
+    yax = go.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
+                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
+                   title='Northing (m)', autorange=True, range=ylims)
+    zax = go.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
+                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
+                   title='Elevation (m)', autorange=True, range=zlims)
+    layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax,
+                                  zaxis=zax,
+                                  bgcolor="rgb(244, 244, 248)"),
+                       autosize=True,
+                       title=title)
+    # This is a bunch of hooey
+    if video and animation:
+        layout.update(
+            updatemenus=[{'type': 'buttons', 'showactive': False,
+                          'buttons': [{'label': 'Play',
+                                       'method': 'animate',
+                                       'args': [None,
+                                                {'frame': {'duration': 1,
+                                                           'redraw': True},
+                                                 'fromcurrent': True,
+                                                 'transition': {
+                                                    'duration': 0,
+                                                    'mode': 'immediate'}}
+                                                          ]},
+                                      {'label': 'Pause',
+                                       'method': 'animate',
+                                       'args': [[None],
+                                                {'frame': {'duration': 0,
+                                                           'redraw': True},
+                                                           'mode': 'immediate',
+                                                           'transition': {
+                                                               'duration': 0}}
+                                                          ]}]}])
+    # Start figure
+    fig = go.Figure(data=datas, layout=layout)
+    if video and animation:
+        zoom = 2
+        frames = [dict(layout=dict(
+            scene=dict(camera={'eye':{'x': np.cos(rad) * zoom,
+                                      'y': np.sin(rad) * zoom,
+                                      'z': 0.2}})))
+                  for rad in np.linspace(0, 6.3, 630)]
+        fig.frames = frames
+        if offline:
+            plotly.offline.plot(fig, filename=outfile)
+        else:
+            py.plot(fig, filename=outfile)
+    elif video and not animation:
+        print('You dont need a video')
+    else:
+        if offline:
+            plotly.offline.plot(fig, filename=outfile)
+        else:
+            py.plot(fig, filename=outfile)
+    return
+
+def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
+                   perm_zones_dir='/home/chet/gmt/data/NZ/wells/feedzones',
+                   field='Nga', nga_wells=['NM08', 'NM09', 'NM10', 'NM06'],
+                   rot_wells=['RK20', 'RK21', 'RK22', 'RK23', 'RK24']):
+    track_files = glob('{}/*_xyz_pts.csv'.format(track_dir))
+    p_zone_files = glob('{}/*_feedzones_?.csv'.format(perm_zones_dir))
+    if field == 'Nga':
+        wells = nga_wells
+    elif field == 'Rot':
+        wells = rot_wells
+    else:
+        print('Where is {}?'.format(field))
+        return
+    well_dict = {}
+    for well in wells:
+        for track_file in track_files:
+            if track_file.split('/')[-1][:4] == well:
+                with open(track_file, 'r') as f:
+                    well_dict[well] = {'track': [], 'p_zones': []}
+                    for line in f:
+                        ln = line.split()
+                        well_dict[well]['track'].append(
+                            (float(ln[0]), float(ln[1]), float(ln[-1]))
+                        )
+        for p_zone_f in p_zone_files:
+            if p_zone_f.split('/')[-1][:4] == well:
+                with open(p_zone_f, 'r') as f:
+                    z_pts = []
+                    for line in f:
+                        ln = line.split()
+                        z_pts.append(
+                            (float(ln[0]), float(ln[1]), float(ln[-1]))
+                        )
+                    well_dict[well]['p_zones'].append(z_pts)
+    return well_dict
