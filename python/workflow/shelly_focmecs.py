@@ -9,7 +9,7 @@ Functions for running Shelly et al. focal mechanism methods for MF detections
 import numpy as np
 import random
 import unittest
-import pickle
+import marshal as pickle
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pyproj
@@ -293,12 +293,16 @@ def _prepare_data(template_streams, detection_streams, template_cat,
                                 corr_dict[hint]['shift_len'],
                         nearest_sample=False).data[:-1]
                 except ValueError:
-                    det_traces[hint][stch][i] = tr.slice(
-                        starttime=pk.time - corr_dict[hint]['pre_pick'] -
-                                 corr_dict[hint]['shift_len'],
-                        endtime=pk.time + corr_dict[hint]['post_pick'] +
-                                corr_dict[hint]['shift_len'],
-                        nearest_sample=False).data[:-2]
+                    try:
+                        det_traces[hint][stch][i] = tr.slice(
+                            starttime=pk.time - corr_dict[hint]['pre_pick'] -
+                                     corr_dict[hint]['shift_len'],
+                            endtime=pk.time + corr_dict[hint]['post_pick'] +
+                                    corr_dict[hint]['shift_len'],
+                            nearest_sample=False).data[:-2]
+                    except ValueError:
+                        # Tried real hard again. Ignore.
+                        continue
     return temp_traces, det_traces
 
 

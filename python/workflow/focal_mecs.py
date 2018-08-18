@@ -1176,6 +1176,7 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
             try:
                 m = ev.magnitudes[-1].mag
             except IndexError:
+                print('No magnitude. Wont plot.')
                 continue
             if (xlims[0] < utm_ev[0] < xlims[1]
                 and ylims[0] < utm_ev[1] < ylims[1]
