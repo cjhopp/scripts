@@ -193,7 +193,7 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
         yz_and = [2490., 2490., 3390., 3390.]
         # Tahorakuri
         ax1.fill(xz, yz_tkri, color='gainsboro', zorder=0, alpha=0.5)
-        ax1.text(0.1, 0.7, 'Volcaniclastic', fontsize=8, color='gray',
+        ax1.text(0.1, 0.6, 'Volcaniclastic', fontsize=8, color='gray',
                 transform=ax1.transAxes)
         # Andesite
         ax1.fill(xz, yz_and, color='palegoldenrod', zorder=0, alpha=0.5)

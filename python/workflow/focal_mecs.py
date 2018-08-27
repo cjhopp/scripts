@@ -1208,9 +1208,9 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
                                                     width=20)))
     # Set magnitude scaling multiplier for each field
     if field == 'Rot':
-        multiplier = 4
+        multiplier = 3
     elif field == 'Nga':
-        multiplier = 7
+        multiplier = 5
     # Add arrays to the plotly objects
     for i, lst in enumerate(pt_lists):
         if len(lst) == 0:

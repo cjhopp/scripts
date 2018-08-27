@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 from glob import glob
 from subprocess import call
-from obspy import UTCDateTime
+from obspy import UTCDateTime, Catalog
 from focal_mecs import format_arnold_to_gmt
 from gmt.clib import LibGMT
 from itertools import cycle
@@ -460,9 +460,10 @@ def plot_fm_depth(catalog, center_pt, end_pt, region,
         fig.basemap(B=B_list)
     return
 
-def plot_Nga_static(catalog, start_pt, end_pt, secs=[], mags=[], dto=None,
-                    flows=False, show=True, outfile=None, old_cat=None,
-                    old_mags=None, old_secs=None, fm_file=None):
+def plot_Nga_static(cat, start_pt=None, end_pt=None, secs=[], mags=[],
+                    dto=None, flows=False, show=True, outfile=None,
+                    old_cat=None, old_mags=None, old_secs=None, fm_file=None,
+                    dd_only=True):
     """
     Main code for plotting Ngatamariki seismicity
     :param catalog: Catalog of events to plot
@@ -473,23 +474,30 @@ def plot_Nga_static(catalog, start_pt, end_pt, secs=[], mags=[], dto=None,
     # Arg check
     if outfile:
         show = False
+    if dd_only:
+        catalog = Catalog(events=[ev for ev in cat
+                                  if ev.preferred_origin().method_id])
+    else:
+        catalog = cat
     # Sort catalog
-    catalog.events.sort(key=lambda x: x.picks[-1].time)
+    catalog.events.sort(key=lambda x: x.origins[-1].time)
     # Calculate mid-point of cross_section
+    if not start_pt and not end_pt:
+        start_pt = [176.171, -38.517]
+        end_pt = [176.209, -38.575]
     c_lon = start_pt[0] + ((end_pt[0] - start_pt[0]) / 2.)
     c_lat = start_pt[1] + ((end_pt[1] - start_pt[1]) / 2.)
     if len(secs) == 0 and len(mags) == 0 and len(catalog) > 0:
         secs, mags = catalog_arrays(catalog)
+    # Scale down mags
+    mags = np.array(mags) * 0.5
     # Set prefs
     with LibGMT() as lib:
         lib.call_module('gmtset', 'FONT_ANNOT_PRIMARY 10p')
         lib.call_module('gmtset', 'FORMAT_GEO_MAP ddd.xx')
         lib.call_module('gmtset', 'MAP_FRAME_TYPE plain')
         lib.call_module('gmtset', 'PS_MEDIA A3')
-    if field == 'Nga':
-        region = [176.15, 176.23, -38.58, -38.51]
-    elif field == 'Rot':
-        region = []
+    region = [176.15, 176.23, -38.58, -38.51]
     # Set up figure
     fig = gmt.Figure()
     plot_background_datasets(fig, region=region)

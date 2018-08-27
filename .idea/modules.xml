@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$USER_HOME$/EQcorrscan/.idea/EQcorrscan.iml" filepath="$USER_HOME$/EQcorrscan/.idea/EQcorrscan.iml" />
+      <module fileurl="file://$USER_HOME$/hypoDDpy/.idea/hypoDDpy.iml" filepath="$USER_HOME$/hypoDDpy/.idea/hypoDDpy.iml" />
       <module fileurl="file://$USER_HOME$/obspy/.idea/obspy.iml" filepath="$USER_HOME$/obspy/.idea/obspy.iml" />
       <module fileurl="file://$USER_HOME$/obspyck/.idea/obspyck.iml" filepath="$USER_HOME$/obspyck/.idea/obspyck.iml" />
       <module fileurl="file://$USER_HOME$/pymap/.idea/pymap.iml" filepath="$USER_HOME$/pymap/.idea/pymap.iml" />

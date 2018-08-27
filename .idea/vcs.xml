@@ -2,6 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$USER_HOME$/EQcorrscan" vcs="Git" />
+    <mapping directory="$USER_HOME$/hypoDDpy" vcs="Git" />
     <mapping directory="$USER_HOME$/obspy" vcs="Git" />
     <mapping directory="$USER_HOME$/obspyck" vcs="Git" />
     <mapping directory="$USER_HOME$/pymap" vcs="Git" />

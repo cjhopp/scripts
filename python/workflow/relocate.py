@@ -48,7 +48,9 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
                 ev.resource_id.id))
             continue
         for pk in ev.picks:
-            if not pk.time_errors.upper_uncertainty:
+            if (not pk.time_errors.upper_uncertainty
+                and not pk.time_errors.uncertainty):
+                print(pk)
                 sta = pk.waveform_id.station_code[:2]
                 chan = pk.waveform_id.channel_code[-1]
                 pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
@@ -185,7 +187,7 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
                                     takeoff_angle=toa, azimuth=to_az,
                                     distance=dist))
         except:
-            print('Issue openning file. Event may not have been located')
+            print('Issue opening file. Event may not have been located')
             continue
     return
 
