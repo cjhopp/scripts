@@ -9,7 +9,9 @@ import numpy as np
 
 from glob import glob
 from subprocess import call
-from obspy.core.event import Arrival
+from obspy import UTCDateTime
+from obspy.core.event import Arrival, QuantityError, ResourceIdentifier, \
+    OriginUncertainty, Origin
 from obspy.geodetics import kilometer2degrees
 from obspy.io.nlloc.core import read_nlloc_hyp
 
@@ -191,7 +193,6 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
             continue
     return
 
-
 def write_xyz(cat, outfile):
     import csv
     with open(outfile, 'wb') as f:
@@ -201,3 +202,81 @@ def write_xyz(cat, outfile):
                 writer.writerow([ev.preferred_origin().latitude,
                                  ev.preferred_origin().longitude,
                                  ev.preferred_origin().depth / 1000])
+
+############## GrowClust Functions ############################################
+
+def hypoDD_to_GrowClust(in_dir, out_dir):
+    """
+    Helper to take input files from hypoDD and convert them for use with
+    GrowClust
+
+    :param in_dir: Path to the HypoDD input directory
+    :param out_dir: Path to the GrowClust input directory
+    :return:
+    """
+    # First, convert phase.dat to evlist.txt
+    with open('{}/phase.dat'.format(in_dir), 'r') as in_f:
+        with open('{}/evlist.txt'.format(out_dir), 'w') as out_f:
+            for ln in in_f:
+                if ln.startswith('#'):
+                    out_f.write('{}\n'.format(' '.join(ln.split()[1:])))
+    # Now remove occurrences of network string from dt.cc and write to
+    # xcordata.txt (use sed via system call as much faster)
+    sed_str = "sed 's/NZ.//g' {}/dt.cc > {}/xcordata.txt".format(in_dir,
+                                                                 out_dir)
+    call(sed_str, shell=True)
+    return
+
+def GrowClust_to_Catalog(hypoDD_cat, out_dir):
+    """
+    Take the original catalog used in generating dt's with HypoDDpy and read
+    the output of GrowClust into the appropriate events as new origins.
+
+    This is probably going to borrow heavily from hypoDDpy...
+    :param hypoDD_cat: Same catalog used in hypoDDpy to generate dt's
+    :param out_dir: GrowClust output directory
+    :return:
+    """
+    # Catalog is sorted by time in hypoDDpy before event map is generated
+    hypoDD_cat.events.sort(key=lambda x: x.preferred_origin().time)
+    new_o_map = {}
+    with open('{}/out.growclust_cat'.format(out_dir), 'r') as f:
+        for ln in f:
+            ln.strip()
+            line = ln.split()
+            # First determine if it was relocated
+            # Default is line[19] == -1 for no, but also should beware of
+            # unceratintites of 0.000. Ignore those for now?
+            eid = int(line[6]) # Event id before clustering
+            if line[13] == '1' and line[19] in ['-1.000', '0.000']:
+                print('Event {} not relocated, keep original location'.format(
+                    eid
+                ))
+                continue
+            re_lat = float(line[7])
+            re_lon = float(line[8])
+            re_dep = float(line[9]) * 1000 # meters bsl
+            x_uncert = float(line[19]) * 1000 # in m
+            z_uncert = float(line[20]) * 1000 # in m
+            t_uncert = float(line[21])
+            o_uncert = OriginUncertainty(horizontal_uncertainty=x_uncert)
+            t_uncert = QuantityError(uncertainty=t_uncert)
+            d_uncert = QuantityError(uncertainty=z_uncert)
+            sec = int(line[5].split('.')[0])
+            microsec = int(line[5].split('.')[1]) * 1000
+            method_id = ResourceIdentifier(id='GrowClust')
+            re_time = UTCDateTime(year=int(line[0]), month=int(line[1]),
+                                  day=int(line[2]), hour=int(line[3]),
+                                  minute=int(line[4]), second=sec,
+                                  microsecond=microsec)
+            new_o_map[eid] = Origin(time=re_time, latitude=re_lat,
+                                    longitude=re_lon, depth=re_dep,
+                                    time_errors=t_uncert,
+                                    depth_errors=d_uncert,
+                                    origin_uncertainty=o_uncert,
+                                    method_id=method_id)
+    for i, ev in enumerate(hypoDD_cat):
+        if i in new_o_map:
+            ev.origins.append(new_o_map[i])
+            ev.preferred_origin_id = new_o_map[i].resource_id.id
+    return hypoDD_cat

@@ -6,10 +6,11 @@ Functions for running Shelly et al. focal mechanism methods for MF detections
 # import matplotlib
 # matplotlib.use('Agg')
 
-import numpy as np
+import os
 import random
 import unittest
-import marshal as pickle
+import pickle
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pyproj
@@ -21,19 +22,30 @@ try:
     import plotly.graph_objs as go
 except:
     print('Youre probably on the server. Dont try any plotting')
+try:
+    from hashpy.doublecouple import DoubleCouple
+except:
+    print('HashPy not installed in this env')
 from glob import glob
+from pathlib2 import Path
 from itertools import cycle
 from operator import attrgetter
 from collections import OrderedDict
+from subprocess import call
 from multiprocessing import Pool
 from numpy.linalg import LinAlgError
 from scipy.signal import argrelmax
 from scipy.spatial.distance import pdist
-from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
-from obspy import read, Catalog, read_events, Stream
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster,\
+    inconsistent
+from obspy import read, Catalog, read_events, Stream, UTCDateTime
+from obspy.geodetics import degrees2kilometers
+from obspy.imaging.beachball import beach
 from obspy.core.event import (Comment, Event, Arrival, Origin, Pick,
                               WaveformStreamID, OriginUncertainty,
-                              QuantityError)
+                              QuantityError, FocalMechanism, CreationInfo,
+                              NodalPlane, NodalPlanes, ResourceIdentifier,
+                              Axis, PrincipalAxes)
 from eqcorrscan.core.match_filter import normxcorr2
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.synth_seis import seis_sim
@@ -42,7 +54,22 @@ from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 from mpl_toolkits.mplot3d import Axes3D
 
+
 def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
+    """
+    Chet-specific function to build the lists of template and detection
+    waveforms from two catalogs and two directories.
+
+    .. Note: The file naming convention used here is specific to Chet's
+        dataset. Others would need to create their own function to supply
+        a the
+
+    :param cat_temps: Catalog of template events
+    :param cat_dets: Catalog of detected events
+    :param temp_dir: Directory of
+    :param det_dir:
+    :return:
+    """
     det_streams = []
     temp_streams = []
     print('Globbing waveforms')
@@ -67,7 +94,7 @@ def make_stream_lists(cat_temps, cat_dets, temp_dir, det_dir):
     print('Creating detection streams')
     det_cat_ids = [ev.resource_id.id.split('/')[-1] for ev in cat_dets]
     det_wavs_only = [wav for wav in det_wavs if
-                              wav.split('/')[-1] in det_cat_ids]
+                     wav.split('/')[-1] in det_cat_ids]
     det_wav_dict = {wav.split('/')[-1]: wav for wav in det_wavs_only}
     for ev in list(cat_dets.events):
         try:
@@ -328,6 +355,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
                        plotdir='.'):
     """
     Create the correlation matrices
+
     :type template_streams: list
     :param template_streams: List of all template streams in order of events in
         temp_cat
@@ -342,6 +370,11 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
     :param corr_dict: Nested dictionary of parameters for the correlation.
         Upper level keys are 'P' and/or 'S'. Beneath this are the keys:
         'pre_pick', 'post_pick', 'shift_len', and 'min_cc'.
+        e.g. {'P': {'pre_pick': 0.05, 'post_pick': 0.5, 'shift_len': 0.1,
+                    'min_cc': 0.8}
+              'S': {'pre_pick': 0.1, 'post_pick': 1.0, 'shift_len': 0.2,
+                    'min_cc': 0.7}
+             }
     :type filt_params: dict
     :param filt_params: Dictionary containing filtering parameters for
         waveforms. Should include keys: 'lowcut', 'highcut', 'filt_order'
@@ -438,7 +471,7 @@ def make_corr_matrices(template_streams, detection_streams, template_cat,
 def svd_matrix(rel_pols):
     """
     Make the matrix of left singular vectors from all sta/chan/phase combos
-    :param rel_pols: Output from
+    :param rel_pols: Output from make_corr_matrices
     :return:
     """
     stachans = []
@@ -474,8 +507,10 @@ def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5):
     :type min_weight: float
     :return:
 
-     ..Note We assume values for any of pick.time_errors.uncertainty
-        pick.time_errors.upper_uncertainty or pick.time_errors.confidence_level
+     ..Note We assume that there are values for any of the following:
+            pick.time_errors.uncertainty or
+            pick.time_errors.upper_uncertainty or
+            pick.time_errors.confidence_level
     """
     # Isolate columns of svd_mat corresponding to vertical channels
     # Not supporting P-polarities on horizontal channels yet.
@@ -560,6 +595,7 @@ def catalog_resolve(svd_mat, stachans, cat_dets, min_weight=1.e-5):
                         np.abs(z_mat[i, stach_i]))))
     return catalog_pols, cat_pol_dict, z_mat, z_chans
 
+
 def compare_rel_cat_pols(cat_pols, cat_dets, show=True):
     # Make dict of eid: event for detections with polarity picks
     cat_picks_dict = {ev.resource_id.id.split('/')[-1]: ev
@@ -626,32 +662,35 @@ def partition_Nga(cat, svd_mat=None, threshold='tight'):
     :return:
     """
     NgaN_cat = Catalog(); NgaS_cat = Catalog()
-    if svd_mat:
+    if svd_mat != None:
         NgaN_svd = np.zeros(svd_mat.shape[1])
         NgaS_svd = np.zeros(svd_mat.shape[1])
     for i, ev in enumerate(cat):
-        o = ev.preferred_origin() or ev.origins[-1]
+        try:
+            o = ev.preferred_origin() or ev.origins[-1]
+        except IndexError: # Eliminate event if empty
+            continue
         if threshold == 'tight': # Stringent cropping to Nga clusters
             if -38.526 > o.latitude > -38.55 and 176.17 < o.longitude < 176.20:
                 # Ngatamariki North
                 NgaN_cat.append(ev)
-                if svd_mat:
+                if svd_mat != None:
                     NgaN_svd = np.vstack((NgaN_svd, svd_mat[i]))
             elif -38.575 < o.latitude < -38.55 and 176.178 < o.longitude < 176.21:
                 # Ngatamariki South
                 NgaS_cat.append(ev)
-                if svd_mat:
+                if svd_mat != None:
                     NgaS_svd = np.vstack((NgaS_svd, svd_mat[i]))
         elif threshold == 'loose': # More general split on latitude
             if o.latitude > -38.55:
                 NgaN_cat.append(ev)
-                if svd_mat:
+                if svd_mat != None:
                     NgaN_svd = np.vstack((NgaN_svd, svd_mat[i]))
             elif o.latitude < -38.55:
                 NgaS_cat.append(ev)
-                if svd_mat:
+                if svd_mat != None:
                     NgaS_svd = np.vstack((NgaS_svd, svd_mat[i]))
-    if svd_mat:
+    if svd_mat != None:
         return NgaN_cat, NgaS_cat, NgaN_svd[1:], NgaS_svd[1:]
     else:
         return NgaN_cat, NgaS_cat
@@ -663,6 +702,16 @@ def cluster_svd_mat(svd_mat, stachans=None, exclude_sta=[],
     """
     Function to cluster the rows of the nxk matrix of relative polarity
     measurements
+    :param svd_mat: svd_mat generated from the correlation measurements
+    :param stachans: Stations we want to cluster based upon. Used for manually
+        specifying network geometry.
+    :param exclude_sta: List of station names we want to exclude from the
+        clustering. You must provide the stachans arg so that we know what
+        station each row of svd_mat corresponds to
+    :param exclude_phase: List of phases to exclude from clustering
+    :param metric: Metric used in clustering. Fed to
+        scipy.spatial.distance.pdist
+    :param criterion: Criterion passed to
     :return: List of group indices for each of the n detected events
     """
     # arg checks
@@ -692,15 +741,19 @@ def cluster_svd_mat(svd_mat, stachans=None, exclude_sta=[],
             dendrogram(Z, color_threshold=0)
         plt.show()
         plt.close('all')
+    if criterion == 'inconsistent':
+        stats = inconsistent(Z)
+    elif criterion == 'distance':
+        stats = Y
     indices = fcluster(Z, t=thresh, criterion=criterion)
-    return indices
+    return indices, stats
 
 
 def cluster_cat(indices, det_cat, min_events=2):
     """
     Group detection catalog into the clusters determined by the relative
     polarity measurements.
-    :param indices:
+    :param indices: indices output from
     :param z_mat:
     :param det_cat:
     :return:
@@ -714,7 +767,6 @@ def cluster_cat(indices, det_cat, min_events=2):
         for ind in indices:
             if ind[0] == clust_id:
                 ev = det_cat.events[ind[1]]
-                # Go through picks and assign polarity from relative pols
                 cat.append(ev)
             elif ind[0] > clust_id:
                 if len(cat) > min_events:
@@ -726,6 +778,7 @@ def cluster_cat(indices, det_cat, min_events=2):
     # Sort by size of catalog
     clust_cats.sort(key=lambda x: len(x), reverse=True)
     return clust_cats
+
 
 def cluster_to_stereonets(cluster_cats, cons_cat_dir, outdir, pols='all'):
     """
@@ -836,14 +889,14 @@ def plot_picks_on_stereonet(catalog, fm_cat=None, pols='all', title=None,
                    ncol=2, fontsize=5, loc='upper right', bbox_to_anchor=(1.3, 1.1))
     elif pol_plot:
         if fm_cat:
-            fms = fm_cat[0].focal_mechanisms
-            fm = min(fms, key=attrgetter('misfit'))
-            ax.text(1.09, 0.85, 'Misfit: {:.3f}'.format(fm.misfit),
-                    transform=ax.transAxes, fontdict=dict(fontsize=8))
-            np1 = fm.nodal_planes.nodal_plane_1
-            np2 = fm.nodal_planes.nodal_plane_2
-            ax.plane(np1.strike, np1.dip, color='k')
-            ax.plane(np2.strike, np2.dip, color='k')
+            for fm in fm_cat[0].focal_mechanisms:
+            # fm = fm_cat[0].preferred_focal_mechanism()
+                ax.text(1.09, 0.85, 'Misfit: {:.3f}'.format(fm.misfit),
+                        transform=ax.transAxes, fontdict=dict(fontsize=8))
+                np1 = fm.nodal_planes.nodal_plane_1
+                np2 = fm.nodal_planes.nodal_plane_2
+                ax.plane(np1.strike, np1.dip, color='k')
+                ax.plane(np2.strike, np2.dip, color='k')
         if pols == 'consensus':
             for arr in fm_cat[0].origins[0].arrivals:
                 pk = arr.pick_id.get_referred_object()
@@ -896,7 +949,6 @@ def plot_picks_on_stereonet(catalog, fm_cat=None, pols='all', title=None,
         plt.close('all')
     return
 
-
 def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
     """
     Plot weighted relative polarities vs catalog polarities
@@ -921,6 +973,254 @@ def plot_relative_pols(z_mat, z_chans, cat_pols, cat_pol_dict, show=True):
             plt.show()
             plt.close('all')
     return
+
+def plot_cluster_beachballs(clust_cat, fm_file, show=True):
+    """
+    Plot a grid of focal mechanisms from a polarity cluster
+    :param clust_cat:
+    :param fm_file:
+    :return:
+    """
+    fig, ax = plt.subplots()
+    sdrs = {}
+    fm_tup = []
+    with open(fm_file, 'r') as f:
+        next(f)
+        for line in f:
+            line = line.rstrip('\n')
+            line = line.split(',')
+            sdrs[line[0][:-2]] = (float(line[1]), float(line[2]),
+                             float(line[3]))
+    print(sdrs)
+    for ev in clust_cat:
+        fm_id = '{}.{}.{}'.format(
+            ev.resource_id.id.split('/')[-1].split('_')[0],
+            ev.resource_id.id.split('_')[-2],
+            ev.resource_id.id.split('_')[-1][:4])
+        if fm_id in sdrs:
+            fm_tup.append(sdrs[fm_id])
+    print(fm_tup)
+    for i in range(len(fm_tup)):
+        bball = beach(fm_tup[i], xy=(i / len(fm_tup), 0.5), width=150,
+                      linewidth=1, axes=ax, facecolor='blue')
+        ax.add_collection(bball)
+    if show:
+        plt.show()
+    return
+
+def write_HASH_inp(outdir, param_dict=None):
+    """
+    Helper to write HASH input file with specified params
+    :param outdir: Path to output directory
+    :param param_dict: Dict with following keys:
+        {'minpol', 'maxaz', 'maxtoa', 'gridang', 'trials', 'maxout', 'badpick',
+         'maxdist', 'probang', multprob'}
+    :return:
+    """
+    if not param_dict:
+        param_dict = {'minpol': 4, 'maxaz': 180, 'maxtoa': 90, 'gridang': 5,
+                      'trials': 30, 'maxout': 1500, 'badpick': 0.1,
+                      'maxdist': 50, 'probang': 45, 'multprob': 0.1}
+    # Make empty reversal file
+    Path('{}/run.reverse'.format(outdir)).touch()
+    with open('{}/run.inp'.format(outdir), 'w') as f:
+        f.write('{}/run.reverse\n'.format(outdir))
+        f.write('{}/run.phase\n'.format(outdir))
+        f.write('{}/run.out\n'.format(outdir))
+        f.write('{}/run.out2\n'.format(outdir))
+        f.write('{}\n'.format(param_dict['minpol']))
+        f.write('{}\n'.format(param_dict['maxaz']))
+        f.write('{}\n'.format(param_dict['maxtoa']))
+        f.write('{}\n'.format(param_dict['gridang']))
+        f.write('{}\n'.format(param_dict['trials']))
+        f.write('{}\n'.format(param_dict['maxout']))
+        f.write('{}\n'.format(param_dict['badpick']))
+        f.write('{}\n'.format(param_dict['maxdist']))
+        f.write('{}\n'.format(param_dict['probang']))
+        f.write('{}\n'.format(param_dict['multprob']))
+    return
+
+def write_HASH_phase(outdir, catalog, clust_id, exclude_stations):
+    with open('{}/run.phase'.format(outdir), 'w') as f:
+        # Event line formatting....sould just be a single header...
+        # Hopefully this info is not used if TOAs and azs supplied
+        o = catalog[0].preferred_origin()
+        clust_id = '{:>16}'.format(clust_id)
+        t1 = '{}{:>2d}{:>2d}{:>2d}{:>2d}'.format(
+            str(str(o.time.year)[-2:]), o.time.month, o.time.day, o.time.hour,
+            o.time.minute
+        )
+        t2 = '{:02d}.{:01d}'.format(o.time.second,
+                                    int(o.time.microsecond / 100000))
+        # Possible issue with decimal minutes? Only allows 1 digit left of .??
+        # Change format to f4.1...
+        if o.latitude < 0:
+            lat1 = str(o.latitude).split('.')[0].lstrip('-')
+            lat2 = 'S'
+            lat3 = '{:4.1f}'.format(round(abs(o.latitude + float(lat1)) * 60., 2))
+        else:
+            lat1 = str(o.latitude).split('.')[0]
+            lat2 = 'N'
+            lat3 = '{:4.1f}'.format(o.latitude - float(lat1) * 60.)
+        if o.longitude < 0:
+            lon1 = str(o.longitude).split('.')[0].lstrip('-')
+            lon2 = 'W'
+            lon3 = '{:4.1f}'.format(abs(o.longitude + float(lon1)) * 60.)
+        else:
+            lon1 = str(o.longitude).split('.')[0]
+            lon2 = 'E'
+            lon3 = '{:4.1f}'.format((o.longitude - float(lon1)) * 60.)
+        if o.depth < 0:
+            dp = ' 0.00'
+        else:
+            dp = '{:>5.2f}'.format(round(o.depth / 1000., 2)) # qml depth meters
+        mag = '{:2.1f}'.format(catalog[0].preferred_magnitude().mag) or 0.0
+        if o.origin_uncertainty:
+            h_uncert = '{:>44}{:>4.2f}{:>4.2f}'.format(
+                '', o.origin_uncertainty.min_horizontal_uncertainty / 1000.,
+                    o.depth_errors.uncertainty / 1000.)
+        else:
+            h_uncert = '{:>44}{:>4.2f}{:>4.2f}'.format('', 1.0, 1.0)
+        f.write(''.join([t1, t2, lat1, lat2, lat3, lon1, lon2, lon3, dp,
+                         mag, h_uncert, clust_id, '\n']))
+        # Loop all origin arrivals, check if associated pk has polarity, use it
+        for ev in catalog:
+            if not ev.preferred_origin().method_id:
+                continue # Don't take non dd events
+            for arr in ev.preferred_origin().arrivals:
+                if not arr.pick_id.get_referred_object().polarity:
+                    continue
+                if len(arr.pick_id.get_referred_object().comments) == 0:
+                    continue
+                pk = arr.pick_id.get_referred_object()
+                if pk.polarity == 'positive':
+                    wt = float(pk.comments[-1].text.split()[-1])
+                    p = '+'
+                elif pk.polarity == 'negative':
+                    wt = float(pk.comments[-1].text.split()[-1])
+                    p = '-'
+                else:
+                    print('How is your polarity neither + or -? Emergent?')
+                    continue
+                if wt < 1E-5:
+                    continue
+                elif wt < 1E-4:
+                    w = 2
+                elif wt < 1E-3:
+                    w = 1
+                else:
+                    w = 0
+                sta = '{:>4}'.format(pk.waveform_id.station_code)
+                if sta in exclude_stations:
+                    print('{} being excluded'.format(sta))
+                    continue
+                dist = degrees2kilometers(arr.distance)
+                toa = int(round(arr.takeoff_angle))
+                az = int(round(arr.azimuth))
+                # TODO XXX The weighting wont work until we have Jeanne's HASH
+                f.write('{:>4}{:>3}{:1d}{:>50}{:4.1f}{:>3d}{:>13d}{:4d}{:4d}\n'.format(
+                        sta, p, w, '', dist, toa, az, 5, 10))
+        f.write('\n') # Hash needs this guy to know it's done
+    return
+
+def cluster_to_composite(catalog, clust_id, outdir, hash_dict=None,
+                         show=False, exclude_stations=[]):
+    """
+    Output all of the phases in a cluster to HASH input file for calculation
+    of the composite solution.
+    :param catalog: Catalog of events clustered by polarity
+    :param clust_id: Identifier for cluster
+    :param outdir: Path to HASH directory where phase file and HASH output
+        will go. This directory should already contain a .inp file?
+    :param hash_dict: Dictionary of parameter values for hash. See
+        write_HASH_input() for deets.
+    :return:
+
+    .. note:: This will assume that we have toa and az for each polarity pick
+        in the catalog and will put this into the "Example no. 1" format for
+        HASH.
+    """
+    if not os.path.isdir(outdir):
+        os.mkdir(outdir)
+    # Write phase file for HASH
+    write_HASH_phase(outdir, catalog, clust_id, exclude_stations)
+    # Make input file for HASH point to output pol file
+    write_HASH_inp(outdir, param_dict=hash_dict)
+    # System call to HASH
+    call('hash_driver1 < {}/run.inp'.format(outdir), shell=True)
+    # Make catalog with first clust event to put the fms into
+    new_cat = Catalog()
+    new_cat += catalog[0]
+    new_cat = read_HASH_output('{}/run.out'.format(outdir))
+    if show:
+        plot_picks_on_stereonet(catalog, fm_cat=new_cat,
+                                title='Composite FM: {}'.format(clust_id),
+                                savefig=False, outdir=False)
+    else:
+        filename = 'Composite FM: {}'.format(clust_id)
+        plot_picks_on_stereonet(catalog, fm_cat=new_cat,
+                                title='Composite FM: {}'.format(clust_id),
+                                savefig=filename, outdir=outdir)
+    return new_cat
+
+def read_HASH_output(infile):
+    """
+    Read in the HASH output file and return an obspy catalog
+
+    .. note: This  is mostly adopted from HashPy.io.obspyIO module
+
+    :param infile: HASH output file
+    :param cat: Catalog which we'll add the FMs to. This should contain a dummy
+        event from the cluster, I guess. Maybe just the first event for
+        simplicity?
+    :param id: Id for this cluster
+    :return:
+    """
+    sdrs = []
+    cat = Catalog(events=[Event()])
+    ev = cat[0]
+    with open(infile, 'r') as f:
+        for ln in f:
+            line = ln.split()
+            # List of:
+            # [str, dip, rake, fp uncertainty, npols, misfit %, sta dist, qual]
+            sdrs.append([line[-11], line[-10], line[-9], line[-8], line[-6],
+                         line[-5], int(line[-2]) / 100., line[-4]])
+    # o = ev.preferred_origin()
+    best_qual = chr(min([ord(sdr[-1]) for sdr in sdrs]))
+    print(best_qual)
+    print('There are {} suitable mechs'.format(len(sdrs)))
+    for sdr in sdrs:
+        if not sdr[-1] == best_qual.upper():
+            continue
+        dc = DoubleCouple([float(sdr[0]), float(sdr[1]), float(sdr[0])])
+        ax = dc.axis
+        focal_mech = FocalMechanism()
+        focal_mech.creation_info = CreationInfo(creation_time=UTCDateTime(),
+                                                author='cjh')
+        # focal_mech.triggering_origin_id = o.resource_id
+        focal_mech.method_id = ResourceIdentifier('HASH')
+        focal_mech.nodal_planes = NodalPlanes()
+        focal_mech.nodal_planes.nodal_plane_1 = NodalPlane(*dc.plane1)
+        focal_mech.nodal_planes.nodal_plane_2 = NodalPlane(*dc.plane2)
+        focal_mech.principal_axes = PrincipalAxes()
+        focal_mech.principal_axes.t_axis = Axis(azimuth=ax['T']['azimuth'],
+                                                plunge=ax['T']['dip'])
+        focal_mech.principal_axes.p_axis = Axis(azimuth=ax['P']['azimuth'],
+                                                plunge=ax['P']['dip'])
+        focal_mech.station_polarity_count = sdr[-4]
+        focal_mech.azimuthal_gap = 90 # Whatever?
+        focal_mech.misfit = sdr[-3]
+        focal_mech.station_distribution_ratio = sdr[-2]
+        focal_mech.comments.append(
+            Comment(sdr[-1], resource_id=ResourceIdentifier(
+                str(focal_mech.resource_id) + '/comment/quality'))
+        )
+        # ----------------------------------------
+        ev.focal_mechanisms.append(focal_mech)
+    print('There are {} focal mechs in catalog'.format(
+        len(ev.focal_mechanisms)))
+    return cat
 
 def cluster_to_consensus(catalog):
     """

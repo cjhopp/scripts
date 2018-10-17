@@ -2,23 +2,23 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py" afterPath="$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/hypoDDpy/hypoddpy/hypodd_relocator.py" afterPath="$USER_HOME$/hypoDDpy/hypoddpy/hypodd_relocator.py" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" afterPath="$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
+      <change type="MODIFICATION" beforePath="$USER_HOME$/hashpy/dist/HASHpy-0.0.0_tar_zipball-py3.5-linux-x86_64.egg" afterPath="$USER_HOME$/hashpy/dist/HASHpy-0.0.0_tar_zipball-py3.5-linux-x86_64.egg" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspy/obspy/clients/seishub/client.py" afterPath="$USER_HOME$/obspy/obspy/clients/seishub/client.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspy/obspy/clients/seishub/sftp_client.py" afterPath="$USER_HOME$/obspy/obspy/clients/seishub/sftp_client.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/obspyck/obspyck.py" afterPath="$USER_HOME$/obspyck/obspyck/obspyck.py" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/plugin_dir/nlloc/locate_BY.nlloc" afterPath="$USER_HOME$/obspyck/plugin_dir/nlloc/locate_BY.nlloc" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/modules.xml" afterPath="$PROJECT_DIR$/.idea/modules.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/scripts.iml" afterPath="$PROJECT_DIR$/.idea/scripts.iml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/vcs.xml" afterPath="$PROJECT_DIR$/.idea/vcs.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/data_prep.py" afterPath="$PROJECT_DIR$/python/workflow/data_prep.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/focal_mecs.py" afterPath="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/relocate.py" afterPath="$PROJECT_DIR$/python/workflow/relocate.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/util/gmt_plotting.py" afterPath="$PROJECT_DIR$/python/workflow/util/gmt_plotting.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/shelly_focmecs.py" afterPath="$PROJECT_DIR$/python/workflow/shelly_focmecs.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/shelly_mags.py" afterPath="$PROJECT_DIR$/python/workflow/shelly_mags.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" afterPath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/util/plot_mags.py" afterPath="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" afterPath="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" />
     </list>
@@ -45,8 +45,8 @@
           <file leaf-file-name="template_gen.py" pinned="false" current-in-tab="false">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/template_gen.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="38880">
-                  <caret line="1311" column="0" lean-forward="false" selection-start-line="1311" selection-start-column="0" selection-end-line="1311" selection-end-column="0" />
+                <state relative-caret-position="37470">
+                  <caret line="1267" column="0" lean-forward="false" selection-start-line="1267" selection-start-column="0" selection-end-line="1267" selection-end-column="0" />
                   <folding />
                 </state>
               </provider>
@@ -55,21 +55,33 @@
           <file leaf-file-name="match_filter.py" pinned="false" current-in-tab="false">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="116190">
-                  <caret line="3905" column="26" lean-forward="false" selection-start-line="3905" selection-start-column="16" selection-end-line="3905" selection-end-column="26" />
-                  <folding />
+                <state relative-caret-position="126060">
+                  <caret line="4234" column="26" lean-forward="false" selection-start-line="4234" selection-start-column="26" selection-end-line="4234" selection-end-column="26" />
+                  <folding>
+                    <marker date="1538489321666" expanded="true" signature="181511:181648" ph="..." />
+                  </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="clustering.py" pinned="false" current-in-tab="true">
+          <file leaf-file-name="clustering.py" pinned="false" current-in-tab="false">
             <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="30">
-                  <caret line="407" column="25" lean-forward="false" selection-start-line="407" selection-start-column="25" selection-end-line="407" selection-end-column="25" />
+                <state relative-caret-position="24300">
+                  <caret line="829" column="22" lean-forward="false" selection-start-line="829" selection-start-column="22" selection-end-line="829" selection-end-column="22" />
                   <folding>
                     <element signature="e#215#253#0" expanded="true" />
                   </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="plotting.py" pinned="false" current-in-tab="true">
+            <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="30">
+                  <caret line="1234" column="46" lean-forward="false" selection-start-line="1234" selection-start-column="40" selection-end-line="1234" selection-end-column="46" />
+                  <folding />
                 </state>
               </provider>
             </entry>
@@ -78,40 +90,32 @@
       </split-first>
       <split-second>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="600">
-          <file leaf-file-name="focal_mecs.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
+          <file leaf-file-name="relocate.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/python/workflow/relocate.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="930">
-                  <caret line="39" column="4" lean-forward="false" selection-start-line="39" selection-start-column="4" selection-end-line="39" selection-end-column="4" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="plot_well_data.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-666">
-                  <caret line="558" column="16" lean-forward="false" selection-start-line="558" selection-start-column="16" selection-end-line="558" selection-end-column="16" />
+                <state relative-caret-position="1140">
+                  <caret line="233" column="0" lean-forward="false" selection-start-line="233" selection-start-column="0" selection-end-line="233" selection-end-column="0" />
                   <folding>
-                    <element signature="e#112#129#0" expanded="true" />
+                    <element signature="e#112#121#0" expanded="true" />
                   </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" pinned="false" current-in-tab="true">
-            <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="870">
-                  <caret line="43" column="17" lean-forward="true" selection-start-line="43" selection-start-column="17" selection-end-line="43" selection-end-column="17" />
-                  <folding />
                 </state>
               </provider>
             </entry>
           </file>
           <file leaf-file-name="shelly_focmecs.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/shelly_focmecs.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="390">
+                  <caret line="676" column="35" lean-forward="false" selection-start-line="676" selection-start-column="35" selection-end-line="676" selection-end-column="35" />
+                  <folding>
+                    <element signature="e#150#159#0" expanded="true" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="combine_cc.bash" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/bash/combine_cc.bash">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="0">
                   <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
@@ -120,23 +124,39 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="hypodd_relocator.py" pinned="false" current-in-tab="false">
-            <entry file="file://$USER_HOME$/hypoDDpy/hypoddpy/hypodd_relocator.py">
+          <file leaf-file-name="plot_well_data.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="34920">
-                  <caret line="1190" column="70" lean-forward="false" selection-start-line="1190" selection-start-column="70" selection-end-line="1190" selection-end-column="70" />
+                <state relative-caret-position="6900">
+                  <caret line="1025" column="31" lean-forward="false" selection-start-line="1025" selection-start-column="31" selection-end-line="1025" selection-end-column="31" />
                   <folding>
-                    <element signature="e#0#31#0" expanded="true" />
+                    <element signature="e#1026#1870#0" expanded="false" />
+                    <element signature="e#2013#4676#0" expanded="false" />
+                    <element signature="e#4721#5234#0" expanded="false" />
+                    <element signature="e#16393#20108#0" expanded="false" />
+                    <element signature="e#31470#32007#0" expanded="false" />
+                    <element signature="e#32063#32795#0" expanded="false" />
+                    <element signature="e#32874#35278#0" expanded="false" />
                   </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="relocate.py" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/python/workflow/relocate.py">
+          <file leaf-file-name="shelly_mags.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/python/workflow/shelly_mags.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="5400">
-                  <caret line="187" column="50" lean-forward="false" selection-start-line="185" selection-start-column="36" selection-end-line="187" selection-end-column="51" />
+                <state relative-caret-position="660">
+                  <caret line="36" column="63" lean-forward="false" selection-start-line="36" selection-start-column="63" selection-end-line="36" selection-end-column="63" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="data_prep.py" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="600">
+                  <caret line="473" column="32" lean-forward="false" selection-start-line="473" selection-start-column="32" selection-end-line="473" selection-end-column="32" />
                   <folding />
                 </state>
               </provider>
@@ -145,9 +165,21 @@
           <file leaf-file-name="plot_mags.py" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="420">
-                  <caret line="14" column="0" lean-forward="false" selection-start-line="14" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
+                <state relative-caret-position="6510">
+                  <caret line="217" column="60" lean-forward="false" selection-start-line="217" selection-start-column="60" selection-end-line="217" selection-end-column="60" />
                   <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="plot_detections.py" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="26250">
+                  <caret line="896" column="19" lean-forward="false" selection-start-line="896" selection-start-column="19" selection-end-line="896" selection-end-column="19" />
+                  <folding>
+                    <element signature="e#22#39#0" expanded="true" />
+                  </folding>
                 </state>
               </provider>
             </entry>
@@ -165,13 +197,41 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
+      <find>write</find>
+      <find>def plot_well</find>
+      <find>plot_picks</find>
+      <find>plot</find>
+      <find>def detection</find>
+      <find>def cumula</find>
+      <find>def plot_</find>
+      <find>def cumul</find>
+      <find>def plot</find>
       <find>def</find>
-      <find>pick</find>
+      <find>def plot_eve</find>
+      <find>def place</find>
+      <find>def cum</find>
+      <find>cumulative s</find>
+      <find>cumulative</find>
+      <find>def plot_event</find>
+      <find>def _write</find>
+      <find>station</find>
+      <find>depth</find>
+      <find>self.event_map</find>
+      <find>class</find>
+      <find>event_map</find>
+      <find>self.events</find>
+      <find>arrivals</find>
+      <find>_prepare</find>
+      <find>verify</find>
+      <find>_read_event_information</find>
+      <find>event_</find>
+      <find>get_event_id_pairs</find>
+      <find>cross_correlate_evt_pairs</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
     <option name="ROOT_SYNC" value="SYNC" />
-    <option name="RECENT_GIT_ROOT_PATH" value="$USER_HOME$/hypoDDpy" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
         <entry key="$USER_HOME$/EQcorrscan" value="4d9b72b3993ff77f7511f71a7cacfa0b39880e86" />
@@ -181,26 +241,16 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/python/workflow/1_pyasdf_create.py" />
-        <option value="$PROJECT_DIR$/python/workflow/README" />
-        <option value="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015/2_pyasdf2templates_PAN.py" />
-        <option value="$PROJECT_DIR$/slurm/2_run_temps_slurm.sl" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/pyasdf_2_templates_PAN.py" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/pyasdf_2_temps.sl" />
-        <option value="$USER_HOME$/pymap/pymap.py" />
         <option value="$USER_HOME$/pymap/Vagrantfile" />
         <option value="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
         <option value="$PROJECT_DIR$/testing/mayavi_testing.py" />
         <option value="$PROJECT_DIR$/python/workflow/vis_3d_grid.py" />
         <option value="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015/6_PAN_match_filt.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/mag_plots.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.sl" />
         <option value="$USER_HOME$/obspyck/hoppch.obspyckrc" />
         <option value="$PROJECT_DIR$/bash/curl_catalog_sgees017.bash" />
-        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/mag_calc.py" />
         <option value="$USER_HOME$/obspyck/hoppch.obspyckrc17" />
         <option value="$USER_HOME$/obspyck/util.py" />
@@ -224,14 +274,24 @@
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/make_stefan_SAC.py" />
-        <option value="$PROJECT_DIR$/python/workflow/data_prep.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/subspace.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
+        <option value="$USER_HOME$/hashpy/hashpy/io/obspyIO.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
+        <option value="$PROJECT_DIR$/python/workflow/shelly_mags.py" />
+        <option value="$PROJECT_DIR$/python/workflow/data_prep.py" />
+        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py" />
+        <option value="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
+        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_temps_Rot_0.7.py" />
         <option value="$PROJECT_DIR$/python/workflow/relocate.py" />
-        <option value="$USER_HOME$/hypoDDpy/hypoddpy/hypodd_relocator.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" />
         <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
+        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_temps_Rot_1sec_cc_min_0.6_for_GC.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" />
+        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py" />
+        <option value="$PROJECT_DIR$/python/workflow/shelly_focmecs.py" />
+        <option value="$USER_HOME$/hypoDDpy/hypoddpy/hypodd_relocator.py" />
       </list>
     </option>
   </component>
@@ -278,8 +338,8 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scratches" />
       <pane id="Scope" />
+      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -292,23 +352,115 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="hypoDDpy" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="hypoddpy" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="python" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="python" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="workflow" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="python" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="workflow" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="util" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="scripts" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="bash" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
         </subPane>
       </pane>
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$USER_HOME$/hypoDDpy" />
+    <property name="last_opened_file_path" value="$USER_HOME$/hashpy" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
     <property name="settings.editor.splitter.proportion" value="0.2" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$USER_HOME$/hypoDDpy" />
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts" />
       <recent name="$PROJECT_DIR$/python/workflow/util" />
       <recent name="$USER_HOME$/obspyck" />
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts/" />
-      <recent name="$PROJECT_DIR$/python/workflow" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015" />
@@ -516,7 +668,7 @@
     <frame x="3839" y="13" width="3842" height="2148" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.14791666" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.14765625" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32977644" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32977644" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
@@ -557,106 +709,11 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="26" />
+      <option name="time" value="29" />
     </breakpoint-manager>
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$USER_HOME$/obspyck/obspyck/qt_designer.py" />
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="493">
-          <caret line="17" column="0" lean-forward="false" selection-start-line="17" selection-start-column="0" selection-end-line="17" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/old_util_2015/pyasdf2temp_stefan_sac.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-870">
-          <caret line="9" column="0" lean-forward="false" selection-start-line="9" selection-start-column="0" selection-end-line="9" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="435">
-          <caret line="15" column="97" lean-forward="false" selection-start-line="15" selection-start-column="97" selection-end-line="15" selection-end-column="97" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_grp50_24hr.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="87">
-          <caret line="3" column="17" lean-forward="false" selection-start-line="3" selection-start-column="17" selection-end-line="3" selection-end-column="17" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_48hr.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="232">
-          <caret line="8" column="24" lean-forward="false" selection-start-line="8" selection-start-column="24" selection-end-line="8" selection-end-column="24" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="435">
-          <caret line="15" column="141" lean-forward="false" selection-start-line="15" selection-start-column="141" selection-end-line="15" selection-end-column="141" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_2012.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="435">
-          <caret line="15" column="99" lean-forward="false" selection-start-line="15" selection-start-column="99" selection-end-line="15" selection-end-column="99" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/old_scripts_4-1/fam_compare.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/experiment/dist_mat2groups.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="638">
-          <caret line="64" column="0" lean-forward="false" selection-start-line="64" selection-start-column="0" selection-end-line="64" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/obspyck/hoppch_local.obspyckrc17" />
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="18009">
-          <caret line="621" column="29" lean-forward="false" selection-start-line="621" selection-start-column="29" selection-end-line="621" selection-end-column="29" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/obspyck_util.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1632">
-          <caret line="120" column="41" lean-forward="false" selection-start-line="120" selection-start-column="41" selection-end-line="120" selection-end-column="41" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/obspyck/obspyck/util.py" />
-    <entry file="file://$USER_HOME$/obspyck/obspyck/obspyck.py" />
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_12-15.sl">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="464">
-          <caret line="16" column="0" lean-forward="false" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_matched_filt.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1450">
-          <caret line="10" column="52" lean-forward="false" selection-start-line="10" selection-start-column="52" selection-end-line="10" selection-end-column="52" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="493">
@@ -764,8 +821,8 @@
     </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/template_gen.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="38880">
-          <caret line="1311" column="0" lean-forward="false" selection-start-line="1311" selection-start-column="0" selection-end-line="1311" selection-end-column="0" />
+        <state relative-caret-position="37470">
+          <caret line="1267" column="0" lean-forward="false" selection-start-line="1267" selection-start-column="0" selection-end-line="1267" selection-end-column="0" />
           <folding />
         </state>
       </provider>
@@ -780,9 +837,11 @@
     <entry file="file://$USER_HOME$/obspy/obspy/signal/cross_correlation.py" />
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="116190">
-          <caret line="3905" column="26" lean-forward="false" selection-start-line="3905" selection-start-column="16" selection-end-line="3905" selection-end-column="26" />
-          <folding />
+        <state relative-caret-position="126060">
+          <caret line="4234" column="26" lean-forward="false" selection-start-line="4234" selection-start-column="26" selection-end-line="4234" selection-end-column="26" />
+          <folding>
+            <marker date="1538489321666" expanded="true" signature="181511:181648" ph="..." />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -814,13 +873,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="777" column="17" lean-forward="false" selection-start-line="777" selection-start-column="17" selection-end-line="777" selection-end-column="17" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/python/testing/SVD_mag_calc_nm2.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="891">
@@ -828,17 +880,73 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py">
+    <entry file="file://$USER_HOME$/hashpy/hashpy/data/vz.pickema1">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="210">
-          <caret line="7" column="20" lean-forward="false" selection-start-line="7" selection-start-column="16" selection-end-line="7" selection-end-column="20" />
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hashpy/hashpy/examples/hash_example2.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-10615">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hashpy/hashpy/plotting/focalmechplotter.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-1440">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hashpy/hashpy/io/core.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-835">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hashpy/hashpy/doublecouple.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-2907">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hashpy/hashpy/hashpype.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="11730">
+          <caret line="398" column="32" lean-forward="false" selection-start-line="398" selection-start-column="8" selection-end-line="398" selection-end-column="32" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hashpy/hashpy/io/obspyIO.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="8400">
+          <caret line="290" column="53" lean-forward="false" selection-start-line="290" selection-start-column="53" selection-end-line="290" selection-end-column="53" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/gmt_plotting.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="540">
+          <caret line="31" column="16" lean-forward="false" selection-start-line="30" selection-start-column="0" selection-end-line="34" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/mag_calc.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-4590">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
         </state>
       </provider>
     </entry>
     <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="407" column="25" lean-forward="false" selection-start-line="407" selection-start-column="25" selection-end-line="407" selection-end-column="25" />
+        <state relative-caret-position="24300">
+          <caret line="829" column="22" lean-forward="false" selection-start-line="829" selection-start-column="22" selection-end-line="829" selection-end-column="22" />
           <folding>
             <element signature="e#215#253#0" expanded="true" />
           </folding>
@@ -847,39 +955,90 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="930">
-          <caret line="39" column="4" lean-forward="false" selection-start-line="39" selection-start-column="4" selection-end-line="39" selection-end-column="4" />
+        <state relative-caret-position="990">
+          <caret line="41" column="47" lean-forward="false" selection-start-line="41" selection-start-column="47" selection-end-line="41" selection-end-column="47" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_temps_Rot_0.7.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="600">
+          <caret line="126" column="28" lean-forward="true" selection-start-line="126" selection-start-column="28" selection-end-line="126" selection-end-column="28" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="30">
+          <caret line="1234" column="46" lean-forward="false" selection-start-line="1234" selection-start-column="40" selection-end-line="1234" selection-end-column="46" />
           <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="26250">
+          <caret line="896" column="19" lean-forward="false" selection-start-line="896" selection-start-column="19" selection-end-line="896" selection-end-column="19" />
+          <folding>
+            <element signature="e#22#39#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_temps_Rot_1sec_cc_min_0.6_for_GC.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2940">
+          <caret line="129" column="21" lean-forward="false" selection-start-line="129" selection-start-column="21" selection-end-line="129" selection-end-column="21" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="420">
-          <caret line="14" column="0" lean-forward="false" selection-start-line="14" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
+        <state relative-caret-position="6510">
+          <caret line="217" column="60" lean-forward="false" selection-start-line="217" selection-start-column="60" selection-end-line="217" selection-end-column="60" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/relocate.py">
+    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5400">
-          <caret line="187" column="50" lean-forward="false" selection-start-line="185" selection-start-column="36" selection-end-line="187" selection-end-column="51" />
-          <folding />
+        <state relative-caret-position="690">
+          <caret line="28" column="12" lean-forward="true" selection-start-line="28" selection-start-column="12" selection-end-line="28" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1140">
+          <caret line="43" column="17" lean-forward="true" selection-start-line="43" selection-start-column="17" selection-end-line="43" selection-end-column="17" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hypoDDpy/.gitignore">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/hypoDDpy/hypoddpy/hypodd_compiler.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1980">
+          <caret line="70" column="22" lean-forward="false" selection-start-line="70" selection-start-column="8" selection-end-line="70" selection-end-column="22" />
         </state>
       </provider>
     </entry>
     <entry file="file://$USER_HOME$/hypoDDpy/hypoddpy/hypodd_relocator.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="34920">
-          <caret line="1190" column="70" lean-forward="false" selection-start-line="1190" selection-start-column="70" selection-end-line="1190" selection-end-column="70" />
+        <state relative-caret-position="385">
+          <caret line="964" column="40" lean-forward="true" selection-start-line="964" selection-start-column="40" selection-end-line="964" selection-end-column="40" />
           <folding>
             <element signature="e#0#31#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/shelly_focmecs.py">
+    <entry file="file://$PROJECT_DIR$/bash/combine_cc.bash">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
@@ -887,20 +1046,54 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
+    <entry file="file://$PROJECT_DIR$/python/workflow/relocate.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-666">
-          <caret line="558" column="16" lean-forward="false" selection-start-line="558" selection-start-column="16" selection-end-line="558" selection-end-column="16" />
+        <state relative-caret-position="1140">
+          <caret line="233" column="0" lean-forward="false" selection-start-line="233" selection-start-column="0" selection-end-line="233" selection-end-column="0" />
           <folding>
-            <element signature="e#112#129#0" expanded="true" />
+            <element signature="e#112#121#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py">
+    <entry file="file://$PROJECT_DIR$/python/workflow/shelly_focmecs.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="870">
-          <caret line="43" column="17" lean-forward="true" selection-start-line="43" selection-start-column="17" selection-end-line="43" selection-end-column="17" />
+        <state relative-caret-position="390">
+          <caret line="676" column="35" lean-forward="false" selection-start-line="676" selection-start-column="35" selection-end-line="676" selection-end-column="35" />
+          <folding>
+            <element signature="e#150#159#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="6900">
+          <caret line="1025" column="31" lean-forward="false" selection-start-line="1025" selection-start-column="31" selection-end-line="1025" selection-end-column="31" />
+          <folding>
+            <element signature="e#1026#1870#0" expanded="false" />
+            <element signature="e#2013#4676#0" expanded="false" />
+            <element signature="e#4721#5234#0" expanded="false" />
+            <element signature="e#16393#20108#0" expanded="false" />
+            <element signature="e#31470#32007#0" expanded="false" />
+            <element signature="e#32063#32795#0" expanded="false" />
+            <element signature="e#32874#35278#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/shelly_mags.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="660">
+          <caret line="36" column="63" lean-forward="false" selection-start-line="36" selection-start-column="63" selection-end-line="36" selection-end-column="63" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="600">
+          <caret line="473" column="32" lean-forward="false" selection-start-line="473" selection-start-column="32" selection-end-line="473" selection-end-column="32" />
           <folding />
         </state>
       </provider>

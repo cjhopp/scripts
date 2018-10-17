@@ -9,6 +9,7 @@
     <orderEntry type="module" module-name="obspyck" />
     <orderEntry type="module" module-name="pymap" />
     <orderEntry type="module" module-name="hypoDDpy" />
+    <orderEntry type="module" module-name="hashpy" />
   </component>
   <component name="TestRunnerService">
     <option name="projectConfiguration" value="Nosetests" />

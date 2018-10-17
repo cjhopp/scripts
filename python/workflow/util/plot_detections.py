@@ -135,6 +135,185 @@ def template_det_cats(cat, temp_list, outdir=False):
             cat.write('%s/%s_detections.shp' % (outdir, temp), format="SHAPEFILE")
     return temp_det_dict
 
+def catalog_to_gmt(catalog, outfile, dd_only=True):
+    """
+    Write a catalog to a file formatted for gmt plotting
+
+    Format: lon, lat, depth(km bsl), integer day, normalized mag(?)
+    :param catalog:
+    :param outfile:
+    :return:
+    """
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    t0 = catalog[0].preferred_origin().time.datetime
+    mags = np.array([ev.preferred_magnitude().mag for ev in catalog])
+    mags = list(mags / max(mags * 8)) # Squared, normalized mags
+    days = [int((ev.preferred_origin().time.datetime
+                 - t0).total_seconds() / 86400.)
+            for ev in catalog] # Elapsed days since first event
+    with open(outfile, 'w') as f:
+        for i, ev in enumerate(catalog):
+            o = ev.preferred_origin()
+            if not o.method_id:
+                continue
+            # We want depths to in m bsl here
+            if dd_only and o.method_id.id.endswith('HypoDD'):
+                dp = (o.depth + 164.) / 1000.
+                f.write('{} {} {} {} {}\n'.format(o.longitude, o.latitude, dp,
+                                                  days[i], mags[i]))
+            else:
+                dp = o.depth
+                f.write('{} {} {} {} {}\n'.format(o.longitude, o.latitude, dp,
+                                                  days[i], mags[i]))
+    return
+
+def detection_multiplot_cjh(stream, template, times, events=None, title=None,
+                            streamcolour='k', templatecolour='r',
+                            size=(10.5, 7.5), **kwargs):
+    """
+    Modified version of det_multiplot from eqcorrscan CJH
+
+    Plot a stream of data with a template on top of it at detection times.
+
+    :type stream: obspy.core.stream.Stream
+    :param stream: Stream of data to be plotted as the background.
+    :type template: obspy.core.stream.Stream
+    :param template: Template to be plotted on top of the base stream.
+    :type times: list
+    :param times: list of detection times, one for each event
+    :type events: list
+    :param events: List of events corresponding to times
+    :type streamcolour: str
+    :param streamcolour: String of matplotlib colour types for the stream
+    :type templatecolour: str
+    :param templatecolour: Colour to plot the template in.
+    :type size: tuple
+    :param size: Figure size.
+
+    :returns: :class:`matplotlib.figure.Figure`
+
+    """
+    import matplotlib.pyplot as plt
+    # Only take traces that match in both accounting for streams shorter than
+    # templates
+    template_stachans = [(tr.stats.station, tr.stats.channel)
+                         for tr in template]
+    stream_stachans = [(tr.stats.station, tr.stats.channel)
+                       for tr in stream]
+    temp = Stream([tr for tr in template
+                   if (tr.stats.station,
+                       tr.stats.channel) in stream_stachans])
+    st = Stream([tr for tr in stream
+                 if (tr.stats.station,
+                     tr.stats.channel) in template_stachans])
+    ntraces = len(temp)
+    fig, axes = plt.subplots(ntraces, 1, sharex=True, figsize=size)
+    if len(temp) > 1:
+        axes = axes.ravel()
+    mintime = min([tr.stats.starttime for tr in temp])
+    temp.sort(keys=['starttime'])
+    for i, template_tr in enumerate(temp):
+        if len(temp) > 1:
+            axis = axes[i]
+        else:
+            axis = axes
+        image = st.select(station=template_tr.stats.station,
+                          channel='*' + template_tr.stats.channel[-1])
+        if not image:
+            msg = ' '.join(['No data for', template_tr.stats.station,
+                            template_tr.stats.channel])
+            print(msg)
+            continue
+        image = image.merge()[0]
+        # Downsample if needed
+        if image.stats.sampling_rate > 20 and image.stats.npts > 10000:
+            image.decimate(int(image.stats.sampling_rate // 20))
+            template_tr.decimate(int(template_tr.stats.sampling_rate // 20))
+        # Get a list of datetime objects
+        image_times = [image.stats.starttime.datetime +
+                       timedelta((j * image.stats.delta) / 86400)
+                       for j in range(len(image.data))]
+        axis.plot(image_times, image.data / max(image.data),
+                  streamcolour, linewidth=1.2)
+        for j, time in enumerate(times):
+            lagged_time = UTCDateTime(time) + (template_tr.stats.starttime -
+                                               mintime)
+            lagged_time = lagged_time.datetime
+            template_times = [lagged_time +
+                              timedelta((j * template_tr.stats.delta) /
+                                           86400)
+                              for j in range(len(template_tr.data))]
+            # Normalize the template according to the data detected in
+            try:
+                normalizer = max(image.data[int((template_times[0] -
+                                                image_times[0]).
+                                                total_seconds() /
+                                                image.stats.delta):
+                                            int((template_times[-1] -
+                                                 image_times[0]).
+                                                total_seconds() /
+                                                image.stats.delta)] /
+                                 max(image.data))
+            except ValueError:
+                # Occurs when there is no data in the image at this time...
+                normalizer = max(image.data)
+            normalizer /= max(template_tr.data)
+            axis.plot(template_times,
+                      template_tr.data * normalizer,
+                      templatecolour, linewidth=1.2)
+        ylab = '.'.join([template_tr.stats.station,
+                         template_tr.stats.channel])
+        axis.set_ylabel(ylab, rotation=0, fontsize=16,
+                        horizontalalignment='right',
+                        verticalalignment='center')
+        if events:
+            ev = events[j]
+            try:
+                pk = [pk for pk in ev.picks if pk.waveform_id.station_code ==
+                      template_tr.stats.station and pk.phase_hint == 'P'][0]
+            except IndexError:
+                print('No corresponding pick in event?')
+            cc_text = 'CC={}'.format(pk.comments[-1].text.split('=')[-1])
+            axis.text(0.9, 0.2, cc_text[:8], fontsize=14,
+                      transform=axis.transAxes, verticalalignment='center',
+                      bbox=dict(ec='k', fc='w'))
+        axis.set_yticklabels([])
+    if len(template) > 1:
+        axes[len(axes) - 1].set_xlabel('Time')
+    else:
+        axis.set_xlabel('Time')
+    if title:
+        axes[0].set_title(title, fontsize=18)
+    plt.subplots_adjust(hspace=0, left=0.175, right=0.95, bottom=0.07)
+    plt.tight_layout()
+    plt.xticks(rotation=10)
+    return axes
+
+def simple_snr(noise, signal):
+    """
+    Simple ratio of variances SNR calculation provided a noise stream and
+    a signal stream.
+
+    :param noise: Obspy.Stream of just noise
+    :param signal: Obspy.Stream of just signal
+    :return:
+    """
+    snrs_var = []
+    snrs_avg = []
+    for tr in noise:
+        var_n = np.sum(tr.data**2) / tr.stats.npts
+        avg_n = np.sum(np.abs(tr.data)) / tr.stats.npts
+        print(var_n)
+        tr_sig = signal.select(station=tr.stats.station,
+                               channel=tr.stats.channel)
+        if len(tr_sig) == 1:
+            var_sig = np.sum(tr_sig[0].data**2) / tr_sig[0].stats.npts
+            avg_sig = np.sum(np.abs(tr_sig[0].data)) / tr_sig[0].stats.npts
+            print(var_sig)
+            snrs_var.append((var_sig - var_n) / var_n)
+            snrs_avg.append(avg_sig / avg_n)
+    return np.mean(snrs_var), np.mean(snrs_avg)
+
 def plot_detection_wavs(family, tribe, wav_dirs, start=None, end=None,
                         save=False, save_dir=None, no_dets=5):
     """
@@ -612,8 +791,9 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     max_date = max([max(_d) for _d in dates])
     for k, template_dates in enumerate(dates):
         template_dates.sort()
-        plot_dates = deepcopy(template_dates)
-        plot_dates.insert(0, min_date)
+        final_dates = deepcopy(template_dates)
+        final_dates.insert(0, min_date)
+        # Account for step plot stopping
         if not color:
             color = next(colors)
         if color == 'red':
@@ -636,10 +816,15 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
                     label='Rate of detections', color='darkgrey',
                     alpha=0.5)
         else:
-            ax.plot(plot_dates, counts, linestyle,
+            ax.step(final_dates, counts, linestyle,
                     color=color, label=template_names[k],
-                    linewidth=1.0, drawstyle='steps-post',
+                    linewidth=1.0, where='post',
                     zorder=1)
+            if plot_dates:
+                if plot_dates[-1] < xlims[-1]:
+                    ax.axhline(y=counts[-1], xmin=plot_dates[-1],
+                               xmax=xlims[-1], linewidth=1.0, color=color,
+                               zorder=1)
             ax.set_ylabel('# of Events', fontsize=16)
     ax.set_xlabel('Date', fontsize=16)
     # Set formatters for x-labels
@@ -696,16 +881,16 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
                 # Redo the legend
                 if len(handles) > 4:
                     ax.legend(handles=handles, labels=leg_labels,
-                               fontsize=5, loc=2, scatterpoints=10)
+                               fontsize=12, loc=2, scatterpoints=10)
                 else:
                     ax.legend(handles=handles, labels=leg_labels, loc=2,
-                               scatterpoints=10)
+                              scatterpoints=10, fontsize=12)
             except UnboundLocalError:
                 print('Plotting on empty axes. No handles to add to.')
-                ax.legend()
+                ax.legend(fontsize=10)
             ax.set_xlim(xlims)
         elif ax.legend() is not None:
-            leg = ax.legend(loc=2, prop={'size': 8}, ncol=2)
+            leg = ax.legend(loc=2, prop={'size': 8}, ncol=2, fontsize=12)
             leg.get_frame().set_alpha(0.5)
     if save:
         plt.gcf().savefig(savefile)

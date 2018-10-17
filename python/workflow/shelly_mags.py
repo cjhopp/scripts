@@ -34,9 +34,19 @@ def local_to_moment(mag, m=0.88, c=0.73):
     """
     # Fist convert to moment magnitude
     Mw = ( mag - c ) / m
-    # Then convert to seismic moment following standard convention
+    # Then convert to seismic moment following (Hanks Kanamori)
     Moment = 10.0 ** (1.5 * Mw + 9.0 )
     return Moment
+
+def local_to_moment_Majer(Ml):
+    """
+    Bypasses the calculation of Mw above and just uses the relation of Mo to Ml
+    of Majer et all 1979 for the Geysers.
+    :param Ml: Local magnitude
+    :return:
+    """
+    Mo = (10**(17.27 + 0.77 * Ml)) * 1E-7 # Dyne.cm to N.m
+    return Mo
 
 def remove_outliers(M, ev_out, m=4):
     """

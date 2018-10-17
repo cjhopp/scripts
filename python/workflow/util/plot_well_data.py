@@ -15,13 +15,19 @@ except:
     print('On the server. No colorlover')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.cm as cm
 
 from itertools import cycle
 from scipy import special
 from datetime import timedelta
 from obspy import Catalog, UTCDateTime
 from obspy.imaging.beachball import beach
+from focal_mecs import beach_mod
 from eqcorrscan.utils.mag_calc import dist_calc
+from shelly_mags import local_to_moment_Majer
+from obspy.imaging.scripts.mopad import MomentTensor as mopad_MT
+from obspy.imaging.scripts.mopad import BeachBall as mopad_BB
+
 
 def date_generator(start_date, end_date):
     # Generator for date looping
@@ -133,16 +139,36 @@ def read_fm_file(fm_file, cat_format):
                                                float(line[3]))
     return sdrs
 
-def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
+def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
                          ax=None, show=False, outfile=None, feedzones=None,
-                         fz_labels=True, focal_mechs=None, cat_format=None):
+                         fz_labels=True, focal_mechs=None, cat_format=None,
+                         fm_color='b', ylims=None, dd_only=True,
+                         colorbar=False, c_axes=None):
     """
     Plot well with depth and seismicity
 
     :param catalog: Catalog of seismicity
-    :param well: String specifying well name
+    :param wells: List of strings specifying well names to plot
+    :param profile: 'NS', 'EW', or 'map'
     :param dates: Start and end dates for the catalog
+    :param color: Whether to color seismicity by date of occurrence
     :param ax: matplotlib.Axes object to plot into
+    :param show: To show this axes or not
+    :param outfile: Path to an output file
+    :param feedzones: List of lists specifying the elevations of the tops and
+        bottoms of any feedzones you wish to plot. Will plot them horizontally
+        across entire axes, though.
+    :param fz_labels: Boolean to label the feedzones at their central depth
+    :param focal_mechs: None or path to arnold-townend fm file
+    :param cat_format: Naming format for events in seismicity catalog. Used to
+        find corresponding focal mech info in file focal_mechs, if it exists.
+    :param fm_color: Either a mpl recognized color string, or None, in which
+        case the beachballs will be colored by date of occurrence.
+    :param ylims: Manually set ylims for the depth cross sections if you wish
+    :param dd_only: Accept only HypoDD locations?
+    :param colorbar: Boolean for whether to plot a colorbar
+    :param c_axes: If colorbar == True, can supply an axes into which it will
+        be plotted.
     :return:
     """
     if ax:
@@ -150,6 +176,17 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
     else:
         fig, ax1 = plt.subplots()
     colors = cycle(['steelblue', 'skyblue'])
+    if dd_only and not dates:
+        catalog = Catalog(events=[ev for ev in catalog
+                                  if ev.preferred_origin().method_id
+                                  and not ev.preferred_origin().quality])
+    elif dd_only and dates:
+        catalog = Catalog(events=[ev for ev in catalog
+                                  if ev.preferred_origin().method_id
+                                  and not ev.preferred_origin().quality
+                                  and dates[0] < ev.preferred_origin().time
+                                  < dates[1]])
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
     well_pt_lists = []
     # Dictionary of fm strike-dip-rake from Arnold/Townend pkg
     if focal_mechs:
@@ -174,28 +211,26 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
         well_file = '/home/chet/gmt/data/NZ/wells/{}_xyz_pts.csv'.format(well)
         # Grab well pts (these are depth (kmRF)) correct accordingly
         well_pt_lists.append(format_well_data(well_file))
-    if dates:
-        # We want elevation, not depth mRF. Careful.
-        pts = [(ev.preferred_origin().longitude,
-                ev.preferred_origin().latitude,
-                ev.preferred_origin().depth + 164.,
-                ev.preferred_magnitude().mag)
-               for ev in catalog if dates[0] < ev.preferred_origin().time
-               < dates[1]]
-        lons, lats, ds, mags = zip(*pts)
-        mags /= max(np.array(mags))
-    else:
-        pts = [(ev.preferred_origin().longitude,
-                ev.preferred_origin().latitude,
-                ev.preferred_origin().depth + 164.,
-                ev.preferred_magnitude().mag)
-               for ev in catalog]
-        lons, lats, ds, mags = zip(*pts)
-        mags /= max(np.array(mags))
+    t0 = catalog[0].preferred_origin().time.datetime
+    pts = [(ev.preferred_origin().longitude,
+            ev.preferred_origin().latitude,
+            ev.preferred_origin().depth,
+            ev.preferred_magnitude().mag,
+            (ev.preferred_origin().time.datetime - t0).total_seconds())
+           for ev in catalog]
+    lons, lats, ds, mags, secs = zip(*pts)
+    mags /= max(np.array(mags))
+    days = np.array(secs) / 86400.
+    n_days = days / np.max(days)
+    d_cols = [cm.viridis(d) for d in n_days]
     # Plot seismicity
+    if color:
+        col = days # Days since first event
+    else:
+        col = 'darkgray'
     if profile == 'NS':
-        ax1.scatter(lats, ds, s=20 * mags ** 2, color='darkgray', alpha=0.5,
-                    label='Events')
+        sc = ax1.scatter(lats, ds, s=(12 * mags) ** 2, c=col, alpha=0.7,
+                         label='Events')
         ax1.annotate('N', xy=(0., 1.), xytext=(0., 10), fontsize=14,
                      xycoords='axes fraction',
                      textcoords='offset points',
@@ -205,8 +240,8 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
                      textcoords='offset points',
                      horizontalalignment='center')
     elif profile == 'EW':
-        ax1.scatter(lons, ds, s=20 * mags ** 2, color='darkgray', alpha=0.5,
-                    label='Events')
+        sc = ax1.scatter(lons, ds, s=(12 * mags) ** 2, c=col, alpha=0.7,
+                         label='Events')
         ax1.annotate('W', xy=(0., 1.), xytext=(0., 10), fontsize=14,
                      xycoords='axes fraction',
                      textcoords='offset points',
@@ -216,10 +251,17 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
                      textcoords='offset points',
                      horizontalalignment='center')
     elif profile == 'map':
-        ax1.scatter(lons, lats, s=20 * mags ** 2, color='darkgray', alpha=0.5,
-                    label='Events')
+        sc = ax1.scatter(lons, lats, s=(12 * mags) ** 2, c=col, alpha=0.7,
+                         label='Events')
         ax1.set_ylabel('Latitude')
         ax1.set_xlabel('Longitude')
+    if colorbar:
+        if not c_axes:
+            cbar = plt.colorbar(sc, ax=ax1)
+        else:
+            cbar = plt.colorbar(sc, cax=c_axes, orientation='horizontal',
+                                format='%d')
+        cbar.set_label('Elapsed days', fontsize=14)
     for i, well_pts in enumerate(well_pt_lists):
         # Elevation of wellhead correction
         if well in ['NM08', 'NM09']:
@@ -237,29 +279,46 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
         elif profile == 'map':
             ax1.plot(wlon, wlat, color=next(colors),
                      label='{} wellbore'.format(wells[i]))
-            ax1.scatter(wlon[0], wlat[0], s=20., color='k',
-                        label='{} wellhead'.format(wells[i]),
-                        zorder=3)
+            if i > 0:
+                ax1.scatter(wlon[0], wlat[0], s=20., color='k',
+                            zorder=3)
+            else:
+                ax1.scatter(wlon[0], wlat[0], s=20., color='k',
+                            label='Wellhead',
+                            zorder=3)
     # Plot beachballs if we have them
     if focal_mechs:
         for i, fm in enumerate(fm_tup):
             if fm:
+                if not fm_color:
+                    fm_col = d_cols[i]
+                else:
+                    fm_col = fm_color
+                # Here do reprojection with MoPaD FM object by defining new
+                # viewpoint. Then feed resulting fm into obspy beach obj
                 if profile == 'NS':
-                    bball = beach(fm, xy=(lats[i], ds[i]),
-                                  width=(mags[i] ** 2) * 100,
-                                  linewidth=1, axes=ax1, facecolor='b')
+                    bball = beach_mod(fm, xy=(lats[i], ds[i]),
+                                      width=(mags[i] ** 2) * 100,
+                                      linewidth=1, axes=ax1,
+                                      facecolor=fm_col,
+                                      viewpoint=[0., -90., -90.])
                 elif profile == 'EW':
-                    bball = beach(fm, xy=(lons[i], ds[i]),
-                                  width=(mags[i] ** 2) * 100,
-                                  linewidth=1, axes=ax1, facecolor='b')
+                    bball = beach_mod(fm, xy=(lons[i], ds[i]),
+                                      width=(mags[i] ** 2) * 100,
+                                      linewidth=1, axes=ax1,
+                                      facecolor=fm_col,
+                                      viewpoint=[-90., 0., 0.])
+                elif profile == 'map':
+                    bball = beach_mod(fm, xy=(lons[i], lats[i]),
+                                      width=(mags[i] ** 2) * 100,
+                                      linewidth=1, axes=ax1,
+                                      facecolor=fm_col,
+                                      viewpoint=[0., 0., 0.])
                 ax1.add_collection(bball)
     # Redo the xaxis ticks to be in meters by calculating the distance from
     # origin to ticks
     # Extend bounds for deviated wells
-    if 'NM10' in wells or 'NM09' in wells:
-        half_width = 0.02
-    else:
-        half_width = 0.01
+    half_width = 0.02
     # Now center on wellhead position (should work for last wlat as only
     # wells from same wellpad should be plotted this way)
     if profile == 'NS':
@@ -269,13 +328,15 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
         ax1.set_xlim([wlon[0] - half_width, wlon[0] + half_width])
     elif profile == 'map':
         ax1.set_xlim([wlon[0] - half_width, wlon[0] + half_width])
-        ax1.set_ylim([wlat[0] + half_width, wlat[0] - half_width])
-    if profile != 'map': # Adjust depth limits depending on well
+        ax1.set_ylim([wlat[0] - half_width, wlat[0] + half_width])
+    if profile != 'map' and not ylims: # Adjust depth limits depending on well
         if 'NM10' in wells or 'NM06' in wells:
-            ax1.set_ylim([5000., -500.])
+            ax1.set_ylim([4000., 0.])
         else:
-            ax1.set_ylim([4000., -500.])
-    ax1.legend()
+            ax1.set_ylim([4000., 0.])
+    elif profile != 'map' and ylims:
+        ax1.set_ylim(ylims)
+    ax1.legend(fontsize=12, loc=2)
     if feedzones and profile != 'map':
         x0 = ax1.get_xlim()[0] * 1.00001  # silly hack
         xlims = ax1.get_xlim()
@@ -286,7 +347,7 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
                      alpha=0.5)
             if fz_labels:
                 ax1.text(x0, (fz[0] + fz[1]) / 2., 'Feedzone',
-                         fontsize=8, color='gray', verticalalignment='center')
+                         fontsize=10, color='k', verticalalignment='center')
     new_labs = []
     new_labs_y  = []
     if profile == 'NS':
@@ -323,9 +384,91 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None,
         plt.close('all')
     return ax1
 
+def plot_volume_Mmax(plot_moment=False, plot_McGarr=True, show=True):
+    """
+    Just a way of jotting down data from Figure 3b in Geobel&Brodsky for
+    comparison with Merc data
+
+    .. note: May expand this to take arguments for well and dates to pass to
+        plot_well_data to get exact cumulative sums
+    :return:
+    """
+    fig, ax = plt.subplots()
+    data_dict = {
+        'Ml': {'Basel': [11570, 3.4], 'St Gallen': [1165, 3.5],
+               'Fenton Hill 83': [21600, 1.0], 'Fenton Hill 86': [37000, 1.0],
+               'KTB': [4000, 0.7], 'Soultz': [4.4E4, 2.],
+               'Landau': [1.13E4, 2.7], 'NM08': [7E4, 2.1], 'NM10': [6E4, 2.1]
+               },
+        # So I'm not sure how we should deal with the Ml vs Mw scaling??
+        # How did Goebel-Brodsky do it???
+        # 'Mw': {'Dallas-Ft. Worth': [5.E5, 3.3], 'Geysers': [3.5E6, 3.3],
+        #        'Guy-Greenbriar': [6.29E5, 4.7], 'Habanero': [2.E4, 2.2],
+        #        'Paralana': [3100, 2.5], 'Newberry 12': [4.E4, 2.4],
+        #        'Newberry 14': [9500, 2.4], 'Paradox': [7.7E6, 4.3],
+        #        }
+    }
+    for mag_type, mag_dict in data_dict.items():
+        for location, xy in mag_dict.items():
+            if location in ['Soultz', 'Fenton Hill 83']:
+                align='right'
+            else:
+                align='left'
+            if plot_moment:
+                label = 'Maximum moment ($N\cdot{m}$)'
+                if mag_type == 'Mw':
+                    Mo = 10.0 ** (1.5 * xy[1] + 9.0 )
+                elif mag_type == 'Ml':
+                    Mo = local_to_moment_Majer(xy[1])
+            else:
+                Mo = xy[1]
+                label = 'Maximum magnitude'
+            if location not in ['NM08', 'NM10']:
+                ax.scatter(xy[0], Mo, marker='o', label=location, s=3,
+                           color='gray', alpha=0.5)
+                ax.annotate(xy=(xy[0], Mo), s=location, xytext=(0.1, 2),
+                            textcoords='offset points', fontsize=8,
+                            horizontalalignment=align, color='gray')
+            else:
+                ax.scatter(xy[0], Mo, marker='o', label=location, s=10,
+                           color='goldenrod')
+                if location == 'NM08':
+                    ax.annotate(xy=(xy[0], Mo), s='$NM08$', xytext=(400, 100),
+                                arrowprops=dict(color='gray', shrink=0.05,
+                                                width=0.1, headlength=2.,
+                                                headwidth=2.),
+                                textcoords='offset pixels', fontsize=10,
+                                color='goldenrod')
+                elif location == 'NM10':
+                    ax.annotate(xy=(xy[0], Mo), s='$NM10$', xytext=(10, 150),
+                                arrowprops=dict(color='gray', shrink=0.05,
+                                                width=0.1, headlength=2.,
+                                                headwidth=2.),
+                                textcoords='offset pixels', fontsize=10,
+                                color='goldenrod')
+    if plot_McGarr:
+        mmax = []
+        vols = np.linspace(1E2, 1E7, 100)
+        for v in vols:
+            mmax.append(v * 3E10) # G = 3E10 Pa from McGarr 2014
+        ax.plot(vols, mmax, '--', color='lightgray')
+        ax.text(x=2E5, y=1E16, s='$M_{o}=GV$', rotation=28., color='lightgray',
+                horizontalalignment='center', verticalalignment='center')
+    if plot_moment:
+        ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_xlabel('Total injected volume ($m^{3}$)')
+    ax.set_ylabel(label)
+    ax.set_xlim([vols[0], vols[-1]])
+    ax.set_title('Maximum moment vs. total injected volume')
+    if show:
+        plt.show()
+    return ax
+
 def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
                    color=False, cumulative=False, ax=None, dates=None,
-                   show=True, ylims=False, outdir=None, figsize=(8, 6)):
+                   show=True, ylims=False, outdir=None, figsize=(8, 6),
+                   hall_plot=True):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
     :param excel_file: Excel file to read
@@ -352,8 +495,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
         df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
     # All flow info is local time
     df.index = df.index.tz_localize('Pacific/Auckland')
+    print(df.index[0])
     # Convert it to UTC
     df.index = df.index.tz_convert(None)
+    print(df.index[0])
     colors = cycle(sns.color_palette())
     print('Flow data tz set to: {}'.format(df.index.tzinfo))
     if not ax:
@@ -390,12 +535,22 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
     # Loop over well list (although there must be slicing option here)
     # Maybe do some checks here on your kwargs (Are these wells in this sheet?)
     if cumulative:
-        if parameter != 'Flow (t/h)':
-            print('Will not plot cumulative %s. Only for Flow (t/h)'
-                  % parameter)
-            return
+        # THIS IS FUCKED UNLESS YOU ACCOUNT FOR SAMPLING RATE
+        # FLow reported as T/h, so must be corrected to jive with samp rate
+        # (sec, hr, day, etc...)
+        # Stimulations are 5 min samples (roughly) (i.e. / 12.)
+        # Post-startup are daily (i.e. * 24.)
+        # Manually set sampling rate-related multiplier
+        if 'Stimulation' in sheetname.split():
+            multiplier = 1 / 12. # Stimulations will be overestimated
+        else:
+            multiplier = 24 # NM10 Losses and Post-startup will by underestimated
         maxs = []
-        ax1a = ax.twinx()
+        if hall_plot:
+            plt.close('all')
+            fig, (ax1a, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+        else:
+            ax1a = ax.twinx()
         for i, well in enumerate(well_list):
             if color:
                 colr = color
@@ -403,7 +558,8 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
                 colr = next(colors)
             dtos = df.xs((well, parameter), level=(0, 1),
                          axis=1).index.to_pydatetime()
-            values = df.xs((well, parameter), level=(0, 1), axis=1).cumsum()
+            values = df.xs((well, parameter), level=(0, 1),
+                           axis=1).cumsum() * multiplier
             if outdir:
                 # Write to file
                 filename = 'Cumulative_flow_{}'.format(well)
@@ -417,9 +573,16 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
             plt.legend() # This is annoying
             maxs.append(np.max(df.xs((well, parameter),
                                level=(0, 1), axis=1).values))
-        plt.gca().set_ylabel('Cumulative Volume (Tonnes)', fontsize=16)
+        ax1a.set_ylabel('Cumulative Volume (Tonnes)', fontsize=16)
         # Force scientific notation for cumulative y axis
-        plt.gca().ticklabel_format(style='sci', scilimits=(0, 0), axis='y')
+        ax1a.ticklabel_format(style='sci', scilimits=(0, 0), axis='y')
+        if hall_plot:
+            cum_pres = df.xs((well, 'WHP (barg)'), level=(0, 1),
+                             axis=1).cumsum() * multiplier
+            ax2.plot(values, cum_pres, color='r')
+            ax2.set_ylabel('Cumulative P (bar)')
+            ax2.set_xlabel('Cumulative Volume (t)')
+            ax2.set_title('Hall plot')
     else:
         # Loop over wells, slice dataframe to each and plot
         maxs = []
@@ -454,7 +617,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
                 values = vals.where(vals < 1000.) # Careful with this shiz
                 dtos = values.index.to_pydatetime()
             elif parameter == 'Depth' and sheetname == 'NM10 Losses':
-                values = df[('NM10', 'Depth')] - 372.
+                values = df[('NM10', 'Depth')] - 372. # Correcting to m bsl
+                dtos = values.index.to_pydatetime()
+            elif parameter == 'P_derivative':
+                values = df[(well, 'WHP (barg)')]
                 dtos = values.index.to_pydatetime()
             else:
                 values = df.xs((well, parameter), level=(0, 1), axis=1)
@@ -489,7 +655,19 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
                 if loglog:
                     ax1a.loglog(dtos, values)
                 else:
-                    ax1a.scatter(dtos, values, label=label, color=colr, s=0.05)
+                    # Adjust II unit to MPa (unconventional though...?)
+                    ax1a.scatter(dtos, values * 10, label=label, color=colr, s=0.05)
+            elif parameter == 'P_derivative':
+                secs = [int((dto - dtos[0]).total_seconds())
+                        for dto in dtos]
+                dP = values.diff()
+                dP = dP.where(dP > 0.)
+                dp_secs = [(dt - dtos[0]).total_seconds()
+                           for dt in dP.index.to_pydatetime()]
+                ax1a.scatter(secs, values)
+                ax1a.scatter(dp_secs, dP, label=label)
+                ax1a.set_yscale('log')
+                ax1a.set_xscale('log')
             else:
                 ax1a.plot(dtos, values, label=label, color=colr, linewidth=1.0)
             ax1a.legend()
@@ -498,7 +676,9 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
         elif parameter == 'DHP (barg)':
             ax1a.set_ylabel('DHP (MPa)', fontsize=16)
         elif parameter == 'Injectivity':
-            ax1a.set_ylabel('Injectivity (t/h/bar)', fontsize=16)
+            ax1a.set_ylabel('Injectivity (t/h/MPa)', fontsize=16)
+        elif parameter == 'Depth':
+            ax1a.set_ylabel('Depth (m bsl)', fontsize=16)
         else:
             ax1a.set_ylabel(parameter, fontsize=16)
         if ylims:
@@ -512,14 +692,14 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, loglog=False,
     #     # Add the new handles to the prexisting ones
     if len(handles) == 0:
         print('Plotting on empty axes. No handles to add to.')
-        ax1a.legend()
+        ax1a.legend(fontsize=12, loc=2)
     else:
         handles.extend(ax1a.legend_.get_lines())
         # Redo the legend
         if len(handles) > 4:
-            ax1a.legend(handles=handles, fontsize=5, loc=2)
+            ax1a.legend(handles=handles, fontsize=12, loc=2)
         else:
-            ax1a.legend(handles=handles, loc=2)
+            ax1a.legend(handles=handles, loc=2, fontsize=12)
     # except UnboundLocalError:
     #     print('Plotting on empty axes. No handles to add to.')
     #     ax.legend()
@@ -568,16 +748,17 @@ def calculate_pressure(D, r, q0, qt, t, t0=None):
     """
     if t == 0:
         return q0
-    term1 = (((q0 + qt * t) / 4 * np.pi * D * r) +
-             ((qt * r) / 8 * np.pi * D**2))
+    term1 = ((q0 + (qt * t)) / 4 * np.pi * D * r) + \
+        ((qt * r) / (8 * np.pi * (D**2)))
     # Complement to the Gaussian error function
     erfc = special.erfc(r / np.sqrt(4 * D * t))
     term2 = ((qt * np.sqrt(t)) /
-             4 * (np.pi * D)**1.5) * np.exp(-r**2 / 4 * D * t)
+             4 * ((np.pi * D)**1.5)) * \
+            np.exp(-1 * r**2 / 4 * D * t)
     prt = (term1 * erfc) - term2
     return prt
 
-def plot_pressure_rt(q0, qt, diffs, dates, dists, show=True):
+def plot_pressure_rt(q0, qt, diffs, dates, dists, show=True, norm=True):
     """
     Plot pressure with distance and time from injection point assuming linear
     pore pressure diffusion
@@ -590,8 +771,11 @@ def plot_pressure_rt(q0, qt, diffs, dates, dists, show=True):
     # Make the data
     t = pd.to_datetime(pd.date_range(dates[0].datetime, dates[1].datetime,
                                      freq='H'))
-    d = np.linspace(0, max(dists), 50) # 50 meter intervals for plotting
+    d = np.linspace(0, max(dists), 100) # 100 intervals for plotting
     plot_dict = {'time': {}, 'dist': {}}
+    tot_seconds = (t[-1] - t[0]).total_seconds()
+    print(tot_seconds)
+    max_WHP = q0 + (tot_seconds * qt)
     for diff in diffs:
         plot_dict['time'][diff] = {}
         for dist in dists:
@@ -600,7 +784,7 @@ def plot_pressure_rt(q0, qt, diffs, dates, dists, show=True):
                 for ti in range(1,len(t))]
     for diff in diffs:
         plot_dict['dist'][diff] = {}
-        for ti in range(40, len(t), 80): # Every 80 hours for time steps
+        for ti in range(10, len(t), 80): # Every 80 hours for time steps
             plot_dict['dist'][diff][ti] = [
                 calculate_pressure(D=diff, r=di, q0=q0, qt=qt, t=ti * 3600.)
                 for di in d[1:]]
@@ -609,22 +793,28 @@ def plot_pressure_rt(q0, qt, diffs, dates, dists, show=True):
         for dist, ps in dict.items():
             # normalize log of ps
             ys = np.log10(np.array(ps))
-            ys /= max(ys)
+            if norm:
+                ys /= np.log10(max_WHP)
             ax1.plot([t for t in range(len(ps))], ys,
                      label='D={}, r={} m'.format(diff, dist))
     for diff, dict in plot_dict['dist'].items():
         for ti, ps in dict.items():
             # normalize log of ps
             ys = np.log10(np.array(ps))
-            ys /= max(ys)
+            if norm:
+                ys /= np.log10(max_WHP)
             ax2.plot([di for di in d[1:]], ys,
                      label='D={}, t={} h'.format(diff, ti))
     ax1.set_xlabel('Time (h)')
     ax1.set_ylabel('Normalized log10 pore pressure')
     ax2.set_xlabel('Distance from injection point (m)')
     ax2.set_ylabel('Normalized log10 pore pressure')
-    ax1.set_ylim([0, 1.5])
-    ax2.set_ylim([0, 1.5])
+    if norm:
+        ax1.set_ylim([0, 1.5])
+        ax2.set_ylim([0, 1.5])
+    else:
+        ax1.set_ylim([-10, 10])
+        ax2.set_ylim([-10, 10])
     ax1.legend()
     ax2.legend()
     if show:
@@ -632,9 +822,8 @@ def plot_pressure_rt(q0, qt, diffs, dates, dists, show=True):
         plt.show()
     return ax1, ax2
 
-
-def plot_event_well_dist(catalog, well_fzs, flow_dict, diffusion='isotropic',
-                         temp_list='all', method='scatter', boxplots=False,
+def plot_event_well_dist(catalog, well_fzs, flow_dict, temp_list='all',
+                         thickness=None, method='scatter', boxplots=False,
                          starttime=None, ylim=None, endtime=None, title=None,
                          show=True, axes=None):
     """
@@ -642,14 +831,16 @@ def plot_event_well_dist(catalog, well_fzs, flow_dict, diffusion='isotropic',
     :param cat: catalog of events
     :param well_fzs: text file of xyz feedzone pts
         e.g. NM08 bottom hole: (176.1788 -38.5326 3.3615)
-        e.g. NM08 top fz:
+        e.g. NM08 middle hole: (-38.5326, 176.1788, 2.85)
+        e.g. NM08 main fz: (-38.5326, 176.1788, 2.35)
+        e.g. NM10 main fz: (-38.5673, 176.1893, 2.5)
+        e.g. NM09 main fz: (-38.5358, 176.1857, 2.8)
+        DEPTHS HERE ARE mRF
     :param flow_dict: Dictionary of flow starts, stops and D, for example:
-        {'starts': {D: [starttime, endtime]},
-         'ends': {D: [starttime, endtime, start_injection]}}
-    :param diffs: list of lists of diffusion values to plot (one list for each
-        start time)
-    :param diffusion: Either isotropic or planar flow
+        {'starts': {D: {planar: [starttime, endtime]}},
+         'ends': {D: {iso: [starttime, endtime, start_injection]}}}
     :param temp_list: list of templates for which we'll plot detections
+    :param thickness: Thickness of aquifer in m if planar flow being plotted
     :param method: plot the 'scatter' or daily 'average' distance or both
     :return: matplotlib.pyplot.Axes
     """
@@ -682,8 +873,7 @@ def plot_event_well_dist(catalog, well_fzs, flow_dict, diffusion='isotropic',
         if ev.preferred_origin():
             o = ev.preferred_origin()
             dist = min([dist_calc((o.latitude, o.longitude,
-                                   (o.depth + 514.) / 1000.),
-                                  # Account for hypoDD station elev
+                                   (o.depth + 350.) / 1000.),
                                   pt) * 1000. for pt in well_pts])
             time_dist_tups.append((o.time.datetime, dist))
     times, dists = zip(*time_dist_tups)
@@ -702,43 +892,48 @@ def plot_event_well_dist(catalog, well_fzs, flow_dict, diffusion='isotropic',
     ts = []
     labs = []
     for tb, flow_d in flow_dict.items():
-        for D, tlist in flow_d.items():
-            start = pd.Timestamp(tlist[0].datetime)
-            if tlist[1]:
-                end = pd.Timestamp(tlist[-1].datetime)
-            else:
-                end = pd.Timestamp(cat_end)
-            t = pd.to_datetime(pd.date_range(start, end, freq='H'))
-            tint = [mdates.date2num(d) for d in t]
-            ts.append(tint)
-            # Now diffusion y vals
-            # Isotropic diffusion
-            if 'isotropic' in diffusion:
-                # Shapiro and Dinske 2009 (and all other such citations)
-                if tb == 'start': # Triggering front (Shapiro)
-                    diff_ys.append([np.sqrt(3600 * D * i * 4. * np.pi)
+        for D, g_dict in flow_d.items():
+            for geom, tlist in g_dict.items():
+                start = pd.Timestamp(tlist[0].datetime)
+                if tlist[1]:
+                    end = pd.Timestamp(tlist[-1].datetime)
+                else:
+                    end = pd.Timestamp(cat_end)
+                t = pd.to_datetime(pd.date_range(start, end, freq='H'))
+                tint = [mdates.date2num(d) for d in t]
+                ts.append(tint)
+                # Now diffusion y vals
+                # Isotropic diffusion
+                if geom.lower() == 'isotropic':
+                    # Shapiro and Dinske 2009 (and all other such citations)
+                    if tb == 'start': # Triggering front (Shapiro)
+                        diff_ys.append([np.sqrt(3600 * D * i * 4. * np.pi)
+                                        for i in range(len(t))])
+                    elif tb == 'end': # Backfront (Parotidis 2004)
+                        duration = tlist[0] - tlist[2] # Seconds of injection
+                        diff_y = []
+                        for i in range(1, len(t)):
+                            secs_tot = (i * 3600) + duration
+                            diff_y.append(
+                                np.sqrt(secs_tot * D * 6. *
+                                        ((secs_tot / duration) - 1) *
+                                        np.log(secs_tot /
+                                               (secs_tot - duration))))
+                        diff_y.insert(0, 0)
+                        diff_ys.append(diff_y)
+                if geom.lower() == 'planar':
+                    d = thickness # thickness of fz in meters
+                    diff_ys.append([3600 * D * i / (2 * d) * np.pi
                                     for i in range(len(t))])
-                elif tb == 'end': # Backfront (Parotidis 2004)
-                    duration = tlist[0] - tlist[2] # Seconds of injection
-                    diff_y = []
-                    for i in range(1, len(t)):
-                        secs_tot = (i * 3600) + duration
-                        diff_y.append(
-                            np.sqrt(secs_tot * D * 6. *
-                                    ((secs_tot / duration) - 1) *
-                                    np.log(secs_tot / (secs_tot - duration))))
-                    diff_y.insert(0, 0)
-                    diff_ys.append(diff_y)
-            if 'planar' in diffusion:
-                diff_ys.append([3600 * D * i / 2 * np.pi for i in range(len(t))])
-            elif 'cubic' in diffusion:
-                # Yeilds volume of affected area. We will assume spherical for simplicity
-                diff_ys.append([0.5 * ((3600 * i * 100. / 0.2)**(1/3.))
-                                for i in range(len(t))])
-            if tb == 'start':
-                labs.append('Triggering front: D={} $m^2/s$'.format(D))
-            elif tb == 'end':
-                labs.append('Back front: D={} $m^2/s$'.format(D))
+                elif geom.lower() == 'cubic':
+                    # Yeilds volume of affected area. We will assume spherical
+                    # for simplicity
+                    diff_ys.append([0.5 * ((3600 * i * 100. / 0.2)**(1/3.))
+                                    for i in range(len(t))])
+                if tb == 'start':
+                    labs.append('{} trig. front: D={} $m^2/s$'.format(geom, D))
+                elif tb == 'end':
+                    labs.append('{} back-front: D={} $m^2/s$'.format(geom, D))
     # Plot 'em up
     if not axes:
         fig, ax = plt.subplots(figsize=(7, 6))
@@ -749,17 +944,23 @@ def plot_event_well_dist(catalog, well_fzs, flow_dict, diffusion='isotropic',
         u_days = list(set(dist_df.day_num))
         bins = [dist_df.loc[dist_df['day_num'] == d]['dists'].values
                 for d in u_days]
-        positions = [d for d in u_days]
-        bplots = ax.boxplot(bins, positions=positions, patch_artist=True,
-                            flierprops={'markersize': 0}, manage_xticks=False)
+        good_bins = []
+        positions = []
+        for i, b in enumerate(bins):
+            if len(b) > 5:
+                good_bins.append(b)
+                positions.append(u_days[i])
+        bplots = ax.boxplot(good_bins, positions=positions, patch_artist=True,
+                            flierprops={'markersize': 0}, manage_xticks=False,
+                            widths=0.7)
         for patch in bplots['boxes']:
             patch.set_facecolor('lightblue')
             patch.set_alpha(0.5)
     # Then diffusions
     for i, diff_y in enumerate(diff_ys):
-        if labs[i].startswith('T'): #Triggering
+        if 'trig' in labs[i]: #Triggering
             ax.plot(ts[i], diff_y, label=labs[i])
-        elif labs[i].startswith('B'): # Backfront
+        elif 'back' in labs[i]: # Backfront
             ax.plot(ts[i], diff_y, '--', label=labs[i])
     # Now events
     if method != 'scatter':
@@ -779,15 +980,15 @@ def plot_event_well_dist(catalog, well_fzs, flow_dict, diffusion='isotropic',
         ax.plot(dates, day_avg_dist, color='r')
     # Plot formatting
     # fig.autofmt_xdate()
-    ax.legend()
+    ax.legend(fontsize=12, loc=2)
     if ylim:
         ax.set_ylim(ylim)
     else:
         ax.set_ylim([0, 3])
     if title:
-        ax.set_title(title, fontsize=19)
+        ax.set_title(title, fontsize=20)
     else:
-        ax.set_title('Fluid diffusion envelopes with time')
+        ax.set_title('Fluid diffusion envelopes with time', fontsize=20)
     if starttime:
         ax.set_xlim([mdates.date2num(starttime.datetime),
                      mdates.date2num(endtime.datetime)])
@@ -800,35 +1001,39 @@ def plot_event_well_dist(catalog, well_fzs, flow_dict, diffusion='isotropic',
         fig.show()
     return ax
 
-def place_NM08_times(ax):
+def place_NM08_times(ax, diffs=False):
     """
     Place the time labels as axvline for NM08 stimulation
     :param ax: matplotlib.Axes to plot on
     :return:
     """
+    if diffs:
+        corr = 0.15
+    else:
+        corr = 0.
     # Get data coords
     yz = ax.get_ylim()
     # Place lines
-    ax.axvline(UTCDateTime(2012, 6, 7).datetime, ymax=0.6, linestyle='--',
-               color='k', linewidth=0.7)
-    ax.axvline(UTCDateTime(2012, 6, 15).datetime, ymax=0.6, linestyle='--',
-               color='k', linewidth=0.7)
-    ax.axvline(UTCDateTime(2012, 6, 26).datetime, ymax=0.7, linestyle='--',
-               color='k', linewidth=0.7)
-    ax.axvline(UTCDateTime(2012, 7, 1).datetime, ymax=0.85, linestyle='--',
-               color='k', linewidth=0.7)
-    ax.axvline(UTCDateTime(2012, 7, 6).datetime, ymax=0.90, linestyle='--',
-               color='k', linewidth=0.7)
+    ax.axvline(UTCDateTime(2012, 6, 7).datetime, ymax=0.6 - corr,
+               linestyle='--', color='k', linewidth=0.7)
+    ax.axvline(UTCDateTime(2012, 6, 15).datetime, ymax=0.6 - corr,
+               linestyle='--', color='k', linewidth=0.7)
+    ax.axvline(UTCDateTime(2012, 6, 26).datetime, ymax=0.7 - corr,
+               linestyle='--', color='k', linewidth=0.7)
+    ax.axvline(UTCDateTime(2012, 7, 1).datetime, ymax=0.85 - corr,
+               linestyle='--', color='k', linewidth=0.7)
+    ax.axvline(UTCDateTime(2012, 7, 6).datetime, ymax=0.90 - corr,
+               linestyle='--', color='k', linewidth=0.7)
     # Place text
-    ax.text(UTCDateTime(2012, 6, 7).datetime, 0.61 * yz[1], 'T1',
-            horizontalalignment='center')
-    ax.text(UTCDateTime(2012, 6, 15).datetime, 0.61 * yz[1], 'T2',
-            horizontalalignment='center')
-    ax.text(UTCDateTime(2012, 6, 26).datetime, 0.71 * yz[1], 'T3',
-            horizontalalignment='center')
-    ax.text(UTCDateTime(2012, 7, 1).datetime, 0.86 * yz[1], 'T4',
-            horizontalalignment='center')
-    ax.text(UTCDateTime(2012, 7, 6).datetime, 0.91 * yz[1], 'T5',
-            horizontalalignment='center')
+    ax.text(UTCDateTime(2012, 6, 7).datetime, (0.61 - corr) * yz[1], 'T1',
+            horizontalalignment='center', fontsize=10)
+    ax.text(UTCDateTime(2012, 6, 15).datetime, (0.61 - corr) * yz[1], 'T2',
+            horizontalalignment='center', fontsize=10)
+    ax.text(UTCDateTime(2012, 6, 26).datetime, (0.71 - corr) * yz[1], 'T3',
+            horizontalalignment='center', fontsize=10)
+    ax.text(UTCDateTime(2012, 7, 1).datetime, (0.86 - corr) * yz[1], 'T4',
+            horizontalalignment='center', fontsize=10)
+    ax.text(UTCDateTime(2012, 7, 6).datetime, (0.91 - corr) * yz[1], 'T5',
+            horizontalalignment='center', fontsize=10)
     return
 

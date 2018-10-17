@@ -5,15 +5,21 @@ import matplotlib
 import pytz
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.cm as cm
 import numpy as np
 import seaborn as sns
 
+from itertools import cycle
 from dateutil import rrule
 from scipy.io import loadmat
 from operator import itemgetter
 from datetime import timedelta
 from obspy.imaging.beachball import beach
+from obspy import Catalog
 from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
+
+# local files dependent upon paths set in ipython rc
+from shelly_mags import local_to_moment, local_to_moment_Majer
 
 
 def date_generator(start_date, end_date):
@@ -26,6 +32,76 @@ def avg_dto(dto_list):
     return srt_list[0] + np.mean([dt - srt_list[0] for dt in srt_list])
 
 """Magnitude and b-val functions"""
+
+def plot_cumulative_mo(catalog, method='Ristau', dates=None,
+                       color='firebrick', axes=None):
+    """
+    Plot cumulative seismic moment with time from a catalog
+    :param catalog: catalog of events to plot for
+    :param method: Method of Ml to Mo conversion: Ristau or Majer
+    :param dates: Date range to plot
+    :param color: color of the curve
+    :param axes: Prexisting axes to plot into
+    :return:
+    """
+    if dates:
+        cat = Catalog(events=[ev for ev in catalog
+                              if dates[0] < ev.origins[-1].time < dates[-1]])
+    else:
+        cat = catalog
+    if not axes:
+        fig, ax = plt.subplots()
+    elif axes.get_ylim()[-1] == 1.0:
+        ax = axes
+    else:
+        ax = axes.twinx()
+        try:
+            # Grab these lines for legend
+            handles, leg_labels = ax.get_legend_handles_labels()
+            if isinstance(ax.legend_, matplotlib.legend.Legend):
+                ax.legend_.remove()  # Need to manually remove this, apparently
+        except AttributeError:
+            print('Empty axes. No legend to incorporate.')
+        if axes.yaxis.get_ticks_position() == 'right':
+            ax.yaxis.set_label_position('left')
+            ax.yaxis.set_ticks_position('left')
+        elif axes.yaxis.get_ticks_position() == 'left':
+            ax.yaxis.set_label_position('right')
+            ax.yaxis.set_ticks_position('right')
+    dtos = [ev.preferred_origin().time.datetime for ev in cat]
+    mags = [mag.mag for ev in cat for mag in ev.magnitudes
+            if mag.magnitude_type in ['ML', 'M']]
+    if method == 'Ristau':
+        mos = [local_to_moment(m) for m in mags]
+    elif method == 'Majer':
+        mos = [local_to_moment_Majer(m) for m in mags]
+    else:
+        print('Must specify either Ristau or Majer method')
+    ax.plot(dtos, np.cumsum(mos), color=color, label='Cumulative M$_0$')
+    locs = ax.get_yticks()
+    # exp = int('{:.2E}'.format(max(locs)).split('+')[-1])
+    # ax.set_yticks(locs, ['{:.2E}'.format(l).split('+')[0] for l in locs])
+    math_str = r'$\sum{M_0}}$ dyne-cm'
+    ax.set_ylabel(math_str, fontsize=16)
+    ax.set_ylim(bottom=0)
+    if axes:
+        try:
+            ax.legend()
+            hands, labs = ax.get_legend_handles_labels()
+            # Add the new handles to the prexisting ones
+            handles.extend(hands)
+            leg_labels.extend(labs)
+            # Redo the legend
+            if len(handles) > 4:
+                ax.legend(handles=handles, labels=leg_labels,
+                          fontsize=12, loc=2, numpoints=1)
+            else:
+                ax.legend(handles=handles, labels=leg_labels, loc=2,
+                          numpoints=1, fontsize=12)
+        except UnboundLocalError:
+            print('Plotting on empty axes. No handles to add to.')
+            ax.legend(fontsize=12)
+    return ax
 
 def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
               fm_file=None, just_fms=False, fm_color=None,
@@ -134,24 +210,22 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
                     else:
                         fm_tup.append(None)
                 elif metric == 'depth_w_time':
+                    # Only plot events with dd locations
                     if ev.preferred_origin().method_id:
-                        if ev.preferred_origin().method_id.id.endswith('HypoDD'):
-                            mag_tup.append(
-                                (pytz.utc.localize(ev.preferred_origin().time.datetime),
-                                 ev.preferred_origin().depth - 350.))
-                        else:
+                        if ev.preferred_origin().method_id.id.endswith('GrowClust'):
                             mag_tup.append(
                                 (pytz.utc.localize(ev.preferred_origin().time.datetime),
                                  ev.preferred_origin().depth))
-                    else:
-                        mag_tup.append(
-                            (pytz.utc.localize(
-                                ev.preferred_origin().time.datetime),
-                             ev.preferred_origin().depth))
             except AttributeError:
                 print('Event {} has no associated magnitude'.format(
                     str(ev.resource_id)))
     xs, ys = zip(*mag_tup)
+    if fm_color != 'by_date':
+        cols = [fm_color for x in xs]
+    else:
+        cols = np.array([(x - xs[0]).days for x in xs])
+        cols = cols / np.max(cols)
+        cols = [cm.viridis(col) for col in cols]
     if not ax:
         fig, ax1 = plt.subplots()
     ax1.set_ylabel('Magnitude', fontsize=16)
@@ -182,30 +256,27 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
         ax1.set_xlabel('Date', fontsize=16)
         ax1.set_xlim([start, end])
     elif metric == 'depth_w_time':
-        ax1.set_ylabel('Depth (m)')
-        ax1.scatter(xs, ys, s=5., marker='o', color='lightgreen',
+        ax1.set_ylabel('Depth (m bsl)')
+        ax1.scatter(xs, ys, s=7., marker='o', color='lightgreen',
                     edgecolor='k', linewidth=0.3, label='Events')
         # plot Rot Andesite extents
         ax1.set_xlim([start, end])
         xlims = ax1.get_xlim()
         xz = [xlims[0], xlims[1], xlims[1], xlims[0]]
-        yz_tkri = [1182., 1182., 2490., 2490.]
-        yz_and = [2490., 2490., 3390., 3390.]
+        yz_tkri = [810., 810., 2118., 2118.]
+        yz_and = [2118., 2118., 3000., 3000.]
         # Tahorakuri
         ax1.fill(xz, yz_tkri, color='gainsboro', zorder=0, alpha=0.5)
-        ax1.text(0.1, 0.6, 'Volcaniclastic', fontsize=8, color='gray',
+        ax1.text(0.1, 0.45, 'Volcaniclastic', fontsize=10, color='k',
                 transform=ax1.transAxes)
         # Andesite
         ax1.fill(xz, yz_and, color='palegoldenrod', zorder=0, alpha=0.5)
-        ax1.text(0.1, 0.45, 'Andesite', fontsize=8, color='gray',
+        ax1.text(0.1, 0.25, 'Andesite', fontsize=10, color='k',
                 transform=ax1.transAxes)
         ax1.set_xlabel('Date', fontsize=16)
         ax1.invert_yaxis()
-    if fm_color:
-        col = fm_color
-    else:
-        col = 'b'
-    for x, y, fm in zip(xs, ys, fm_tup):
+        ax1.set_ylim([4000, -500])
+    for x, y, fm, col in zip(xs, ys, fm_tup, cols):
         if metric == 'time' and fm:
             bball = beach(fm, xy=(mdates.date2num(x), y), width=70,
                           linewidth=1, axes=ax1, facecolor=col)
@@ -224,13 +295,13 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
             # Redo the legend
             if len(handles) > 4:
                 ax1.legend(handles=handles, labels=leg_labels,
-                           fontsize=5, loc=2, numpoints=1)
+                           fontsize=12, loc=2, numpoints=1)
             else:
                 ax1.legend(handles=handles, labels=leg_labels, loc=2,
-                           numpoints=1)
+                           numpoints=1, fontsize=12)
         except UnboundLocalError:
             print('Plotting on empty axes. No handles to add to.')
-            ax1.legend()
+            ax1.legend(fontsize=12)
     # ax1.set_xlim([0, 10000])
     if title:
         ax1.set_title(title)
@@ -286,11 +357,11 @@ def Mc_test(cat, n_bins, start_mag=None):
             'bins': bins, 'bvals': bvals, 'errs': errs}
 
 
-def bval_calc(cat, n_bins, MC, weight=False):
+def bval_calc(cat, bin_size, MC, weight=False):
     """
     Helper function to run the calculation loop
     :param mags: list of magnitudes
-    :param bins: int number of bins for calculation
+    :param bins: size of bins in M
     :param method: whether to use weighted lsqr regression or MLE
     :return: (non_cum_bins, cum_bins, bval_vals, bval_bins, bval_wts)
     """
@@ -303,7 +374,7 @@ def bval_calc(cat, n_bins, MC, weight=False):
     else:
         Mc = MC
     # Establish bin limits and spacing
-    bin_vals = np.linspace(min(mags), max(mags), n_bins)
+    bin_vals = np.arange(min(mags), max(mags), bin_size)
     non_cum_bins = []
     cum_bins = []
     bval_vals = []
@@ -337,75 +408,64 @@ def bval_calc(cat, n_bins, MC, weight=False):
             'bval_bins':bval_bins, 'bval_wts':bval_wts,
             'b': b, 'a': a, 'Mc': Mc}
 
-def simple_bval_plot(cat, cat2=None, bins=30, MC=None, weight=False,
-                     title=None, show=True, savefig=None, ax=None):
+def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
+                     histograms=False, title=None, weight=True,
+                     show=True, savefig=None, ax=None):
     """
     Function to mimick Shelly et al., 2016 bval plots
-    :param cat:
-    :param cat2:
-    :param bins:
-    :param MC:
-    :param title:
-    :param show:
-    :param savefig:
-    :param ax:
+    :param catalogs: list of obspy.core.Catalog objects
+    :param cat_names: Names of catalogs in the order of catalogs
+    :param bin_size: If ploting
+    :param MC: Manual magnitude of completeness if desired
+    :param title: Title of plot
+    :param show: Do we show the plot?
+    :param savefig: None or name of saved file
+    :param ax: Axes object to plot to (optional)
     :return:
     """
-    mags = [ev.magnitudes[-1].mag for ev in cat]
-    if cat2:
-        mags2 = [ev.magnitudes[-1].mag for ev in cat2]
-    b_dict = bval_calc(cat, bins, MC, weight)
-    # Now re-compute b-value for new Mc if difference larger than bin size
+    colors = cycle([sns.xkcd_rgb['soft blue'], sns.xkcd_rgb['soft blue'],
+                    sns.xkcd_rgb['dull orange'], sns.xkcd_rgb['dull orange']])
     if not ax:
         fig, ax = plt.subplots()
-    if weight:
-        wt = 'weighted '
-    else:
-        wt = ''
-    # If plotting two cats, plot cat2 first (so it should be the extended cat)
-    if cat2:
-        b_dict2 = bval_calc(cat2, bins, MC, weight)
-        ax.axvline(b_dict2['Mc'], color='darkgray')
-        sns.distplot(mags2, kde=False, color=sns.xkcd_rgb["dull blue"],
-                     hist_kws={'alpha':1.0}, ax=ax)
-        # Reversed cumulative hist
-        ax.plot(b_dict2['bin_vals'], b_dict2['cum_bins'],
-                label='Matched-filter detected',
-                color=sns.xkcd_rgb["dull blue"])
-        ax.plot(b_dict2['bval_bins'],
-                np.power([10],[b_dict2['a']-b_dict2['b']*aval
-                               for aval in b_dict2['bval_bins']]),
-                color='darkgray', linestyle='--')
-        text = 'B-value: {:.2f}'.format(b_dict2['b'])
-        ax.text(0.8, 0.82, text, transform=ax.transAxes, color='k',
-                horizontalalignment='center', fontsize=14.)
-        ax.text(0.8, 0.9, 'Mc=%.2f' % b_dict2['Mc'],
-                color='k', transform=ax.transAxes,
-                horizontalalignment='center', fontsize=14.)
-    # Plotting first bval line
-    if not cat2:
-        # Plot vertical Mc line
-        ax.axvline(b_dict['Mc'], color='darkgray')
-        text = 'B-value: {:.2f}'.format(b_dict['b'])
-        ax.text(0.8, 0.82, text, transform=ax.transAxes, color='k',
-                horizontalalignment='center', fontsize=14.)
-        ax.text(0.8, 0.9, 'Mc=%.2f' % b_dict['Mc'],
-                color='k', transform=ax.transAxes,
-                horizontalalignment='center', fontsize=14.)
-        ax.plot(b_dict['bval_bins'],
-                np.power([10],[b_dict['a']-b_dict['b']*aval
-                               for aval in b_dict['bval_bins']]),
-                color='darkgray', linestyle='--')
-        ax.set_ylim(bottom=1, top=max(b_dict['cum_bins']) +
-                    1.25 * max(b_dict['cum_bins']))
+    for cat, name in zip(catalogs, cat_names):
+        mags = [ev.magnitudes[-1].mag for ev in cat]
+        b_dict = bval_calc(cat, bin_size, MC, weight=weight)
+        col = next(colors)
+        if name.endswith('(New)'):
+            if histograms:
+                sns.distplot(mags, kde=False, color=col,
+                             hist_kws={'alpha': 1.0},
+                             ax=ax)
+            # Reversed cumulative hist
+            ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
+                    color=col)
+            # Now re-compute b-value for new Mc if difference > than bin size
+            # ax.axvline(b_dict['Mc'], color='darkgray')
+            # ax.plot(b_dict['bval_bins'],
+            #         np.power([10],[b_dict['a'] - b_dict['b'] * aval
+            #                        for aval in b_dict['bval_bins']]),
+            #         color='darkgray', linestyle='--')
+            if name.startswith('Nga N'):
+                y = 0.9
+            elif name.startswith('Nga S'):
+                y = 0.74
+            text = 'B-value: {:.2f}'.format(b_dict['b'])
+            ax.text(0.8, y - 0.08, text, transform=ax.transAxes, color=col,
+                    horizontalalignment='center', fontsize=14.)
+            ax.text(0.8, y, 'Mc=%.2f' % b_dict['Mc'],
+                    color=col, transform=ax.transAxes,
+                    horizontalalignment='center', fontsize=14.)
+        elif name.endswith('(GNS)'):
+            if histograms:
+                sns.distplot(mags, kde=False, color=col,
+                             hist_kws={'alpha': 1.0},
+                             ax=ax)
+            # Reversed cumulative hist
+            ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
+                    color=col, linestyle='--')
+            # Now re-compute b-value for new Mc if difference > than bin size
     ax.set_yscale('log')
-    # Put b-val on plot
-    # Non cumulative hist
-    sns.distplot(mags, kde=False, color=sns.xkcd_rgb["pale red"],
-                 hist_kws={'alpha':1.0}, ax=ax)
-    # Reversed cumulative hist
-    ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label='GNS catalog',
-               color=sns.xkcd_rgb["pale red"])
+    ax.tick_params(labelsize=14.)
     ax.set_ylabel('Number of events', fontsize=14.)
     ax.set_xlabel('Magnitude', fontsize=14.)
     if title:

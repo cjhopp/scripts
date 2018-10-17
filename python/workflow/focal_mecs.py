@@ -21,17 +21,26 @@ try:
     import plotly.graph_objs as go
 except:
     print('Youre probably on the server. Dont try any plotting')
+import matplotlib.collections as mpl_collections
+
 from glob import glob
 from itertools import cycle
 from subprocess import Popen, PIPE
+from matplotlib import patches, transforms
 from shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog
 from scipy.signal import argrelmax, argrelmin
 from scipy.stats import circmean
 from scipy.linalg import lstsq
-from obspy.imaging.beachball import beach
+from obspy.imaging.beachball import beach, xy2patch
 from eqcorrscan.utils import pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
+from eqcorrscan.utils.clustering import space_cluster
+
+from obspy.imaging.scripts.mopad import MomentTensor as mopad_MomentTensor
+from obspy.imaging.scripts.mopad import BeachBall as mopad_BeachBall
+from obspy.imaging.scripts.mopad import epsilon
+
 try:
     from sklearn.cluster import KMeans
 except:
@@ -106,33 +115,37 @@ def grab_day_wavs(wav_dirs, dto, stachans):
         print('All traces long enough to proceed to dayproc')
     return st
 
-def cluster_cat_kmeans(catalog, n_clusters, plot=False, field='Nga',
-                       title='kmeans clusters', dd_only=False,
-                       surface='plane',**kwargs):
+def cluster_cat_distance(catalog, d_thresh=None, g_thresh=None,
+                         method='kmeans',plot=False, field='Nga',
+                         title='distance clusters', dd_only=False,
+                         surface='plane', show=False, **kwargs):
     """
-    Use scikit-learn kmeans clustering to group catalog locations into
-    a specified number of clusters
+    Use eqcorrscan km clustering to group catalog locations into
+    clusters with a specified distance cutoff
 
     :param catalog: Catalog of events to cluster
     :param n_clusters: Number of clusters to create
     :param kwargs: Any other arguments accepted by sklearn.cluster.KMeans
     :return:
     """
-    # Make the location array
-    loc_array = []
-    # Populate it
-    for ev in catalog:
-        o = ev.preferred_origin()
-        wgs84 = pyproj.Proj("+init=EPSG:4326")
-        nztm = pyproj.Proj("+init=EPSG:27200")
-        utmz = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
-        loc_array.append([utmz[0], utmz[1], o.depth / 1000.])
-    # Run kmeans algorithm
-    kmeans = KMeans(n_clusters=n_clusters, **kwargs).fit(loc_array)
-    # Get group index for each event
-    indices = kmeans.fit_predict(loc_array)
-    # Preallocate group catalogs
-    group_cats = [Catalog() for i in range(n_clusters)]
+    if method == 'kmeans':
+        # Make the location array
+        loc_array = []
+        # Populate it
+        for ev in catalog:
+            o = ev.preferred_origin()
+            wgs84 = pyproj.Proj("+init=EPSG:4326")
+            nztm = pyproj.Proj("+init=EPSG:27200")
+            utmz = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
+            loc_array.append([utmz[0], utmz[1], o.depth / 1000.])
+        # Run kmeans algorithm
+        kmeans = KMeans(n_clusters=g_thresh, **kwargs).fit(loc_array)
+        # Get group index for each event
+        indices = kmeans.fit_predict(loc_array)
+        # Preallocate group catalogs
+        group_cats = [Catalog() for i in range(g_thresh)]
+    elif method == 'heirarchy':
+        group_cats = space_cluster(catalog, d_thresh)
     for i, ev in enumerate(catalog):
         group_cats[indices[i]].append(ev)
     if plot:
@@ -763,6 +776,7 @@ def plot_hashpy(catalog, outdir):
         fmp.fig.savefig('{}/{}'.format(outdir, eid), dpi=500)
     return
 
+
 ##############################################################################
 
 def plot_network_arrivals(wav_dirs, lowcut, highcut, start, end, sta_list=None,
@@ -1136,6 +1150,9 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
     :param title: Plot title
     :param offline: Boolean for whether to plot to plotly account (online)
         or to local disk (offline)
+    :param dd_only: Are we only plotting dd locations?
+    :param surface: What type of surface to fit to points? Supports 'plane'
+        and 'ellipsoid' for now.
     :return:
     """
     pt_lists = []
@@ -1253,6 +1270,8 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
                                    opacity=0.3, delaunayaxis='z',
                                    # text='A-axis Trend: {}, Plunge {}'.format(stk, dip),
                                    showlegend=True))
+        else:
+            print('No surfaces fitted')
     xax = go.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
                    zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
                    title='Easting (m)', autorange=True, range=xlims)
@@ -1348,3 +1367,154 @@ def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
                         )
                     well_dict[well]['p_zones'].append(z_pts)
     return well_dict
+
+"""
+Slighly modified mopad beach wrapper from obspy to allow for reprojection.
+
+Need to contribute this when I have some time
+"""
+def beach_mod(fm, linewidth=2, facecolor='b', bgcolor='w', edgecolor='k',
+              alpha=1.0, xy=(0, 0), width=200, size=100, nofill=False,
+              zorder=100, mopad_basis='USE', axes=None, viewpoint=None):
+    """
+    Return a beach ball as a collection which can be connected to an
+    current matplotlib axes instance (ax.add_collection). Based on MoPaD.
+
+    S1, D1, and R1, the strike, dip and rake of one of the focal planes, can
+    be vectors of multiple focal mechanisms.
+
+    :param fm: Focal mechanism that is either number of mechanisms (NM) by 3
+        (strike, dip, and rake) or NM x 6 (M11, M22, M33, M12, M13, M23 - the
+        six independent components of the moment tensor, where the coordinate
+        system is 1,2,3 = Up,South,East which equals r,theta,phi -
+        Harvard/Global CMT convention). The relation to Aki and Richards
+        x,y,z equals North,East,Down convention is as follows: Mrr=Mzz,
+        Mtt=Mxx, Mpp=Myy, Mrt=Mxz, Mrp=-Myz, Mtp=-Mxy.
+        The strike is of the first plane, clockwise relative to north.
+        The dip is of the first plane, defined clockwise and perpendicular to
+        strike, relative to horizontal such that 0 is horizontal and 90 is
+        vertical. The rake is of the first focal plane solution. 90 moves the
+        hanging wall up-dip (thrust), 0 moves it in the strike direction
+        (left-lateral), -90 moves it down-dip (normal), and 180 moves it
+        opposite to strike (right-lateral).
+    :param facecolor: Color to use for quadrants of tension; can be a string,
+        e.g. ``'r'``, ``'b'`` or three component color vector, [R G B].
+        Defaults to ``'b'`` (blue).
+    :param bgcolor: The background color. Defaults to ``'w'`` (white).
+    :param edgecolor: Color of the edges. Defaults to ``'k'`` (black).
+    :param alpha: The alpha level of the beach ball. Defaults to ``1.0``
+        (opaque).
+    :param xy: Origin position of the beach ball as tuple. Defaults to
+        ``(0, 0)``.
+    :type width: int
+    :param width: Symbol size of beach ball. Defaults to ``200``.
+    :param size: Controls the number of interpolation points for the
+        curves. Minimum is automatically set to ``100``.
+    :param nofill: Do not fill the beach ball, but only plot the planes.
+    :param zorder: Set zorder. Artists with lower zorder values are drawn
+        first.
+    :param mopad_basis: The basis system. Defaults to ``'USE'``. See the
+        `Supported Basis Systems`_ section below for a full list of supported
+        systems.
+    :type axes: :class:`matplotlib.axes.Axes`
+    :param axes: Used to make beach balls circular on non-scaled axes. Also
+        maintains the aspect ratio when resizing the figure. Will not add
+        the returned collection to the axes instance.
+
+    .. rubric:: _`Supported Basis Systems`
+
+    ========= =================== =============================================
+    Short     Basis vectors       Usage
+    ========= =================== =============================================
+    ``'NED'`` North, East, Down   Jost and Herrmann 1989
+    ``'USE'`` Up, South, East     Global CMT Catalog, Larson et al. 2010
+    ``'XYZ'`` East, North, Up     General formulation, Jost and Herrmann 1989
+    ``'RT'``  Radial, Transverse, psmeca (GMT), Wessel and Smith 1999
+              Tangential
+    ``'NWU'`` North, West, Up     Stein and Wysession 2003
+    ========= =================== =============================================
+    """
+    # initialize beachball
+    mt = mopad_MomentTensor(fm, system=mopad_basis)
+    bb = mopad_BeachBall(mt, npoints=size, kwargs_dict={'_plot_viewpoint':
+                                                        viewpoint})
+    bb._setup_BB(unit_circle=False)
+
+    # extract the coordinates and colors of the lines
+    radius = width / 2.0
+    neg_nodalline = bb._nodalline_negative_final_US
+    pos_nodalline = bb._nodalline_positive_final_US
+    tension_colour = facecolor
+    pressure_colour = bgcolor
+
+    if nofill:
+        tension_colour = 'none'
+        pressure_colour = 'none'
+
+    # based on mopads _setup_plot_US() function
+    # collect patches for the selection
+    coll = [None, None, None]
+    coll[0] = patches.Circle(xy, radius=radius)
+    coll[1] = xy2patch(neg_nodalline[0, :], neg_nodalline[1, :], radius, xy)
+    coll[2] = xy2patch(pos_nodalline[0, :], pos_nodalline[1, :], radius, xy)
+
+    # set the color of the three parts
+    fc = [None, None, None]
+    if bb._plot_clr_order > 0:
+        fc[0] = pressure_colour
+        fc[1] = tension_colour
+        fc[2] = tension_colour
+        if bb._plot_curve_in_curve != 0:
+            fc[0] = tension_colour
+            if bb._plot_curve_in_curve < 1:
+                fc[1] = pressure_colour
+                fc[2] = tension_colour
+            else:
+                coll = [coll[i] for i in (0, 2, 1)]
+                fc[1] = pressure_colour
+                fc[2] = tension_colour
+    else:
+        fc[0] = tension_colour
+        fc[1] = pressure_colour
+        fc[2] = pressure_colour
+        if bb._plot_curve_in_curve != 0:
+            fc[0] = pressure_colour
+            if bb._plot_curve_in_curve < 1:
+                fc[1] = tension_colour
+                fc[2] = pressure_colour
+            else:
+                coll = [coll[i] for i in (0, 2, 1)]
+                fc[1] = tension_colour
+                fc[2] = pressure_colour
+
+    if bb._pure_isotropic:
+        if abs(np.trace(bb._M)) > epsilon:
+            # use the circle as the most upper layer
+            coll = [coll[0]]
+            if bb._plot_clr_order < 0:
+                fc = [tension_colour]
+            else:
+                fc = [pressure_colour]
+
+    # transform the patches to a path collection and set
+    # the appropriate attributes
+    collection = mpl_collections.PatchCollection(coll, match_original=False)
+    collection.set_facecolors(fc)
+    # Use the given axes to maintain the aspect ratio of beachballs on figure
+    # resize.
+    if axes is not None:
+        # This is what holds the aspect ratio (but breaks the positioning)
+        collection.set_transform(transforms.IdentityTransform())
+        # Next is a dirty hack to fix the positioning:
+        # 1. Need to bring the all patches to the origin (0, 0).
+        for p in collection._paths:
+            p.vertices -= xy
+        # 2. Then use the offset property of the collection to position the
+        # patches
+        collection.set_offsets(xy)
+        collection._transOffset = axes.transData
+    collection.set_edgecolors(edgecolor)
+    collection.set_alpha(alpha)
+    collection.set_linewidth(linewidth)
+    collection.set_zorder(zorder)
+    return collection

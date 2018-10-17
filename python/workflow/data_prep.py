@@ -455,6 +455,39 @@ def remove_dup_hypoDD_cat(catalog):
 
     return catalog
 
+def final_dup_check(cat):
+    """
+    Remove duplicates in final Ngatamariki catalog across whole field
+
+    There were still some dups, probably related to addition of template
+    events without proper removal of self detection.
+    :param cat:
+    :param time_thresh:
+    :return:
+    """
+    # Enforce chronological order
+    cat.events.sort(key=lambda x: x.preferred_origin().time)
+    dups = []
+    others = []
+    # Loop through and determine which of dups is detection and which is
+    # template. Remove detection.
+    for i, ev in enumerate(cat):
+        if ev.preferred_origin().time - cat[i-1].preferred_origin().time < 2.:
+            # Which is which
+            if ev.creation_info.author == 'EQcorrscan':
+                dups.append(ev)
+                others.append(cat[i-1])
+                print('Other event author: {}'.format(
+                    cat[i-1].creation_info.author))
+            elif cat[i-1].creation_info.author == 'EQcorrscan':
+                dups.append(cat[i-1])
+                others.append(ev)
+                print('Other event author: {}'.format(
+                    ev.creation_info.author))
+            else:
+                print('Neither')
+    return dups, others
+
 ##############################################################################
 # vv Duplicate pick related BS vv #
 
