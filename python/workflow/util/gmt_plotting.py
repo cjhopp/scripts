@@ -8,6 +8,7 @@ import os
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from glob import glob
 from subprocess import call
@@ -353,54 +354,89 @@ def plot_well_files(well_list, params, show=True, outfile=None):
     Plot well data from file (with matplotlib) to avoid issues with multiple
     y axes in gmt...
 
-    :param welldir:
+    :param well_list: List of well name strings
+    :param params: List of 'WHP', 'flow' or both (will include others)
+    :param show: Plot flag
+    :param outfile: Path to the output file
     :return:
     """
     well_dir = '/home/chet/data/mrp_data/well_data/flow_rates/July_2017_final'
-    well_fs = glob('{}/*_all.csv'.format(well_dir))
-    well_fs.sort()
-    colors = cycle(['darkturquoise', 'purple', 'lightblue', 'darkred'])
+    colors = cycle(sns.color_palette('deep'))
     fig, ax = plt.subplots(figsize=(10, 7))
-    ax2 = ax.twinx()
-    for f in well_fs:
-        well = f.split('/')[-1].split('_')[0]
-        param = f.split('/')[-1].split('_')[-2]
-        dtos = []
-        vals = []
-        if well in well_list and param in params:
-            with open(f, 'r') as f:
-                for line in f:
-                    ln = line.split()
-                    dtos.append(
-                        UTCDateTime().strptime(ln[0],
-                                               '%Y-%m-%dT%H:%M:%S').datetime)
-                    vals.append(float(ln[-1].rstrip('\n')))
-            if param == 'flow':
-                ln = ax.plot(dtos, vals, label='{}: Flow (t/h)'.format(well),
-                             color=next(colors), linewidth=1.0)
-            elif param == 'WHP':
-                ln = ax2.plot(dtos, np.array(vals) / 10.,
-                              label='{}: WHP (MPa)'.format(well),
-                              color=next(colors), linewidth=1.0)
-    ax.set_ylim([0, 1300])
-    ax2.set_ylim([0, 3.5])
-    ax.set_ylabel('Flow rate (t/h)', fontsize=16)
-    ax2.set_ylabel('WHP (MPa)', fontsize=16)
-    ax2.tick_params(axis='y', labelsize=14)
+    if len(params) > 1:
+        ax2 = ax.twinx()
+    else:
+        ax2 = None
+    for well in well_list:
+        for param in params:
+            f = '{}/{}_{}_all.csv'.format(well_dir, well, param)
+            dtos = []
+            vals = []
+            if well in well_list and param in params:
+                with open(f, 'r') as f:
+                    for line in f:
+                        ln = line.split()
+                        dtos.append(
+                            UTCDateTime().strptime(
+                                ln[0], '%Y-%m-%dT%H:%M:%S').datetime)
+                        vals.append(float(ln[-1].rstrip('\n')))
+                # Decimate for clarity
+                vals_d = vals[::1]
+                dtos_d = dtos[::1]
+                if ax2 and param == 'Flow':
+                    ax.plot(dtos_d, vals_d, label='{}: Flow (t/h)'.format(well),
+                            color=next(colors), linewidth=1.5)
+                elif ax2 and param in ['WHP', 'DHP']:
+                    ax2.plot(dtos_d, np.array(vals_d) / 10.,
+                             label='{}: WHP (MPa)'.format(well),
+                             color=next(colors), linewidth=1.5)
+                elif not ax2 and param in ['WHP', 'DHP']:
+                    ax.plot(dtos_d, np.array(vals_d) / 10.,
+                            label='{}: WHP (MPa)'.format(well),
+                            color=next(colors), linewidth=1.5)
+                elif not ax2 and param == 'Flow':
+                    ax.plot(dtos_d, vals_d, label='{}: Flow (t/h)'.format(well),
+                            color=next(colors), linewidth=1.5)
+    if well_list[0].startswith('RK'):
+        if ax2 and not 'DHP' in params:
+            ax2.set_ylim([0, 6])
+        elif ax2 and 'DHP' in params:
+            ax2.set_ylim([0, 30.])
+        elif params[0] == 'WHP':
+            ax.set_ylim([0, 6])
+        elif params[0] == 'DHP':
+            ax.set_ylim([0, 30.])
+        else:
+            ax.set_ylim([0, 1600])
+    else:
+        ax.set_ylim([0, 1300])
+        if ax2:
+            ax2.set_ylim([0, 3.5])
+    if len(params) == 2 or params[0] == 'Flow':
+        ax.set_ylabel('Flow rate (t/h)', fontsize=16)
+    elif params[0] in ['WHP', 'DHP']:
+        ax.set_ylabel('{} (MPa)'.format(params[0]), fontsize=16)
+    ax.set_xlabel('Date', fontsize=16)
+    ax.margins(x=0)
+    if ax2:
+        ax2.set_ylabel('WHP (MPa)', fontsize=16)
+        ax2.tick_params(axis='y', labelsize=14)
+        ax2.tick_params(axis='x', labelsize=14)
+        ax2.margins(tight=True)
     ax.tick_params(axis='y', labelsize=14)
     fig.autofmt_xdate()
-    ax2.tick_params(axis='x', labelsize=14)
     handles = ax.legend().get_lines()  # Grab these lines for legend
     if isinstance(ax.legend_, matplotlib.legend.Legend):
         ax.legend_.remove()  # Need to manually remove this, apparently
-    handles.extend(ax2.legend().get_lines())
-    plt.legend(handles=handles, loc=2, fontsize=12)
+    if ax2:
+        handles.extend(ax2.legend().get_lines())
+    plt.legend(handles=handles, loc=2, fontsize=12, ncol=2)
     if show:
         plt.show()
     elif outfile:
         plt.tight_layout()
         plt.savefig(outfile, dpi=300)
-    return
+    return fig
 
 
 def plot_fm_map(catalog, fm_file, color, old_cat=False):

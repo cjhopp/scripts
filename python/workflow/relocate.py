@@ -85,7 +85,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
     return cat
 
 
-def hypoDD_time2EQ(catalog, nlloc_root, in_file):
+def dd_time2EQ(catalog, nlloc_root, in_file):
     """
     Takes a catalog with hypoDD-defined origins and populates the arrivals
     attribute for that origin using specified NLLoc Grid files through
@@ -104,10 +104,10 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
         eid = ev.resource_id.id.split('/')[-1]
         o = ev.preferred_origin()
         if not o or not o.method_id:
-            print('Preferred origin not hypoDD: {}'.format(eid))
+            print('Preferred origin not DD: {}'.format(eid))
             continue
         if len(o.arrivals) > 0:
-            print('HypoDD origin has some Arrivals. '
+            print('DD origin has some Arrivals. '
                   + 'Removing and adding again.')
             o.arrivals = []
         print('Raytracing for: {}'.format(eid))
@@ -130,7 +130,8 @@ def hypoDD_time2EQ(catalog, nlloc_root, in_file):
                     # NLLoc
                     elif line.startswith('LOCFILES'):
                         ln = line.split()
-                        line = ' '.join([ln[0], new_obs, ln[2], ln[3], loc_file])
+                        line = ' '.join([ln[0], new_obs, ln[2],
+                                         ln[3], loc_file])
                     fo.write(line)
             call(["Time2EQ", new_ctrl])
             # Edit obs_file to have just the Time2EQ phases for which we
@@ -246,9 +247,9 @@ def GrowClust_to_Catalog(hypoDD_cat, out_dir):
             line = ln.split()
             # First determine if it was relocated
             # Default is line[19] == -1 for no, but also should beware of
-            # unceratintites of 0.000. Ignore those for now?
+            # unceratintites of 0.000. Deal with these later?
             eid = int(line[6]) # Event id before clustering
-            if line[13] == '1' and line[19] in ['-1.000', '0.000']:
+            if line[13] == '1' and line[19] == '-1.000':
                 print('Event {} not relocated, keep original location'.format(
                     eid
                 ))
@@ -276,7 +277,8 @@ def GrowClust_to_Catalog(hypoDD_cat, out_dir):
                                     origin_uncertainty=o_uncert,
                                     method_id=method_id)
     for i, ev in enumerate(hypoDD_cat):
-        if i in new_o_map:
-            ev.origins.append(new_o_map[i])
-            ev.preferred_origin_id = new_o_map[i].resource_id.id
+        id = i + 1 # Python indexing
+        if id in new_o_map:
+            ev.origins.append(new_o_map[id])
+            ev.preferred_origin_id = new_o_map[id].resource_id.id
     return hypoDD_cat

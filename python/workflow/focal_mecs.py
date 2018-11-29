@@ -1178,10 +1178,6 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
     # HypoDD cats report depth relative to zero.
     # We want depths as elevation for this plot so add the difference between
     # 0 elevation and depth of NS12 (164 m) to all depths.
-    if dd_only:
-        z_correct = 164.
-    else:
-        z_correct = 0.
     for cat in cluster_cats:
         pt_list = []
         for ev in cat:
@@ -1189,6 +1185,9 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
             utm_ev = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
             if dd_only and not o.method_id:
                 print('Not accepting non-dd locations')
+                continue
+            elif dd_only and not o.method_id.id.endswith('GrowClust'):
+                print('Not accepting non-GrowClust locations')
                 continue
             try:
                 m = ev.magnitudes[-1].mag
@@ -1198,7 +1197,7 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
             if (xlims[0] < utm_ev[0] < xlims[1]
                 and ylims[0] < utm_ev[1] < ylims[1]
                 and np.abs(zlims[0]) > o.depth > (-1 * zlims[1])):
-                dpt = o.depth + z_correct
+                dpt = o.depth
                 pt_list.append((utm_ev[0], utm_ev[1], dpt, m,
                                 ev.resource_id.id.split('/')[-1]))
         # if len(pt_list) > 0:

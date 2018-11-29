@@ -135,7 +135,7 @@ def template_det_cats(cat, temp_list, outdir=False):
             cat.write('%s/%s_detections.shp' % (outdir, temp), format="SHAPEFILE")
     return temp_det_dict
 
-def catalog_to_gmt(catalog, outfile, dd_only=True):
+def catalog_to_gmt(catalogs, outfile, dd_only=True):
     """
     Write a catalog to a file formatted for gmt plotting
 
@@ -144,27 +144,43 @@ def catalog_to_gmt(catalog, outfile, dd_only=True):
     :param outfile:
     :return:
     """
-    catalog.events.sort(key=lambda x: x.preferred_origin().time)
-    t0 = catalog[0].preferred_origin().time.datetime
-    mags = np.array([ev.preferred_magnitude().mag for ev in catalog])
-    mags = list(mags / max(mags * 8)) # Squared, normalized mags
-    days = [int((ev.preferred_origin().time.datetime
-                 - t0).total_seconds() / 86400.)
-            for ev in catalog] # Elapsed days since first event
+    # Make hex list
+    pal_hex = sns.color_palette('deep', 10).as_hex()
+    cols = cycle(pal_hex)
+    syms = cycle(['c', 's', 'd', 't', 'n', 'a'])
     with open(outfile, 'w') as f:
-        for i, ev in enumerate(catalog):
-            o = ev.preferred_origin()
-            if not o.method_id:
-                continue
-            # We want depths to in m bsl here
-            if dd_only and o.method_id.id.endswith('HypoDD'):
-                dp = (o.depth + 164.) / 1000.
-                f.write('{} {} {} {} {}\n'.format(o.longitude, o.latitude, dp,
-                                                  days[i], mags[i]))
-            else:
-                dp = o.depth
-                f.write('{} {} {} {} {}\n'.format(o.longitude, o.latitude, dp,
-                                                  days[i], mags[i]))
+        for j, cat in enumerate(catalogs):
+            col = next(cols)
+            # Write clust no. comment
+            f.write('# Cluster {}\n'.format(j))
+            # Write rgb to header
+            f.write('>-G{}\n'.format(col))
+            if col == pal_hex[0]:
+                sym = next(syms)
+            cat.events.sort(key=lambda x: x.preferred_origin().time)
+            t0 = cat[0].preferred_origin().time.datetime
+            mags = np.array([ev.preferred_magnitude().mag for ev in cat])
+            mags = list(mags / max(mags * 7)) # Squared, normalized mags
+            days = [int((ev.preferred_origin().time.datetime
+                         - t0).total_seconds() / 86400.)
+                    for ev in cat] # Elapsed days since first event
+            for i, ev in enumerate(cat):
+                o = ev.preferred_origin()
+                if not o.method_id:
+                    continue
+                # We want depths to in m bsl here
+                if dd_only and o.method_id.id.endswith('GrowClust'):
+                    dp = o.depth / 1000.
+                    f.write(
+                        '{} {} {} {} {} {}\n'.format(
+                            o.longitude, o.latitude, dp, days[i],
+                            mags[i], sym))
+                else:
+                    dp = o.depth
+                    f.write(
+                        '{} {} {} {} {} {}\n'.format(
+                            o.longitude, o.latitude,
+                            dp, days[i], mags[i], sym))
     return
 
 def detection_multiplot_cjh(stream, template, times, events=None, title=None,
@@ -505,9 +521,37 @@ def template_extents(cat, temp_cat, temp_list='all', param='avg_dist', show=True
         fig.show()
     return fig
 
+def plot_two_cat_loc_changes(cat1, cat2, show=True):
+    """
+    Compare location changes between two catalogs
+
+    :param cat1: obspy Catalog
+    :param cat2: obspy Catalog
+    :return:
+    """
+    cat1_dict = {}
+    # Figz
+    fig, ax = plt.subplots()
+    for ev in cat1:
+        cat1_dict[ev.resource_id] = ev.preferred_origin()
+    for ev in cat2:
+        if ev.resource_id in cat1_dict:
+            loc1 = cat1_dict[ev.resource_id]
+            loc2 = ev.preferred_origin()
+            ax.scatter(x=(loc1.longitude, loc2.longitude),
+                       y=(loc1.latitude, loc2.latitude),
+                       facecolors=('none', 'red'),
+                       edgecolors='red')
+            ax.plot(x=(loc1.longitude, loc2.longitude),
+                    y=(loc1.latitude,loc2.latitude))
+    if show:
+        plt.show()
+    return ax
+
 def plot_location_changes(cat, bbox, show=True):
     fig, ax = plt.subplots()
-    mp = Basemap(projection='merc', lat_0=bbox[1][1] - bbox[1][0], lon_0=bbox[0][1] - bbox[0][0],
+    mp = Basemap(projection='merc', lat_0=bbox[1][1] - bbox[1][0],
+                 lon_0=bbox[0][1] - bbox[0][0],
                  resolution='h', llcrnrlon=bbox[0][0], llcrnrlat=bbox[1][1],
                  urcrnrlon=bbox[0][1], urcrnrlat=bbox[1][0],
                  suppress_ticks=True)
@@ -690,10 +734,72 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
             fig = plotting.cumulative_detections(dates=det_times, template_names=temp_names)
     return fig
 
+def plot_seismicity_with_dist(catalog, feedzone, dists=(200, 500, 1000),
+                              shells=False, normalized=False, ax=None,
+                              show=False, title=None):
+    """
+    Plot cumulative detection curves for given distances from a feedzone
+
+    :param catalog: Catalog of seismicity
+    :param feedzone: (lon, lat, depth) for feedzone in question
+    :param dists: Iterable of distances from feedzone
+    :return:
+    """
+    if not ax:
+        fig, ax1 = plt.subplots()
+    else:
+        ax1 = ax
+    dist_dates = []
+    dist_names = []
+    min_dates = []
+    max_dates = []
+    for i, dist in enumerate(dists):
+        if shells and i == 0:
+            # Events between well and first dist
+            dist_cat = [ev for ev in catalog
+                        if dist_calc(
+                    (ev.preferred_origin().latitude,
+                     ev.preferred_origin().longitude,
+                     ev.preferred_origin().depth / 1000.),
+                    feedzone) * 1000. < dist]
+        elif shells:
+            # Events between dist and previous dist
+            dist_cat = [ev for ev in catalog
+                        if dists[i - 1] <
+                        dist_calc(
+                    (ev.preferred_origin().latitude,
+                     ev.preferred_origin().longitude,
+                     ev.preferred_origin().depth / 1000.),
+                    feedzone) * 1000. <
+                        dist]
+        else:
+        # Make catalog within dist of feedzone
+            dist_cat = [ev for ev in catalog
+                        if dist_calc(
+                    (ev.preferred_origin().latitude,
+                     ev.preferred_origin().longitude,
+                     ev.preferred_origin().depth / 1000.),
+                    feedzone) * 1000. < dist]
+        dates = [ev.preferred_origin().time.datetime
+                 for ev in dist_cat]
+        dist_dates.append(dates)
+        dist_names.append('Within {} m'.format(dist))
+        min_dates.append(min(dates))
+        max_dates.append(max(dates))
+    min_dates.sort()
+    max_dates.sort()
+    ax1 = cumulative_detections(dates=dist_dates, template_names=dist_names,
+                                show=show, axes=ax1, normalized=normalized,
+                                plot_dates=[min_dates[0], max_dates[-1]],
+                                title=title)
+    return ax1
+
 def cumulative_detections(dates=None, template_names=None, detections=None,
                           plot_grouped=False, group_name=None, rate=False,
                           show=True, plot_legend=True, axes=None, save=False,
-                          savefile=None, color=None, plot_dates=None):
+                          savefile=None, color=None, tick_colors=None,
+                          normalized=False, deviation=False, plot_dates=None,
+                          title=None):
     """
     Plot cumulative detections or detecton rate in time.
 
@@ -727,6 +833,19 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     :param save: Save figure or show to screen, optional
     :type savefile: str
     :param savefile: String to save to, required is save=True
+    :param color: Define a color for a single line, will be red otherwise
+    :type color: Str or None
+    :param tick_colors: Whether to color axis ticks same as curve
+    :type tick_colors: bool
+    :param normalized: Whether to normalize the curves or leave absolute vals
+    :type normalized: bool
+    :param deviation: Plot the deviation from the average daily rate?
+    :type deviation: bool
+    :param plot_dates: List of datetime objects defining the start and end
+        of the plot
+    :type plot_dates: list
+    :param title: Title for plot
+    :type title: str or None
 
     :returns: :class:`matplotlib.figure.Figure`
 
@@ -767,8 +886,13 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
             template_names = group_name
         else:
             template_names = ['All templates']
+    if deviation:
+        print('Not implemented yet')
+        return
     if axes is None:
         ax = plt.gca()
+        if plot_dates:
+            xlims = (plot_dates[0], plot_dates[1])
     else:
         if axes.get_ylim()[-1] == 1.0:
             ax = axes
@@ -784,7 +908,7 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
         if not plot_dates:
             xlims = ax.get_xlim()
         else:
-            xlims = (plot_dates[0].datetime, plot_dates[1].datetime)
+            xlims = (plot_dates[0], plot_dates[1])
     # Make sure not to pad at edges
     ax.margins(0, 0)
     min_date = min([min(_d) for _d in dates])
@@ -796,9 +920,13 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
         # Account for step plot stopping
         if not color:
             color = next(colors)
-        if color == 'red':
-            linestyle = next(linestyles)
+            if color == 'red':
+                linestyle = next(linestyles)
+        else:
+            linestyle='-'
         counts = np.arange(-1, len(template_dates))
+        if normalized:
+            counts = [cnt / float(max(counts)) for cnt in counts]
         if rate:
             if not plot_grouped:
                 msg = 'Plotting rate only implemented for plot_grouped=True'
@@ -818,12 +946,13 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
         else:
             ax.step(final_dates, counts, linestyle,
                     color=color, label=template_names[k],
-                    linewidth=1.0, where='post',
+                    linewidth=1.5, where='post',
                     zorder=1)
+            # TODO The following doesn't appear to work
             if plot_dates:
                 if plot_dates[-1] < xlims[-1]:
                     ax.axhline(y=counts[-1], xmin=plot_dates[-1],
-                               xmax=xlims[-1], linewidth=1.0, color=color,
+                               xmax=xlims[-1], linewidth=1.5, color=color,
                                zorder=1)
             ax.set_ylabel('# of Events', fontsize=16)
     ax.set_xlabel('Date', fontsize=16)
@@ -868,8 +997,13 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     plt.gcf().autofmt_xdate()
     locs, labels = plt.xticks()
     plt.setp(labels, rotation=15)
-    if not rate:
+    if tick_colors:
+        ax.yaxis.label.set_color(color)
+        ax.tick_params(axis='y', colors=color)
+    if not rate and not normalized:
         ax.set_ylim([0, max([len(_d) for _d in dates]) * 1.1])
+    elif not rate and normalized:
+        ax.set_ylim([0, 1.2])
     if plot_legend:
         if axes:
             try:
@@ -888,10 +1022,12 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
             except UnboundLocalError:
                 print('Plotting on empty axes. No handles to add to.')
                 ax.legend(fontsize=10)
-            ax.set_xlim(xlims)
         elif ax.legend() is not None:
             leg = ax.legend(loc=2, prop={'size': 8}, ncol=2, fontsize=12)
             leg.get_frame().set_alpha(0.5)
+    ax.set_xlim(xlims)
+    if title:
+        plt.suptitle(title, fontsize=18)
     if save:
         plt.gcf().savefig(savefile)
         plt.close()

@@ -34,7 +34,7 @@ def avg_dto(dto_list):
 """Magnitude and b-val functions"""
 
 def plot_cumulative_mo(catalog, method='Ristau', dates=None,
-                       color='firebrick', axes=None):
+                       color='firebrick', axes=None, tick_colors=False):
     """
     Plot cumulative seismic moment with time from a catalog
     :param catalog: catalog of events to plot for
@@ -42,6 +42,7 @@ def plot_cumulative_mo(catalog, method='Ristau', dates=None,
     :param dates: Date range to plot
     :param color: color of the curve
     :param axes: Prexisting axes to plot into
+    :param tick_colors: Coordinate tick colors with curve?
     :return:
     """
     if dates:
@@ -84,6 +85,9 @@ def plot_cumulative_mo(catalog, method='Ristau', dates=None,
     math_str = r'$\sum{M_0}}$ dyne-cm'
     ax.set_ylabel(math_str, fontsize=16)
     ax.set_ylim(bottom=0)
+    if tick_colors:
+        ax.yaxis.label.set_color(color)
+        ax.tick_params(axis='y', colors=color)
     if axes:
         try:
             ax.legend()
@@ -104,17 +108,23 @@ def plot_cumulative_mo(catalog, method='Ristau', dates=None,
     return ax
 
 def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
-              fm_file=None, just_fms=False, fm_color=None,
-              cat_format='templates', focmecs=False):
+              fm_file=None, fm_color=None, cat_format='templates',
+              focmecs=False):
     """
     Plot earthquake magnitude as a function of time
     :param cat: catalog of earthquakes with mag info
     :param dates: list of UTCDateTime objects defining start and end of plot.
         Defaults to None.
-    :param metric: Are we plotting magnitudes with depth or with time?
+    :param metric: Are we plotting magnitudes with depth, time or
+        depth_w_time?
     :param ax: matplotlib.Axes object to plot on top of (optional)
     :param title: Plot title (optional)
     :param show: whether or not to show plot
+    :param fm_file: Path to focal mech output from AT code
+    :param fm_color: Focal mechanism fill color
+    :param cat_format: Event id naming convention for catalog (template or
+        detection)
+    :param focmecs: Plot focmec collection or not?
     :return: matplotlib.pyplot.Figure
     """
     if ax: # If axis passed in, set x-axis limits accordingly
@@ -169,15 +179,16 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
                 line = line.rstrip('\n')
                 line = line.split(',')
                 if cat_format == 'detections':
-                    sdrs[line[0]] = (float(line[1]), float(line[2]),
-                                     float(line[3]))
+                    fid = line[0].split('.')[0][:-6]
+                    sdrs[fid] = (float(line[1]), float(line[2]),
+                                 float(line[3]))
                 elif cat_format == 'templates':
                     sdrs[line[0].split('.')[0]] = (float(line[1]), float(line[2]),
                                                    float(line[3]))
     for ev in cat:
         if start < pytz.utc.localize(ev.origins[-1].time.datetime) < end:
             if cat_format == 'detections' and focmecs:
-                fm_id = '{}.{}.{}'.format(
+                fm_id = '{}_{}_{}'.format(
                     ev.resource_id.id.split('/')[-1].split('_')[0],
                     ev.resource_id.id.split('_')[-2],
                     ev.resource_id.id.split('_')[-1][:6])
@@ -196,8 +207,8 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
                         fm_tup.append(None)
                 elif metric == 'depth':
                     if ev.preferred_origin().method_id:
-                        if ev.preferred_origin().method_id.id.endswith('HypoDD'):
-                            mag_tup.append((ev.preferred_origin().depth - 350.,
+                        if ev.preferred_origin().method_id.id.endswith('GrowClust'):
+                            mag_tup.append((ev.preferred_origin().depth + 350.,
                                             ev.magnitudes[-1].mag))
                         else:
                             mag_tup.append((ev.preferred_origin().depth,
@@ -238,9 +249,9 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
         ax1.plot(xs, ys, 'mo', xs, fn(xs), '--k',
                  markersize=2)
         ax1.set_xlim([0, 5000])
-    elif metric == 'time' and not just_fms:
+    elif metric == 'time':
         mkline, stlines, bsline = ax1.stem(xs, ys, markerfmt='o',
-                                           label='Magnitudes')
+                                           label='Magnitudes', alpha=0.5)
         plt.setp(stlines, 'color', 'darkgray')
         plt.setp(stlines, 'linewidth', 1.)
         plt.setp(bsline, 'color', 'black')
@@ -257,8 +268,9 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
         ax1.set_xlim([start, end])
     elif metric == 'depth_w_time':
         ax1.set_ylabel('Depth (m bsl)')
-        ax1.scatter(xs, ys, s=7., marker='o', color='lightgreen',
-                    edgecolor='k', linewidth=0.3, label='Events')
+        ax1.scatter(xs, ys, s=9., marker='o', color='green',
+                    edgecolor='k', linewidth=0.3, label='Events',
+                    alpha=0.3)
         # plot Rot Andesite extents
         ax1.set_xlim([start, end])
         xlims = ax1.get_xlim()
@@ -266,13 +278,13 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
         yz_tkri = [810., 810., 2118., 2118.]
         yz_and = [2118., 2118., 3000., 3000.]
         # Tahorakuri
-        ax1.fill(xz, yz_tkri, color='gainsboro', zorder=0, alpha=0.5)
-        ax1.text(0.1, 0.45, 'Volcaniclastic', fontsize=10, color='k',
-                transform=ax1.transAxes)
+        ax1.fill(xz, yz_tkri, color='palegoldenrod', zorder=0, alpha=0.5)
+        ax1.text(0.2, 0.6, 'Tahorakuri', fontsize=10, color='k',
+                transform=ax1.transAxes, horizontalalignment='center')
         # Andesite
-        ax1.fill(xz, yz_and, color='palegoldenrod', zorder=0, alpha=0.5)
-        ax1.text(0.1, 0.25, 'Andesite', fontsize=10, color='k',
-                transform=ax1.transAxes)
+        ax1.fill(xz, yz_and, color='gainsboro', zorder=0, alpha=0.5)
+        ax1.text(0.2, 0.3, 'Andesite', fontsize=10, color='k',
+                transform=ax1.transAxes, horizontalalignment='center')
         ax1.set_xlabel('Date', fontsize=16)
         ax1.invert_yaxis()
         ax1.set_ylim([4000, -500])
