@@ -39,6 +39,33 @@ def catalog_arrays(catalog):
     return secs, mags
 
 
+def legend_from_clusters(infile, leg_file, size=0.5):
+    """
+    Helper to take the output of catalog_to_gmt and create the legend file
+    :param infile: Input catalog file formatted from catalog_to_gmt
+    :param leg_file: Output path for legend file
+    :return:
+    """
+    symbs = []
+    lines = []
+    with open(infile, 'r') as in_f:
+        for ln in in_f:
+            lines.append(ln.rstrip('\n'))
+    for i, line in enumerate(lines):
+        if line.startswith('#'):
+            symbs.append('S 0.1 {} {} {} 0.25p 0.4 Cluster {}\n'.format(
+                lines[i+2].split(' ')[-1], size, lines[i+1].split('G')[-1],
+                line.split(' ')[-1]
+            ))
+    with open(leg_file, 'w') as out_f:
+        out_f.write('G -0.1\n# Header\nH 14 Helvetica Kmeans Clusters\n')
+        out_f.write('# Horizontal line\nD 0.2 1p\n# How many columns?\n')
+        out_f.write('N 6\n# Start symbols\n')
+        for sym in symbs:
+            out_f.write(sym)
+    return
+
+
 def gmt_project(catalog, center, end, mags=None, secs=None, fm_file=None):
     """
     System call of gmt project at this point is best way to get what we want

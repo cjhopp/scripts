@@ -290,15 +290,24 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
             well_pt_lists.append(format_well_data(well_file, depth='mbsl'))
     if len(catalog) > 0:
         t0 = catalog[0].preferred_origin().time.datetime
-        pts = [(ev.preferred_origin().longitude,
-                ev.preferred_origin().latitude,
-                ev.preferred_origin().depth,
-                ev.preferred_magnitude().mag,
-                (ev.preferred_origin().time.datetime - t0).total_seconds(),
-                kilometer2degrees(ev.preferred_origin().origin_uncertainty.horizontal_uncertainty / 1000.),
-                ev.preferred_origin().depth_errors.uncertainty)
-               for ev in catalog]
-        lons, lats, ds, mags, secs, hus, dus = zip(*pts)
+        if errors:
+            pts = [(ev.preferred_origin().longitude,
+                    ev.preferred_origin().latitude,
+                    ev.preferred_origin().depth,
+                    ev.preferred_magnitude().mag,
+                    (ev.preferred_origin().time.datetime - t0).total_seconds(),
+                    kilometer2degrees(ev.preferred_origin().origin_uncertainty.horizontal_uncertainty / 1000.),
+                    ev.preferred_origin().depth_errors.uncertainty)
+                   for ev in catalog]
+            lons, lats, ds, mags, secs, hus, dus = zip(*pts)
+        else:
+            pts = [(ev.preferred_origin().longitude,
+                    ev.preferred_origin().latitude,
+                    ev.preferred_origin().depth,
+                    ev.preferred_magnitude().mag,
+                    (ev.preferred_origin().time.datetime - t0).total_seconds())
+                   for ev in catalog]
+            lons, lats, ds, mags, secs = zip(*pts)
         mags /= max(np.array(mags))
         days = np.array(secs) / 86400.
         n_days = days / np.max(days)
@@ -344,9 +353,9 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
             col = 'darkgray'
         if errors:
             ax1.vlines(x=y_data['x'], ymin=y_data['ymin'], ymax=y_data['ymax'],
-                       color='gray', alpha=0.3)
+                       color='gray', alpha=0.1)
             ax1.hlines(y=x_data['y'], xmin=x_data['xmin'], xmax=x_data['xmax'],
-                       color='gray', alpha=0.3)
+                       color='gray', alpha=0.1)
         # If profile is a list of xy pts, reproject everything
         if type(profile) == list:
             # Get projected distances

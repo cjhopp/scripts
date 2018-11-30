@@ -52,7 +52,6 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
         for pk in ev.picks:
             if (not pk.time_errors.upper_uncertainty
                 and not pk.time_errors.uncertainty):
-                print(pk)
                 sta = pk.waveform_id.station_code[:2]
                 chan = pk.waveform_id.channel_code[-1]
                 pk.time_errors.uncertainty = pick_uncertainty[sta][chan]

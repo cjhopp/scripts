@@ -40,7 +40,7 @@ def parse_arnold_params(files):
                     }
     return strs_params
 
-def plot_arnold_density(outdir, clust_name, ax=None, show=False):
+def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False):
     """
     Porting the contour plotting workflow from Richard's R code
 
@@ -109,7 +109,8 @@ def plot_arnold_density(outdir, clust_name, ax=None, show=False):
            alpha=0.7, label='90% SH$_{max}$')
     ax.plot([np.deg2rad(mean) + np.pi, 0, np.deg2rad(mean)], [10, 0, 10],
             linewidth=2., linestyle='--', color='k', label='SH$_{max}$')
-    ax.legend(bbox_to_anchor=(0.1, 1.1))
+    if legend:
+        ax.legend(bbox_to_anchor=(0.1, 1.1))
     ax.yaxis.grid(False)
     ax.xaxis.grid(False)
     ax.margins(0.0)
@@ -123,8 +124,6 @@ def plot_arnold_density(outdir, clust_name, ax=None, show=False):
         plt.show()
     return ax
 
-def plot_one_cluster():
-    return
 
 def plot_all_clusters(group_cats, outdir, plot_dir, wells=None, **kwargs):
     """

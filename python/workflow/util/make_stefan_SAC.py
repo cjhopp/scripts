@@ -187,7 +187,7 @@ def cat_2_stefan_SAC(cat, inv, wav_dirs, outdir, start=None, end=None):
                 sta_wavs = st1.select(station=pk_sta)
                 # Copy it out of the way and trim
                 work_st = sta_wavs.copy().trim(tr_starttime, tr_endtime)
-                if len(work_st) == 0:
+                if work_st == None:
                     continue
                 rel_origin_t = ev_time - work_st[0].stats.starttime
                 # Grab stationXML
