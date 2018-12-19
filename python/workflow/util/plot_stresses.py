@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
@@ -40,7 +41,38 @@ def parse_arnold_params(files):
                     }
     return strs_params
 
-def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False):
+def boxes_to_gmt(box_file, out_file, stress_dir=None):
+    """
+    Output gmt formatted file for quadtree boxes. Can color by various params
+
+    :param box_file: Path to box file from matlab quadtree codes
+    :param out_file: Path to output file
+    :param stress_dir: Path to directory of corresponding inversion results
+    :return:
+    """
+    with open(out_file, 'w') as out_f:
+        with open(box_file, 'r') as in_f:
+            for i, ln in enumerate(in_f):
+                line = ln.rstrip('\n').split()
+                if stress_dir:
+                    froot = '/'.join([stress_dir, '{}_0'.format(i)])
+                    param_files = glob('{}.*{}.dat'.format(froot,
+                                                           'dparameters'))
+                    if len(param_files) == 0:
+                        out_f.write('>-ZNaN\n')
+                    else:
+                        strs_params = parse_arnold_params(param_files)
+                        color = strs_params['nu']['mean']
+                        # Put color zval in header
+                        out_f.write('>-Z{}\n'.format(color))
+                out_f.write('{} {}\n{} {}\n{} {}\n{} {}\n{} {}\n'.format(
+                    line[0], line[2], line[0], line[3], line[1], line[3],
+                    line[1], line[2], line[0], line[2]
+                ))
+    return
+
+def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False,
+                        label=False, cardinal_dirs=False):
     """
     Porting the contour plotting workflow from Richard's R code
 
@@ -48,12 +80,19 @@ def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False):
     :param clust_name: String of cluster name to plot
     :param ax: matplotlib Axes object to plot onto. This should already
         be defined as polar projection.
+    :param legend: Whether we want the legend or not
     :param show: Automatically show this plot once we're done?
+    :param label: Are we labeling in the top left by the cluster #?
+    :param cardinal_dirs: NSEW around edge or plot, or no?
+
     :return: matplotlib Axes object
     """
     froot = '/'.join([outdir, clust_name])
     grid_f = '{}.{}.dat'.format(froot, 's123grid')
     param_files = glob('{}.*{}.dat'.format(froot, 'dparameters'))
+    if not os.path.isfile(grid_f):
+        print('{} doesnt exist. Cluster likely too small'.format(grid_f))
+        return
     phivec, thetavec = parse_arnold_grid(grid_f)
     strs_params = parse_arnold_params(param_files)
     # Read in the density estimates for the cells of the grid defined by
@@ -101,6 +140,7 @@ def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False):
     mean = strs_params['Shmax']['mean']
     X10 = strs_params['Shmax']['X10']
     X90 = strs_params['Shmax']['X90']
+    nu = strs_params['nu']['mean']
     width = (np.abs(X10 - mean) + np.abs(X90 - mean)) / 2.
     w_rad = np.deg2rad(width)
     # Plot both sides of bow tie
@@ -111,6 +151,12 @@ def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False):
             linewidth=2., linestyle='--', color='k', label='SH$_{max}$')
     if legend:
         ax.legend(bbox_to_anchor=(0.1, 1.1))
+    if label:
+        ax.text(0., 0.9, clust_name.split('_')[0], fontsize=14,
+                transform=ax.transAxes)
+    # Text for nu
+    ax.text(0.5, -0.15, '$\\nu$ = {:0.1f}'.format(nu), fontsize=14.,
+            transform=ax.transAxes, horizontalalignment='center')
     ax.yaxis.grid(False)
     ax.xaxis.grid(False)
     ax.margins(0.0)
@@ -119,7 +165,10 @@ def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False):
     ax.set_theta_offset(np.pi / 2.0)
     ax.set_yticklabels([])
     ax.set_ylim([0, np.pi / 2])
-    ax.set_xticklabels(['N', '', 'E', '', 'S', '', 'W'])
+    if cardinal_dirs:
+        ax.set_xticklabels(['N', '', 'E', '', 'S', '', 'W'])
+    else:
+        ax.set_xticklabels([])
     if show:
         plt.show()
     return ax

@@ -3,11 +3,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 import csv
+import os
 import numpy as np
 import seaborn as sns
 import matplotlib.dates as mdates
 
 from copy import deepcopy
+from glob import glob
 from collections import defaultdict
 from datetime import timedelta, datetime
 from itertools import cycle
@@ -21,6 +23,8 @@ from eqcorrscan.utils import plotting, pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
 from eqcorrscan.utils.plotting import detection_multiplot
 from eqcorrscan.core.match_filter import Detection, Family, Party, Template
+# Import local stress functions
+from plot_stresses import parse_arnold_params, parse_arnold_grid
 
 def get_cmap(n, name='hsv'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
@@ -135,26 +139,129 @@ def template_det_cats(cat, temp_list, outdir=False):
             cat.write('%s/%s_detections.shp' % (outdir, temp), format="SHAPEFILE")
     return temp_det_dict
 
-def catalog_to_gmt(catalogs, outfile, dd_only=True):
+def catalog_to_gmt(catalogs, outfile, dd_only=True, centroids=False,
+                   stress_dir=None, clust_nums=None, min_ev=2, color_nu=False,
+                   sigmas=False):
     """
     Write a catalog to a file formatted for gmt plotting
 
     Format: lon, lat, depth(km bsl), integer day, normalized mag(?)
-    :param catalog:
-    :param outfile:
+    :param catalogs: a list of catalogs, normally one for a list of clusters
+    :param outfile: Path to output file for gmt plotting
+    :param dd_only: Whether to only accept GrowClust locations
+    :param centroids: Flag for plotting only the cluster centroid to declutter
+        stress plots. Must provide stress_dir. If sigmas == True, will plot
+        the principle stresses projected onto horizontal surface. Otherwise,
+        will plot SHmax wedges.
+        If you don't want to plot symbols at cluster centroid, you can also
+        provide a list of (centroid x, centroid y) of boxes in case of
+        quadtree clustering.
+    :param stress_dir: Output directory for Arnold-Townend stress inversion
+    :param clust_nums: If the cluster numbers are different than simply the
+        order of the catalogs given, provide them as a list.
+    :param min_ev: Minimum number of events per cluster. Will skip otherwise.
+    :param color_nu: Color the wedges by the value of nu?
+    :param sigmas: Plot principle stress vectors in map view?
     :return:
     """
+    # Check centroid args
+    if centroids and not stress_dir:
+        print('Provide stress directory if plotting centroids')
+        return
     # Make hex list
-    pal_hex = sns.color_palette('deep', 10).as_hex()
+    pal_hex = sns.color_palette().as_hex()
+    print(pal_hex)
     cols = cycle(pal_hex)
-    syms = cycle(['c', 's', 'd', 't', 'n', 'a'])
+    syms = cycle(['c', 's', 'd', 't', 'n', 'a', 'i'])
     with open(outfile, 'w') as f:
         for j, cat in enumerate(catalogs):
-            col = next(cols)
             # Write clust no. comment
-            f.write('# Cluster {}\n'.format(j))
+            if clust_nums:
+                clust_name = '{}_0'.format(clust_nums[j])
+                f.write('# Cluster {}\n'.format(clust_nums[j]))
+            else:
+                clust_name = '{}_0'.format(j)
+                f.write('# Cluster {}\n'.format(j))
+            # Pull stress inversion results
+            froot = '/'.join([stress_dir, clust_name])
+            grid_f = '{}.{}.dat'.format(froot, 's123grid')
+            param_files = glob('{}.*{}.dat'.format(froot, 'dparameters'))
+            if not os.path.isfile(grid_f):
+                print('No output grid file...cluster probably not used')
+                continue
+            phivec, thetavec = parse_arnold_grid(grid_f)
+            strs_params = parse_arnold_params(param_files)
+            # Grab means, 10% and 90% azimuths
+            mean = strs_params['Shmax']['mean']
+            X10 = strs_params['Shmax']['X10']
+            X90 = strs_params['Shmax']['X90']
+            nu = strs_params['nu']['mean']
+            if len(cat) < min_ev:
+                print('Too few events in cluster. Skipping')
+                continue
+            col = next(cols)
+            # Plot various symbols for stress inv results at clust center
+            if centroids:
+                if type(centroids) == list:
+                    cent_lat = centroids[j][1]
+                    cent_lon = centroids[j][0]
+                elif centroids == True:
+                    # Plotting SHmax bowtie (maybe other stuff) at clust
+                    # centroid
+                    cent_lat = np.median([
+                        ev.preferred_origin().latitude for ev in cat
+                        if ev.preferred_origin().method_id.id.endswith('GrowClust')])
+                    cent_lon = np.median([
+                        ev.preferred_origin().longitude for ev in cat
+                        if ev.preferred_origin().method_id.id.endswith('GrowClust')])
+                if sigmas:
+                    # Grab sigma trend and plunge values
+                    s_cols = ['red', 'green', 'blue']
+                    size=1.5
+                    for i, sig in enumerate(['S1', 'S2', 'S3']):
+                        phi = strs_params['{}:Phi'.format(sig)]['mean']
+                        theta = strs_params['{}:Theta'.format(sig)]['mean']
+                        # Sort out upwards vectors
+                        if theta > 90:
+                            theta = 180. - theta
+                            if phi < 0:
+                                phi = 180 + phi
+                            else:
+                                phi = phi + 180.
+                        else:
+                            if phi < 0:
+                                phi = 360 + phi
+                        length = 0.6 * np.sin(np.deg2rad(theta))
+                        f.write('>-W{},{}\n'.format(size, s_cols[i]))
+                        # Size in 3rd column. Then 4 and 5 for az and length
+                        f.write('{} {} 0 {} {}\n'.format(cent_lon, cent_lat,
+                                                         phi, length))
+                else:
+                    # Flip these around for other half of bowtie
+                    back_10 = X10 - 180.
+                    back_90 = X90 - 180.
+                    if back_10 < 0.:
+                        back_10 += 360.
+                    if back_90 < 0.:
+                        back_90 += 360.
+                    if color_nu:
+                        f.write('{} {} {} {} {}\n'.format(cent_lon, cent_lat,
+                                                          nu, X90, X10))
+                        f.write('{} {} {} {} {}\n'.format(cent_lon, cent_lat,
+                                                          nu, back_90,
+                                                          back_10))
+                    else:
+                        f.write('>-Glightgray\n')
+                        f.write('{} {} {} {}\n'.format(cent_lon, cent_lat,
+                                                       X90, X10))
+                        f.write('{} {} {} {}\n'.format(cent_lon, cent_lat,
+                                                       back_90, back_10))
+                continue
             # Write rgb to header
-            f.write('>-G{}\n'.format(col))
+            if color_nu:
+                f.write('>\n')
+            else:
+                f.write('>-G{}\n'.format(col))
             if col == pal_hex[0]:
                 sym = next(syms)
             cat.events.sort(key=lambda x: x.preferred_origin().time)
@@ -171,10 +278,18 @@ def catalog_to_gmt(catalogs, outfile, dd_only=True):
                 # We want depths to in m bsl here
                 if dd_only and o.method_id.id.endswith('GrowClust'):
                     dp = o.depth / 1000.
-                    f.write(
-                        '{} {} {} {} {} {}\n'.format(
-                            o.longitude, o.latitude, dp, days[i],
-                            mags[i], sym))
+                    if color_nu:
+                        # 4th field is nu
+                        f.write(
+                            '{} {} {} {} {} {}\n'.format(
+                                o.longitude, o.latitude, nu, dp,
+                                mags[i], sym))
+                    else:
+                        # 4th field is integer day elapsed
+                        f.write(
+                            '{} {} {} {} {} {}\n'.format(
+                                o.longitude, o.latitude, dp, days[i],
+                                mags[i], sym))
                 else:
                     dp = o.depth
                     f.write(

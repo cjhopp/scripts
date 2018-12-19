@@ -28,7 +28,7 @@ from itertools import cycle
 from subprocess import Popen, PIPE
 from matplotlib import patches, transforms
 from shelly_focmecs import cluster_to_consensus
-from obspy import read, Catalog
+from obspy import read, Catalog, UTCDateTime
 from scipy.signal import argrelmax, argrelmin
 from scipy.stats import circmean
 from scipy.linalg import lstsq
@@ -285,7 +285,8 @@ def arnold2FMC(input_files, plotname='Test', outfile='test.png', show=True):
     return fig
 
 def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
-                         id_type='detection', dd=True, date_range=[]):
+                         id_type='detection', dd=True, date_range=[],
+                         color_by_date=True, field=None, pscoupe=False):
     """
     Take *_sdr.dat output file from Arnold FM software
     add magnitudes, and output to psmeca format
@@ -295,6 +296,11 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
     :param names: Whether to include event names in psmeca file
     :param id_type: Whether catalog ids are in detection or template format
     :param dd: Use only dd locations?
+    :param date_range: List of start and end date for events to output
+    :param color_by_date: Whether to include integer days for coloring events
+    :param field: If coloring, specify which field is being plotted
+    :param pscoupe: Flag to trigger hacky workaround for coloring beachballs
+        in cross-sections projected with pscoupe.
     :return:
     """
     # If len 0 catalog, warn and write empty file for gmt-plotting loop
@@ -304,10 +310,18 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
             of.write('')
         print('Length 0 catalog: writing empty output file.')
         return
+    # if coloring by date, set start date for either field
+    if color_by_date and field == 'Nga':
+        date0 = UTCDateTime(2012, 5, 1).datetime
+    elif color_by_date and field == 'Rot':
+        date0 = UTCDateTime(2012, 1, 1).datetime
+    elif color_by_date and not field:
+        print('Must specify field if coloring by date')
+        return
     if date_range:
         dates = date_range
     else:
-        dats = [ev.picks[-1].time for ev in catalog]
+        dats = [ev.origins[-1].time for ev in catalog]
         dates = [min(dats), max(dats)]
     if id_type == 'detection':
         # Dict keyed to detection id formatting from focmec package
@@ -316,7 +330,8 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
             ev.resource_id.id.split('_')[-2],
             ev.resource_id.id.split('_')[-1][:6]): ev
             for ev in catalog
-            if dates[0] < ev.picks[-1].time < dates[1]}
+            if dates[0] <= ev.origins[-1].time <= dates[1]}
+        print(id_dict)
     with open(arnold_file, 'r') as f:
         next(f)
         with open(outfile, 'w') as of:
@@ -332,7 +347,7 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                     ev = [ev for ev in catalog
                           if str(ev.resource_id).split('/')[-1]
                           == line[0].split('.')[0]
-                          if dates[0] < ev.picks[-1].time < dates[1]]
+                          if dates[0] < ev.origins[-1].time < dates[1]]
                 if len(ev) > 0:
                     ev = ev[0]
                     if len(ev.magnitudes) == 0:
@@ -340,23 +355,204 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                         print(ev)
                         continue
                     o = ev.preferred_origin()
-                    if dd and not o.method_id.id.split('/')[-1] == 'HypoDD':
+                    if dd and not o.method_id.id.split('/')[-1] == 'GrowClust':
                         continue
                     if names:
                         name = str(ev.resource_id).split('/')[-1]
                     else:
-                        name = ''
-                    of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
-                        o.longitude, o.latitude, o.depth / 1000., line[1],
-                        line[2], line[3], ev.preferred_magnitude().mag, name))
+                        name = ' '
+                    if color_by_date and pscoupe:
+                        day = int((o.time.datetime - date0).total_seconds()
+                                  / 86400.)
+                        of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
+                            o.longitude, o.latitude, o.depth / 1000.,
+                            line[1], line[2], line[3],
+                            ev.preferred_magnitude().mag, day))
+                    elif color_by_date and not pscoupe:
+                        day = int((o.time.datetime - date0).total_seconds()
+                                  / 86400.)
+                        of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
+                            o.longitude, o.latitude, day,
+                            line[1], line[2], line[3],
+                            ev.preferred_magnitude().mag, name))
+
+                    else:
+                        of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
+                            o.longitude, o.latitude, o.depth / 1000., line[1],
+                            line[2], line[3], ev.preferred_magnitude().mag,
+                            name))
     return
 
-def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, window=None):
+
+def get_grid_ind(grid_x, grid_y, grid_z, lon, lat, depth):
+    """
+    Given vectors for grid lon (x) and grid lat (y), return nearest indices
+    """
+    lat_index = np.argmin((grid_y - lat) ** 2)
+    lon_index = np.argmin((grid_x - lon) ** 2)
+    depth_index = np.argmin((grid_z - depth) ** 2)
+    return lon_index, lat_index, depth_index
+
+def make_sdr_dict(a_file):
+    """
+    Helper to parse sdr file and return dict keyed to appropriate eid
+    """
+    sdr_dict = {}
+    with open(a_file, 'r') as f:
+        for ln in f:
+            line = ln.rstrip('\n')
+            pts = line.split(',')
+            sdr_dict[pts[0].split('.')[0]] = (pts[1], pts[2], pts[3])
+    return sdr_dict
+
+
+def catalog_to_qtree(catalog, sdr_file, outfile, rotate=None):
+    """
+    Parse catalog to input format for John's quadtree implementation in matlab
+
+    :param catalog: obspy.core.event.Catalog
+    :param sdr_file: Path to Arnold-Townend output file with sdrs
+    :param outfile: Path to output file
+    :param rotate: Rotation clockwise from north (active rotation: pts, not
+        coordinate system)
+    :return:
+    """
+    out_strs = [] # Lines for outfile
+    # This is using template convention for event resource id...Careful if
+    # doing Ngatamariki as there are some detection focal mechs!
+    ev_dict = {ev.resource_id.id.split('/')[-1]:
+               [ev.preferred_origin().longitude,
+                ev.preferred_origin().latitude,
+                ev.preferred_origin().depth,
+                ev.preferred_origin().time,
+                ev.preferred_magnitude().mag,
+                ev.resource_id.id.split('/')[-1]]
+               for ev in catalog}
+    if rotate:
+        # 2D rotation matrix
+        rot = np.deg2rad(rotate)
+        # Point to rotate around (rough center)
+        cx = np.median([ev.preferred_origin().longitude for ev in catalog])
+        cy = np.median([ev.preferred_origin().latitude for ev in catalog])
+        rot_mat = np.array([[np.cos(rot), -np.sin(rot)],
+                            [np.sin(rot), np.cos(rot)]])
+        print('Rotation matrix:\n{}'.format(rot_mat))
+    sdr_dict = make_sdr_dict(sdr_file)
+    # If we don't have sdr for this event, we'll remove it so that we have
+    # a catalog that corresponds to the matlab input files
+    rms = []
+    for ev in catalog:
+        eid = ev.resource_id.id.split('/')[-1]
+        o = ev.preferred_origin()
+        lon, lat, dp, time, mag = [o.longitude, o.latitude, o.depth, o.time,
+                                   ev.preferred_magnitude().mag]
+        if not eid in sdr_dict:
+            print('{} not in sdr file'.format(eid))
+            rms.append(ev)
+            continue
+        if rotate:
+            # Shift to origin of rotation
+            x, y = np.dot(rot_mat, np.array([lon - cx, lat - cy]).T)
+            # Shift back
+            x += cx
+            y +=cy
+        else:
+            x = 0
+            y = 0
+        s, d, r = sdr_dict[eid]
+        out_strs.append('{} {} {} {} {} {} {} {} {}\n'.format(
+            lon, lat, dp, s, d, r, mag, x, y))
+    for rm in rms:
+        catalog.events.remove(rm)
+    with open(outfile, 'w') as of:
+        for ostr in out_strs:
+            of.write(ostr)
+    return catalog
+
+
+def grid_catalog_satsi(catalog, h_space, z_space, sdr_file, field,
+                       outfile, dim=4):
+    """
+    Break a catalog into uniform spatial grid for input into SATSI.
+
+    :param catalog: Catalog of events to grid
+    :param h_space: Geographic spacing between nodes in degrees
+    :param z_space: Depth spacing between nodes in meters
+    :param sdr_file: Path to Arnold-Townend output file with sdrs
+    :param field: 'Nga' or 'Rot' for defining grid extents
+    :param outfile: Path to output file. Will be input for MSATSI
+    :param dim: Dimensions to grid on. Defaults to 3
+
+    :return:
+    """
+    # Just manually set bounds for each field, spacing is going to be the
+    # only param we will want to change anyways
+    if field == 'Rot':
+        lat = np.arange(-38.66, -38.57, h_space)
+        lon = np.arange(176.14, 176.24, h_space)
+        depth = np.arange(-500, 5000, z_space)
+    elif field == 'Nga':
+        lat = np.arange(-38.58, -38.52, h_space)
+        lon = np.arange(176.16, 176.22, h_space)
+        depth = np.arange(-500, 4000, z_space)
+    else:
+        print('{} is not a geothermal field, moron'.format(field))
+        return
+    out_strs = [] # Lines for outfile
+    # This is using template convention for event resource id...Careful if
+    # doing Ngatamariki as there are some detection focal mechs!
+    ev_dict = {ev.resource_id.id.split('/')[-1]:
+               [ev.preferred_origin().longitude,
+                ev.preferred_origin().latitude,
+                ev.preferred_origin().depth]
+               for ev in catalog}
+    sdr_dict = make_sdr_dict(sdr_file)
+    for eid, coords in ev_dict.items():
+        xi, yi, zi = get_grid_ind(lon, lat, depth,
+                                  coords[0], coords[1], coords[2])
+        if not eid in sdr_dict:
+            print('{} not in sdr file'.format(eid))
+            continue
+        s, d, r = sdr_dict[eid]
+        # MSATSI needs dip trend, not strike. Hopefully RHR applies so we
+        # can just add 90...
+        trend = float(s) + 90.
+        if trend >= 360.:
+            trend -= 360.
+        if dim > 2:
+            out_strs.append('{} {} {} 0 {:.2f} {:.2f} {:.2f}\n'.format(
+                xi, yi, zi, trend, float(d), float(r)))
+        else:
+            out_strs.append('{} {} {:.2f} {:.2f} {:.2f}\n'.format(
+                xi, yi, trend, float(d), float(r)))
+    with open(outfile, 'w') as of:
+        for ostr in out_strs:
+            of.write(ostr)
+    # Write geographic coordinates of each node to file in same directory
+    grid_out = outfile.rstrip('.in') + '.grid'
+    with open(grid_out, 'w') as grid:
+        if dim > 2:
+            for i, long in enumerate(lon):
+                for j, lati in enumerate(lat):
+                    for k, d in enumerate(depth):
+                        grid.write('{} {} {} {} {} {}\n'.format(
+                            i, j, k, long, lati, d
+                        ))
+        else:
+            for i, long in enumerate(lon):
+                for j, lati in enumerate(lat):
+                    grid.write('{} {} {} {}\n'.format(
+                        i, j, long, lati
+                    ))
+    return
+
+def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, min_num=20,
+                          window=None):
     """
     Function to break output file from arnold focmec into clusters
 
     :param sdr_err_file: Output from afmec (projname_scalar_err_degrees.csv)
-    :param clust_dict: Dict with clust name as keys, lists of ev name as value
+    :param group_cats: List of Catalogs for clusters of interest
     :param outdir: Directory to put the separated files into
     :param time_dict (optional): Dict with the size of window and overlap
     :return:
@@ -364,6 +560,9 @@ def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, window=None):
     clust_dict = {i: [ev.resource_id.id.split('/')[-1] for ev in grp]
                   for i, grp in enumerate(group_cats)}
     for clust_name, big_ev_list in clust_dict.items():
+        if len(big_ev_list) < min_num:
+            print('Too few events in cluster {}'.format(clust_name))
+            continue
         print('Doing cluster: {}'.format(clust_name))
         with open(sdr_err_file, 'r') as f:
             clust_ev_list = [line
@@ -375,6 +574,7 @@ def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, window=None):
                           for i in range(0, len(clust_ev_list) - window)]
         else:
             sub_clusts = [clust_ev_list]
+        # This will name file as clust_id_0 unless you're time windowing
         for i, ev_list in enumerate(sub_clusts):
             new_fname = '{}_{}.csv'.format(clust_name, i)
             with open('{}/{}'.format(outdir, new_fname), 'w') as of:

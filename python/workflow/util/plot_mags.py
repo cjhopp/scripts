@@ -387,6 +387,7 @@ def bval_calc(cat, bin_size, MC, weight=False):
         Mc = MC
     # Establish bin limits and spacing
     bin_vals = np.arange(min(mags), max(mags), bin_size)
+    # bin_vals = np.arange(-1., 4., bin_size)
     non_cum_bins = []
     cum_bins = []
     bval_vals = []
@@ -424,7 +425,9 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                      histograms=False, title=None, weight=True,
                      show=True, savefig=None, ax=None):
     """
-    Function to mimick Shelly et al., 2016 bval plots
+    Function to plot cumulative distributions of mag for an arbitrary
+    number of catalogs on the same Axes
+
     :param catalogs: list of obspy.core.Catalog objects
     :param cat_names: Names of catalogs in the order of catalogs
     :param bin_size: If ploting
@@ -435,8 +438,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     :param ax: Axes object to plot to (optional)
     :return:
     """
-    colors = cycle([sns.xkcd_rgb['soft blue'], sns.xkcd_rgb['soft blue'],
-                    sns.xkcd_rgb['dull orange'], sns.xkcd_rgb['dull orange']])
+    colors = cycle(['black', 'black', 'darkgray', 'darkgray'])
     if not ax:
         fig, ax = plt.subplots()
     for cat, name in zip(catalogs, cat_names):
@@ -457,9 +459,9 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
             #         np.power([10],[b_dict['a'] - b_dict['b'] * aval
             #                        for aval in b_dict['bval_bins']]),
             #         color='darkgray', linestyle='--')
-            if name.startswith('Nga N'):
+            if name.startswith('North'):
                 y = 0.9
-            elif name.startswith('Nga S'):
+            elif name.startswith('South'):
                 y = 0.74
             text = 'B-value: {:.2f}'.format(b_dict['b'])
             ax.text(0.8, y - 0.08, text, transform=ax.transAxes, color=col,

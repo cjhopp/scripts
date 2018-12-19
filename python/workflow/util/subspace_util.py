@@ -13,7 +13,7 @@ import pandas as pd
 
 from glob import glob
 from itertools import chain
-from obspy import Stream, read, UTCDateTime
+from obspy import Stream, read, UTCDateTime, Catalog
 import datetime
 from datetime import timedelta
 from eqcorrscan.core.match_filter import Tribe, Template
@@ -72,20 +72,24 @@ def grab_day_wavs(wav_dirs, dto, stachans):
     return st.sort(['starttime'])
 
 def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
-                          show=False, debug=1):
+                          show=False, debug=1, method='single'):
     """
     In the case that the distance matrix has been saved, forego calculating it
 
     Functionality extracted from eqcorrscan.utils.clustering.cluster
     Consider adding this functionality and commiting to new branch
-    :param party: Party used to make the dist_mat
     :param dist_mat: Distance matrix of pair-wise template wav correlations
+    :param temp_list: List of (Stream, Event) with same length as shape of
+        distance matrix
+    :param corr_thresh: Correlation thresholds corresponding to the method
+        used in the linkage algorithm
+    :param method: Method fed to scipy.heirarchy.linkage
     :return: Groups of templates
     """
     dist_vec = squareform(dist_mat)
     if debug >= 1:
         print('Computing linkage')
-    Z = linkage(dist_vec)
+    Z = linkage(dist_vec, method=method)
     if show:
         if debug >= 1:
             print('Plotting the dendrogram')
@@ -383,13 +387,22 @@ def stack_party(party, sac_dir, method='linear', filt_params=None, align=True,
             fam_stack.write(filename, format='MSEED')
     return fam_stacks
 
-def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
-                  pre_pick, length, shift_len, corr_thresh, cores,
-                  dist_mat=False, show=False):
+def cluster_tribe(tribe, corr_thresh, corr_params=None, raw_wav_dir=None,
+                  dist_mat=False, show=False, method='single'):
     """
     Cross correlate all templates in a tribe and return separate tribes for
     each cluster
-    :param tribe:
+    :param tribe: Tribe to cluster
+    :param corr_thresh: Correlation threshold for clustering
+    :param corr_params: Dictionary of filter parameters. Must include keys:
+        lowcut, highcut, samp_rate, filt_order, pre_pick, length, shift_len,
+        cores
+    :param raw_wav_dir: Directory of waveforms to take from
+    :param dist_mat: If there's a precomputed distance matrix, use this
+        instead of doing all the correlations
+    :param show: Show the dendrogram? Careful as this can exceed max recursion
+    :param wavs: Should we even bother with processing waveforms? Otherwise
+        will just populate the tribe with an empty Stream
     :return:
 
     .. Note: Functionality here is pilaged from align design as we don't
@@ -397,79 +410,101 @@ def cluster_tribe(tribe, raw_wav_dir, lowcut, highcut, samp_rate, filt_order,
     """
 
     tribe.sort()
-    raw_wav_files = glob('%s/*' % raw_wav_dir)
-    raw_wav_files.sort()
-    all_wavs = [wav.split('/')[-1].split('.')[0] for wav in raw_wav_files]
-    names = [t.name for t in tribe if t.name in all_wavs]
-    wavs = [wav for wav in raw_wav_files if wav.split('/')[-1].split('.')[0]
-            in names]
-    new_tribe = Tribe()
-    new_tribe.templates = [temp for temp in tribe if temp.name in names]
-    print('Processing temps')
-    temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
-                            samp_rate=samp_rate, filt_order=filt_order,
-                            parallel=True, num_cores=cores),
-                  template)
-                 for tmp, template in zip(wavs, new_tribe)]
-    print('Clipping traces')
-    for temp in temp_list:
-        print('Clipping template %s' % temp[1].name)
-        for tr in temp[0]:
-            pk = [pk for pk in temp[1].event.picks
-                  if pk.waveform_id.station_code == tr.stats.station
-                  and pk.waveform_id.channel_code == tr.stats.channel][0]
-            tr.trim(starttime=pk.time - shift_len - pre_pick,
-                    endtime=pk.time - pre_pick + length + shift_len)
-    trace_lengths = [tr.stats.endtime - tr.stats.starttime for st in
-                     temp_list for tr in st[0]]
-    clip_len = min(trace_lengths) - (2 * shift_len)
-    stachans = list(set([(tr.stats.station, tr.stats.channel)
-                         for st in temp_list for tr in st[0]]))
-    print('Aligning traces')
-    for stachan in stachans:
-        trace_list = []
-        trace_ids = []
-        for i, st in enumerate(temp_list):
-            tr = st[0].select(station=stachan[0], channel=stachan[1])
-            if len(tr) > 0:
-                trace_list.append(tr[0])
-                trace_ids.append(i)
-            if len(tr) > 1:
-                warnings.warn('Too many matches for %s %s' % (stachan[0],
-                                                              stachan[1]))
-        shift_len_samples = int(shift_len * trace_list[0].stats.sampling_rate)
-        shifts, cccs = stacking.align_traces(
-            trace_list=trace_list, shift_len=shift_len_samples, positive=True)
-        for i, shift in enumerate(shifts):
-            st = temp_list[trace_ids[i]][0]
-            start_t = st.select(
-                station=stachan[0], channel=stachan[1])[0].stats.starttime
-            start_t += shift_len
-            start_t -= shift
-            st.select(
-                station=stachan[0], channel=stachan[1])[0].trim(
-                start_t, start_t + clip_len)
-    print('Clustering')
+    if corr_params and raw_wav_dir:
+        shift_len = corr_params['shift_len']
+        lowcut = corr_params['lowcut']
+        highcut = corr_params['highcut']
+        samp_rate = corr_params['samp_rate']
+        filt_order = corr_params['filt_order']
+        pre_pick = corr_params['pre_pick']
+        length = corr_params['length']
+        cores = corr_params['cores']
+        raw_wav_files = glob('%s/*' % raw_wav_dir)
+        raw_wav_files.sort()
+        all_wavs = [wav.split('/')[-1].split('.')[0] for wav in raw_wav_files]
+        names = [t.name for t in tribe if t.name in all_wavs]
+        wavs = [wav for wav in raw_wav_files
+                if wav.split('/')[-1].split('.')[0] in names]
+        new_tribe = Tribe()
+        new_tribe.templates = [temp for temp in tribe if temp.name in names]
+        print('Processing temps')
+        temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
+                                samp_rate=samp_rate, filt_order=filt_order,
+                                parallel=True, num_cores=cores),
+                      template)
+                     for tmp, template in zip(wavs, new_tribe)]
+        print('Clipping traces')
+        for temp in temp_list:
+            print('Clipping template %s' % temp[1].name)
+            for tr in temp[0]:
+                pk = [pk for pk in temp[1].event.picks
+                      if pk.waveform_id.station_code == tr.stats.station
+                      and pk.waveform_id.channel_code == tr.stats.channel][0]
+                tr.trim(starttime=pk.time - shift_len - pre_pick,
+                        endtime=pk.time - pre_pick + length + shift_len)
+        trace_lengths = [tr.stats.endtime - tr.stats.starttime for st in
+                         temp_list for tr in st[0]]
+        clip_len = min(trace_lengths) - (2 * shift_len)
+        stachans = list(set([(tr.stats.station, tr.stats.channel)
+                             for st in temp_list for tr in st[0]]))
+        print('Aligning traces')
+        for stachan in stachans:
+            trace_list = []
+            trace_ids = []
+            for i, st in enumerate(temp_list):
+                tr = st[0].select(station=stachan[0], channel=stachan[1])
+                if len(tr) > 0:
+                    trace_list.append(tr[0])
+                    trace_ids.append(i)
+                if len(tr) > 1:
+                    warnings.warn('Too many matches for %s %s' % (stachan[0],
+                                                                  stachan[1]))
+            shift_len_samples = int(shift_len * trace_list[0].stats.sampling_rate)
+            shifts, cccs = stacking.align_traces(
+                trace_list=trace_list, shift_len=shift_len_samples, positive=True)
+            for i, shift in enumerate(shifts):
+                st = temp_list[trace_ids[i]][0]
+                start_t = st.select(
+                    station=stachan[0], channel=stachan[1])[0].stats.starttime
+                start_t += shift_len
+                start_t -= shift
+                st.select(
+                    station=stachan[0], channel=stachan[1])[0].trim(
+                    start_t, start_t + clip_len)
+        print('Clustering')
     if isinstance(dist_mat, np.ndarray):
+        print('Assuming the tribe provided is the same shape as dist_mat')
+        # Dummy streams
+        temp_list = [(Stream(), template) for template in tribe]
         groups = cluster_from_dist_mat(dist_mat=dist_mat, temp_list=temp_list,
-                                       show=show, corr_thresh=corr_thresh)
+                                       show=show, corr_thresh=corr_thresh,
+                                       method=method)
     else:
         groups = clustering.cluster(temp_list, show=show,
                                     corr_thresh=corr_thresh, allow_shift=False,
-                                    save_corrmat=True,
-                                    cores=cores)
+                                    save_corrmat=True, cores=cores)
     group_tribes = []
-    for group in groups:
-        group_tribes.append(Tribe(templates=[Template(st=tmp[0],
-                                                      name=tmp[1].name,
-                                                      event=tmp[1].event,
-                                                      highcut=highcut,
-                                                      lowcut=lowcut,
-                                                      samp_rate=samp_rate,
-                                                      filt_order=filt_order,
-                                                      prepick=pre_pick)
-                                             for tmp in group]))
-    return group_tribes
+    group_cats = []
+    if corr_params:
+        for group in groups:
+            group_tribes.append(
+                Tribe(templates=[Template(st=tmp[0], name=tmp[1].name,
+                                          event=tmp[1].event, highcut=highcut,
+                                          lowcut=lowcut, samp_rate=samp_rate,
+                                          filt_order=filt_order,
+                                          prepick=pre_pick)
+                                 for tmp in group]))
+            group_cats.append(Catalog(events=[tmp[1].event for tmp in group]))
+    else:
+        for group in groups:
+            group_tribes.append(
+                Tribe(templates=[Template(st=tmp[0], name=tmp[1].name,
+                                          event=tmp[1].event, highcut=None,
+                                          lowcut=None, samp_rate=None,
+                                          filt_order=None, prepick=None)
+                                 for tmp in group]))
+            group_cats.append(Catalog(events=[tmp[1].event for tmp in group]))
+    return group_tribes, group_cats
 
 def Tribe_2_Detector(tribe_dir, raw_wavs, outdir, lowcut, highcut, filt_order,
                      samp_rate, shift_len, reject, dimension, prepick,
