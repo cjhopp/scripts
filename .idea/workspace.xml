@@ -9,11 +9,6 @@
       <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/plugin_dir/nlloc/locate_BY.nlloc" afterPath="$USER_HOME$/obspyck/plugin_dir/nlloc/locate_BY.nlloc" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
       <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/scripts.iml" afterPath="$PROJECT_DIR$/.idea/scripts.iml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/focal_mecs.py" afterPath="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" afterPath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/util/plot_stresses.py" afterPath="$PROJECT_DIR$/python/workflow/util/plot_stresses.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/python/workflow/util/subspace_util.py" afterPath="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
     </list>
     <ignored path="scripts.iws" />
@@ -155,9 +150,11 @@
           <file leaf-file-name="subspace_util.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1380">
-                  <caret line="424" column="20" lean-forward="false" selection-start-line="424" selection-start-column="20" selection-end-line="424" selection-end-column="20" />
-                  <folding />
+                <state relative-caret-position="417">
+                  <caret line="14" column="54" lean-forward="false" selection-start-line="14" selection-start-column="54" selection-end-line="14" selection-end-column="54" />
+                  <folding>
+                    <element signature="e#66#75#0" expanded="true" />
+                  </folding>
                 </state>
               </provider>
             </entry>
@@ -352,8 +349,8 @@
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py" />
         <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
       </list>
     </option>
   </component>
@@ -1234,9 +1231,11 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1380">
-          <caret line="424" column="20" lean-forward="false" selection-start-line="424" selection-start-column="20" selection-end-line="424" selection-end-column="20" />
-          <folding />
+        <state relative-caret-position="417">
+          <caret line="14" column="54" lean-forward="false" selection-start-line="14" selection-start-column="54" selection-end-line="14" selection-end-column="54" />
+          <folding>
+            <element signature="e#66#75#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>

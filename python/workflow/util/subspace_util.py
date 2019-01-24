@@ -8,8 +8,11 @@ import fnmatch
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
+try:
+    import seaborn as sns
+    import pandas as pd
+except:
+    print('Environment doesnt contain seaborn/pandas')
 
 from glob import glob
 from itertools import chain
