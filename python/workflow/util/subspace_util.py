@@ -387,8 +387,8 @@ def stack_party(party, sac_dir, method='linear', filt_params=None, align=True,
             fam_stack.write(filename, format='MSEED')
     return fam_stacks
 
-def cluster_tribe(tribe, corr_thresh, corr_params=None, raw_wav_dir=None,
-                  dist_mat=False, show=False, method='single'):
+def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
+                dist_mat=False, out_cat=None, show=False, method='average'):
     """
     Cross correlate all templates in a tribe and return separate tribes for
     each cluster
@@ -400,6 +400,7 @@ def cluster_tribe(tribe, corr_thresh, corr_params=None, raw_wav_dir=None,
     :param raw_wav_dir: Directory of waveforms to take from
     :param dist_mat: If there's a precomputed distance matrix, use this
         instead of doing all the correlations
+    :param out_cat: Output catalog corresponding to the events
     :param show: Show the dendrogram? Careful as this can exceed max recursion
     :param wavs: Should we even bother with processing waveforms? Otherwise
         will just populate the tribe with an empty Stream
@@ -409,7 +410,6 @@ def cluster_tribe(tribe, corr_thresh, corr_params=None, raw_wav_dir=None,
         want the multiplexed portion of that function.
     """
 
-    tribe.sort()
     if corr_params and raw_wav_dir:
         shift_len = corr_params['shift_len']
         lowcut = corr_params['lowcut']
@@ -421,27 +421,39 @@ def cluster_tribe(tribe, corr_thresh, corr_params=None, raw_wav_dir=None,
         cores = corr_params['cores']
         raw_wav_files = glob('%s/*' % raw_wav_dir)
         raw_wav_files.sort()
-        all_wavs = [wav.split('/')[-1].split('.')[0] for wav in raw_wav_files]
-        names = [t.name for t in tribe if t.name in all_wavs]
+        all_wavs = [wav.split('/')[-1].split('.')[0].split('_')[0]
+                    for wav in raw_wav_files]
+        print(all_wavs[0])
+        names = [ev.resource_id.id.split('/')[-1] for ev in catalog
+                 if ev.resource_id.id.split('/')[-1] in all_wavs]
         wavs = [wav for wav in raw_wav_files
-                if wav.split('/')[-1].split('.')[0] in names]
-        new_tribe = Tribe()
-        new_tribe.templates = [temp for temp in tribe if temp.name in names]
+                if wav.split('/')[-1].split('.')[0].split('_')[0] in names]
+        new_cat = Catalog(events=[ev for ev in catalog
+                                  if ev.resource_id.id.split('/')[-1]
+                                  in names])
+        new_cat.write(out_cat, format="QUAKEML")
         print('Processing temps')
-        temp_list = [(shortproc(read(tmp),lowcut=lowcut, highcut=highcut,
-                                samp_rate=samp_rate, filt_order=filt_order,
-                                parallel=True, num_cores=cores),
-                      template)
-                     for tmp, template in zip(wavs, new_tribe)]
+        temp_list = [(shortproc(read('{}/*'.format(tmp)),lowcut=lowcut,
+                                highcut=highcut, samp_rate=samp_rate,
+                                filt_order=filt_order, parallel=True,
+                                num_cores=cores), ev)
+                     for tmp, ev in zip(wavs, new_cat)]
         print('Clipping traces')
         for temp in temp_list:
-            print('Clipping template %s' % temp[1].name)
+            print('Clipping template %s' % temp[1].resource_id.id)
+            rm_ts = [] # Make a list of traces with no pick to remove
             for tr in temp[0]:
-                pk = [pk for pk in temp[1].event.picks
+                pk = [pk for pk in temp[1].picks
                       if pk.waveform_id.station_code == tr.stats.station
-                      and pk.waveform_id.channel_code == tr.stats.channel][0]
-                tr.trim(starttime=pk.time - shift_len - pre_pick,
-                        endtime=pk.time - pre_pick + length + shift_len)
+                      and pk.waveform_id.channel_code == tr.stats.channel]
+                if len(pk) == 0:
+                    rm_ts.append(tr)
+                else:
+                    tr.trim(starttime=pk[0].time - shift_len - pre_pick,
+                            endtime=pk[0].time - pre_pick + length + shift_len)
+            # Remove pickless traces
+            for rm in rm_ts:
+                temp[0].traces.remove(rm)
         trace_lengths = [tr.stats.endtime - tr.stats.starttime for st in
                          temp_list for tr in st[0]]
         clip_len = min(trace_lengths) - (2 * shift_len)
@@ -459,9 +471,11 @@ def cluster_tribe(tribe, corr_thresh, corr_params=None, raw_wav_dir=None,
                 if len(tr) > 1:
                     warnings.warn('Too many matches for %s %s' % (stachan[0],
                                                                   stachan[1]))
-            shift_len_samples = int(shift_len * trace_list[0].stats.sampling_rate)
+            shift_len_samples = int(shift_len *
+                                    trace_list[0].stats.sampling_rate)
             shifts, cccs = stacking.align_traces(
-                trace_list=trace_list, shift_len=shift_len_samples, positive=True)
+                trace_list=trace_list, shift_len=shift_len_samples,
+                positive=True)
             for i, shift in enumerate(shifts):
                 st = temp_list[trace_ids[i]][0]
                 start_t = st.select(
@@ -475,7 +489,7 @@ def cluster_tribe(tribe, corr_thresh, corr_params=None, raw_wav_dir=None,
     if isinstance(dist_mat, np.ndarray):
         print('Assuming the tribe provided is the same shape as dist_mat')
         # Dummy streams
-        temp_list = [(Stream(), template) for template in tribe]
+        temp_list = [(Stream(), ev) for ev in catalog]
         groups = cluster_from_dist_mat(dist_mat=dist_mat, temp_list=temp_list,
                                        show=show, corr_thresh=corr_thresh,
                                        method=method)
@@ -488,22 +502,24 @@ def cluster_tribe(tribe, corr_thresh, corr_params=None, raw_wav_dir=None,
     if corr_params:
         for group in groups:
             group_tribes.append(
-                Tribe(templates=[Template(st=tmp[0], name=tmp[1].name,
-                                          event=tmp[1].event, highcut=highcut,
-                                          lowcut=lowcut, samp_rate=samp_rate,
-                                          filt_order=filt_order,
-                                          prepick=pre_pick)
+                Tribe(templates=[Template(
+                    st=tmp[0], name=tmp[1].resource_id.id.split('/')[-1],
+                    event=tmp[1], highcut=highcut,
+                    lowcut=lowcut, samp_rate=samp_rate,
+                    filt_order=filt_order,
+                    prepick=pre_pick)
                                  for tmp in group]))
-            group_cats.append(Catalog(events=[tmp[1].event for tmp in group]))
+            group_cats.append(Catalog(events=[tmp[1] for tmp in group]))
     else:
         for group in groups:
             group_tribes.append(
-                Tribe(templates=[Template(st=tmp[0], name=tmp[1].name,
-                                          event=tmp[1].event, highcut=None,
-                                          lowcut=None, samp_rate=None,
-                                          filt_order=None, prepick=None)
+                Tribe(templates=[Template(
+                    st=tmp[0], name=tmp[1].resource_id.id.split('/')[-1],
+                    event=tmp[1].event, highcut=None,
+                    lowcut=None, samp_rate=None,
+                    filt_order=None, prepick=None)
                                  for tmp in group]))
-            group_cats.append(Catalog(events=[tmp[1].event for tmp in group]))
+            group_cats.append(Catalog(events=[tmp[1] for tmp in group]))
     return group_tribes, group_cats
 
 def Tribe_2_Detector(tribe_dir, raw_wavs, outdir, lowcut, highcut, filt_order,

@@ -13,7 +13,7 @@ from glob import glob
 from collections import defaultdict
 from datetime import timedelta, datetime
 from itertools import cycle
-from mpl_toolkits.basemap import Basemap
+# from mpl_toolkits.basemap import Basemap
 from matplotlib.patches import Ellipse
 from matplotlib.dates import date2num
 from pyproj import Proj, transform
@@ -145,6 +145,10 @@ def catalog_to_gmt(catalogs, outfile, dd_only=True, centroids=False,
     """
     Write a catalog to a file formatted for gmt plotting
 
+
+    # XX TODO maybe add a formatting option for date strings instead of
+    # XX TODO integer date.
+
     Format: lon, lat, depth(km bsl), integer day, normalized mag(?)
     :param catalogs: a list of catalogs, normally one for a list of clusters
     :param outfile: Path to output file for gmt plotting
@@ -182,20 +186,21 @@ def catalog_to_gmt(catalogs, outfile, dd_only=True, centroids=False,
             else:
                 clust_name = '{}_0'.format(j)
                 f.write('# Cluster {}\n'.format(j))
-            # Pull stress inversion results
-            froot = '/'.join([stress_dir, clust_name])
-            grid_f = '{}.{}.dat'.format(froot, 's123grid')
-            param_files = glob('{}.*{}.dat'.format(froot, 'dparameters'))
-            if not os.path.isfile(grid_f):
-                print('No output grid file...cluster probably not used')
-                continue
-            phivec, thetavec = parse_arnold_grid(grid_f)
-            strs_params = parse_arnold_params(param_files)
-            # Grab means, 10% and 90% azimuths
-            mean = strs_params['Shmax']['mean']
-            X10 = strs_params['Shmax']['X10']
-            X90 = strs_params['Shmax']['X90']
-            nu = strs_params['nu']['mean']
+            if stress_dir:
+                # Pull stress inversion results
+                froot = '/'.join([stress_dir, clust_name])
+                grid_f = '{}.{}.dat'.format(froot, 's123grid')
+                param_files = glob('{}.*{}.dat'.format(froot, 'dparameters'))
+                if not os.path.isfile(grid_f):
+                    print('No output grid file...cluster probably not used')
+                    continue
+                phivec, thetavec = parse_arnold_grid(grid_f)
+                strs_params = parse_arnold_params(param_files)
+                # Grab means, 10% and 90% azimuths
+                mean = strs_params['Shmax']['mean']
+                X10 = strs_params['Shmax']['X10']
+                X90 = strs_params['Shmax']['X90']
+                nu = strs_params['nu']['mean']
             if len(cat) < min_ev:
                 print('Too few events in cluster. Skipping')
                 continue
@@ -300,7 +305,7 @@ def catalog_to_gmt(catalogs, outfile, dd_only=True, centroids=False,
 
 def detection_multiplot_cjh(stream, template, times, events=None, title=None,
                             streamcolour='k', templatecolour='r',
-                            size=(10.5, 7.5), **kwargs):
+                            size=(10.5, 7.5), cccsum=None, thresh=None):
     """
     Modified version of det_multiplot from eqcorrscan CJH
 
@@ -320,11 +325,14 @@ def detection_multiplot_cjh(stream, template, times, events=None, title=None,
     :param templatecolour: Colour to plot the template in.
     :type size: tuple
     :param size: Figure size.
+    :type cccsum: np.ndarray
+    :param cccsum: Optionally provide cccsum as obspy stream to plot below
 
     :returns: :class:`matplotlib.figure.Figure`
 
     """
     import matplotlib.pyplot as plt
+    plt.style.use('default')
     # Only take traces that match in both accounting for streams shorter than
     # templates
     template_stachans = [(tr.stats.station, tr.stats.channel)
@@ -338,13 +346,15 @@ def detection_multiplot_cjh(stream, template, times, events=None, title=None,
                  if (tr.stats.station,
                      tr.stats.channel) in template_stachans])
     ntraces = len(temp)
+    if cccsum:
+        ntraces += 1
     fig, axes = plt.subplots(ntraces, 1, sharex=True, figsize=size)
     if len(temp) > 1:
         axes = axes.ravel()
     mintime = min([tr.stats.starttime for tr in temp])
     temp.sort(keys=['starttime'])
     for i, template_tr in enumerate(temp):
-        if len(temp) > 1:
+        if len(axes) > 1:
             axis = axes[i]
         else:
             axis = axes
@@ -365,7 +375,7 @@ def detection_multiplot_cjh(stream, template, times, events=None, title=None,
                        timedelta((j * image.stats.delta) / 86400)
                        for j in range(len(image.data))]
         axis.plot(image_times, image.data / max(image.data),
-                  streamcolour, linewidth=1.2)
+                  streamcolour, linewidth=1.)
         for j, time in enumerate(times):
             lagged_time = UTCDateTime(time) + (template_tr.stats.starttime -
                                                mintime)
@@ -391,10 +401,10 @@ def detection_multiplot_cjh(stream, template, times, events=None, title=None,
             normalizer /= max(template_tr.data)
             axis.plot(template_times,
                       template_tr.data * normalizer,
-                      templatecolour, linewidth=1.2)
+                      templatecolour, linewidth=1.)
         ylab = '.'.join([template_tr.stats.station,
                          template_tr.stats.channel])
-        axis.set_ylabel(ylab, rotation=0, fontsize=16,
+        axis.set_ylabel(ylab, rotation=0, fontsize=14,
                         horizontalalignment='right',
                         verticalalignment='center')
         if events:
@@ -409,15 +419,24 @@ def detection_multiplot_cjh(stream, template, times, events=None, title=None,
                       transform=axis.transAxes, verticalalignment='center',
                       bbox=dict(ec='k', fc='w'))
         axis.set_yticklabels([])
-    if len(template) > 1:
-        axes[len(axes) - 1].set_xlabel('Time')
-    else:
-        axis.set_xlabel('Time')
+        axis.axis('on')
+    if cccsum:
+        ccc_times = [cccsum[0].stats.starttime.datetime +
+                     timedelta((j * cccsum[0].stats.delta) / 86400)
+                     for j in range(len(cccsum[0].data))]
+        axes[-1].plot(ccc_times, cccsum[0].data, color='steelblue', linewidth=1.0)
+        axes[-1].set_ylabel('Network CC Sum', fontsize=14)
+        axes[-1].axhline(thresh, linestyle='--', color='r', linewidth=1.0,
+                         label='Threshold')
+        axes[-1].axis('on')
+        axes[-1].legend()
+    axes[len(axes) - 1].set_xlabel('Time', fontsize=14)
     if title:
         axes[0].set_title(title, fontsize=18)
     plt.subplots_adjust(hspace=0, left=0.175, right=0.95, bottom=0.07)
     plt.tight_layout()
-    plt.xticks(rotation=10)
+    plt.margins(x=0.0)
+    # plt.xticks(rotation=10)
     return axes
 
 def simple_snr(noise, signal):
@@ -850,14 +869,22 @@ def plot_detections_rate(cat, temp_list='all', bbox=None, depth_thresh=None, cum
     return fig
 
 def plot_seismicity_with_dist(catalog, feedzone, dists=(200, 500, 1000),
-                              shells=False, normalized=False, ax=None,
-                              show=False, title=None):
+                              dimension=3, shells=False, normalized=False,
+                              ax=None, show=False, title=None):
     """
     Plot cumulative detection curves for given distances from a feedzone
 
     :param catalog: Catalog of seismicity
-    :param feedzone: (lon, lat, depth) for feedzone in question
+    :param feedzone: (lat, lon, depth (km)) for feedzone in question
     :param dists: Iterable of distances from feedzone
+    :param shells: Plot distances as hollow, cylindrical bins (shells)
+    :param normalized: Normalize the curves?
+    :param ax: Plot onto a preexisting axes
+    :param show: Show the plot?
+    :param title: Title for plot?
+
+    .. note: RK24 Feedzones: (-38.6149, 176.2025, 2.9)
+             RK23 Feedzones: (-38.6162, 176.2076, 2.9)
     :return:
     """
     if not ax:
@@ -871,30 +898,50 @@ def plot_seismicity_with_dist(catalog, feedzone, dists=(200, 500, 1000),
     for i, dist in enumerate(dists):
         if shells and i == 0:
             # Events between well and first dist
-            dist_cat = [ev for ev in catalog
-                        if dist_calc(
-                    (ev.preferred_origin().latitude,
-                     ev.preferred_origin().longitude,
-                     ev.preferred_origin().depth / 1000.),
-                    feedzone) * 1000. < dist]
+            if dimension == 3:
+                dist_cat = [ev for ev in catalog
+                            if dist_calc(
+                        (ev.preferred_origin().latitude,
+                         ev.preferred_origin().longitude,
+                         ev.preferred_origin().depth / 1000.),
+                        feedzone) * 1000. < dist]
+            elif dimension == 2:
+                dist_cat = [ev for ev in catalog
+                            if dist_calc(
+                        (ev.preferred_origin().latitude,
+                         ev.preferred_origin().longitude, 0),
+                        (feedzone[0], feedzone[1], 0)) * 1000. < dist]
         elif shells:
             # Events between dist and previous dist
-            dist_cat = [ev for ev in catalog
-                        if dists[i - 1] <
-                        dist_calc(
-                    (ev.preferred_origin().latitude,
-                     ev.preferred_origin().longitude,
-                     ev.preferred_origin().depth / 1000.),
-                    feedzone) * 1000. <
-                        dist]
+            if dimension == 3:
+                dist_cat = [ev for ev in catalog
+                            if dists[i - 1] <
+                            dist_calc(
+                        (ev.preferred_origin().latitude,
+                         ev.preferred_origin().longitude,
+                         ev.preferred_origin().depth / 1000.),
+                        feedzone) * 1000. < dist]
+            elif dimension == 2:
+                dist_cat = [ev for ev in catalog
+                            if dists[i - 1] < dist_calc(
+                        (ev.preferred_origin().latitude,
+                         ev.preferred_origin().longitude, 0),
+                        (feedzone[0], feedzone[1], 0)) * 1000. < dist]
         else:
-        # Make catalog within dist of feedzone
-            dist_cat = [ev for ev in catalog
-                        if dist_calc(
-                    (ev.preferred_origin().latitude,
-                     ev.preferred_origin().longitude,
-                     ev.preferred_origin().depth / 1000.),
-                    feedzone) * 1000. < dist]
+            # Make catalog within dist of feedzone
+            if dimension == 3:
+                dist_cat = [ev for ev in catalog
+                            if dist_calc(
+                        (ev.preferred_origin().latitude,
+                         ev.preferred_origin().longitude,
+                         ev.preferred_origin().depth / 1000.),
+                        feedzone) * 1000. < dist]
+            elif dimension == 2:
+                dist_cat = [ev for ev in catalog
+                            if dist_calc(
+                        (ev.preferred_origin().latitude,
+                         ev.preferred_origin().longitude, 0),
+                        (feedzone[0], feedzone[1], 0)) * 1000. < dist]
         dates = [ev.preferred_origin().time.datetime
                  for ev in dist_cat]
         dist_dates.append(dates)
@@ -1033,12 +1080,10 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
         final_dates = deepcopy(template_dates)
         final_dates.insert(0, min_date)
         # Account for step plot stopping
-        if not color:
-            color = next(colors)
-            if color == 'red':
-                linestyle = next(linestyles)
-        else:
-            linestyle='-'
+        color = next(colors)
+        if color == 'red':
+            linestyle = next(linestyles)
+        print(color)
         counts = np.arange(-1, len(template_dates))
         if normalized:
             counts = [cnt / float(max(counts)) for cnt in counts]

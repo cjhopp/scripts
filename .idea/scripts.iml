@@ -10,6 +10,7 @@
     <orderEntry type="module" module-name="pymap" />
     <orderEntry type="module" module-name="hypoDDpy" />
     <orderEntry type="module" module-name="hashpy" />
+    <orderEntry type="module" module-name="EQcorrscan" />
   </component>
   <component name="TestRunnerService">
     <option name="projectConfiguration" value="Nosetests" />

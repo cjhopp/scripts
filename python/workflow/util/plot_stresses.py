@@ -41,6 +41,68 @@ def parse_arnold_params(files):
                     }
     return strs_params
 
+def arnold_stress_to_gmt(out_dir, out_file, spacing):
+    """
+    Arnold stress output directory to gmt input file. Writing this specifically
+    for plotting gridded principle axes to compare with PMG inversion
+
+    :param out_dir: Path to output directory of Arnold stress package.
+    :param out_file: Path to file that will be written for use with gmt
+    :param spacing: Horizontal grid spacing in degrees.
+    :return:
+    """
+    grid_file = glob('{}/*.grid'.format(out_dir))[0]
+    grid_dict = {}
+    # Dictionary of grid indices: grid coordinates
+    with open(grid_file, 'r') as gf:
+        for ln in gf:
+            line = ln.rstrip('\n').split()
+            grid_dict['{}_{}'.format(line[0], line[1])] = (line[2], line[3])
+    # Make list of unique indices in directory
+    out_ps = glob('{}/*.eps'.format(out_dir))
+    indices = list(set([ps.rstrip('.eps').split('/')[-1] for ps in out_ps]))
+    # Write sigmas and boxes file
+    with open('{}.boxes'.format(out_file), 'w') as box_f:
+        with open(out_file, 'w') as f:
+            for ind in indices:
+                param_files = glob('{}/{}.*{}.dat'.format(out_dir, ind,
+                                                          'dparameters'))
+                strs_params = parse_arnold_params(param_files)
+                # Grab sigma trend and plunge values
+                s_cols = ['red', 'green', 'blue']
+                size = 1.5
+                for i, sig in enumerate(['S1', 'S2', 'S3']):
+                    phi = strs_params['{}:Phi'.format(sig)]['mean']
+                    theta = strs_params['{}:Theta'.format(sig)]['mean']
+                    # Sort out upwards vectors
+                    if theta > 90:
+                        theta = 180. - theta
+                        if phi < 0:
+                            phi = 180 + phi
+                        else:
+                            phi = phi + 180.
+                    else:
+                        if phi < 0:
+                            phi = 360 + phi
+                    length = 0.6 * np.sin(np.deg2rad(theta))
+                    f.write('>-W{},{}\n'.format(size, s_cols[i]))
+                    # Size in 3rd column. Then 4 and 5 for az and length
+                    f.write('{} {} 0 {} {}\n'.format(grid_dict[ind][0],
+                                                     grid_dict[ind][1],
+                                                     phi, length))
+                    # nu boxes
+                    color = strs_params['nu']['mean']
+                    # Put color zval in header
+                    lat = float(grid_dict[ind][1])
+                    lon = float(grid_dict[ind][0])
+                    h = spacing / 2.0
+                    box_f.write('>-Z{}\n'.format(color))
+                    box_f.write('{} {}\n{} {}\n{} {}\n{} {}\n{} {}\n'.format(
+                        lon - h, lat + h, lon + h, lat + h, lon + h, lat - h,
+                        lon - h, lat - h, lon - h, lat + h
+                    ))
+    return
+
 def boxes_to_gmt(box_file, out_file, stress_dir=None):
     """
     Output gmt formatted file for quadtree boxes. Can color by various params

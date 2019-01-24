@@ -393,6 +393,16 @@ def get_grid_ind(grid_x, grid_y, grid_z, lon, lat, depth):
     depth_index = np.argmin((grid_z - depth) ** 2)
     return lon_index, lat_index, depth_index
 
+def get_grid_coords(grid_x, grid_y, grid_z, lon, lat, depth):
+    """
+    Same as above, except return node coords instead of indices
+    :return:
+    """
+    latitude = grid_y[np.argmin((grid_y - lat) ** 2)]
+    longitude = grid_x[np.argmin((grid_x - lon) ** 2)]
+    depth_c = grid_z[np.argmin((grid_z - depth) ** 2)]
+    return longitude, latitude, depth_c
+
 def make_sdr_dict(a_file):
     """
     Helper to parse sdr file and return dict keyed to appropriate eid
@@ -470,18 +480,22 @@ def catalog_to_qtree(catalog, sdr_file, outfile, rotate=None):
     return catalog
 
 
-def grid_catalog_satsi(catalog, h_space, z_space, sdr_file, field,
-                       outfile, dim=4):
+def grid_catalog_satsi(catalog, h_space, z_space, field,
+                       out, dim=4, sdr_file=None, sdr_err_file=None):
     """
-    Break a catalog into uniform spatial grid for input into SATSI.
+    Break a catalog into uniform spatial grid for input into SATSI or,
+    optionaly, to Arnold-Townend.
 
     :param catalog: Catalog of events to grid
     :param h_space: Geographic spacing between nodes in degrees
     :param z_space: Depth spacing between nodes in meters
-    :param sdr_file: Path to Arnold-Townend output file with sdrs
     :param field: 'Nga' or 'Rot' for defining grid extents
-    :param outfile: Path to output file. Will be input for MSATSI
+    :param out: Path to output file for msatsi input, path to output directory
+        for arnold townend input.
     :param dim: Dimensions to grid on. Defaults to 3
+    :param sdr_file: Path to Arnold-Townend output file with sdrs
+    :param sdr_err_file: Can provide the sdr error file from Arnold package
+        if outputting to Arnold stress input file.
 
     :return:
     """
@@ -506,6 +520,56 @@ def grid_catalog_satsi(catalog, h_space, z_space, sdr_file, field,
                 ev.preferred_origin().latitude,
                 ev.preferred_origin().depth]
                for ev in catalog}
+    if sdr_err_file:
+        sdr_file_dict = {}
+        with open(sdr_err_file, 'r') as f:
+            next(f)
+            for ln in f:
+                line = ln.rstrip('\n').split(',')
+                sdr_file_dict[line[0].split('.')[0]] = '{},{},{},{}\n'.format(
+                    line[1], line[2], line[3], line[-1])
+        # Dictionary of {(xi, yi, zi): with corresponding event lines
+        if dim > 2:
+            sdr_err_dict = {(x, y, z): []
+                            for x in range(lon.shape[0])
+                            for y in range(lat.shape[0])
+                            for z in range(depth.shape[0])}
+        elif dim == 2:
+            sdr_err_dict = {(x, y): []
+                            for x in range(lon.shape[0])
+                            for y in range(lat.shape[0])}
+        for ev in catalog:
+            eid = ev.resource_id.id.split('/')[-1]
+            o = ev.preferred_origin()
+            if eid in sdr_file_dict:
+                xc, yc, zc = get_grid_ind(lon, lat, depth, o.longitude,
+                                          o.latitude, o.depth)
+                if dim > 2:
+                    sdr_err_dict[(xc, yc, zc)].append(sdr_file_dict[eid])
+                elif dim == 2:
+                    sdr_err_dict[(xc, yc)].append(sdr_file_dict[eid])
+        for g_inds, lines in sdr_err_dict.items():
+            if len(lines) >= 20:
+                outfile = '{}/{}_{}.csv'.format(out, g_inds[0], g_inds[1])
+                with open(outfile, 'w') as out_f:
+                    for ln in lines:
+                        out_f.write(ln)
+        # Write grid indices and coords to file
+        with open('{}/grid.grid'.format(out), 'w') as gf:
+            for x in range(lon.shape[0]):
+                for y in range(lat.shape[0]):
+                    if dim == 2:
+                        gf.write('{} {} {} {}\n'.format(x, y,
+                                                        lon[x], lat[y]))
+                        continue
+                    for z in range(depth.shape[0]):
+                        gf.write('{} {} {} {} {} {}\n'.format(x, y, z,
+                                                            lon[x], lat[y],
+                                                            depth[z]))
+        return
+    elif not sdr_file:
+        print('Must provide either sdr_err_file or sdr_file')
+        return
     sdr_dict = make_sdr_dict(sdr_file)
     for eid, coords in ev_dict.items():
         xi, yi, zi = get_grid_ind(lon, lat, depth,
@@ -525,11 +589,11 @@ def grid_catalog_satsi(catalog, h_space, z_space, sdr_file, field,
         else:
             out_strs.append('{} {} {:.2f} {:.2f} {:.2f}\n'.format(
                 xi, yi, trend, float(d), float(r)))
-    with open(outfile, 'w') as of:
+    with open(out, 'w') as of:
         for ostr in out_strs:
             of.write(ostr)
     # Write geographic coordinates of each node to file in same directory
-    grid_out = outfile.rstrip('.in') + '.grid'
+    grid_out = out.rstrip('.in') + '.grid'
     with open(grid_out, 'w') as grid:
         if dim > 2:
             for i, long in enumerate(lon):
@@ -544,6 +608,76 @@ def grid_catalog_satsi(catalog, h_space, z_space, sdr_file, field,
                     grid.write('{} {} {} {}\n'.format(
                         i, j, long, lati
                     ))
+    return
+
+def msatsi_to_gmt(msatsi_dir, outfile, dim=2, size=1.0, spacing=0.003):
+    """
+    Format msatsi output for input into gmt for comparison to catalog_to_gmt
+
+    :param msatsi_dir: Output directory for msatsi
+    :param outfile: Path to output file
+    :return:
+    """
+    sum_ext = glob('{}/*.summary_ext'.format(msatsi_dir))[0]
+    sum = glob('{}/*.summary'.format(msatsi_dir))[0]
+    grid_file = glob('{}/*.grid'.format(msatsi_dir))[0]
+    grid_dict = {}
+    with open(grid_file, 'r') as g_f:
+        for ln in g_f:
+            line = ln.rstrip('\n').split()
+            if dim > 2:
+                node = (int(line[0]), int(line[1]), int(line[2]))
+                grid_dict[node] = (line[3], line[4], line[5])
+            elif dim == 2:
+                node = (int(line[0]), int(line[1]))
+                grid_dict[node] = (line[2], line[3])
+    # Make list of nodes corresponding to the rows of *summary file
+    # Have to read through the bootstrap samples to get the unique node
+    # ids?? Seems silly. Must be a better way.
+    node_list = []
+    with open(sum_ext, 'r') as sum_ex:
+        for ln in sum_ex:
+            line = ln.rstrip('\n').split()
+            if dim > 2:
+                node_list.append((int(line[0]), int(line[1]), int(line[2])))
+            elif dim == 2:
+                node_list.append((int(line[0]), int(line[1])))
+    nodes = list(set(node_list))
+    # Output to boxes and sigmas
+    box_file = '{}.boxes'.format(outfile)
+    with open(outfile, 'w') as out_f, open(sum, 'r') as sum_f, \
+      open(box_file, 'w') as bf:
+        next(sum_f)
+        for i, ln in enumerate(sum_f):
+            line = ln.rstrip('\n').split()
+            node = nodes[i]
+            lonc, latc = grid_dict[node]
+            lon = float(lonc)
+            lat = float(latc)
+            nu = line[0]
+            tr1 = line[3]
+            tr2 = line[9]
+            tr3 = line[15]
+            pl1 = line[6]
+            pl2 = line[12]
+            pl3 = line[18]
+            h = spacing / 2.0
+            bf.write('>-Z{}\n'.format(nu))
+            bf.write('{} {}\n{} {}\n{} {}\n{} {}\n{} {}\n'.format(
+                lon - h, lat + h, lon + h, lat + h, lon + h, lat - h,
+                lon - h, lat - h, lon - h, lat + h
+            ))
+            for tr, pl, col in zip([tr1, tr2, tr3], [pl1, pl2, pl3],
+                                   ['red', 'green', 'blue']):
+                length = 0.6 * np.cos(np.deg2rad(float(pl)))
+                if float(tr) < 0:
+                    trend = 360 + float(tr)
+                else:
+                    trend = tr
+                out_f.write('>-W{},{}\n'.format(size, col))
+                # Size in 3rd column. Then 4 and 5 for az and length
+                out_f.write('{} {} 0 {} {}\n'.format(lonc, latc,
+                                                     trend, length))
     return
 
 def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, min_num=20,
