@@ -424,16 +424,19 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
         cores = corr_params['cores']
         raw_wav_files = glob('%s/*' % raw_wav_dir)
         raw_wav_files.sort()
-        all_wavs = [wav.split('/')[-1].split('.')[0].split('_')[0]
+        all_wavs = [wav.split('/')[-1].split('_')[-3]
                     for wav in raw_wav_files]
         print(all_wavs[0])
         names = [ev.resource_id.id.split('/')[-1] for ev in catalog
                  if ev.resource_id.id.split('/')[-1] in all_wavs]
+        print(names[0])
         wavs = [wav for wav in raw_wav_files
-                if wav.split('/')[-1].split('.')[0].split('_')[0] in names]
+                if wav.split('/')[-1].split('_')[-3] in names]
+        print(wavs[0])
         new_cat = Catalog(events=[ev for ev in catalog
                                   if ev.resource_id.id.split('/')[-1]
                                   in names])
+        print(new_cat)
         new_cat.write(out_cat, format="QUAKEML")
         print('Processing temps')
         temp_list = [(shortproc(read('{}/*'.format(tmp)),lowcut=lowcut,

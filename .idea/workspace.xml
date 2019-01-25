@@ -150,8 +150,8 @@
           <file leaf-file-name="subspace_util.py" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="417">
-                  <caret line="14" column="54" lean-forward="false" selection-start-line="14" selection-start-column="54" selection-end-line="14" selection-end-column="54" />
+                <state relative-caret-position="1198">
+                  <caret line="438" column="22" lean-forward="false" selection-start-line="438" selection-start-column="22" selection-end-line="438" selection-end-column="22" />
                   <folding>
                     <element signature="e#66#75#0" expanded="true" />
                   </folding>
@@ -1231,8 +1231,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="417">
-          <caret line="14" column="54" lean-forward="false" selection-start-line="14" selection-start-column="54" selection-end-line="14" selection-end-column="54" />
+        <state relative-caret-position="1198">
+          <caret line="438" column="22" lean-forward="false" selection-start-line="438" selection-start-column="22" selection-end-line="438" selection-end-column="22" />
           <folding>
             <element signature="e#66#75#0" expanded="true" />
           </folding>
