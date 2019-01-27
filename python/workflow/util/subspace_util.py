@@ -460,38 +460,7 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
             # Remove pickless traces
             for rm in rm_ts:
                 temp[0].traces.remove(rm)
-        trace_lengths = [tr.stats.endtime - tr.stats.starttime for st in
-                         temp_list for tr in st[0]]
-        clip_len = min(trace_lengths) - (2 * shift_len)
-        stachans = list(set([(tr.stats.station, tr.stats.channel)
-                             for st in temp_list for tr in st[0]]))
-        print('Aligning traces')
-        for stachan in stachans:
-            trace_list = []
-            trace_ids = []
-            for i, st in enumerate(temp_list):
-                tr = st[0].select(station=stachan[0], channel=stachan[1])
-                if len(tr) > 0:
-                    trace_list.append(tr[0])
-                    trace_ids.append(i)
-                if len(tr) > 1:
-                    warnings.warn('Too many matches for %s %s' % (stachan[0],
-                                                                  stachan[1]))
-            shift_len_samples = int(shift_len *
-                                    trace_list[0].stats.sampling_rate)
-            shifts, cccs = stacking.align_traces(
-                trace_list=trace_list, shift_len=shift_len_samples,
-                positive=True)
-            for i, shift in enumerate(shifts):
-                st = temp_list[trace_ids[i]][0]
-                start_t = st.select(
-                    station=stachan[0], channel=stachan[1])[0].stats.starttime
-                start_t += shift_len
-                start_t -= shift
-                st.select(
-                    station=stachan[0], channel=stachan[1])[0].trim(
-                    start_t, start_t + clip_len)
-        print('Clustering')
+    print('Clustering')
     if isinstance(dist_mat, np.ndarray):
         print('Assuming the tribe provided is the same shape as dist_mat')
         # Dummy streams
@@ -501,7 +470,8 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
                                        method=method)
     else:
         groups = clustering.cluster(temp_list, show=show,
-                                    corr_thresh=corr_thresh, allow_shift=False,
+                                    corr_thresh=corr_thresh,
+                                    shift_len=shift_len * 2,
                                     save_corrmat=True, cores=cores)
     group_tribes = []
     group_cats = []
