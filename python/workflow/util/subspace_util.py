@@ -445,6 +445,7 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
                                 num_cores=cores), ev)
                      for tmp, ev in zip(wavs, new_cat)]
         print('Clipping traces')
+        rm_temps = []
         for temp in temp_list:
             print('Clipping template %s' % temp[1].resource_id.id)
             rm_ts = [] # Make a list of traces with no pick to remove
@@ -460,6 +461,11 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
             # Remove pickless traces
             for rm in rm_ts:
                 temp[0].traces.remove(rm)
+            # If trace lengths are internally inconsistent, remove template
+            if len(list(set([len(tr) for tr in temp[0]]))) > 1:
+                rm_temps.append(temp)
+        for t in rm_temps:
+            temp_list.remove(t)
     print('Clustering')
     if isinstance(dist_mat, np.ndarray):
         print('Assuming the tribe provided is the same shape as dist_mat')
