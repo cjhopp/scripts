@@ -442,15 +442,16 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
         temp_list = [(shortproc(read('{}/*'.format(tmp)),lowcut=lowcut,
                                 highcut=highcut, samp_rate=samp_rate,
                                 filt_order=filt_order, parallel=True,
-                                num_cores=cores), ev)
+                                num_cores=cores),
+                      ev.resource_id.id.split('/')[-1])
                      for tmp, ev in zip(wavs, new_cat)]
         print('Clipping traces')
         rm_temps = []
-        for temp in temp_list:
-            print('Clipping template %s' % temp[1].resource_id.id)
+        for i, temp in enumerate(temp_list):
+            print('Clipping template %s' % new_cat[i].resource_id.id)
             rm_ts = [] # Make a list of traces with no pick to remove
             for tr in temp[0]:
-                pk = [pk for pk in temp[1].picks
+                pk = [pk for pk in new_cat[i].picks
                       if pk.waveform_id.station_code == tr.stats.station
                       and pk.waveform_id.channel_code == tr.stats.channel]
                 if len(pk) == 0:

@@ -423,7 +423,7 @@ def bval_calc(cat, bin_size, MC, weight=False):
 
 def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                      histograms=False, title=None, weight=True,
-                     show=True, savefig=None, ax=None):
+                     show=True, savefig=None, ax=None, colors=None):
     """
     Function to plot cumulative distributions of mag for an arbitrary
     number of catalogs on the same Axes
@@ -436,11 +436,14 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     :param show: Do we show the plot?
     :param savefig: None or name of saved file
     :param ax: Axes object to plot to (optional)
+    :param colors: itertools.Cycle of desired colors
     :return:
     """
-    colors = cycle(['black', 'black', 'darkgray', 'darkgray'])
+    if not colors:
+        colors = cycle(['black', 'black', 'dimgray', 'dimgray',
+                        'darkgray', 'darkgray'])
     if not ax:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(12, 10))
     for cat, name in zip(catalogs, cat_names):
         mags = [ev.magnitudes[-1].mag for ev in cat]
         b_dict = bval_calc(cat, bin_size, MC, weight=weight)
@@ -463,6 +466,8 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                 y = 0.9
             elif name.startswith('South'):
                 y = 0.74
+            elif name.startswith('Rotokawa'):
+                y = 0.58
             text = 'B-value: {:.2f}'.format(b_dict['b'])
             ax.text(0.8, y - 0.08, text, transform=ax.transAxes, color=col,
                     horizontalalignment='center', fontsize=14.)
