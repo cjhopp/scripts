@@ -465,6 +465,9 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
             # If trace lengths are internally inconsistent, remove template
             if len(list(set([len(tr) for tr in temp[0]]))) > 1:
                 rm_temps.append(temp)
+            # If template is now length 0, remove it
+            if len(temp[0]) == 0:
+                rm_temps.append(temp)
         for t in rm_temps:
             temp_list.remove(t)
     print('Clustering')

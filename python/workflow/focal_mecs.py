@@ -416,13 +416,13 @@ def make_sdr_dict(a_file):
     return sdr_dict
 
 
-def catalog_to_qtree(catalog, sdr_file, outfile, rotate=None):
+def catalog_to_qtree(catalog, outfile, sdr_file=None, rotate=None):
     """
     Parse catalog to input format for John's quadtree implementation in matlab
 
     :param catalog: obspy.core.event.Catalog
-    :param sdr_file: Path to Arnold-Townend output file with sdrs
     :param outfile: Path to output file
+    :param sdr_file: Path to Arnold-Townend output file with sdrs
     :param rotate: Rotation clockwise from north (active rotation: pts, not
         coordinate system)
     :return:
@@ -447,7 +447,8 @@ def catalog_to_qtree(catalog, sdr_file, outfile, rotate=None):
         rot_mat = np.array([[np.cos(rot), -np.sin(rot)],
                             [np.sin(rot), np.cos(rot)]])
         print('Rotation matrix:\n{}'.format(rot_mat))
-    sdr_dict = make_sdr_dict(sdr_file)
+    if sdr_file:
+        sdr_dict = make_sdr_dict(sdr_file)
     # If we don't have sdr for this event, we'll remove it so that we have
     # a catalog that corresponds to the matlab input files
     rms = []
@@ -456,10 +457,6 @@ def catalog_to_qtree(catalog, sdr_file, outfile, rotate=None):
         o = ev.preferred_origin()
         lon, lat, dp, time, mag = [o.longitude, o.latitude, o.depth, o.time,
                                    ev.preferred_magnitude().mag]
-        if not eid in sdr_dict:
-            print('{} not in sdr file'.format(eid))
-            rms.append(ev)
-            continue
         if rotate:
             # Shift to origin of rotation
             x, y = np.dot(rot_mat, np.array([lon - cx, lat - cy]).T)
@@ -469,7 +466,16 @@ def catalog_to_qtree(catalog, sdr_file, outfile, rotate=None):
         else:
             x = 0
             y = 0
-        s, d, r = sdr_dict[eid]
+        if sdr_file:
+            if not eid in sdr_dict:
+                print('{} not in sdr file'.format(eid))
+                rms.append(ev)
+                continue
+            s, d, r = sdr_dict[eid]
+        else:
+            s = 0
+            d = 0
+            r = 0
         out_strs.append('{} {} {} {} {} {} {} {} {}\n'.format(
             lon, lat, dp, s, d, r, mag, x, y))
     for rm in rms:

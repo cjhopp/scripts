@@ -15,6 +15,7 @@ from scipy.io import loadmat
 from operator import itemgetter
 from datetime import timedelta
 from obspy.imaging.beachball import beach
+from obspy.geodetics import degrees2kilometers
 from obspy import Catalog
 from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
 
@@ -423,7 +424,8 @@ def bval_calc(cat, bin_size, MC, weight=False):
 
 def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                      histograms=False, title=None, weight=True,
-                     show=True, savefig=None, ax=None, colors=None):
+                     show=True, savefig=None, ax=None, colors=None,
+                     linestyles=None):
     """
     Function to plot cumulative distributions of mag for an arbitrary
     number of catalogs on the same Axes
@@ -437,6 +439,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     :param savefig: None or name of saved file
     :param ax: Axes object to plot to (optional)
     :param colors: itertools.Cycle of desired colors
+    :param linestyles: itertools.Cycle of desired linestyles
     :return:
     """
     if not colors:
@@ -444,37 +447,35 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                         'darkgray', 'darkgray'])
     if not ax:
         fig, ax = plt.subplots(figsize=(12, 10))
-    for cat, name in zip(catalogs, cat_names):
+    for i, (cat, name) in enumerate(zip(catalogs, cat_names)):
         mags = [ev.magnitudes[-1].mag for ev in cat]
         b_dict = bval_calc(cat, bin_size, MC, weight=weight)
         col = next(colors)
-        if name.endswith('(New)'):
+        if not name.endswith('(GNS)'):
+            if not linestyles:
+                lin = '-'
+            else:
+                lin = next(linestyles)
             if histograms:
                 sns.distplot(mags, kde=False, color=col,
                              hist_kws={'alpha': 1.0},
                              ax=ax)
             # Reversed cumulative hist
             ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
-                    color=col)
-            # Now re-compute b-value for new Mc if difference > than bin size
-            # ax.axvline(b_dict['Mc'], color='darkgray')
-            # ax.plot(b_dict['bval_bins'],
-            #         np.power([10],[b_dict['a'] - b_dict['b'] * aval
-            #                        for aval in b_dict['bval_bins']]),
-            #         color='darkgray', linestyle='--')
-            if name.startswith('North'):
+                    color=col, linestyle=lin)
+            if i == 0:
                 y = 0.9
-            elif name.startswith('South'):
-                y = 0.74
-            elif name.startswith('Rotokawa'):
-                y = 0.58
+            elif i == 1:
+                y = 0.8
+            elif i == 2:
+                y = 0.7
             text = 'B-value: {:.2f}'.format(b_dict['b'])
-            ax.text(0.8, y - 0.08, text, transform=ax.transAxes, color=col,
+            ax.text(0.85, y - 0.05, text, transform=ax.transAxes, color=col,
                     horizontalalignment='center', fontsize=14.)
-            ax.text(0.8, y, 'Mc=%.2f' % b_dict['Mc'],
+            ax.text(0.85, y, 'Mc=%.2f' % b_dict['Mc'],
                     color=col, transform=ax.transAxes,
                     horizontalalignment='center', fontsize=14.)
-        elif name.endswith('(GNS)'):
+        else:
             if histograms:
                 sns.distplot(mags, kde=False, color=col,
                              hist_kws={'alpha': 1.0},
@@ -482,7 +483,6 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
             # Reversed cumulative hist
             ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
                     color=col, linestyle='--')
-            # Now re-compute b-value for new Mc if difference > than bin size
     ax.set_yscale('log')
     ax.tick_params(labelsize=14.)
     ax.set_ylabel('Number of events', fontsize=14.)
@@ -498,6 +498,29 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     if savefig:
         fig.savefig(savefig, dpi=300)
     return ax
+
+
+def map_bvalue(catalog, max_ev, no_above_Mc):
+    """
+    Do b-value mapping using a catalog, as described in Bachmann et al. 2012:
+
+    doi:10.1029/2012GL051480
+
+    :param catalog: Catalog of events for which to map b-value
+    :param max_ev: Number of nearest events to use in calculation
+    :param no_above_Mc: Required number of events above Mc for b calculation
+    :return:
+    """
+    # Sort catalog
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    # Make array of points, with units in meters
+    pts = np.array([[degrees2kilometers(ev.preferred_origin().longtitude),
+                     degrees2kilometers(ev.preferred_origin().latitude),
+                     ev.preferred_origin().depth]
+                    for ev in catalog])
+
+    return
+
 
 def big_bval_plot(cat, bins=30, MC=None, title=None,
                   show=True, savefig=None):
