@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import sys
-sys.path.insert(0, '/home/chet/EQcorrscan/')
 import matplotlib
 import pytz
 import matplotlib.pyplot as plt
@@ -12,12 +10,15 @@ import seaborn as sns
 from itertools import cycle
 from dateutil import rrule
 from scipy.io import loadmat
+from scipy.spatial import KDTree
 from operator import itemgetter
 from datetime import timedelta
 from obspy.imaging.beachball import beach
 from obspy.geodetics import degrees2kilometers
 from obspy import Catalog
-from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value
+from obspy.core.event import Comment
+from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value, dist_calc
+
 
 # local files dependent upon paths set in ipython rc
 from shelly_mags import local_to_moment, local_to_moment_Majer
@@ -409,6 +410,9 @@ def bval_calc(cat, bin_size, MC, weight=False):
             bval_vals.append(cum_val_count)
             bval_bins.append(val)
             bval_wts.append(non_cum_val_cnt / float(len(mags)))
+    if len(bval_bins) == 0:
+        print('No bins above Mc. Ignore this catalog')
+        return None
     # Tack 0 on end of non_cum_bins representing bin above max mag
     non_cum_bins.append(0)
     if weight:
@@ -446,7 +450,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
         colors = cycle(['black', 'black', 'dimgray', 'dimgray',
                         'darkgray', 'darkgray'])
     if not ax:
-        fig, ax = plt.subplots(figsize=(12, 10))
+        fig, ax = plt.subplots(figsize=(8, 6))
     for i, (cat, name) in enumerate(zip(catalogs, cat_names)):
         mags = [ev.magnitudes[-1].mag for ev in cat]
         b_dict = bval_calc(cat, bin_size, MC, weight=weight)
@@ -500,7 +504,9 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     return ax
 
 
-def map_bvalue(catalog, max_ev, no_above_Mc):
+def map_bvalue(catalog, max_ev, no_above_Mc, bin_size=0.1, weight=False,
+               Mc=None, show=False, outfile=None, dimension=3,
+               method='EQcorrscan'):
     """
     Do b-value mapping using a catalog, as described in Bachmann et al. 2012:
 
@@ -514,12 +520,142 @@ def map_bvalue(catalog, max_ev, no_above_Mc):
     # Sort catalog
     catalog.events.sort(key=lambda x: x.preferred_origin().time)
     # Make array of points, with units in meters
-    pts = np.array([[degrees2kilometers(ev.preferred_origin().longtitude),
-                     degrees2kilometers(ev.preferred_origin().latitude),
-                     ev.preferred_origin().depth]
-                    for ev in catalog])
+    if dimension == 3:
+        pts = np.array([[
+            degrees2kilometers(ev.preferred_origin().longitude) * 1000.,
+            degrees2kilometers(ev.preferred_origin().latitude) * 1000.,
+            ev.preferred_origin().depth]
+                        for ev in catalog])
+    elif dimension == 2:
+        pts = np.array([[
+            degrees2kilometers(ev.preferred_origin().longitude) * 1000.,
+            degrees2kilometers(ev.preferred_origin().latitude) * 1000.]
+                        for ev in catalog])
+    # Make KDTree to query
+    treebeard = KDTree(pts)
+    bvals = []
+    # Make catalog of nearest points for each event
+    for pt in pts:
+        print('Working on pt: {}'.format(pt))
+        dists, ney_burs = treebeard.query(pt, k=max_ev)
+        sub_cat = Catalog(events=[catalog[i] for i in ney_burs])
+        # Do bval calculation
+        if method == 'EQcorrscan':
+            mags = [ev.preferred_magnitude().mag for ev in sub_cat]
+            bvals = calc_b_value(mags=mags,
+                                 completeness=np.arange(min(mags), max(mags),
+                                                        0.1))
+            bvals.sort(key=lambda x: x[2])
+            b = bvals[0][1]
+            Mc = bvals[0][0]
+        else:
+            b_dict = bval_calc(sub_cat, bin_size, Mc, weight=weight)
+            b = b_dict['b']
+            Mc = b_dict['Mc']
+        if not b_dict:
+            print('b_dict not returned. Move on.')
+            bvals.append(None)
+            continue
+        # If enough events, save b val
+        if len([ev for ev in sub_cat
+                if ev.preferred_magnitude().mag > Mc]) > no_above_Mc:
+            bvals.append(b)
+        else:
+            # Othersize dont save
+            bvals.append(None)
+    # Make output array of lon, lat, depth, mag, b
+    print(len(catalog), len(bvals)) # Check consistent lengths
+    bval_out = []
+    for i, ev in enumerate(catalog):
+        # Add bvalue Comment to origin (in place)
+        ev.preferred_origin().comments.append(
+            Comment(text='b={}'.format(bvals[i])))
+        bval_out.append([ev.preferred_origin().longitude,
+                         ev.preferred_origin().latitude,
+                         ev.preferred_origin().depth,
+                         ev.preferred_magnitude().mag,
+                         bvals[i]])
+    if show:
+        fig, ax = plt.subplots(figsize=(10, 10))
+        x, y, z, m, c = zip(*bval_out)
+        scat = ax.scatter(x, y, s=m, c=c)
+        plt.colorbar(scat)
+        plt.show()
+        plt.close()
+    if outfile:
+        with open(outfile, 'w') as outf:
+            for ln in bval_out:
+                if ln[4] == None:
+                    continue
+                outf.write('{} {} {} {} {}\n'.format(ln[0], ln[1], ln[2],
+                                                     ln[3], ln[4]))
+    return bval_out
 
-    return
+
+def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 5000],
+             ylim=[0, 2.5], dimension=3, title=None):
+    """
+    Plot b-values with distance from an injection point
+    :param catalog: Catalog of events with a Comment in the preferred_origin()
+        with the bval in it.
+    :param injection_point: Tuple of (lat, lon, depth) for the desired
+        injection point
+    :return:
+
+    .. note: RK24 Feedzones: (-38.6149, 176.2025, 2.9)
+             RK23 Feedzones: (-38.6162, 176.2076, 2.9)
+    """
+    if not ax:
+        fig, axes = plt.subplots(figsize=(7, 5))
+    else:
+        axes = ax
+    if dimension == 3:
+        pts = [(dist_calc(injection_point,
+                          (ev.preferred_origin().latitude,
+                           ev.preferred_origin().longitude,
+                           ev.preferred_origin().depth / 1000.)) * 1000.,
+                ev.preferred_origin().comments[-1].text.split('=')[-1])
+               for ev in catalog
+               if ev.preferred_origin().comments[-1].text.split('=')[-1]
+               != 'None']
+    elif dimension == 2:
+        pts = [(dist_calc((injection_point[0], injection_point[1], 0),
+                          (ev.preferred_origin().latitude,
+                           ev.preferred_origin().longitude, 0)) * 1000.,
+                ev.preferred_origin().comments[-1].text.split('=')[-1])
+               for ev in catalog
+               if ev.preferred_origin().comments[-1].text.split('=')[-1]
+               != 'None']
+    # Sort by distance for putting into bins
+    pts.sort(key=lambda x: x[0])
+    x, y = zip(*pts)
+    x = np.array(x)
+    y_flts = np.array([float(s) for s in y])
+    # Scatter plot
+    axes.scatter(x, y_flts, marker='.', color='k', s=5.0, alpha=0.1)
+    # Calculate averages/variance
+    bins = np.arange(min(x), max(x), 50)
+    digitized = np.digitize(x, bins)
+    bin_means = [y_flts[digitized == i].mean() for i in range(1, len(bins))]
+    bin_std = [y_flts[digitized == i].std() for i in range(1, len(bins))]
+    axes.errorbar(bins[:-1] + ((bins[1] - bins[0]) / 2.), bin_means,
+                  color='red', linewidth=2.5, yerr=bin_std, ecolor='steelblue',
+                  elinewidth=1.5, capsize=2.5, marker='s',
+                  label='Average')
+    # Formatting
+    axes.set_xlabel('Distance (m)')
+    axes.set_ylabel('b-value')
+    if not title:
+        axes.set_title('b-value with distance')
+    else:
+        axes.set_title(title)
+    axes.set_xlim(xlim)
+    axes.set_ylim(ylim)
+    axes.legend()
+    if show:
+        plt.show()
+        plt.close()
+    return axes
 
 
 def big_bval_plot(cat, bins=30, MC=None, title=None,

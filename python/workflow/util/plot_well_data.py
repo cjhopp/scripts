@@ -819,9 +819,9 @@ def plot_transient(excel_file, sheetname, dates, II=False, falloff=False,
             plt.show()
         return axes
 
-def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
-                   cumulative=False, ax=None, dates=None, show=False,
-                   ylims=False, outdir=None, figsize=(8, 6),
+def plot_well_data(excel_file, sheetname, parameter, well_list,
+                   colors=None, cumulative=False, ax=None, dates=None,
+                   show=False, ylims=False, outdir=None, figsize=(8, 6),
                    tick_colors=False):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
@@ -829,7 +829,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     :param sheetname: Which sheet of the spreadsheet do you want?
     :param parameter: Either 'WHP (bar)' or 'Flow (t/h)' at the moment
     :param well_list: List of wells you want plotted
-    :param color: Color to use for the curve or scatter plot
+    :param colors: List of colors to turn into a cycle
     :param cumulative: Plot the total injected volume?
     :param ax: If plotting on existing Axes, pass it here
     :param dates: Specify start and end dates if plotting to preexisting
@@ -852,18 +852,21 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     elif sheetname == 'Injection' and parameter == 'Injectivity':
         # Rotokawa sheet has only one header line
         df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
-        df2 = pd.read_excel(excel_file, header=0, index_col=0,
+        df2 = pd.read_excel(excel_file, header=[0, 1],
                             sheetname='WHP Press tubings')
         df2 = df2.asof(df.index)
         df2.index = df2.index.tz_localize('Pacific/Auckland')
-        df2.index = df2.index.tz_convert(None)
+        df2.index = df2.index.tz_convert('UTC')
     else:
         df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
     # All flow info is local time
     df.index = df.index.tz_localize('Pacific/Auckland')
     # Convert it to UTC
     df.index = df.index.tz_convert('UTC')
-    colors = cycle(sns.color_palette())
+    if not colors:
+        colors = cycle(sns.color_palette())
+    else:
+        colors = cycle(colors)
     print('Flow data tz set to: {}'.format(df.index.tzinfo))
     if not ax:
         fig, ax = plt.subplots(figsize=figsize)
@@ -927,9 +930,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                     for dto, val in zip(dtos, values):
                         f.write('{} {}'.format(dto.strftime('%Y-%m-%d'), val))
                 continue
-            ax1a.plot(dtos, values, label='{}: {}'.format(well,
-                                                          'Cumulative Vol.'),
-                      color=next(colors))
+            colr = next(colors)
+            ax1a.plot(dtos, values,
+                      label='{}: {}'.format(well, 'Cumulative Vol.'),
+                      color=colr)
             plt.legend() # This is annoying
             maxs.append(np.max(df.xs((well, parameter),
                                level=(0, 1), axis=1).values))
@@ -974,6 +978,8 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                 dtos = values.index.to_pydatetime()
             elif well.startswith('RK'):
                 if parameter == 'Injectivity':
+                    print(df2)
+                    print(df)
                     # Use WHP = Pr - pgz + W/II + KW^2 where W is flow rate
                     # JC sets K to zero for NM08...
                     Pr = 90  # Reservoir pressure (bar -roughly)
@@ -981,13 +987,13 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                     # NM08 fz = 2400 m depth
                     pgz = 940 * 2400 * 9.8 * 1e-5  # Pascal to bar
                     vals = df[(well, 'Flow (t/h)')] / \
-                        (df2['{} WHP'.format(well)] + pgz - Pr)
+                        (df2[well, 'WHP (barg)'] + pgz - Pr)
                     values = vals * 10
                     dtos = values.index.to_pydatetime()
-            else:
-                values = df.xs((well, parameter), level=(0, 1), axis=1)
-                dtos = df.xs((well, parameter), level=(0, 1),
-                             axis=1).index.to_pydatetime()
+                else:
+                    values = df.xs((well, parameter), level=(0, 1), axis=1)
+                    dtos = df.xs((well, parameter), level=(0, 1),
+                                 axis=1).index.to_pydatetime()
             maxs.append(np.max(values.dropna().values))
             if outdir:
                 # Write to file
@@ -998,10 +1004,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
                         f.write('{} {}\n'.format(
                             dto.strftime('%Y-%m-%dT%H:%M:%S'), val[0]))
                 continue
-            if color:
-                colr = color
-            else:
-                colr = next(colors)
+            colr = next(colors)
             # Force MPa instead of bar units
             if parameter in ['WHP (bar)', 'WHP (barg)']:
                 label = '{}: WHP (MPa)'.format(well)
@@ -1064,6 +1067,8 @@ def plot_well_data(excel_file, sheetname, parameter, well_list, color=False,
     if not ylims:
         plt.ylim(ymin=0) # Make bottom always zero
     plt.tight_layout()
+    # Remove margins
+    ax.margins(0, 0)
     if show:
         plt.show()
     return ax1a, values
@@ -1391,6 +1396,79 @@ def plot_event_well_dist(catalog, well_fzs, flow_dict, centroid=False,
     if show:
         fig.show()
     return ax
+
+
+def place_Rot_times(fig=None, method='lines'):
+    """
+    Plot shutdown times, RK23 shutdown/startup
+    :param fig: matplotlib Figure object to plot onto
+    :param method: Can be 'lines', 'spans' or 'both'
+    :return:
+    """
+    # Hardcoded important dates in UTC (NZDT - 12)
+    # Shutdowns
+    SD1 = [
+        pytz.utc.localize(UTCDateTime(2012, 1, 16).datetime),
+        pytz.utc.localize(UTCDateTime(2012, 1, 28).datetime)
+    ]
+    SD2 = [
+        pytz.utc.localize(UTCDateTime(2012, 10, 24).datetime),
+        pytz.utc.localize(UTCDateTime(2012, 10, 29).datetime)
+    ]
+    SD3 = [
+        pytz.utc.localize(UTCDateTime(2013, 10, 17).datetime),
+        pytz.utc.localize(UTCDateTime(2013, 11, 3).datetime)
+    ]
+    SD4 = [
+        pytz.utc.localize(UTCDateTime(2013, 11, 28).datetime),
+        pytz.utc.localize(UTCDateTime(2013, 12, 9).datetime)
+    ]
+    SD5 = [
+        pytz.utc.localize(UTCDateTime(2014, 4, 13).datetime),
+        pytz.utc.localize(UTCDateTime(2014, 4, 17).datetime)
+    ]
+    SD6 = [
+        pytz.utc.localize(UTCDateTime(2014, 6, 23).datetime),
+        pytz.utc.localize(UTCDateTime(2014, 6, 25).datetime)
+    ]
+    SD7 = [
+        pytz.utc.localize(UTCDateTime(2014, 10, 10).datetime),
+        pytz.utc.localize(UTCDateTime(2014, 10, 23).datetime)
+    ]
+    SD8 = [
+        pytz.utc.localize(UTCDateTime(2015, 7, 20).datetime),
+        pytz.utc.localize(UTCDateTime(2015, 8, 9).datetime)
+    ]
+    RK23_on = [
+        pytz.utc.localize(UTCDateTime(2012, 11, 10).datetime),
+    ]
+    RK23_off = [
+        pytz.utc.localize(UTCDateTime(2013, 7, 4).datetime),
+    ]
+    handles = [] # Only add handles to the well axes...I guess
+    for ax in fig.axes:
+        # Hard code only specific axes on which to plot spans
+        if method in ['both', 'spans'] and any(
+                [s in ax.get_ylabel() for s in ['Flow', '#', 'Events']]):
+            for i, spn in enumerate([SD1, SD2, SD3, SD4, SD5, SD6, SD7, SD8]):
+                if i == 7: # Only label final span for compact legend
+                    ax.axvspan(spn[0], spn[1], alpha=0.2, color='firebrick',
+                               label='Plant shutdown')
+                else:
+                    ax.axvspan(spn[0], spn[1], alpha=0.2, color='firebrick')
+        if method in ['both', 'lines']:
+            for ln in [RK23_on, RK23_off]:
+                ax.axvspan(ln[0], ln[1], color='darkgray', linestyle='-.',
+                           label='RK23 shutdown')
+        if any([s in ax.get_ylabel() for s in ['WHP', 'Flow']]):
+            handles.extend(ax.legend().get_lines())
+            if 'Flow' in ax.get_ylabel():
+                handles.extend(ax.legend().get_patches())
+            if isinstance(ax.legend_, matplotlib.legend.Legend):
+                ax.legend_.remove() # Need to manually remove this
+    ax.legend(handles=handles, fontsize=12, loc=1)
+    return
+
 
 def place_NM08_times(fig=None, fill_between=False, diffs=False,
                      fill_color=False, fill_hatch=True, lines=False):

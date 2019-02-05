@@ -956,12 +956,46 @@ def plot_seismicity_with_dist(catalog, feedzone, dists=(200, 500, 1000),
                                 title=title)
     return ax1
 
+
+def plot_swarms(catalog, threshold):
+    """
+    Isolate events in a catalog belonging to "swarms". This term in defined
+    by a threshold number of events within the specified bin size.
+
+    :param catalog: catalog in question
+    :param bin_days: Width of bin in days
+    :param threshold: Threshold number of events in a bin to trigger a 'swarm'
+    :return:
+    """
+    # Sort by time of occurrence
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    start = UTCDateTime(catalog[0].preferred_origin().time.date).datetime
+    elapsed_days = np.array([(ev.preferred_origin().time.datetime - start).days
+                             for ev in catalog])
+    print(elapsed_days)
+    bins = np.arange(0, elapsed_days[-1])
+    digitized = np.digitize(elapsed_days, bins)
+    which_days = [i - 1 for i in range(1, len(bins))
+                  if elapsed_days[digitized == i].shape[0] > threshold]
+    print(which_days)
+    swarm_cat = Catalog()
+    for day in which_days:
+        day_start = UTCDateTime(start) + (day * 86400)
+        print(day_start)
+        swarm_cat.events.extend([
+            ev for ev in catalog if day_start < ev.preferred_origin().time <
+            day_start + 86400
+        ])
+    return swarm_cat
+
+
 def cumulative_detections(dates=None, template_names=None, detections=None,
                           plot_grouped=False, group_name=None, rate=False,
                           show=True, plot_legend=True, axes=None, save=False,
-                          savefile=None, color=None, tick_colors=None,
-                          normalized=False, deviation=False, plot_dates=None,
-                          title=None):
+                          savefile=None, color=None, colors=None,
+                          linestyles=None, tick_colors=None, normalized=False,
+                          deviation=False, plot_dates=None, title=None,
+                          thresh=None):
     """
     Plot cumulative detections or detecton rate in time.
 
@@ -997,6 +1031,10 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     :param savefile: String to save to, required is save=True
     :param color: Define a color for a single line, will be red otherwise
     :type color: Str or None
+    :param colors: Custom cycle of colors to be used
+    :type colors: itertools.Cycle
+    :param linestyles: Provide list of linestyles to cycle through
+    :type linestyles: itertools.Cycle
     :param tick_colors: Whether to color axis ticks same as curve
     :type tick_colors: bool
     :param normalized: Whether to normalize the curves or leave absolute vals
@@ -1008,15 +1046,24 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     :type plot_dates: list
     :param title: Title for plot
     :type title: str or None
+    :param thresh: Threshold of any kind to by plotted horizontally
+    :type thresh: int or float
 
     :returns: :class:`matplotlib.figure.Figure`
 
     """
     from eqcorrscan.core.match_filter import Detection
     # Set up a default series of parameters for lines
-    colors = cycle(['red', 'green', 'blue', 'cyan', 'magenta', 'yellow',
-                    'black', 'firebrick', 'purple', 'darkgoldenrod', 'gray'])
-    linestyles = cycle(['-', '-.', '--', ':'])
+    if not colors:
+        colors = ['red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'black',
+                  'firebrick', 'purple', 'darkgoldenrod', 'gray']
+    cols = cycle(colors)
+    if not linestyles:
+        custom = False # Flag to cycle linestyle for each set of dates
+        linestyles = ['-', '-.', '--', ':']
+    else:
+        custom = True
+    lins = cycle(linestyles)
     # Check that dates is a list of lists
     if not detections:
         if type(dates[0]) != list:
@@ -1051,10 +1098,12 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     if deviation:
         print('Not implemented yet')
         return
-    if axes is None:
+    if not axes:
         ax = plt.gca()
         if plot_dates:
             xlims = (plot_dates[0], plot_dates[1])
+        else:
+            xlims = None
     else:
         if axes.get_ylim()[-1] == 1.0:
             ax = axes
@@ -1067,7 +1116,9 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
                     axes.legend_.remove()  # Need to manually remove this, apparently
             except AttributeError:
                 print('Empty axes. No legend to incorporate.')
-        if not plot_dates:
+        if not plot_dates and ax.get_xlim()[0] == 0:
+            xlims = None
+        elif not plot_dates:
             xlims = ax.get_xlim()
         else:
             xlims = (plot_dates[0], plot_dates[1])
@@ -1078,43 +1129,40 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     for k, template_dates in enumerate(dates):
         template_dates.sort()
         final_dates = deepcopy(template_dates)
-        final_dates.insert(0, min_date)
         # Account for step plot stopping
-        color = next(colors)
-        if color == 'red':
-            linestyle = next(linestyles)
-        print(color)
-        counts = np.arange(-1, len(template_dates))
+        color = next(cols)
+        if color == colors[0]:
+            linestyle = next(lins)
+        elif custom == True:
+            linestyle = next(lins)
+        counts = np.arange(0, len(template_dates))
         if normalized:
             counts = [cnt / float(max(counts)) for cnt in counts]
         if rate:
             if not plot_grouped:
                 msg = 'Plotting rate only implemented for plot_grouped=True'
                 raise NotImplementedError(msg)
-            if 31 < (max_date - min_date).days < 365:
-                bins = (max_date - min_date).days
-                ax.set_ylabel('Detections / day', fontsize=16)
-            elif (max_date - min_date).days <= 31:
-                bins = (max_date - min_date).days * 4
-                ax.set_ylabel('Detections / 6 hour bin', fontsize=16)
+            days = (max_date - min_date).days
+            if 31 < days < 365:
+                bins = days
+                ax.set_ylabel('Events / day', fontsize=16)
+            elif days <= 31:
+                bins = days * 4
+                ax.set_ylabel('Events / 6 hour bin', fontsize=16)
             else:
-                bins = (max_date - min_date).days // 7
-                ax.set_ylabel('Detections / week', fontsize=16)
-            ax.hist(mdates.date2num(plot_dates), bins=bins,
-                    label='Rate of detections', color='darkgrey',
-                    alpha=0.5)
+                bins = days // 7
+                ax.set_ylabel('Events / week', fontsize=16)
+            ax = sns.distplot(mdates.date2num(final_dates), bins=bins, kde=False,
+                              label='Rate of detections', color='black', ax=ax)
         else:
-            ax.step(final_dates, counts, linestyle,
+            ax.step(final_dates, counts, linestyle=linestyle,
                     color=color, label=template_names[k],
                     linewidth=1.5, where='post',
                     zorder=1)
-            # TODO The following doesn't appear to work
-            if plot_dates:
-                if plot_dates[-1] < xlims[-1]:
-                    ax.axhline(y=counts[-1], xmin=plot_dates[-1],
-                               xmax=xlims[-1], linewidth=1.5, color=color,
-                               zorder=1)
-            ax.set_ylabel('# of Events', fontsize=16)
+            if normalized:
+                ax.set_ylabel('Normalized # of Events', fontsize=14)
+            else:
+                ax.set_ylabel('# of Events', fontsize=16)
     ax.set_xlabel('Date', fontsize=16)
     # Set formatters for x-labels
     mins = mdates.MinuteLocator()
@@ -1185,9 +1233,10 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
         elif ax.legend() is not None:
             leg = ax.legend(loc=2, prop={'size': 8}, ncol=2, fontsize=12)
             leg.get_frame().set_alpha(0.5)
-    ax.set_xlim(xlims)
+    if xlims:
+        ax.set_xlim(xlims)
     if title:
-        plt.suptitle(title, fontsize=18)
+        ax.set_title(title, fontsize=16)
     if save:
         plt.gcf().savefig(savefile)
         plt.close()
