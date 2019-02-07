@@ -854,7 +854,8 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
         df = pd.read_excel(excel_file, header=[0, 1], sheetname=sheetname)
         df2 = pd.read_excel(excel_file, header=[0, 1],
                             sheetname='WHP Press tubings')
-        df2 = df2.asof(df.index)
+        if not well_list[0].startswith('RK'):
+            df2 = df2.asof(df.index)
         df2.index = df2.index.tz_localize('Pacific/Auckland')
         df2.index = df2.index.tz_convert('UTC')
     else:
@@ -891,6 +892,8 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
             start = dates[0].datetime
             end = dates[1].datetime
         df = df.truncate(before=start, after=end)
+        if parameter == 'Injectivity':
+            df2 = df2.truncate(before=start, after=end)
         try:
             handles = ax.legend().get_lines() # Grab these lines for legend
             if isinstance(ax.legend_, matplotlib.legend.Legend):
@@ -978,8 +981,6 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
                 dtos = values.index.to_pydatetime()
             elif well.startswith('RK'):
                 if parameter == 'Injectivity':
-                    print(df2)
-                    print(df)
                     # Use WHP = Pr - pgz + W/II + KW^2 where W is flow rate
                     # JC sets K to zero for NM08...
                     Pr = 90  # Reservoir pressure (bar -roughly)
@@ -1018,6 +1019,7 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
                 label = '{}: {}'.format(well, parameter)
             if parameter == 'Injectivity':
                 # Adjust II unit to MPa (unconventional though...?)
+                # print(values)
                 ax1a.scatter(dtos, values, label=label, color=colr, s=0.4,
                              facecolor=colr, zorder=3)
             else:
@@ -1452,14 +1454,14 @@ def place_Rot_times(fig=None, method='lines'):
                 [s in ax.get_ylabel() for s in ['Flow', '#', 'Events']]):
             for i, spn in enumerate([SD1, SD2, SD3, SD4, SD5, SD6, SD7, SD8]):
                 if i == 7: # Only label final span for compact legend
-                    ax.axvspan(spn[0], spn[1], alpha=0.2, color='firebrick',
+                    ax.axvspan(spn[0], spn[1], alpha=0.3, color='firebrick',
                                label='Plant shutdown')
                 else:
-                    ax.axvspan(spn[0], spn[1], alpha=0.2, color='firebrick')
+                    ax.axvspan(spn[0], spn[1], alpha=0.3, color='firebrick')
         if method in ['both', 'lines']:
-            for ln in [RK23_on, RK23_off]:
-                ax.axvspan(ln[0], ln[1], color='darkgray', linestyle='-.',
-                           label='RK23 shutdown')
+            # Shade region of RK23 shutdown
+            ax.axvspan(RK23_on, RK23_off, color='darkgray', linestyle='-.',
+                       label='RK23 shutdown', alpha=0.2)
         if any([s in ax.get_ylabel() for s in ['WHP', 'Flow']]):
             handles.extend(ax.legend().get_lines())
             if 'Flow' in ax.get_ylabel():

@@ -995,7 +995,7 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
                           savefile=None, color=None, colors=None,
                           linestyles=None, tick_colors=None, normalized=False,
                           deviation=False, plot_dates=None, title=None,
-                          thresh=None):
+                          thresh=None, rate_bin=None):
     """
     Plot cumulative detections or detecton rate in time.
 
@@ -1048,6 +1048,8 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     :type title: str or None
     :param thresh: Threshold of any kind to by plotted horizontally
     :type thresh: int or float
+    :param rate_bin: int
+    :type rate_bin: Number of days per bin in rate plotting
 
     :returns: :class:`matplotlib.figure.Figure`
 
@@ -1139,11 +1141,11 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
         if normalized:
             counts = [cnt / float(max(counts)) for cnt in counts]
         if rate:
-            if not plot_grouped:
-                msg = 'Plotting rate only implemented for plot_grouped=True'
-                raise NotImplementedError(msg)
             days = (max_date - min_date).days
-            if 31 < days < 365:
+            if rate_bin:
+                bins = days // rate_bin
+                ax.set_ylabel('Events / {} days'.format(rate_bin), fontsize=16)
+            elif 31 < days < 365:
                 bins = days
                 ax.set_ylabel('Events / day', fontsize=16)
             elif days <= 31:
@@ -1152,8 +1154,11 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
             else:
                 bins = days // 7
                 ax.set_ylabel('Events / week', fontsize=16)
-            ax = sns.distplot(mdates.date2num(final_dates), bins=bins, kde=False,
-                              label='Rate of detections', color='black', ax=ax)
+            ax.hist(mdates.date2num(final_dates), bins=bins,
+                    label=template_names[k], color=color)
+            if thresh:
+                ax.axhline(thresh, linestyle='--', color='r',
+                           linewidth=1.5)
         else:
             ax.step(final_dates, counts, linestyle=linestyle,
                     color=color, label=template_names[k],

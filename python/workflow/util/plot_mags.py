@@ -506,7 +506,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
 
 def map_bvalue(catalog, max_ev, no_above_Mc, bin_size=0.1, weight=False,
                Mc=None, show=False, outfile=None, dimension=3,
-               method='EQcorrscan'):
+               method='EQcorrscan', plotvar=False):
     """
     Do b-value mapping using a catalog, as described in Bachmann et al. 2012:
 
@@ -536,26 +536,23 @@ def map_bvalue(catalog, max_ev, no_above_Mc, bin_size=0.1, weight=False,
     bvals = []
     # Make catalog of nearest points for each event
     for pt in pts:
-        print('Working on pt: {}'.format(pt))
+        # print('Working on pt: {}'.format(pt))
         dists, ney_burs = treebeard.query(pt, k=max_ev)
         sub_cat = Catalog(events=[catalog[i] for i in ney_burs])
         # Do bval calculation
         if method == 'EQcorrscan':
             mags = [ev.preferred_magnitude().mag for ev in sub_cat]
-            bvals = calc_b_value(mags=mags,
-                                 completeness=np.arange(min(mags), max(mags),
-                                                        0.1))
-            bvals.sort(key=lambda x: x[2])
-            b = bvals[0][1]
-            Mc = bvals[0][0]
+            bcalc = calc_b_value(
+                magnitudes=mags,
+                completeness=np.arange(min(mags), max(mags), 0.1),
+                plotvar=plotvar)
+            bcalc.sort(key=lambda x: x[2])
+            b = bcalc[-1][1]
+            Mc = bcalc[-1][0]
         else:
             b_dict = bval_calc(sub_cat, bin_size, Mc, weight=weight)
             b = b_dict['b']
             Mc = b_dict['Mc']
-        if not b_dict:
-            print('b_dict not returned. Move on.')
-            bvals.append(None)
-            continue
         # If enough events, save b val
         if len([ev for ev in sub_cat
                 if ev.preferred_magnitude().mag > Mc]) > no_above_Mc:
