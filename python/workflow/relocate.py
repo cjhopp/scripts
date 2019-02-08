@@ -59,7 +59,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
         filename = '{}/obs/{}.nll'.format(root_name, id_str)
         outfile = '{}/loc/{}'.format(root_name, id_str)
         # TODO This clause needs faster file existece check. Do 25-7.
-        if os.path.isfile(outfile):
+        if os.path.isfile(filename):
             if len(glob(outfile + '.????????.??????.grid0.loc.hyp')) > 0:
                 print('LOC file already written, reading output to catalog')
         else:

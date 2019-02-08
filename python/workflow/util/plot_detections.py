@@ -251,16 +251,16 @@ def catalog_to_gmt(catalogs, outfile, dd_only=True, centroids=False,
                         back_90 += 360.
                     if color_nu:
                         f.write('{} {} {} {} {}\n'.format(cent_lon, cent_lat,
-                                                          nu, X90, X10))
+                                                          nu, X10, X90))
                         f.write('{} {} {} {} {}\n'.format(cent_lon, cent_lat,
-                                                          nu, back_90,
-                                                          back_10))
+                                                          nu, back_10,
+                                                          back_90))
                     else:
                         f.write('>-Glightgray\n')
                         f.write('{} {} {} {}\n'.format(cent_lon, cent_lat,
-                                                       X90, X10))
+                                                       X10, X90))
                         f.write('{} {} {} {}\n'.format(cent_lon, cent_lat,
-                                                       back_90, back_10))
+                                                       back_10, back_90))
                 continue
             # Write rgb to header
             if color_nu:

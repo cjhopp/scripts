@@ -660,7 +660,7 @@ def msatsi_to_gmt(msatsi_dir, outfile, dim=2, size=1.0, spacing=0.003):
             lonc, latc = grid_dict[node]
             lon = float(lonc)
             lat = float(latc)
-            nu = line[0]
+            nu = 1 - line[0] # Not nu, actually 1 - nu??
             tr1 = line[3]
             tr2 = line[9]
             tr3 = line[15]
