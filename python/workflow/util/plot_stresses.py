@@ -20,6 +20,7 @@ def parse_arnold_grid(file):
     thetavec = np.array([float(ln) for ln in lines[58:]])
     return phivec, thetavec
 
+
 def parse_arnold_params(files):
     """Parse the 1d and 2d parameter files to dictionary"""
     strs_params = {}
@@ -41,7 +42,9 @@ def parse_arnold_params(files):
                     }
     return strs_params
 
-def arnold_stress_to_gmt(out_dir, out_file, spacing):
+
+def arnold_stress_to_gmt(out_dir, out_file, spacing, method='SHmax',
+                         color_boxes=True):
     """
     Arnold stress output directory to gmt input file. Writing this specifically
     for plotting gridded principle axes to compare with PMG inversion
@@ -68,39 +71,71 @@ def arnold_stress_to_gmt(out_dir, out_file, spacing):
                 param_files = glob('{}/{}.*{}.dat'.format(out_dir, ind,
                                                           'dparameters'))
                 strs_params = parse_arnold_params(param_files)
-                # Grab sigma trend and plunge values
-                s_cols = ['red', 'green', 'blue']
-                size = 1.5
-                for i, sig in enumerate(['S1', 'S2', 'S3']):
-                    phi = strs_params['{}:Phi'.format(sig)]['mean']
-                    theta = strs_params['{}:Theta'.format(sig)]['mean']
-                    # Sort out upwards vectors
-                    if theta > 90:
-                        theta = 180. - theta
-                        if phi < 0:
-                            phi = 180 + phi
-                        else:
-                            phi = phi + 180.
+                color = strs_params['nu']['mean']
+                mean = strs_params['Shmax']['mean']
+                X10 = strs_params['Shmax']['X10']
+                X90 = strs_params['Shmax']['X90']
+                if method == 'SHmax':
+                    # Flip these around for other half of bowtie
+                    back_10 = X10 - 180.
+                    back_90 = X90 - 180.
+                    if back_10 < 0.:
+                        back_10 += 360.
+                    if back_90 < 0.:
+                        back_90 += 360.
+                    if not color_boxes:
+                        f.write('{} {} {} {} {}\n'.format(grid_dict[ind][0],
+                                                          grid_dict[ind][1],
+                                                          color, X10, X90))
+                        f.write('{} {} {} {} {}\n'.format(grid_dict[ind][0],
+                                                          grid_dict[ind][1],
+                                                          color, back_10,
+                                                          back_90))
                     else:
-                        if phi < 0:
-                            phi = 360 + phi
-                    length = 0.6 * np.sin(np.deg2rad(theta))
-                    f.write('>-W{},{}\n'.format(size, s_cols[i]))
-                    # Size in 3rd column. Then 4 and 5 for az and length
-                    f.write('{} {} 0 {} {}\n'.format(grid_dict[ind][0],
-                                                     grid_dict[ind][1],
-                                                     phi, length))
-                    # nu boxes
-                    color = strs_params['nu']['mean']
-                    # Put color zval in header
-                    lat = float(grid_dict[ind][1])
-                    lon = float(grid_dict[ind][0])
-                    h = spacing / 2.0
+                        f.write('>-Glightgray\n')
+                        f.write('{} {} {} {}\n'.format(grid_dict[ind][0],
+                                                       grid_dict[ind][1],
+                                                       X10, X90))
+                        f.write('{} {} {} {}\n'.format(grid_dict[ind][0],
+                                                       grid_dict[ind][1],
+                                                       back_10, back_90))
+                elif method == 'sigmas':
+                    # Grab sigma trend and plunge values
+                    s_cols = ['red', 'green', 'blue']
+                    size = 1.5
+                    for i, sig in enumerate(['S1', 'S2', 'S3']):
+                        phi = strs_params['{}:Phi'.format(sig)]['mean']
+                        theta = strs_params['{}:Theta'.format(sig)]['mean']
+                        # Sort out upwards vectors
+                        if theta > 90:
+                            theta = 180. - theta
+                            if phi < 0:
+                                phi = 180 + phi
+                            else:
+                                phi = phi + 180.
+                        else:
+                            if phi < 0:
+                                phi = 360 + phi
+                        length = 0.6 * np.sin(np.deg2rad(theta))
+                        f.write('>-W{},{}\n'.format(size, s_cols[i]))
+                        # Size in 3rd column. Then 4 and 5 for az and length
+                        f.write('{} {} 0 {} {}\n'.format(grid_dict[ind][0],
+                                                         grid_dict[ind][1],
+                                                         phi, length))
+                # nu boxes
+                # Put color zval in header
+                lat = float(grid_dict[ind][1])
+                lon = float(grid_dict[ind][0])
+                h = spacing / 2.0
+                if color_boxes:
                     box_f.write('>-Z{}\n'.format(color))
-                    box_f.write('{} {}\n{} {}\n{} {}\n{} {}\n{} {}\n'.format(
-                        lon - h, lat + h, lon + h, lat + h, lon + h, lat - h,
-                        lon - h, lat - h, lon - h, lat + h
-                    ))
+                else:
+                    box_f.write('>\n')
+                box_f.write(
+                    '{} {}\n{} {}\n{} {}\n{} {}\n{} {}\n'.format(
+                        lon - h, lat + h, lon + h, lat + h, lon + h,
+                        lat - h, lon - h, lat - h, lon - h, lat + h
+                ))
     return
 
 def boxes_to_gmt(box_file, out_file, stress_dir=None):

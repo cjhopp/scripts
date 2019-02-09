@@ -436,8 +436,6 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
         new_cat = Catalog(events=[ev for ev in catalog
                                   if ev.resource_id.id.split('/')[-1]
                                   in names])
-        print(new_cat)
-        new_cat.write(out_cat, format="QUAKEML")
         print('Processing temps')
         temp_list = [(shortproc(read('{}/*'.format(tmp)),lowcut=lowcut,
                                 highcut=highcut, samp_rate=samp_rate,
@@ -450,6 +448,7 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
         for i, temp in enumerate(temp_list):
             print('Clipping template %s' % new_cat[i].resource_id.id)
             rm_ts = [] # Make a list of traces with no pick to remove
+            rm_ev = []
             for tr in temp[0]:
                 pk = [pk for pk in new_cat[i].picks
                       if pk.waveform_id.station_code == tr.stats.station
@@ -468,8 +467,15 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
             # If template is now length 0, remove it
             if len(temp[0]) == 0:
                 rm_temps.append(temp)
+                rm_ev.append(new_cat[i])
         for t in rm_temps:
             temp_list.remove(t)
+        # Remove the corresponding events as well to catalog and distmat
+        # are the same shape
+        for rme in rm_ev:
+            new_cat.events.remove(rme)
+    print(new_cat)
+    new_cat.write(out_cat, format="QUAKEML")
     print('Clustering')
     if isinstance(dist_mat, np.ndarray):
         print('Assuming the tribe provided is the same shape as dist_mat')

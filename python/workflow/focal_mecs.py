@@ -616,7 +616,8 @@ def grid_catalog_satsi(catalog, h_space, z_space, field,
                     ))
     return
 
-def msatsi_to_gmt(msatsi_dir, outfile, dim=2, size=1.0, spacing=0.003):
+def msatsi_to_gmt(msatsi_dir, outfile, dim=2, size=1.0, spacing=0.003,
+                  method='sigmas'):
     """
     Format msatsi output for input into gmt for comparison to catalog_to_gmt
 
@@ -673,17 +674,21 @@ def msatsi_to_gmt(msatsi_dir, outfile, dim=2, size=1.0, spacing=0.003):
                 lon - h, lat + h, lon + h, lat + h, lon + h, lat - h,
                 lon - h, lat - h, lon - h, lat + h
             ))
-            for tr, pl, col in zip([tr1, tr2, tr3], [pl1, pl2, pl3],
-                                   ['red', 'green', 'blue']):
-                length = 0.6 * np.cos(np.deg2rad(float(pl)))
-                if float(tr) < 0:
-                    trend = 360 + float(tr)
-                else:
-                    trend = tr
-                out_f.write('>-W{},{}\n'.format(size, col))
-                # Size in 3rd column. Then 4 and 5 for az and length
-                out_f.write('{} {} 0 {} {}\n'.format(lonc, latc,
-                                                     trend, length))
+            if method == 'sigmas':
+                for tr, pl, col in zip([tr1, tr2, tr3], [pl1, pl2, pl3],
+                                       ['red', 'green', 'blue']):
+                    length = 0.6 * np.cos(np.deg2rad(float(pl)))
+                    if float(tr) < 0:
+                        trend = 360 + float(tr)
+                    else:
+                        trend = tr
+                    out_f.write('>-W{},{}\n'.format(size, col))
+                    # Size in 3rd column. Then 4 and 5 for az and length
+                    out_f.write('{} {} 0 {} {}\n'.format(lonc, latc,
+                                                         trend, length))
+            elif method == 'SHmax':
+                # Needs to make use of matlab function SH() in msatsi_plot.m
+                print('Not yet implemented')
     return
 
 def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, min_num=20,
