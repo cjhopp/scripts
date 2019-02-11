@@ -464,13 +464,13 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
             # If trace lengths are internally inconsistent, remove template
             if len(list(set([len(tr) for tr in temp[0]]))) > 1:
                 rm_temps.append(temp)
-            # If template is now length 0, remove it
+            # If template is now length 0, remove it and associated event
             if len(temp[0]) == 0:
                 rm_temps.append(temp)
                 rm_ev.append(new_cat[i])
         for t in rm_temps:
             temp_list.remove(t)
-        # Remove the corresponding events as well to catalog and distmat
+        # Remove the corresponding events as well so catalog and distmat
         # are the same shape
         for rme in rm_ev:
             new_cat.events.remove(rme)

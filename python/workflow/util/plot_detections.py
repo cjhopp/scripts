@@ -24,7 +24,10 @@ from eqcorrscan.utils.mag_calc import dist_calc
 from eqcorrscan.utils.plotting import detection_multiplot
 from eqcorrscan.core.match_filter import Detection, Family, Party, Template
 # Import local stress functions
-from plot_stresses import parse_arnold_params, parse_arnold_grid
+try:
+    from plot_stresses import parse_arnold_params, parse_arnold_grid
+except:
+    print('On server. pathlib not installed')
 
 def get_cmap(n, name='hsv'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
