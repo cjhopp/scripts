@@ -322,3 +322,97 @@ def plot_all_clusters(group_cats, outdir, plot_dir, wells=None, **kwargs):
                     bbox='tight')
         plt.close('all')
     return
+
+################### FRACTURE and Fault Plane Plotting ########################
+
+def plot_fracs(well, label=True, cardinal_dirs=True, depth_interval=None,
+               ax=None, show=False, outfile=None):
+    """
+    Plot density plot of poles to fractures from AFIT/FMI logs for a given well
+    :param well: path to well file (depth, dip, strike, dip direction, ...)
+    :param label: Are we labeling in the top left with well name?
+    :param cardinal_dirs: Include cardinal direction labels?
+    :param depth_interval: Start (top) and end (bottom) depths to plot
+    :param ax: matplotlib.Axes object preconfigured as polar plot
+    :return:
+    """
+    if not ax:
+        fig = plt.figure()
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
+    # Read in arrays
+    data = np.genfromtxt(well, delimiter=',', skip_header=1)
+    depth = data[:,0]
+    # Select only fractures within depth interval
+    if depth_interval:
+        # Check your depth interval is valid
+        if (depth_interval[0] < data[:,0].min() or
+            depth_interval[1] > data[:,0].max()):
+            print('Depth interval provided doesnt exist for this well')
+            return
+        dep_data = data[np.where(
+            np.logical_and(data[:,0] < depth_interval[1],
+                           data[:,0] > depth_interval[0]))]
+    else:
+        dep_data = data
+    dip = dep_data[:,1]
+    dip_dir = dep_data[:,3]
+    # Pole to plane is dip dir - 180
+    pole_dir = dip_dir - 180.
+    # Correct values less than 0
+    pole_dir = np.where(pole_dir >= 0., pole_dir, pole_dir + 360.)
+    pole_angle = np.deg2rad(dip) # Angle up from down
+    pole_az = np.deg2rad(pole_dir) # East from North
+    # Subtract 90 for strike values and eliminate negatives
+    strk_az = pole_az - (np.pi / 2.)
+    strk_az = np.where(strk_az >=0., strk_az, strk_az + 2* np.pi)
+    # Define the bin areas
+    dip_bins = np.linspace(0, 92.5, 18) # 5 degree bins
+    r_bins = np.deg2rad(dip_bins)
+    N_az_bin = 72 # 72 5-degree azimuth bins
+    rad_bin_width = 2. * np.pi / (N_az_bin + 1.) # Width of bins in radians
+    az_bins = np.linspace(-rad_bin_width / 2.,
+                          2. * np.pi + rad_bin_width / 2.,
+                          N_az_bin)
+    # 1D histogram
+    number_of_strikes, bin_edges = np.histogram(strk_az, az_bins)
+    norm_num_strk = number_of_strikes / number_of_strikes.max() # Normalize
+    # Scale to y-range
+    norm_num_strk *= (np.pi / 2)
+    # 1D bar behavior too
+    # half = np.sum(np.split(number_of_strikes[:-1], 2), 0)
+    # two_halves = np.concatenate([half, half])
+    # 2D histogram
+    H, az_edges, dip_edges = np.histogram2d(pole_az, pole_angle,
+                                            bins=(az_bins, r_bins))
+    # plot data in the middle of the bins
+    r_mid = .5 * (dip_edges[:-1] + dip_edges[1:])
+    theta_mid = .5 * (az_edges[:-1] + az_edges[1:])
+    az_mid = .5 * (bin_edges[:-1] + bin_edges[1:])
+    cax = ax.contourf(theta_mid, r_mid, H.T, 10, cmap=plt.cm.Purples)
+    ax.scatter(pole_az, pole_angle, color='k', s=0.1, alpha=0.5)
+    # Bar plot on top
+    # Normalize number of strikes to 0 np.pi / 2!!!!!
+    ax.bar(az_mid, norm_num_strk, width=rad_bin_width, bottom=0.0,
+           color='.8', edgecolor='k')
+    plt.colorbar(cax)
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(False)
+    ax.margins(0.0)
+    if label:
+        ax.text(0., 0.9, well.split('_')[-2].split('/')[-1], fontsize=14,
+                transform=ax.transAxes)
+    # Set up to North, clockwise scale, 180 offset
+    ax.set_theta_direction(-1)
+    ax.set_theta_offset(np.pi / 2.0)
+    ax.set_yticklabels([])
+    ax.set_ylim([0, np.pi / 2.])
+    if cardinal_dirs:
+        ax.set_xticklabels(['N', '', 'E', '', 'S', '', 'W'])
+    else:
+        ax.set_xticklabels([])
+    if show:
+        plt.show()
+    elif outfile:
+        plt.savefig(outfile, dpi=300)
+        plt.close('all')
+    return ax

@@ -114,6 +114,7 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
               focmecs=False):
     """
     Plot earthquake magnitude as a function of time
+
     :param cat: catalog of earthquakes with mag info
     :param dates: list of UTCDateTime objects defining start and end of plot.
         Defaults to None.
@@ -452,8 +453,25 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     if not ax:
         fig, ax = plt.subplots(figsize=(8, 6))
     for i, (cat, name) in enumerate(zip(catalogs, cat_names)):
-        mags = [ev.magnitudes[-1].mag for ev in cat]
+        mags = [ev.preferred_magnitude().mag for ev in cat]
         b_dict = bval_calc(cat, bin_size, MC, weight=weight)
+        bcalc = calc_b_value(
+            magnitudes=mags,
+            completeness=np.arange(min(mags), max(mags), 0.1),
+            plotvar=False)
+        bcalc.sort(key=lambda x: x[2])
+        # b = bcalc[-1][1]
+        Mc = bcalc[-1][0]
+        comp_mags = [m for m in mags if m > Mc]
+        mean_mag = np.mean(comp_mags)
+        min_mag = min(comp_mags)
+        neq = len(comp_mags)
+        # Max likelihood (Aki 1965) with
+        # Shi&Bolt 1982 Formulation for b std error
+        b = (1 / (mean_mag - min_mag)) * np.log10(np.exp(1))
+        std_dev = np.sum([(m - mean_mag) ** 2
+                          for m in comp_mags]) / (neq * (neq - 1))
+        std_err = 2.30 * np.sqrt(std_dev) * (b ** 2)
         col = next(colors)
         if not name.endswith('(GNS)'):
             if not linestyles:
@@ -473,10 +491,10 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                 y = 0.8
             elif i == 2:
                 y = 0.7
-            text = 'B-value: {:.2f}'.format(b_dict['b'])
-            ax.text(0.85, y - 0.05, text, transform=ax.transAxes, color=col,
+            text = 'B-value: {:.2f}$\pm${:.2f}'.format(b, std_err)
+            ax.text(0.80, y - 0.05, text, transform=ax.transAxes, color=col,
                     horizontalalignment='center', fontsize=14.)
-            ax.text(0.85, y, 'Mc=%.2f' % b_dict['Mc'],
+            ax.text(0.80, y, 'Mc=%.2f' % Mc,
                     color=col, transform=ax.transAxes,
                     horizontalalignment='center', fontsize=14.)
         else:
@@ -504,9 +522,8 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     return ax
 
 
-def map_bvalue(catalog, max_ev, no_above_Mc, bin_size=0.1, weight=False,
-               Mc=None, show=False, outfile=None, dimension=3,
-               method='EQcorrscan', plotvar=False):
+def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
+               dimension=3, plotvar=False):
     """
     Do b-value mapping using a catalog, as described in Bachmann et al. 2012:
 
@@ -540,19 +557,24 @@ def map_bvalue(catalog, max_ev, no_above_Mc, bin_size=0.1, weight=False,
         dists, ney_burs = treebeard.query(pt, k=max_ev)
         sub_cat = Catalog(events=[catalog[i] for i in ney_burs])
         # Do bval calculation
-        if method == 'EQcorrscan':
-            mags = [ev.preferred_magnitude().mag for ev in sub_cat]
-            bcalc = calc_b_value(
-                magnitudes=mags,
-                completeness=np.arange(min(mags), max(mags), 0.1),
-                plotvar=plotvar)
-            bcalc.sort(key=lambda x: x[2])
-            b = bcalc[-1][1]
-            Mc = bcalc[-1][0]
-        else:
-            b_dict = bval_calc(sub_cat, bin_size, Mc, weight=weight)
-            b = b_dict['b']
-            Mc = b_dict['Mc']
+        mags = [ev.preferred_magnitude().mag for ev in sub_cat]
+        bcalc = calc_b_value(
+            magnitudes=mags,
+            completeness=np.arange(min(mags), max(mags), 0.1),
+            plotvar=plotvar)
+        bcalc.sort(key=lambda x: x[2])
+        # b = bcalc[-1][1]
+        Mc = bcalc[-1][0]
+        comp_mags = [m for m in mags if m > Mc]
+        mean_mag = np.mean(comp_mags)
+        min_mag = min(comp_mags)
+        neq = len(comp_mags)
+        # Max likelihood (Aki 1965) with
+        # Shi&Bolt 1982 Formulation for b std error
+        b = (1 / (mean_mag - min_mag)) * np.log10(np.exp(1))
+        std_dev = np.sum([(m - mean_mag) ** 2
+                          for m in comp_mags]) / (neq * (neq - 1))
+        std_err = 2.30 * np.sqrt(std_dev) * (b ** 2)
         # If enough events, save b val
         if len([ev for ev in sub_cat
                 if ev.preferred_magnitude().mag > Mc]) > no_above_Mc:
@@ -589,8 +611,8 @@ def map_bvalue(catalog, max_ev, no_above_Mc, bin_size=0.1, weight=False,
     return bval_out
 
 
-def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 5000],
-             ylim=[0, 2.5], dimension=3, title=None):
+def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
+             ylim=[0, 2.5], dimension=3, title=None, color=None, label=None):
     """
     Plot b-values with distance from an injection point
     :param catalog: Catalog of events with a Comment in the preferred_origin()
@@ -601,6 +623,7 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 5000],
 
     .. note: RK24 Feedzones: (-38.6149, 176.2025, 2.9)
              RK23 Feedzones: (-38.6162, 176.2076, 2.9)
+             NM06 feedzones: (-38.5653, 176.1948, 2.88)
     """
     if not ax:
         fig, axes = plt.subplots(figsize=(7, 5))
@@ -623,6 +646,12 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 5000],
                for ev in catalog
                if ev.preferred_origin().comments[-1].text.split('=')[-1]
                != 'None']
+    elif dimension == 'depth':
+        pts = [(ev.preferred_origin().depth,
+                ev.preferred_origin().comments[-1].text.split('=')[-1])
+               for ev in catalog
+               if ev.preferred_origin().comments[-1].text.split('=')[-1]
+               != 'None']
     # Sort by distance for putting into bins
     pts.sort(key=lambda x: x[0])
     x, y = zip(*pts)
@@ -631,27 +660,102 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 5000],
     # Scatter plot
     axes.scatter(x, y_flts, marker='.', color='k', s=5.0, alpha=0.1)
     # Calculate averages/variance
-    bins = np.arange(min(x), max(x), 50)
+    bins = np.arange(min(x), max(x), 50) #100 m bins
     digitized = np.digitize(x, bins)
     bin_means = [y_flts[digitized == i].mean() for i in range(1, len(bins))]
     bin_std = [y_flts[digitized == i].std() for i in range(1, len(bins))]
-    axes.errorbar(bins[:-1] + ((bins[1] - bins[0]) / 2.), bin_means,
-                  color='red', linewidth=2.5, yerr=bin_std, ecolor='steelblue',
-                  elinewidth=1.5, capsize=2.5, marker='s',
-                  label='Average')
-    # Formatting
-    axes.set_xlabel('Distance (m)')
-    axes.set_ylabel('b-value')
-    if not title:
-        axes.set_title('b-value with distance')
+    if not color:
+        col = 'r'
     else:
-        axes.set_title(title)
+        col = color
+    if not label:
+        lab = 'Average'
+    else:
+        lab = label
+    axes.errorbar(bins[:-1] + ((bins[1] - bins[0]) / 2.), bin_means,
+                  color=col, linewidth=2.5, yerr=bin_std, ecolor='black',
+                  elinewidth=1.5, capsize=2.5, marker='s',
+                  markeredgecolor='black', label=lab)
+    # Formatting
+    if dimension != 'depth':
+        axes.set_xlabel('Distance (m)', fontsize=16)
+    else:
+        axes.set_xlabel('Depth (m)', fontsize=16)
+    axes.set_ylabel('b-value', fontsize=16)
+    if not title:
+        axes.set_title('b-value with distance', fontsize=18)
+    else:
+        axes.set_title(title, fontsize=18)
     axes.set_xlim(xlim)
     axes.set_ylim(ylim)
     axes.legend()
     if show:
         plt.show()
         plt.close()
+    return axes
+
+
+def t_b_plot(catalog, window, overlap, dates=None, plotvar=False, color=None,
+             label=None, axes=None, show=False):
+    """
+    Plot bvalue with time for a catalog
+
+    :param catalog: Catalog of events
+    :param window: Number of events to compute bval for
+    :param overlap: How much overlap
+    :param dates:
+    :return:
+    """
+    # Ensure sorted by time
+    if axes:
+        ax = axes
+    else:
+        fig, ax = plt.subplots()
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    if dates:
+        cat = Catalog(events=[ev for ev in catalog
+                              if dates[0] < ev.origins[-1].time
+                              < dates[1]])
+    else:
+        cat = catalog
+    med_dates = []
+    b_values = []
+    mcs = []
+    residuals = []
+    for i in range(0, len(cat), window-overlap):
+        sub_cat = cat[i:i+window]
+        if len(sub_cat) != window:
+            print('Sub cat not length of window. Skipping')
+            continue
+        med_ind = int(len(sub_cat) / 2)
+        med_dates.append(sub_cat[med_ind].preferred_origin().time.datetime)
+        # Do bval calculation
+        mags = [ev.preferred_magnitude().mag for ev in sub_cat]
+        bcalc = calc_b_value(
+            magnitudes=mags,
+            completeness=np.arange(min(mags), max(mags), 0.1),
+            plotvar=plotvar)
+        bcalc.sort(key=lambda x: x[2])
+        b_values.append(bcalc[-1][1])
+        mcs.append(bcalc[-1][0])
+        print(bcalc[-1][2])
+        residuals.append((100 - bcalc[-1][2]) * 0.1)
+    # Plotting
+    if color:
+        col = color
+    else:
+        col = 'red'
+    if label:
+        lab = label
+    else:
+        lab = 'b-value'
+    ax.errorbar(med_dates, b_values,
+                color=col, linewidth=2.5, yerr=residuals, ecolor='black',
+                elinewidth=1.5, capsize=2.5, marker='s',
+                markeredgecolor='black', label=lab)
+    fig.autofmt_xdate()
+    if show:
+        plt.show()
     return axes
 
 

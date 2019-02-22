@@ -1207,6 +1207,7 @@ def plot_event_well_dist(catalog, well_fzs, flow_dict, centroid=False,
         e.g. NM08 main fz: (-38.5326, 176.1788, 2.00)
         e.g. NM10 main fz: (-38.5673, 176.1893, 2.128)
         e.g. NM09 main fz: (-38.5358, 176.1857, 2.45)
+        e.g. NM06 main fz: (-38.5653, 176.1948, 2.88)
         e.g. RK24 main fz: (-38.615, 176.203, 2.515) (Middle of FZ: 2476-2550)
         *** DEPTHS HERE NEED TO BE M BSL!!! ***
     :param flow_dict: Dictionary of flow starts, stops and D, for example:

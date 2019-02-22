@@ -235,7 +235,7 @@ def plot_mtfit_output(directory, outdir):
     return
 
 ##############################################################################
-################# Richard's focmec and stress inversion formatting ############
+################# Richard's focmec and stress inversion formatting ###########
 
 ########################## FMC PLOTTING ######################################
 
@@ -283,6 +283,83 @@ def arnold2FMC(input_files, plotname='Test', outfile='test.png', show=True):
     else:
         plt.savefig(outfile, dpi=300)
     return fig
+
+########################## END FMC ###########################################
+
+def poles_from_sdr(sdr):
+    """Helper to return poles to plane and aux plane in xyz (z down)"""
+    strike = np.deg2rad(sdr[0])
+    dip = np.deg2rad(sdr[1])
+    rake = np.deg2rad(sdr[2])
+    # Pole to reported plane
+    pn = -np.sin(dip) * np.sin(strike) #north
+    pe = np.sin(dip) * np.cos(strike) #east
+    pz = -np.cos(dip) #vertical
+    # Now pole to aux plane (just slip vector)
+    apn = ((np.cos(rake) * np.cos(strike)) +
+           (np.sin(rake) * np.cos(dip) * np.sin(strike))) #north
+    ape = ((np.cos(rake) * np.sin(strike)) -
+           (np.sin(rake) * np.cos(dip) * np.cos(strike))) #east
+    apz = np.sin(rake) * np.sin(dip) #vertical
+    return np.array([pe, pn, pz]), np.array([ape, apn, apz])
+
+
+def calculate_instability(sdr, Shmax, regime, R):
+    """
+    Calculate fault instability criterion from Vavrycuk 2014 eqns. 16-18:
+
+    https://academic.oup.com/gji/article/199/1/69/723251
+
+    :param sdr: tuple of strike, dip and rake of a fault
+    :param stress: Azimuth of Shmax
+    :param regime: Assuming that one axes is vertical, give faulting regime
+        'ss', 'n', 'r'
+    :param R: Stress ratio for the local stress regime:
+        (sig1 - sig2) / (sig1 - sig3)
+    :return: I
+    """
+    Shmax = np.deg2rad(Shmax)
+    # First get normal to planes in geographic coordinates
+    pole1, pole_aux = poles_from_sdr(sdr)
+    print('Poles to nodal planes:\n{}\n{}'.format(pole1, pole_aux))
+    # Calculate sdr of aux plane from pole
+    s_aux = 90. - np.rad2deg(np.arctan(pole_aux[0] / pole_aux[1]))
+    d_aux = 90. - np.rad2deg(np.arcsin(pole_aux[2]))
+    print('Aux plane strike-dip:\n{}-{}'.format(s_aux, d_aux))
+    # Rotation matrix about z axis corresponding to stress state
+    rot_mat = np.matrix([[np.cos(Shmax), -np.sin(Shmax), 0],
+                         [np.sin(Shmax), np.cos(Shmax), 0],
+                         [0, 0, 1]])
+    # Rotate normals to planes into stress coordinates
+    n1 = rot_mat * pole1.reshape(3, 1)
+    n_aux = rot_mat * pole_aux.reshape(3, 1)
+    print('New poles in stress coords:\n{}\n{}'.format(n1, n_aux))
+    # xyz relation to stresses depends on faulting regime
+    # Rotating by Shmax orients coordinates in a system that is parallel to
+    # stress axes but we want indices of n to correspond to sig1, sig2, sig3
+    # Sort that here
+    if regime == 'n':
+        n1 = np.flip(n1, axis=0)
+        n_aux = np.flip(n_aux, axis=0)
+    elif regime == 'ss':
+        n1 = n1[[1, 2, 0]]
+        n_aux = n_aux[[1, 2, 0]]
+    elif regime == 'r':
+        n1 = n1[[1, 2, 0]]
+        n_aux = n_aux[[1, 0, 2]]
+    print('New poles flipped to sigma1-2-3:\n{}\n{}'.format(n1, n_aux))
+    # Compute sigmas and tau
+    sig1 = (n1[0])**2 + (1 - (2 * R)) * (n1[1])**2 - (n1[2])**2
+    tau1 = np.sqrt((n1[0])**2 + (1 - (2 * R))**2 * (n1[1])**2 + n1[2]**2 -
+                   ((n1[0])**2 + (1 - (2 * R)) * (n1[1])**2 - (n1[2])**2)**2)
+    sig_aux = (n_aux[0])**2 + (1 - (2 * R)) * (n_aux[1])**2 - (n_aux[2])**2
+    tau_aux = np.sqrt((n_aux[0])**2 + (1 - (2 * R))**2 * (n_aux[1])**2 +
+                      (n_aux[2])**2 - ((n_aux[0])**2 + (1 - (2 * R)) *
+                                       (n_aux[1])**2 - (n_aux[2])**2)**2)
+    I1 = (tau1 - 0.6 * (sig1 - 1)) / (0.6 + np.sqrt(1 + 0.6**2))
+    I_aux = (tau_aux - 0.6 * (sig_aux - 1)) / (0.6 + np.sqrt(1 + 0.6**2))
+    return I1, I_aux
+
 
 def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                          id_type='detection', dd=True, date_range=[],
