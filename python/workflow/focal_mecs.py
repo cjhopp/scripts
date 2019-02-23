@@ -304,7 +304,7 @@ def poles_from_sdr(sdr):
     return np.array([pe, pn, pz]), np.array([ape, apn, apz])
 
 
-def calculate_instability(sdr, Shmax, regime, R):
+def calculate_instability(sdr, Shmax, regime, R, debug=0):
     """
     Calculate fault instability criterion from Vavrycuk 2014 eqns. 16-18:
 
@@ -316,16 +316,18 @@ def calculate_instability(sdr, Shmax, regime, R):
         'ss', 'n', 'r'
     :param R: Stress ratio for the local stress regime:
         (sig1 - sig2) / (sig1 - sig3)
-    :return: I
+    :return: Least stable sdr and pole
     """
     Shmax = np.deg2rad(Shmax)
     # First get normal to planes in geographic coordinates
     pole1, pole_aux = poles_from_sdr(sdr)
-    print('Poles to nodal planes:\n{}\n{}'.format(pole1, pole_aux))
+    if debug > 0:
+        print('Poles to nodal planes:\n{}\n{}'.format(pole1, pole_aux))
     # Calculate sdr of aux plane from pole
     s_aux = 90. - np.rad2deg(np.arctan(pole_aux[0] / pole_aux[1]))
     d_aux = 90. - np.rad2deg(np.arcsin(pole_aux[2]))
-    print('Aux plane strike-dip:\n{}-{}'.format(s_aux, d_aux))
+    if debug > 0:
+        print('Aux plane strike-dip:\n{}-{}'.format(s_aux, d_aux))
     # Rotation matrix about z axis corresponding to stress state
     rot_mat = np.matrix([[np.cos(Shmax), -np.sin(Shmax), 0],
                          [np.sin(Shmax), np.cos(Shmax), 0],
@@ -333,7 +335,8 @@ def calculate_instability(sdr, Shmax, regime, R):
     # Rotate normals to planes into stress coordinates
     n1 = rot_mat * pole1.reshape(3, 1)
     n_aux = rot_mat * pole_aux.reshape(3, 1)
-    print('New poles in stress coords:\n{}\n{}'.format(n1, n_aux))
+    if debug > 0:
+        print('New poles in stress coords:\n{}\n{}'.format(n1, n_aux))
     # xyz relation to stresses depends on faulting regime
     # Rotating by Shmax orients coordinates in a system that is parallel to
     # stress axes but we want indices of n to correspond to sig1, sig2, sig3
@@ -347,7 +350,8 @@ def calculate_instability(sdr, Shmax, regime, R):
     elif regime == 'r':
         n1 = n1[[1, 2, 0]]
         n_aux = n_aux[[1, 0, 2]]
-    print('New poles flipped to sigma1-2-3:\n{}\n{}'.format(n1, n_aux))
+    if debug > 0:
+        print('New poles flipped to sigma1-2-3:\n{}\n{}'.format(n1, n_aux))
     # Compute sigmas and tau
     sig1 = (n1[0])**2 + (1 - (2 * R)) * (n1[1])**2 - (n1[2])**2
     tau1 = np.sqrt((n1[0])**2 + (1 - (2 * R))**2 * (n1[1])**2 + n1[2]**2 -
@@ -358,7 +362,120 @@ def calculate_instability(sdr, Shmax, regime, R):
                                        (n_aux[1])**2 - (n_aux[2])**2)**2)
     I1 = (tau1 - 0.6 * (sig1 - 1)) / (0.6 + np.sqrt(1 + 0.6**2))
     I_aux = (tau_aux - 0.6 * (sig_aux - 1)) / (0.6 + np.sqrt(1 + 0.6**2))
-    return I1, I_aux
+    if I1 >= I_aux:
+        return sdr, pole1
+    else:
+        return (s_aux, d_aux, None), pole_aux
+
+
+def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R,
+                               label=None, cardinal_dirs=None, ax=None):
+    """
+    Take the output of focal mechanisms and plot the least stable of the nodal
+    planes
+
+    :param cat: Catalog corresponding to sdr file
+    :param sdr_file: Output file with strike, dip and rake for events
+    :return:
+    """
+    sdr_dict = {}
+    with open(sdr_file, 'r') as f:
+        next(f) # skip header
+        # Build dict of sdr for each event
+        for ln in f:
+            line = ln.split(',')
+            sdr_dict[line[0].split('.')[0]] = (
+                float(line[1]), float(line[2]), float(line[3].rstrip('\n')))
+    # Build sdrs for
+    plot_sdrs = []
+    for ev in cat:
+        if ev.resource_id.id.split('/')[-1] in sdr_dict:
+            sdr = sdr_dict[ev.resource_id.id.split('/')[-1]]
+            plot_sdrs.append(calculate_instability(sdr, Shmax=Shmax,
+                                                   regime=regime, R=R))
+    if not ax:
+        fig = plt.figure()
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
+    # Plotting now
+    # Unpack the output from calculate_instability
+    sdrs, poles = zip(*plot_sdrs)
+    strike, dip, rake = zip(*sdrs)
+    # Calculate trend and plunge of pole
+    strike = np.array(strike)
+    trend = strike - 90.
+    trend = np.where(trend >= 0., trend, trend + 360.)
+    plunge = np.array(dip)
+    ax = rose_plot(np.deg2rad(trend), np.deg2rad(plunge), np.deg2rad(strike),
+                   label=label, cardinal_dirs=cardinal_dirs, ax=ax)
+    return
+
+
+def rose_plot(trend, plunge, strike, label=None, cardinal_dirs=False,
+              ax=None, show=True, outfile=None):
+    """
+    Plot a set of poles and strikes on a polar axis as a heatmap overlain
+    by a rose plot
+
+    :param trend: np.ndarray of trends in radians
+    :param plunge: np.ndarray of plunges in radians
+    :param strike: np.ndarray of strikes in radians
+    :param label: Text to label plot with
+    :param cardinal_dirs: Boolean for plotting cardinal dirs
+    :param ax: Axes object to plot onto
+    :param show: Boolean to show figure
+    :param outfile: Path to potential output file
+    :return:
+    """
+    if not ax:
+        fig = plt.figure()
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
+    dip_bins = np.linspace(0, 92.5, 18) # 5 degree bins
+    r_bins = np.deg2rad(dip_bins)
+    N_az_bin = 72 # 72 5-degree azimuth bins
+    rad_bin_width = 2. * np.pi / (N_az_bin + 1.) # Width of bins in radians
+    az_bins = np.linspace(-rad_bin_width / 2.,
+                          2. * np.pi + rad_bin_width / 2.,
+                          N_az_bin)
+    # 1D histogram
+    number_of_strikes, bin_edges = np.histogram(strike, az_bins)
+    norm_num_strk = number_of_strikes / number_of_strikes.max() # Normalize
+    # Scale to y-range
+    norm_num_strk *= (np.pi / 2)
+    # 2D histogram
+    H, az_edges, dip_edges = np.histogram2d(trend, plunge,
+                                            bins=(az_bins, r_bins))
+    # plot data in the middle of the bins
+    r_mid = .5 * (dip_edges[:-1] + dip_edges[1:])
+    theta_mid = .5 * (az_edges[:-1] + az_edges[1:])
+    az_mid = .5 * (bin_edges[:-1] + bin_edges[1:])
+    cax = ax.contourf(theta_mid, r_mid, H.T, 10, cmap=plt.cm.Purples)
+    ax.scatter(trend, plunge, color='k', s=0.1, alpha=0.5)
+    # Bar plot on top
+    # Normalize number of strikes to 0 np.pi / 2!!!!!
+    ax.bar(az_mid, norm_num_strk, width=rad_bin_width, bottom=0.0,
+           color='gray', edgecolor='k', alpha=.7)
+    plt.colorbar(cax)
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(False)
+    ax.margins(0.0)
+    if label:
+        ax.text(0., 0.9, label, fontsize=14,
+                transform=ax.transAxes)
+    # Set up to North, clockwise scale, 180 offset
+    ax.set_theta_direction(-1)
+    ax.set_theta_offset(np.pi / 2.0)
+    ax.set_yticklabels([])
+    ax.set_ylim([0, np.pi / 2.])
+    if cardinal_dirs:
+        ax.set_xticklabels(['N', '', 'E', '', 'S', '', 'W'])
+    else:
+        ax.set_xticklabels([])
+    if show:
+        plt.show()
+    elif outfile:
+        plt.savefig(outfile, dpi=300)
+        plt.close('all')
+    return ax
 
 
 def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,

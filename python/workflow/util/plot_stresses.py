@@ -9,6 +9,7 @@ from glob import glob
 from matplotlib.pyplot import GridSpec
 from itertools import cycle
 from plot_well_data import plot_well_seismicity
+from focal_mecs import rose_plot
 
 def parse_arnold_grid(file):
     """Return the vectors that define the phi, theta grid"""
@@ -364,55 +365,12 @@ def plot_fracs(well, label=True, cardinal_dirs=True, depth_interval=None,
     pole_az = np.deg2rad(pole_dir) # East from North
     # Subtract 90 for strike values and eliminate negatives
     strk_az = pole_az - (np.pi / 2.)
-    strk_az = np.where(strk_az >=0., strk_az, strk_az + 2* np.pi)
+    strk_az = np.where(strk_az >=0., strk_az, strk_az + 2 * np.pi)
     # Define the bin areas
-    dip_bins = np.linspace(0, 92.5, 18) # 5 degree bins
-    r_bins = np.deg2rad(dip_bins)
-    N_az_bin = 72 # 72 5-degree azimuth bins
-    rad_bin_width = 2. * np.pi / (N_az_bin + 1.) # Width of bins in radians
-    az_bins = np.linspace(-rad_bin_width / 2.,
-                          2. * np.pi + rad_bin_width / 2.,
-                          N_az_bin)
-    # 1D histogram
-    number_of_strikes, bin_edges = np.histogram(strk_az, az_bins)
-    norm_num_strk = number_of_strikes / number_of_strikes.max() # Normalize
-    # Scale to y-range
-    norm_num_strk *= (np.pi / 2)
-    # 1D bar behavior too
-    # half = np.sum(np.split(number_of_strikes[:-1], 2), 0)
-    # two_halves = np.concatenate([half, half])
-    # 2D histogram
-    H, az_edges, dip_edges = np.histogram2d(pole_az, pole_angle,
-                                            bins=(az_bins, r_bins))
-    # plot data in the middle of the bins
-    r_mid = .5 * (dip_edges[:-1] + dip_edges[1:])
-    theta_mid = .5 * (az_edges[:-1] + az_edges[1:])
-    az_mid = .5 * (bin_edges[:-1] + bin_edges[1:])
-    cax = ax.contourf(theta_mid, r_mid, H.T, 10, cmap=plt.cm.Purples)
-    ax.scatter(pole_az, pole_angle, color='k', s=0.1, alpha=0.5)
-    # Bar plot on top
-    # Normalize number of strikes to 0 np.pi / 2!!!!!
-    ax.bar(az_mid, norm_num_strk, width=rad_bin_width, bottom=0.0,
-           color='.8', edgecolor='k')
-    plt.colorbar(cax)
-    ax.yaxis.grid(False)
-    ax.xaxis.grid(False)
-    ax.margins(0.0)
+    # Plot'em
     if label:
-        ax.text(0., 0.9, well.split('_')[-2].split('/')[-1], fontsize=14,
-                transform=ax.transAxes)
-    # Set up to North, clockwise scale, 180 offset
-    ax.set_theta_direction(-1)
-    ax.set_theta_offset(np.pi / 2.0)
-    ax.set_yticklabels([])
-    ax.set_ylim([0, np.pi / 2.])
-    if cardinal_dirs:
-        ax.set_xticklabels(['N', '', 'E', '', 'S', '', 'W'])
-    else:
-        ax.set_xticklabels([])
-    if show:
-        plt.show()
-    elif outfile:
-        plt.savefig(outfile, dpi=300)
-        plt.close('all')
+        lab = well.split('_')[-2].split('/')[-1]
+    ax = rose_plot(trend=pole_az, plunge=pole_angle, strike=strk_az, label=lab,
+                   cardinal_dirs=cardinal_dirs, ax=ax, show=show,
+                   outfile=outfile)
     return ax

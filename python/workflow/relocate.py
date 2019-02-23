@@ -115,6 +115,7 @@ def dd_time2EQ(catalog, nlloc_root, in_file):
         print('Raytracing for: {}'.format(eid))
         obs_file = '{}/obs/{}'.format(nlloc_root, eid)
         new_obs = '{}.obs'.format(obs_file) # Only real picks in this one
+        print(new_obs)
         loc_file = '{}/loc/{}'.format(nlloc_root, eid)
         out_file_hyp = glob(
             '{}.????????.??????.grid0.loc.hyp'.format(loc_file))
@@ -125,7 +126,7 @@ def dd_time2EQ(catalog, nlloc_root, in_file):
                     # Time2EQ
                     if line.startswith('EQFILES'):
                         line = line.split()
-                        line = '{} {} {}'.format(line[0], line[1], obs_file)
+                        line = '{} {} {}\n'.format(line[0], line[1], obs_file)
                     elif line.startswith("EQSRCE"):
                         line = "EQSRCE {} LATLON {} {} {} 0.0\n".format(
                             eid, o.latitude, o.longitude, o.depth / 1000.)
