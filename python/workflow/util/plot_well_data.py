@@ -822,7 +822,7 @@ def plot_transient(excel_file, sheetname, dates, II=False, falloff=False,
 def plot_well_data(excel_file, sheetname, parameter, well_list,
                    colors=None, cumulative=False, ax=None, dates=None,
                    show=False, ylims=False, outdir=None, figsize=(8, 6),
-                   tick_colors=False):
+                   tick_colors=False, twin_ax=True, labs=None):
     """
     New flow/pressure plotting function utilizing DataFrame functionality
     :param excel_file: Excel file to read
@@ -839,6 +839,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
     :param outdir: Directory to save plot to. Will not show figure.
     :param figsize: Figure size passed to subplots
     :param tick_colors: Boolean for ticks color-coded to curves
+    :param twin_ax: If False, will plot on the passes ax directly
+    :param labs: List of labels corresponding to wells. Really just a hack
+        so I can manually force no labels in legend with labs=['_nolegend_']
+
     :return: matplotlib.pyplot.Axes
     """
     # Yet another shit hack for silly merc data
@@ -894,13 +898,14 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
         df = df.truncate(before=start, after=end)
         if parameter == 'Injectivity':
             df2 = df2.truncate(before=start, after=end)
-        try:
-            handles = ax.legend().get_lines() # Grab these lines for legend
-            if isinstance(ax.legend_, matplotlib.legend.Legend):
-                ax.legend_.remove() # Need to manually remove this, apparently
-        except AttributeError:
-            print('Empty axes. No legend to incorporate.')
-            handles = []
+        if twin_ax:
+            try:
+                handles = ax.legend().get_lines() # Grab these lines for legend
+                if isinstance(ax.legend_, matplotlib.legend.Legend):
+                    ax.legend_.remove() # Need to manually remove this, apparently
+            except AttributeError:
+                print('Empty axes. No legend to incorporate.')
+                handles = []
     # Set color (this is only a good idea for one line atm)
     # Loop over well list (although there must be slicing option here)
     # Maybe do some checks here on your kwargs (Are these wells in this sheet?)
@@ -911,7 +916,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
         # Stimulations are 5 min samples (roughly) (i.e. / 12.)
         # Post-startup are daily (i.e. * 24.)
         maxs = []
-        ax1a = ax.twinx()
+        if twin_ax:
+            ax1a = ax.twinx()
+        else:
+            ax1a = ax
         for i, well in enumerate(well_list):
             dtos = df.xs((well, parameter), level=(0, 1),
                          axis=1).index.to_pydatetime()
@@ -947,7 +955,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
         # Loop over wells, slice dataframe to each and plot
         maxs = []
         if not plain and ax.get_ylim()[-1] != 1.0:
-            ax1a = ax.twinx()
+            if twin_ax: # If we want to combine stims and post startup at Nga
+                ax1a = ax.twinx()
+            else:
+                ax1a = ax
             # Check for existing position of labels (and probably ticks as well)
             # then put the new ones on the opposite side
             if ax.yaxis.get_ticks_position() == 'right':
@@ -991,10 +1002,10 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
                         (df2[well, 'WHP (barg)'] + pgz - Pr)
                     values = vals * 10
                     dtos = values.index.to_pydatetime()
-                else:
-                    values = df.xs((well, parameter), level=(0, 1), axis=1)
-                    dtos = df.xs((well, parameter), level=(0, 1),
-                                 axis=1).index.to_pydatetime()
+            else:
+                values = df.xs((well, parameter), level=(0, 1), axis=1)
+                dtos = df.xs((well, parameter), level=(0, 1),
+                             axis=1).index.to_pydatetime()
             maxs.append(np.max(values.dropna().values))
             if outdir:
                 # Write to file
@@ -1007,25 +1018,38 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
                 continue
             colr = next(colors)
             # Force MPa instead of bar units
+            # Ugliest thing ever
             if parameter in ['WHP (bar)', 'WHP (barg)']:
-                label = '{}: WHP (MPa)'.format(well)
+                if labs:
+                    label = labs[i]
+                else:
+                    label = '{}: WHP (MPa)'.format(well)
                 values *= 0.1
             elif parameter == 'DHP (barg)':
-                label = '{}: DHP (MPa)'.format(well)
+                if labs:
+                    label = labs[i]
+                else:
+                    label = '{}: DHP (MPa)'.format(well)
                 values *= 0.1
             elif parameter == 'Depth':
-                label = 'NM10 Drilling depth'
+                if labs:
+                    label = labs[i]
+                else:
+                    label = 'NM10 Drilling depth'
             else:
-                label = '{}: {}'.format(well, parameter)
+                if labs:
+                    label = labs[i]
+                else:
+                    label = '{}: {}'.format(well, parameter)
             if parameter == 'Injectivity':
                 # Adjust II unit to MPa (unconventional though...?)
-                # print(values)
                 ax1a.scatter(dtos, values, label=label, color=colr, s=0.4,
                              facecolor=colr, zorder=3)
             else:
                 ax1a.plot(dtos, values, label=label, color=colr, linewidth=1.5,
                           zorder=3)
-            ax1a.legend()
+            if twin_ax:
+                ax1a.legend()
         if parameter in ['WHP (bar)', 'WHP (barg)']:
             ax1a.set_ylabel('WHP (MPa)', fontsize=16)
         elif parameter == 'DHP (barg)':
@@ -1046,21 +1070,19 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
     if outdir:
         # Not plotting if just writing to outfile
         return
-    # try:
-    #     # Add the new handles to the prexisting ones
-    if len(handles) == 0:
-        print('Plotting on empty axes. No handles to add to.')
-        ax1a.legend(fontsize=12, loc=2)
-    else:
-        handles.extend(ax1a.legend_.get_lines())
-        # Redo the legend
-        if len(handles) > 4:
-            ax1a.legend(handles=handles, fontsize=12, loc=2)
+    # No legend if not twinning axis
+    if twin_ax:
+        # Add the new handles to the prexisting ones
+        if len(handles) == 0:
+            print('Plotting on empty axes. No handles to add to.')
+            ax1a.legend(fontsize=12, loc=2)
         else:
-            ax1a.legend(handles=handles, loc=2, fontsize=12)
-    # except UnboundLocalError:
-    #     print('Plotting on empty axes. No handles to add to.')
-    #     ax.legend()
+            handles.extend(ax1a.legend_.get_lines())
+            # Redo the legend
+            if len(handles) > 4:
+                ax1a.legend(handles=handles, fontsize=12, loc=2)
+            else:
+                ax1a.legend(handles=handles, loc=2, fontsize=12)
     # Now plot formatting
     if not plain:
         ax.set_xlim(start, end)

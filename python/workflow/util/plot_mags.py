@@ -18,7 +18,7 @@ from obspy.geodetics import degrees2kilometers
 from obspy import Catalog
 from obspy.core.event import Comment
 from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value, dist_calc
-
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 # local files dependent upon paths set in ipython rc
 from shelly_mags import local_to_moment, local_to_moment_Majer
@@ -109,13 +109,13 @@ def plot_cumulative_mo(catalog, method='Ristau', dates=None,
             ax.legend(fontsize=12)
     return ax
 
-def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
+def plot_mags(cats, dates=None, metric='time', ax=None, title=None, show=True,
               fm_file=None, fm_color=None, cat_format='templates',
               focmecs=False):
     """
     Plot earthquake magnitude as a function of time
 
-    :param cat: catalog of earthquakes with mag info
+    :param cat: list of catalogs of earthquakes with mag info
     :param dates: list of UTCDateTime objects defining start and end of plot.
         Defaults to None.
     :param metric: Are we plotting magnitudes with depth, time or
@@ -124,12 +124,17 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
     :param title: Plot title (optional)
     :param show: whether or not to show plot
     :param fm_file: Path to focal mech output from AT code
-    :param fm_color: Focal mechanism fill color
+    :param fm_color: 'by_date', string of single color or list of
+        colors (one per catalog)
     :param cat_format: Event id naming convention for catalog (template or
         detection)
     :param focmecs: Plot focmec collection or not?
     :return: matplotlib.pyplot.Figure
     """
+    # Lump all catalogs together
+    cat = Catalog()
+    for c in cats:
+        cat += c
     if ax: # If axis passed in, set x-axis limits accordingly
         plain = False
         if ax.get_ylim()[-1] == 1.0 or metric == 'depth_w_time':
@@ -235,7 +240,13 @@ def plot_mags(cat, dates=None, metric='time', ax=None, title=None, show=True,
                     str(ev.resource_id)))
     xs, ys = zip(*mag_tup)
     if fm_color != 'by_date':
-        cols = [fm_color for x in xs]
+        if type(fm_color) == list:
+            cols = []
+            for i, ct in enumerate(cats):
+                cols.extend([fm_color[i] for j in range(len(ct))])
+            print(cols)
+        else:
+            cols = [fm_color for x in xs]
     else:
         cols = np.array([(x - xs[0]).days for x in xs])
         cols = cols / np.max(cols)
@@ -428,9 +439,10 @@ def bval_calc(cat, bin_size, MC, weight=False):
             'b': b, 'a': a, 'Mc': Mc}
 
 def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
-                     histograms=False, title=None, weight=True,
+                     histograms=False, title=None, weight=False,
                      show=True, savefig=None, ax=None, colors=None,
-                     linestyles=None):
+                     linestyles=None, plot_text=False, xlim=None, ylim=None,
+                     insets=False, reference=True):
     """
     Function to plot cumulative distributions of mag for an arbitrary
     number of catalogs on the same Axes
@@ -445,16 +457,27 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     :param ax: Axes object to plot to (optional)
     :param colors: itertools.Cycle of desired colors
     :param linestyles: itertools.Cycle of desired linestyles
+    :param plot_text: Boolean for placing text on plot
+    :param xlim: Custom x limits
+    :param ylim: Custom y limits
+    :param insets: Plot inset plots of b value and std_dev
+    :param reference: Plot a reference line of b = 1
+
     :return:
     """
     if not colors:
-        colors = cycle(['black', 'black', 'dimgray', 'dimgray',
-                        'darkgray', 'darkgray'])
+        colors = cycle(sns.color_palette('muted').as_hex())
     if not ax:
         fig, ax = plt.subplots(figsize=(8, 6))
+    # Array of b-values and std_errs for many catalogs for further plotting
+    bs = []
+    std_errs = []
     for i, (cat, name) in enumerate(zip(catalogs, cat_names)):
         mags = [ev.preferred_magnitude().mag for ev in cat]
         b_dict = bval_calc(cat, bin_size, MC, weight=weight)
+        if not b_dict:
+            print('b_dict went wrong. Next catalog.')
+            continue
         bcalc = calc_b_value(
             magnitudes=mags,
             completeness=np.arange(min(mags), max(mags), 0.1),
@@ -484,19 +507,23 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                              ax=ax)
             # Reversed cumulative hist
             ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
-                    color=col, linestyle=lin)
+                    color=col, linestyle=lin, alpha=0.8, linewidth=0.8)
             if i == 0:
                 y = 0.9
             elif i == 1:
                 y = 0.8
             elif i == 2:
                 y = 0.7
+            bs.append(b)
+            std_errs.append(std_err)
             text = 'B-value: {:.2f}$\pm${:.2f}'.format(b, std_err)
-            ax.text(0.80, y - 0.05, text, transform=ax.transAxes, color=col,
-                    horizontalalignment='center', fontsize=14.)
-            ax.text(0.80, y, 'Mc=%.2f' % Mc,
-                    color=col, transform=ax.transAxes,
-                    horizontalalignment='center', fontsize=14.)
+            if plot_text:
+                ax.text(0.80, y - 0.05, text, transform=ax.transAxes,
+                        color=col, horizontalalignment='center',
+                        fontsize=14.)
+                ax.text(0.80, y, 'Mc=%.2f' % Mc,
+                        color=col, transform=ax.transAxes,
+                        horizontalalignment='center', fontsize=14.)
         else:
             if histograms:
                 sns.distplot(mags, kde=False, color=col,
@@ -505,21 +532,57 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
             # Reversed cumulative hist
             ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
                     color=col, linestyle='--')
+    if insets:
+        inset1 = inset_axes(ax, width='98%', height='40%',
+                            bbox_to_anchor=(.6, .5, .4, .5),
+                            bbox_transform=ax.transAxes, loc=1)
+        inset2 = inset_axes(ax, width='98%', height='40%',
+                            bbox_to_anchor=(.6, .5, .4, .5),
+                            bbox_transform=ax.transAxes, loc=4)
+        sns.distplot(bs, ax=inset1, kde=False, bins=8)
+        sns.distplot(std_errs, ax=inset2, kde=False, bins=8)
+        inset1.set_xlabel('$b$-value', fontsize=6)
+        plt.setp(inset1.get_xticklabels(), fontsize=6)
+        plt.setp(inset1.get_yticklabels(), fontsize=6)
+        inset2.set_xlabel('Error', fontsize=6)
+        plt.setp(inset2.get_xticklabels(), fontsize=6)
+        plt.setp(inset2.get_yticklabels(), fontsize=6)
+    if reference:
+        a_ref = 4000
+        mags = np.linspace(0.5, 3., 50)
+        nums = 10**(np.log10(a_ref) - mags)
+        ax.plot(mags, nums, label='$b=1', color='black', linewidth=0.8,
+                linestyle='--')
+        ax.text(mags[-1] + 0.1, nums[-1], '$b=1$', fontsize=10, rotation=-36,
+                horizontalalignment='center')
     ax.set_yscale('log')
     ax.tick_params(labelsize=14.)
     ax.set_ylabel('Number of events', fontsize=14.)
     ax.set_xlabel('Magnitude', fontsize=14.)
+    if ylim:
+        ax.set_ylim(ylim)
+    if xlim:
+        ax.set_xlim(xlim)
     if title:
         ax.set_title(title, fontsize=18)
     else:
         ax.set_title('B-value plot', fontsize=18)
-    leg = ax.legend(fontsize=14., markerscale=0.7, loc=3)
-    leg.get_frame().set_alpha(0.9)
+    if len(catalogs) < 6:
+        leg = ax.legend(fontsize=14., markerscale=0.7, loc=3)
+        leg.get_frame().set_alpha(0.9)
     if show:
         plt.show()
     if savefig:
         fig.savefig(savefig, dpi=300)
-    return ax
+    return ax, bs, std_errs
+
+
+def add_subplot_axes(ax, width, height, loc):
+    """
+    Simple wrapper on inset_axes
+    """
+    sub_ax = inset_axes(ax, width=width, height=height, loc=2)
+    return sub_ax
 
 
 def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,

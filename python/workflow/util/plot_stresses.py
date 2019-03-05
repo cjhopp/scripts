@@ -1,15 +1,19 @@
 #!/usr/bin/python
 
 import os
+import matplotlib
+
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 
 from glob import glob
+from obspy import UTCDateTime
 from matplotlib.pyplot import GridSpec
-from itertools import cycle
 from plot_well_data import plot_well_seismicity
-from focal_mecs import rose_plot
+
+
+######################### PARSING AND I/O FUNCTIONS ##########################
 
 def parse_arnold_grid(file):
     """Return the vectors that define the phi, theta grid"""
@@ -169,6 +173,177 @@ def boxes_to_gmt(box_file, out_file, stress_dir=None):
                 ))
     return
 
+
+def parse_cluster_time(in_file, parameter='average'):
+    """
+    Helper to parse a file specifying the time span for a directory of clusters
+    """
+    times = []
+    with open(in_file, 'r') as f:
+        next(f) # skip header
+        for ln in f:
+            line = ln.split(',')
+            if parameter == 'average':
+                times.append(
+                    UTCDateTime.strptime(
+                        line[-1].rstrip(), format='%Y-%m-%dT%H:%M:%S.%fZ'
+                    ).datetime)
+    return times
+
+
+def phi_theta_2_trend_plunge(y_theta, y_th_err, y_phi, y_phi_err):
+    """
+    Helper to sort out upward-pointing vectors from Arnold-Townend inversion
+    so that they can be plotted on lower hemisphere.
+    """
+    for i, (phi, theta) in enumerate(zip(y_phi, y_theta)):
+        if theta > 90: # Upwards vector, flip it and its errors
+            y_theta[i] = 180. - theta
+            y_th_err[i][0] = 180. - theta
+            y_th_err[i][1] = 180. - theta
+            y_phi[i] = 180 + phi
+            y_phi_err[i][0] = 180 + phi
+            y_phi_err[i][1] = 180 + phi
+        else: # Negative azimuth
+            if phi < 0:
+                y_phi[i] = 360 + phi
+                y_phi_err[i][0] = 360 + phi
+                y_phi_err[i][1] = 360 + phi
+    return y_theta, y_th_err, y_phi, y_phi_err
+
+############################ PLOTTING FUNCTIONS ##############################
+
+def plot_stress_w_time(stress_dir, time_file, dates=None, parameter='Shmax',
+                       axes=None):
+    """
+    Plot stress parameters with time. Emulates GRL paper from Patricia MG on
+    the NW Geysers stimulation project:
+
+    https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/grl.50438
+
+    :param stress_dir: Path to output from Arnold-Townend R codes
+    :param time_file: Path to file specifying the times for each cluster
+        Assumed that the format is: clust_id, start, end, average time
+        with one header line
+    :param dates: Optional date range to plot
+    :param parameter: What parameter are we plotting? Defaults to 'Shmax'
+        but could be 'S1', 'S2', 'S3', 'nu', etc...
+        If its a 2D parameter (i.e. a sigma), will plot trend and plunge on
+        same axes as in PMG 2013 fig 3:
+    :return:
+    """
+    if not axes:
+        fig, ax = plt.subplots()
+    elif axes and len(axes.lines) > 0:
+        ax = axes.twinx()
+    else:
+        ax = axes
+    try:
+        # Grab these lines for legend
+        handles, labs = axes.get_legend_handles_labels()
+        if isinstance(axes.legend_, matplotlib.legend.Legend):
+            axes.legend_.remove()  # Need to manually remove this, apparently
+    except AttributeError:
+        print('Empty axes. No legend to incorporate.')
+        handles = []
+    # Read in the times
+    params = []
+    times = parse_cluster_time(time_file)
+    # What is this, MATLAB??
+    for i in range(len(times)):
+        clust_id = '{}_0'.format(i)
+        param_files = glob('{}/{}.*{}.dat'.format(stress_dir, clust_id,
+                                                  'dparameters'))
+        p = parse_arnold_params(param_files)
+        if len(p.keys()) == 0:
+            p = None
+        params.append(p)
+    # Sort out x, y and error bar lengths
+    if parameter not in ['S1', 'S2', 'S3']:
+        y_vals = np.array([p[parameter]['mean'] for p in params if p])
+        y_errs = []
+        for i, p in enumerate(params):
+            if p and 'X10' in p[parameter].keys():
+                y_errs.append([p[parameter]['X10'], p[parameter]['X90']])
+            else:
+                # Where no errors reported, replae with y_val
+                y_errs.append([y_vals[i], y_vals[i]])
+        err_lens = []
+        for y, errs in zip(y_vals, y_errs):
+            if parameter == 'Shmax': # Modulo operator for angular diffs
+                err_lens.append(np.max([((y -  err) + 180) % 360 - 180
+                                        for err in errs]))
+            elif parameter == 'nu':
+                err_lens.append(np.max([y - err for err in errs]))
+        # Plot'em
+        if parameter == 'Shmax':
+            # Force into northern hemisphere (convenient for our dataset)
+            y_vals = np.where(np.logical_or(y_vals > 270., y_vals < 90.),
+                              y_vals, y_vals - 180.)
+        # Formatting
+        if parameter == 'Shmax':
+            ax.set_ylabel('Azimuth', fontsize=16)
+            ax.set_ylim([-100., 100.]) # Space for err bars
+            lab = '$S_{Hmax}$'
+            col = 'indianred'
+        elif parameter == 'nu':
+            ax.set_ylabel('Stress Ratio', fontsize=16)
+            ax.set_ylim([-0.1, 1.2]) # Space for err bars
+            lab = '$\\nu$'
+            col = 'teal'
+        else:
+            print('What the hell parameter did you choose?')
+            return
+        ax.yaxis.label.set_color(col)
+        ax.tick_params(axis='y', colors=col)
+        bar = ax.errorbar(times, y_vals, yerr=err_lens, color=col,
+                          linewidth=2.5, ecolor='black', elinewidth=1.5,
+                          capsize=2.5, marker='s', markeredgecolor='black',
+                          label=lab)
+        # Legend handling jazz
+        if len(handles) == 0:
+            print('Plotting on empty axes. No handles to add to.')
+            ax.legend(fontsize=12, loc=2)
+        else:
+            new_hands, new_labs = ax.get_legend_handles_labels()
+            handles.extend(new_hands)
+            labs.extend(new_labs)
+            # Redo the legend
+            ax.legend(handles, labs, loc=3, fontsize=12)
+        ax.set_xlabel('Date', fontsize=16)
+        if not axes:
+            fig.autofmt_xdate()
+        return ax
+    else:
+        # TODO There are no explicit errors written out for Phi and Theta...
+        # TODO ...will have to calculate that for ourselves
+        y_phi = [p['{}:Phi'.format(parameter)]['mean'] for p in params]
+        y_phi_err = [[p[parameter]['X10'],
+                      p[parameter]['X90']]
+                     for p in params]
+        y_theta = [p['{}:Theta'.format(parameter)]['mean'] for p in params]
+        y_theta_err = [[p[parameter]['X10'],
+                        p[parameter]['X90']]
+                       for p in params]
+        # Sort out upwards vectors
+        y_theta, y_theta_err, y_phi, y_phi_error = phi_theta_2_trend_plunge(
+            y_theta, y_theta_err, y_phi, y_phi_err
+        )
+        theta_err_lens = []
+        for th, th_errs in zip(y_theta, y_theta_err):
+            theta_err_lens.append(np.max([np.abs(th - th_errs[0]),
+                                          np.abs(th - th_errs[1])]))
+        phi_err_lens = []
+        for ph, ph_errs in zip(y_phi, y_phi_err):
+            phi_err_lens.append(np.max([np.abs(ph - ph_errs[0]),
+                                        np.abs(ph - ph_errs[1])]))
+        # Plot'em
+        ax.plot(times, y_theta, color='b')
+        ax2 = ax.twinx()
+        ax2.plot(times, y_phi, color='r')
+        return [ax, ax2]
+
+
 def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False,
                         label=False, cardinal_dirs=False):
     """
@@ -239,10 +414,12 @@ def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False,
     X10 = strs_params['Shmax']['X10']
     X90 = strs_params['Shmax']['X90']
     nu = strs_params['nu']['mean']
-    width = (np.abs(X10 - mean) + np.abs(X90 - mean)) / 2.
+    print(clust_name)
+    print(mean, X10, X90, nu)
+    width = (np.abs(X10 - mean) + np.abs(X90 - mean))
     w_rad = np.deg2rad(width)
     # Plot both sides of bow tie
-    ax.bar(np.deg2rad(mean), 10., width=w_rad, color='lightgray', alpha=0.7)
+    ax.bar(np.deg2rad(mean), np.pi / 2., width=w_rad, color='lightgray', alpha=0.7)
     ax.bar(np.deg2rad(mean) + np.pi, 10., width=w_rad, color='lightgray',
            alpha=0.7, label='90% SH$_{max}$')
     ax.plot([np.deg2rad(mean) + np.pi, 0, np.deg2rad(mean)], [10, 0, 10],
@@ -253,11 +430,12 @@ def plot_arnold_density(outdir, clust_name, ax=None, legend=False, show=False,
         ax.text(0., 0.9, clust_name.split('_')[0], fontsize=14,
                 transform=ax.transAxes)
     # Text for nu
-    ax.text(0.5, -0.15, '$\\nu$ = {:0.1f}'.format(nu), fontsize=14.,
+    ax.text(0.5, -0.15, '$\\nu$ = {:0.2f}'.format(nu), fontsize=14.,
             transform=ax.transAxes, horizontalalignment='center')
     ax.yaxis.grid(False)
     ax.xaxis.grid(False)
     ax.margins(0.0)
+    ax.patch.set_facecolor('white')
     # Set up to North, clockwise scale, 180 offset
     ax.set_theta_direction(-1)
     ax.set_theta_offset(np.pi / 2.0)
@@ -324,53 +502,3 @@ def plot_all_clusters(group_cats, outdir, plot_dir, wells=None, **kwargs):
         plt.close('all')
     return
 
-################### FRACTURE and Fault Plane Plotting ########################
-
-def plot_fracs(well, label=True, cardinal_dirs=True, depth_interval=None,
-               ax=None, show=False, outfile=None):
-    """
-    Plot density plot of poles to fractures from AFIT/FMI logs for a given well
-    :param well: path to well file (depth, dip, strike, dip direction, ...)
-    :param label: Are we labeling in the top left with well name?
-    :param cardinal_dirs: Include cardinal direction labels?
-    :param depth_interval: Start (top) and end (bottom) depths to plot
-    :param ax: matplotlib.Axes object preconfigured as polar plot
-    :return:
-    """
-    if not ax:
-        fig = plt.figure()
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
-    # Read in arrays
-    data = np.genfromtxt(well, delimiter=',', skip_header=1)
-    depth = data[:,0]
-    # Select only fractures within depth interval
-    if depth_interval:
-        # Check your depth interval is valid
-        if (depth_interval[0] < data[:,0].min() or
-            depth_interval[1] > data[:,0].max()):
-            print('Depth interval provided doesnt exist for this well')
-            return
-        dep_data = data[np.where(
-            np.logical_and(data[:,0] < depth_interval[1],
-                           data[:,0] > depth_interval[0]))]
-    else:
-        dep_data = data
-    dip = dep_data[:,1]
-    dip_dir = dep_data[:,3]
-    # Pole to plane is dip dir - 180
-    pole_dir = dip_dir - 180.
-    # Correct values less than 0
-    pole_dir = np.where(pole_dir >= 0., pole_dir, pole_dir + 360.)
-    pole_angle = np.deg2rad(dip) # Angle up from down
-    pole_az = np.deg2rad(pole_dir) # East from North
-    # Subtract 90 for strike values and eliminate negatives
-    strk_az = pole_az - (np.pi / 2.)
-    strk_az = np.where(strk_az >=0., strk_az, strk_az + 2 * np.pi)
-    # Define the bin areas
-    # Plot'em
-    if label:
-        lab = well.split('_')[-2].split('/')[-1]
-    ax = rose_plot(trend=pole_az, plunge=pole_angle, strike=strk_az, label=lab,
-                   cardinal_dirs=cardinal_dirs, ax=ax, show=show,
-                   outfile=outfile)
-    return ax

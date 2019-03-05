@@ -149,8 +149,8 @@ def catalog_to_gmt(catalogs, outfile, dd_only=True, centroids=False,
     Write a catalog to a file formatted for gmt plotting
 
 
-    # XX TODO maybe add a formatting option for date strings instead of
-    # XX TODO integer date.
+    # XX TODO maybe add a formatting option for date strings instead of...
+    # XX TODO ...integer date.
 
     Format: lon, lat, depth(km bsl), integer day, normalized mag(?)
     :param catalogs: a list of catalogs, normally one for a list of clusters
@@ -246,6 +246,9 @@ def catalog_to_gmt(catalogs, outfile, dd_only=True, centroids=False,
                                                          phi, length))
                 else:
                     # Flip these around for other half of bowtie
+                    # BIG NOTA BENE!
+                    # GMT wont recognize east of north! Need to convert to
+                    # counter clockwise from horizontal!
                     back_10 = X10 - 180.
                     back_90 = X90 - 180.
                     if back_10 < 0.:
@@ -254,16 +257,18 @@ def catalog_to_gmt(catalogs, outfile, dd_only=True, centroids=False,
                         back_90 += 360.
                     if color_nu:
                         f.write('{} {} {} {} {}\n'.format(cent_lon, cent_lat,
-                                                          nu, X10, X90))
+                                                          nu, 90. - X10,
+                                                          90. - X90))
                         f.write('{} {} {} {} {}\n'.format(cent_lon, cent_lat,
-                                                          nu, back_10,
-                                                          back_90))
+                                                          nu, 90. - back_10,
+                                                          90. - back_90))
                     else:
                         f.write('>-Glightgray\n')
                         f.write('{} {} {} {}\n'.format(cent_lon, cent_lat,
-                                                       X10, X90))
+                                                       90. - X10, 90. - X90))
                         f.write('{} {} {} {}\n'.format(cent_lon, cent_lat,
-                                                       back_10, back_90))
+                                                       90. - back_10,
+                                                       90. - back_90))
                 continue
             # Write rgb to header
             if color_nu:

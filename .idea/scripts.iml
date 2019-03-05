@@ -11,6 +11,7 @@
     <orderEntry type="module" module-name="hypoDDpy" />
     <orderEntry type="module" module-name="hashpy" />
     <orderEntry type="module" module-name="EQcorrscan" />
+    <orderEntry type="module" module-name="FMC_1.01" />
   </component>
   <component name="TestRunnerService">
     <option name="projectConfiguration" value="Nosetests" />

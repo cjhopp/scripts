@@ -22,6 +22,7 @@ try:
 except:
     print('Youre probably on the server. Dont try any plotting')
 import matplotlib.collections as mpl_collections
+import seaborn as sns
 
 from glob import glob
 from itertools import cycle
@@ -30,7 +31,7 @@ from matplotlib import patches, transforms
 from shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog, UTCDateTime
 from scipy.signal import argrelmax, argrelmin
-from scipy.stats import circmean
+from scipy.stats import circmean, circstd
 from scipy.linalg import lstsq
 from obspy.imaging.beachball import beach, xy2patch
 from eqcorrscan.utils import pre_processing
@@ -118,26 +119,43 @@ def grab_day_wavs(wav_dirs, dto, stachans):
 def cluster_cat_distance(catalog, d_thresh=None, g_thresh=None,
                          method='kmeans',plot=False, field='Nga',
                          title='distance clusters', dd_only=False,
-                         surface='plane', show=False, **kwargs):
+                         surface='plane', dimension=3, **kwargs):
     """
     Use eqcorrscan km clustering to group catalog locations into
     clusters with a specified distance cutoff
 
     :param catalog: Catalog of events to cluster
-    :param n_clusters: Number of clusters to create
+    :param d_thresh: Distance threshold in meters for heirarchical clustering
+    :param g_thresh: Number of groups to create for kmeans clustering
+    :param method: 'kmeans' or 'heirarchy'
+    :param plot: Plot flag
+    :param field: 'Nga' or 'Rot' for plotting only
+    :param title: Plot title
+    :param dd_only: Forces only GrowClust locations in plotting
+    :param surface: Fit surfaces to clusters in plotting
+    :param dimension: Clustering in 2D or 3D (with depth)
     :param kwargs: Any other arguments accepted by sklearn.cluster.KMeans
-    :return:
+
+    :return: list of Catalog objects
     """
     if method == 'kmeans':
         # Make the location array
         loc_array = []
         # Populate it
-        for ev in catalog:
-            o = ev.preferred_origin()
-            wgs84 = pyproj.Proj("+init=EPSG:4326")
-            nztm = pyproj.Proj("+init=EPSG:27200")
-            utmz = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
-            loc_array.append([utmz[0], utmz[1], o.depth / 1000.])
+        if dimension == 2:
+            for ev in catalog:
+                o = ev.preferred_origin()
+                wgs84 = pyproj.Proj("+init=EPSG:4326")
+                nztm = pyproj.Proj("+init=EPSG:27200")
+                utmz = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
+                loc_array.append([utmz[0], utmz[1]])
+        elif dimension == 3:
+            for ev in catalog:
+                o = ev.preferred_origin()
+                wgs84 = pyproj.Proj("+init=EPSG:4326")
+                nztm = pyproj.Proj("+init=EPSG:27200")
+                utmz = pyproj.transform(wgs84, nztm, o.longitude, o.latitude)
+                loc_array.append([utmz[0], utmz[1], o.depth])
         # Run kmeans algorithm
         kmeans = KMeans(n_clusters=g_thresh, **kwargs).fit(loc_array)
         # Get group index for each event
@@ -239,7 +257,8 @@ def plot_mtfit_output(directory, outdir):
 
 ########################## FMC PLOTTING ######################################
 
-def arnold2FMC(input_files, plotname='Test', outfile='test.png', show=True):
+def arnold2FMC(input_file, plotname='Test', depth_lim=[0, 7], outfile=None,
+               show=False, fig=None, ax=None):
     """
     Wrapper on FMC to take control of the output and have access to the
     matplotlib Figure instance for custom plotting
@@ -257,34 +276,36 @@ def arnold2FMC(input_files, plotname='Test', outfile='test.png', show=True):
     :return:
     """
     # Example using subprocess and grabbing stdout for use in plotting
-    for input in input_files:
-        # Shitty hard-coded line for Chet's laptop
-        # Assumes Aki-Richards convention output from Richard's focmec code
-        cmd = '/home/chet/FMC_1.01/FMC.py -i AR -o K {}'.format(input)
-        print(cmd) # Make sure this looks right
-        p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-        # Pipe stdout to a variable which we will parse into the format we
-        # want for plotting
-        stdout, stderr = p.communicate()
-        out_list = stdout.decode('utf-8').split('\n')
-        # Take the x and y positions on the Kaverina diagram from stdout
-        X_kaverina = [float(ln.split()[0]) for ln in out_list[2:-1]]
-        Y_kaverina = [float(ln.split()[1]) for ln in out_list[2:-1]]
-        # Mags and depths too
-        sizes = [float(ln.split()[2]) for ln in out_list[2:-1]]
-        depths = [float(ln.split()[3]) for ln in out_list[2:-1]]
-    # TODO Should add time dependent capability...
-    # TODO ...prefereably static but possibly video?
+    # for input in input_files:
+    # Shitty hard-coded line for Chet's laptop
+    # Assumes Aki-Richards convention output from Richard's focmec code
+    cmd = '/home/chet/FMC_1.01/FMC.py -i AR -o K {}'.format(input_file)
+    print(cmd) # Make sure this looks right
+    p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+    # Pipe stdout to a variable which we will parse into the format we
+    # want for plotting
+    stdout, stderr = p.communicate()
+    out_list = stdout.decode('utf-8').split('\n')
+    # Take the x and y positions on the Kaverina diagram from stdout
+    data = [(float(ln.split()[0]),
+             float(ln.split()[1]),
+             float(ln.split()[2]),
+             float(ln.split()[3]))
+            for ln in out_list[2:-1]
+            if depth_lim[0] < float(ln.split()[3]) < depth_lim[1]]
+    X_kaverina, Y_kaverina, sizes, depths = zip(*data)
     # Plot em
     fig = circles(X_kaverina, Y_kaverina, size=sizes, color=depths,
-                  plotname=plotname)
+                  plotname=plotname, fig=fig, ax=ax)
     if show:
         plt.show()
-    else:
+    elif outfile:
         plt.savefig(outfile, dpi=300)
-    return fig
+    return ax
 
 ########################## END FMC ###########################################
+
+################### FRACTURE and Fault Plane Plotting ########################
 
 def poles_from_sdr(sdr):
     """Helper to return poles to plane and aux plane in xyz (z down)"""
@@ -301,7 +322,9 @@ def poles_from_sdr(sdr):
     ape = ((np.cos(rake) * np.sin(strike)) -
            (np.sin(rake) * np.cos(dip) * np.cos(strike))) #east
     apz = np.sin(rake) * np.sin(dip) #vertical
-    return np.array([pe, pn, pz]), np.array([ape, apn, apz])
+    plane = np.array([pe, pn, pz])
+    aux_plane = np.array([ape, apn, apz])
+    return plane, aux_plane
 
 
 def calculate_instability(sdr, Shmax, regime, R, debug=0):
@@ -324,8 +347,15 @@ def calculate_instability(sdr, Shmax, regime, R, debug=0):
     if debug > 0:
         print('Poles to nodal planes:\n{}\n{}'.format(pole1, pole_aux))
     # Calculate sdr of aux plane from pole
-    s_aux = 90. - np.rad2deg(np.arctan(pole_aux[0] / pole_aux[1]))
-    d_aux = 90. - np.rad2deg(np.arcsin(pole_aux[2]))
+    s_aux = np.rad2deg(np.arctan(pole_aux[1] / pole_aux[2]))
+    # Account for quadrant
+    if pole_aux[0] > 0 and pole_aux[1] < 0:
+        s_aux += 90.
+    elif pole_aux[0] < 0 and pole_aux[1] < 0:
+        s_aux += 180.
+    elif pole_aux[0] < 0 and pole_aux[1] > 0:
+        s_aux += 270.
+    d_aux = np.rad2deg(np.arccos(np.abs(pole_aux[2])))
     if debug > 0:
         print('Aux plane strike-dip:\n{}-{}'.format(s_aux, d_aux))
     # Rotation matrix about z axis corresponding to stress state
@@ -352,7 +382,7 @@ def calculate_instability(sdr, Shmax, regime, R, debug=0):
         n_aux = n_aux[[1, 0, 2]]
     if debug > 0:
         print('New poles flipped to sigma1-2-3:\n{}\n{}'.format(n1, n_aux))
-    # Compute sigmas and tau
+    # Compute sigmas and tau (per Vavrycuk 2014 eqns. 16-18)
     sig1 = (n1[0])**2 + (1 - (2 * R)) * (n1[1])**2 - (n1[2])**2
     tau1 = np.sqrt((n1[0])**2 + (1 - (2 * R))**2 * (n1[1])**2 + n1[2]**2 -
                    ((n1[0])**2 + (1 - (2 * R)) * (n1[1])**2 - (n1[2])**2)**2)
@@ -363,13 +393,17 @@ def calculate_instability(sdr, Shmax, regime, R, debug=0):
     I1 = (tau1 - 0.6 * (sig1 - 1)) / (0.6 + np.sqrt(1 + 0.6**2))
     I_aux = (tau_aux - 0.6 * (sig_aux - 1)) / (0.6 + np.sqrt(1 + 0.6**2))
     if I1 >= I_aux:
+        if debug > 0:
+            print('Returning original pole')
         return sdr, pole1
     else:
+        if debug > 0:
+            print('Returning auxiliary pole')
         return (s_aux, d_aux, None), pole_aux
 
 
-def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R,
-                               label=None, cardinal_dirs=None, ax=None):
+def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R, label=None,
+                               cardinal_dirs=True, ax=None, show=False):
     """
     Take the output of focal mechanisms and plot the least stable of the nodal
     planes
@@ -391,8 +425,9 @@ def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R,
     for ev in cat:
         if ev.resource_id.id.split('/')[-1] in sdr_dict:
             sdr = sdr_dict[ev.resource_id.id.split('/')[-1]]
-            plot_sdrs.append(calculate_instability(sdr, Shmax=Shmax,
-                                                   regime=regime, R=R))
+            plottables = calculate_instability(sdr, Shmax=Shmax,
+                                               regime=regime, R=R)
+            plot_sdrs.append(plottables)
     if not ax:
         fig = plt.figure()
         ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
@@ -404,14 +439,21 @@ def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R,
     strike = np.array(strike)
     trend = strike - 90.
     trend = np.where(trend >= 0., trend, trend + 360.)
-    plunge = np.array(dip)
-    ax = rose_plot(np.deg2rad(trend), np.deg2rad(plunge), np.deg2rad(strike),
-                   label=label, cardinal_dirs=cardinal_dirs, ax=ax)
-    return
+    comp_plunge = np.array(dip) # Plunge as degrees up from down
+    ax = rose_plot(np.deg2rad(trend), np.deg2rad(comp_plunge), np.deg2rad(strike),
+                   label=label, cardinal_dirs=cardinal_dirs, ax=ax,
+                   show=show)
+    mean_dip = np.rad2deg(circmean(np.deg2rad(comp_plunge)))
+    std_dip = np.rad2deg(circstd(np.deg2rad(comp_plunge)))
+    mean_strike = np.rad2deg(circmean(np.deg2rad(strike)))
+    std_strike = np.rad2deg(circstd(np.deg2rad(strike)))
+    print('Strike:\nMean: {}\nStd dev: {}\n'.format(mean_strike, std_strike))
+    print('Dip:\nMean: {}\nStd dev: {}\n'.format(mean_dip, std_dip))
+    return ax
 
 
 def rose_plot(trend, plunge, strike, label=None, cardinal_dirs=False,
-              ax=None, show=True, outfile=None):
+              ax=None, show=True, outfile=None, cbar=None, jointplot=False):
     """
     Plot a set of poles and strikes on a polar axis as a heatmap overlain
     by a rose plot
@@ -429,15 +471,16 @@ def rose_plot(trend, plunge, strike, label=None, cardinal_dirs=False,
     if not ax:
         fig = plt.figure()
         ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
-    dip_bins = np.linspace(0, 92.5, 18) # 5 degree bins
+    dip_bins = np.linspace(0, 95, 9) # 5 degree bins
     r_bins = np.deg2rad(dip_bins)
-    N_az_bin = 72 # 72 5-degree azimuth bins
-    rad_bin_width = 2. * np.pi / (N_az_bin + 1.) # Width of bins in radians
+    N_az_bin = 36 # 36 10-degree azimuth bins
+    bin_width = 360 / (N_az_bin) # Width of bins in deg
+    rad_bin_width = np.deg2rad(bin_width)
     az_bins = np.linspace(-rad_bin_width / 2.,
                           2. * np.pi + rad_bin_width / 2.,
-                          N_az_bin)
+                          N_az_bin + 1)
     # 1D histogram
-    number_of_strikes, bin_edges = np.histogram(strike, az_bins)
+    number_of_strikes, bin_edges = np.histogram(strike, az_bins[:-1])
     norm_num_strk = number_of_strikes / number_of_strikes.max() # Normalize
     # Scale to y-range
     norm_num_strk *= (np.pi / 2)
@@ -448,28 +491,32 @@ def rose_plot(trend, plunge, strike, label=None, cardinal_dirs=False,
     r_mid = .5 * (dip_edges[:-1] + dip_edges[1:])
     theta_mid = .5 * (az_edges[:-1] + az_edges[1:])
     az_mid = .5 * (bin_edges[:-1] + bin_edges[1:])
-    cax = ax.contourf(theta_mid, r_mid, H.T, 10, cmap=plt.cm.Purples)
-    ax.scatter(trend, plunge, color='k', s=0.1, alpha=0.5)
-    # Bar plot on top
-    # Normalize number of strikes to 0 np.pi / 2!!!!!
-    ax.bar(az_mid, norm_num_strk, width=rad_bin_width, bottom=0.0,
-           color='gray', edgecolor='k', alpha=.7)
-    plt.colorbar(cax)
-    ax.yaxis.grid(False)
-    ax.xaxis.grid(False)
-    ax.margins(0.0)
-    if label:
-        ax.text(0., 0.9, label, fontsize=14,
-                transform=ax.transAxes)
-    # Set up to North, clockwise scale, 180 offset
-    ax.set_theta_direction(-1)
-    ax.set_theta_offset(np.pi / 2.0)
-    ax.set_yticklabels([])
-    ax.set_ylim([0, np.pi / 2.])
-    if cardinal_dirs:
-        ax.set_xticklabels(['N', '', 'E', '', 'S', '', 'W'])
+    if jointplot:
+        ax = sns.jointplot(trend, plunge, color='k', kind='kde', ax=ax)
     else:
-        ax.set_xticklabels([])
+        cax = ax.contourf(theta_mid, r_mid, H.T, 10, cmap=plt.cm.Purples)
+        ax.scatter(trend, plunge, color='k', s=0.1, alpha=0.5)
+        # Bar plot on top
+        # Normalize number of strikes to 0 np.pi / 2!!!!!
+        ax.bar(az_mid, norm_num_strk, width=rad_bin_width, bottom=0.0,
+               color='gray', edgecolor='k', alpha=.7)
+        if cbar:
+            plt.colorbar(cax)
+        ax.yaxis.grid(False)
+        ax.xaxis.grid(False)
+        ax.margins(0.0)
+        if label:
+            ax.text(-0.1, 1.0, label, fontsize=14,
+                    transform=ax.transAxes)
+        # Set up to North, clockwise scale, 180 offset
+        ax.set_theta_direction(-1)
+        ax.set_theta_offset(np.pi / 2.0)
+        ax.set_yticklabels([])
+        ax.set_ylim([0, np.pi / 2.])
+        if cardinal_dirs:
+            ax.set_xticklabels(['N', '', 'E', '', 'S', '', 'W'])
+        else:
+            ax.set_xticklabels([])
     if show:
         plt.show()
     elif outfile:
@@ -477,6 +524,63 @@ def rose_plot(trend, plunge, strike, label=None, cardinal_dirs=False,
         plt.close('all')
     return ax
 
+
+def plot_fracs(well, label=True, cardinal_dirs=True, depth_interval=None,
+               ax=None, show=False, outfile=None, jointplot=False):
+    """
+    Plot density plot of poles to fractures from AFIT/FMI logs for a given well
+    :param well: path to well file (depth, dip, strike, dip direction, ...)
+    :param label: Are we labeling in the top left with well name?
+    :param cardinal_dirs: Include cardinal direction labels?
+    :param depth_interval: Start (top) and end (bottom) depths to plot
+    :param ax: matplotlib.Axes object preconfigured as polar plot
+    :return:
+    """
+    if not ax:
+        fig = plt.figure()
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
+    # Read in arrays
+    data = np.genfromtxt(well, delimiter=',', skip_header=1)
+    depth = data[:,0]
+    # Select only fractures within depth interval
+    if depth_interval:
+        # Check your depth interval is valid
+        if (depth_interval[0] < data[:,0].min() or
+            depth_interval[1] > data[:,0].max()):
+            print('Depth interval provided doesnt exist for this well')
+            return
+        dep_data = data[np.where(
+            np.logical_and(data[:,0] < depth_interval[1],
+                           data[:,0] > depth_interval[0]))]
+    else:
+        dep_data = data
+    dip = dep_data[:,1]
+    dip_dir = dep_data[:,3]
+    # Pole to plane is dip dir - 180
+    pole_dir = dip_dir - 180.
+    # Correct values less than 0
+    pole_dir = np.where(pole_dir >= 0., pole_dir, pole_dir + 360.)
+    pole_angle = np.deg2rad(dip) # Angle up from down
+    pole_az = np.deg2rad(pole_dir) # East from North
+    # Strike is 90 minus dip dir values and eliminate negatives
+    strk_az = pole_az + (np.pi / 2.)
+    strk_az = np.where(strk_az < 2 * np.pi, strk_az, strk_az - (2 * np.pi))
+    # Define the bin areas
+    # Plot'em
+    if label:
+        lab = well.split('_')[-2].split('/')[-1]
+    ax = rose_plot(trend=pole_az, plunge=pole_angle, strike=strk_az, label=lab,
+                   cardinal_dirs=cardinal_dirs, ax=ax, show=show,
+                   outfile=outfile, jointplot=jointplot)
+    mean_dip = np.rad2deg(circmean(pole_angle))
+    std_dip = np.rad2deg(circstd(pole_angle))
+    mean_strike = np.rad2deg(circmean(strk_az))
+    std_strike = np.rad2deg(circstd(strk_az))
+    print('Strike:\nMean: {}\nStd dev: {}\n'.format(mean_strike, std_strike))
+    print('Dip:\nMean: {}\nStd dev: {}\n'.format(mean_dip, std_dip))
+    return ax
+
+################### END FRACTURE and Fault Plane Plotting ########################
 
 def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                          id_type='detection', dd=True, date_range=[],
@@ -885,34 +989,30 @@ def msatsi_to_gmt(msatsi_dir, outfile, dim=2, size=1.0, spacing=0.003,
                 print('Not yet implemented')
     return
 
-def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, min_num=20,
-                          window=None):
+def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, min_num=20):
     """
     Function to break output file from arnold focmec into clusters
 
     :param sdr_err_file: Output from afmec (projname_scalar_err_degrees.csv)
     :param group_cats: List of Catalogs for clusters of interest
     :param outdir: Directory to put the separated files into
-    :param time_dict (optional): Dict with the size of window and overlap
+    :param min_num: Minimum number of events per cluster
     :return:
     """
-    clust_dict = {i: [ev.resource_id.id.split('/')[-1] for ev in grp]
+    clust_dict = {i: [(ev.resource_id.id.split('/')[-1], ev) for ev in grp]
                   for i, grp in enumerate(group_cats)}
-    for clust_name, big_ev_list in clust_dict.items():
-        if len(big_ev_list) < min_num:
+    for clust_name, big_ev_tup in clust_dict.items():
+        names, events = zip(*big_ev_tup)
+        if len(names) < min_num:
             print('Too few events in cluster {}'.format(clust_name))
             continue
         print('Doing cluster: {}'.format(clust_name))
         with open(sdr_err_file, 'r') as f:
             clust_ev_list = [line
                              for line in f if line.split(',')[0].split('.')[0]
-                             in big_ev_list]
+                             in names]
         print(len(clust_ev_list))
-        if window:
-            sub_clusts = [clust_ev_list[i:i+window]
-                          for i in range(0, len(clust_ev_list) - window)]
-        else:
-            sub_clusts = [clust_ev_list]
+        sub_clusts = [clust_ev_list]
         # This will name file as clust_id_0 unless you're time windowing
         for i, ev_list in enumerate(sub_clusts):
             new_fname = '{}_{}.csv'.format(clust_name, i)
@@ -921,6 +1021,36 @@ def arnold_focmec_2_clust(sdr_err_file, group_cats, outdir, min_num=20,
                     ln = line.rstrip('\n').split(',')
                     of.write('{},{},{},{}\n'.format(ln[1], ln[2],
                                                     ln[3], ln[-1]))
+    return
+
+
+def cluster_time_avg(group_cats, outfile, min_num=20):
+    """
+    Take group cats above and write a summary file of each cluster's start time
+    end time and average time.
+
+    :param group_cats: List of obspy.Catalog
+    :param outfile: Path to output file
+
+    ..note: It is assumed that each catalog is time sorted
+    :return:
+    """
+    with open(outfile, 'w') as f:
+        # Write header line
+        f.write('clust_id, start time, end time, avg time\n')
+        for i, clust in enumerate(group_cats):
+            if len(clust) < min_num:
+                print('Clust {} has fewer than {} events'.format(i, min_num))
+                continue
+            s_time = clust[0].preferred_origin().time
+            # Use timedeltas to average the elapsed secs since start of clust
+            time_avg = s_time + np.mean([ev.preferred_origin().time.datetime -
+                                         s_time.datetime for ev in clust])
+            print('Clust {}: time_avg = {}'.format(i, time_avg))
+            # Write it
+            f.write('{},{},{},{}\n'.format(i, s_time,
+                                           clust[-1].preferred_origin().time,
+                                           time_avg))
     return
 
 ##############################################################################
