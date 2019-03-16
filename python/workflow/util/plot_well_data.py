@@ -77,6 +77,35 @@ def plot_stress_depth(field='NgaN', axes=None, show=False):
         plt.show()
     return ax
 
+def parse_feedzone_file(fz_file, well):
+    """
+    Helper to parse the feedzone csvs from Mercury.
+    Format: well_name, fz_top (mCT), fz_bottom (mCT), other shiz
+
+    Will get passed to plot_PTS
+    """
+    fzs = []
+    surf = 350. # CT in m asl
+    with open(fz_file, 'r') as f:
+        for line in f:
+            ln = line.split(',')
+            if ln[0] == well:
+                fzs.append([float(ln[1]) - surf,
+                            float(ln[2]) - surf])
+    return fzs
+
+def fix_legend(ax):
+    # Helper to remove repeated legend handles
+    hand, labl = ax.get_legend_handles_labels()
+    handout=[]
+    lablout=[]
+    for h,l in zip(hand,labl):
+       if l not in lablout:
+            lablout.append(l)
+            handout.append(h)
+    ax.legend(handout, lablout)
+    return ax
+
 def plot_PTS(PTS_data, wells, NST=False, ax=None, show=False, title=False,
              outfile=False, feedzones=None, fz_labels=False):
     """
@@ -87,6 +116,10 @@ def plot_PTS(PTS_data, wells, NST=False, ax=None, show=False, title=False,
         well
     :param ax: matplotlib.Axes to plot into
     :param show: Show the plot?
+    :param title: Plot title
+    :param outfile: Output file for figure
+    :param feedzones: Path to pertinent feedzone file
+    :param fz_labels: Boolean for fz labels
     :return:
     """
     if ax:
@@ -119,25 +152,26 @@ def plot_PTS(PTS_data, wells, NST=False, ax=None, show=False, title=False,
                           label='{} temps {} t/h'.format(well,
                                                          fr_dict[well][i]),
                           legend=False)
+        ax1.set_xlim((0, 300))
+        if feedzones:
+            xlims = ax1.get_xlim()
+            xz = [xlims[0], xlims[1], xlims[1], xlims[0]]
+            for fz in parse_feedzone_file(feedzones, well):
+                yz = [fz[0], fz[0], fz[1], fz[1]]
+                ax1.fill(xz, yz, color='lightgray', zorder=0,
+                         alpha=0.9, label='Feedzone')
+                if fz_labels:
+                    ax1.text(200., (fz[0] + fz[1]) / 2., 'Feedzone',
+                             fontsize=8, color='gray',
+                             verticalalignment='center')
     ax1.invert_yaxis()
-    ax1.set_xlim((0, 300))
-    if feedzones:
-        xlims = ax1.get_xlim()
-        xz = [xlims[0], xlims[1], xlims[1], xlims[0]]
-        for fz in feedzones:
-            yz = [fz[0], fz[0], fz[1], fz[1]]
-            ax1.fill(xz, yz, color='lightgray', zorder=0,
-                     alpha=0.5)
-            if fz_labels:
-                ax1.text(200., (fz[0] + fz[1]) / 2., 'Feedzone', fontsize=8,
-                         color='gray', verticalalignment='center')
     ax1.set_ylabel('Depth (m bsl)', fontsize=16)
     ax1.set_xlabel(r'Temperature ($\degree$C)', fontsize=16)
     if title:
         ax1.set_title(title)
     else:
         ax1.set_title('NST & Injection Temperatures')
-    ax1.legend()
+    fix_legend(ax1)
     if show:
         plt.show()
     elif outfile:
@@ -990,18 +1024,17 @@ def plot_well_data(excel_file, sheetname, parameter, well_list,
             elif parameter == 'Depth' and sheetname == 'NM10 Losses':
                 values = df[('NM10', 'Depth')] - 372. # Correcting to m bsl
                 dtos = values.index.to_pydatetime()
-            elif well.startswith('RK'):
-                if parameter == 'Injectivity':
-                    # Use WHP = Pr - pgz + W/II + KW^2 where W is flow rate
-                    # JC sets K to zero for NM08...
-                    Pr = 90  # Reservoir pressure (bar -roughly)
-                    # p water at 140C = 0.926 g/cm3 50C = 0.988 g/cm3
-                    # NM08 fz = 2400 m depth
-                    pgz = 940 * 2400 * 9.8 * 1e-5  # Pascal to bar
-                    vals = df[(well, 'Flow (t/h)')] / \
-                        (df2[well, 'WHP (barg)'] + pgz - Pr)
-                    values = vals * 10
-                    dtos = values.index.to_pydatetime()
+            elif well.startswith('RK') and parameter == 'Injectivity':
+                # Use WHP = Pr - pgz + W/II + KW^2 where W is flow rate
+                # JC sets K to zero for NM08...
+                Pr = 90  # Reservoir pressure (bar -roughly)
+                # p water at 140C = 0.926 g/cm3 50C = 0.988 g/cm3
+                # NM08 fz = 2400 m depth
+                pgz = 940 * 2400 * 9.8 * 1e-5  # Pascal to bar
+                vals = df[(well, 'Flow (t/h)')] / \
+                    (df2[well, 'WHP (barg)'] + pgz - Pr)
+                values = vals * 10
+                dtos = values.index.to_pydatetime()
             else:
                 values = df.xs((well, parameter), level=(0, 1), axis=1)
                 dtos = df.xs((well, parameter), level=(0, 1),

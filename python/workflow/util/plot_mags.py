@@ -32,8 +32,47 @@ def date_generator(start_date, end_date):
 def avg_dto(dto_list):
     srt_list = sorted(dto_list)
     return srt_list[0] + np.mean([dt - srt_list[0] for dt in srt_list])
+######################### Shelly plotting stuffs #############################
 
-"""Magnitude and b-val functions"""
+def plot_svd_mag_example(temp_wav, det_wav, station, show=False):
+    """
+    Plot an example data matrix for svd magnitude calc
+
+    :param temp_wav: obspy.core.Stream of detected event
+    :param det_wav: obspy.core.Stream of detected event
+    :param station: Station to select wavs for
+    :return:
+    """
+    try:
+        temp_dat = temp_wav.select(station=station)[0].data
+        det_dat = det_wav.select(station=station)[0].data
+    except IndexError:
+        print('You dont have {} in one of your streams'.format(station))
+        return
+    fig, axes = plt.subplots(ncols=2, nrows=1, figsize=(11, 5))
+    # Do the mathsss for the U and V plots
+    M = np.vstack((temp_dat, det_dat)).T
+    U, sig, V = np.linalg.svd(M, full_matrices=True)
+    # Normalize the streams for plotting
+    # (obviously you don't do this for the actual calculation)
+    norm_temp = temp_dat / np.max(temp_dat)
+    norm_det = det_dat / np.max(temp_dat)
+    # y vector for both
+    y_vec = np.arange(norm_det.shape[0])
+    axes[0].plot(norm_temp, y_vec, color='black', alpha=0.7)
+    axes[0].plot(norm_det + 1.3, y_vec, color='black', alpha=0.7)
+    axes[0].invert_yaxis()
+    axes[0].axis('off')
+    cols = ['black', 'dimgray', 'gray', 'darkgray', 'lightgray']
+    for i in range(2):
+        axes[1].plot(U[:,i] + (i * 0.3), y_vec, color=cols[i], alpha=0.4)
+    axes[1].invert_yaxis()
+    axes[1].axis('off')
+    if show:
+        plt.show()
+    return U, sig, V
+
+#########################Magnitude and b-val functions #######################
 
 def plot_cumulative_mo(catalog, method='Ristau', dates=None,
                        color='firebrick', axes=None, tick_colors=False):
@@ -442,7 +481,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                      histograms=False, title=None, weight=False,
                      show=True, savefig=None, ax=None, colors=None,
                      linestyles=None, plot_text=False, xlim=None, ylim=None,
-                     insets=False, reference=True):
+                     insets=False, reference=True, bplotvar=False):
     """
     Function to plot cumulative distributions of mag for an arbitrary
     number of catalogs on the same Axes
@@ -462,6 +501,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     :param ylim: Custom y limits
     :param insets: Plot inset plots of b value and std_dev
     :param reference: Plot a reference line of b = 1
+    :param bplotvar: Plot flag for EQcorrscan mag_calc.calc_b_value
 
     :return:
     """
@@ -481,7 +521,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
         bcalc = calc_b_value(
             magnitudes=mags,
             completeness=np.arange(min(mags), max(mags), 0.1),
-            plotvar=False)
+            plotvar=bplotvar)
         bcalc.sort(key=lambda x: x[2])
         # b = bcalc[-1][1]
         Mc = bcalc[-1][0]
@@ -583,6 +623,25 @@ def add_subplot_axes(ax, width, height, loc):
     """
     sub_ax = inset_axes(ax, width=width, height=height, loc=2)
     return sub_ax
+
+
+def bval_null_prob(N1, N2, b1, b2):
+    """
+    Calculate probability that two catalogs come from same population per
+    Utsu 1992 and Wiemer et al 1998:
+
+    https://academic.oup.com/gji/article-abstract/134/2/409/662959
+
+    :param cat1:
+    :param cat2:
+    :return:
+    """
+    N = N1 + N2
+    dA = ((-2. * N * np.log(N)) +
+          (2 * N1 * np.log(N1 + (N2 * b1 / b2))) +
+          (2 * N2 * np.log((N1 * b2 / b1) + N2)) - 2)
+    P0 = np.exp((-1 * dA / 2.) - 2)
+    return P0
 
 
 def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
