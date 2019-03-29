@@ -1,0 +1,432 @@
+%PDF-1.3
+1 0 obj
+<< /Type /Catalog
+/Outlines 2 0 R
+/Pages 3 0 R >>
+endobj
+2 0 obj
+<< /Type /Outlines /Count 0 >>
+endobj
+3 0 obj
+<< /Type /Pages
+/Kids [6 0 R
+16 0 R
+]
+/Count 2
+/Resources <<
+/ProcSet 4 0 R
+/Font << 
+/F1 8 0 R
+/F2 9 0 R
+/F3 10 0 R
+/F4 11 0 R
+>>
+>>
+/MediaBox [0.000 0.000 595.280 841.890]
+ >>
+endobj
+4 0 obj
+[/PDF /Text ]
+endobj
+5 0 obj
+<<
+/Creator (DOMPDF)
+/CreationDate (D:20190329005755+00'00')
+/ModDate (D:20190329005755+00'00')
+>>
+endobj
+6 0 obj
+<< /Type /Page
+/Parent 3 0 R
+/Annots [ 12 0 R 14 0 R ]
+/Contents 7 0 R
+>>
+endobj
+7 0 obj
+<<
+/Length 7200 >>
+stream
+
+0.000 0.000 0.000 rg
+BT 34.016 768.985 Td /F1 24.0 Tf  [(PhD scripts and functions)] TJ ET
+BT 34.016 730.095 Td /F1 18.0 Tf  [(Description)] TJ ET
+BT 34.016 699.473 Td /F2 12.0 Tf  [(This directory contains all of the scripts used in completing my PhD in GeoPhysics at Victoria University of )] TJ ET
+BT 34.016 685.217 Td /F2 12.0 Tf  [(Wellington from 2015-2019.)] TJ ET
+BT 34.016 658.961 Td /F1 12.0 Tf  [(PhD title:)] TJ ET
+BT 83.672 658.961 Td /F2 12.0 Tf  [( Characterizing microseismicity at the Rotokawa and Ngatamariki geothermal fields, North Island, )] TJ ET
+BT 34.016 644.705 Td /F2 12.0 Tf  [(New Zealand)] TJ ET
+BT 34.016 609.807 Td /F1 18.0 Tf  [(Usage)] TJ ET
+BT 34.016 579.185 Td /F2 12.0 Tf  [(The )] TJ ET
+BT 55.676 579.185 Td /F3 12.0 Tf  [(python/workflow)] TJ ET
+BT 136.352 579.185 Td /F2 12.0 Tf  [( directory contains all of the relevant python files used through the course of this work. )] TJ ET
+BT 34.016 564.929 Td /F2 12.0 Tf  [(Other directories contain older versions of the scripts contained under )] TJ ET
+BT 371.948 564.929 Td /F3 12.0 Tf  [(workflow)] TJ ET
+BT 416.624 564.929 Td /F2 12.0 Tf  [( but are left as is for posterity.)] TJ ET
+BT 34.016 538.673 Td /F2 12.0 Tf  [(Each )] TJ ET
+BT 61.004 538.673 Td /F3 12.0 Tf  [(python/workflow)] TJ ET
+BT 141.680 538.673 Td /F2 12.0 Tf  [( script detailed below is only a collection of functions. They cannot be executed on )] TJ ET
+BT 34.016 524.417 Td /F2 12.0 Tf  [(their own and the functions within are meant to be imported and used from within a python interpreter. In )] TJ ET
+BT 34.016 510.161 Td /F2 12.0 Tf  [(order to use a particular function from a file, make sure the file is on your python path before using: )] TJ ET
+BT 34.016 495.905 Td /F4 12.0 Tf  [(from plot_mags import plot_mags)] TJ ET
+BT 257.216 495.905 Td /F2 12.0 Tf  [(, for example.)] TJ ET
+BT 34.016 469.649 Td /F2 12.0 Tf  [(The most important files are explained below.)] TJ ET
+BT 34.016 443.393 Td /F2 12.0 Tf  [(##Workflow functions:)] TJ ET
+0.000 0.000 0.000 RG
+57.816 420.242 m 
+57.816 420.792 57.589 421.338 57.201 421.727 c
+56.812 422.116 56.266 422.342 55.716 422.342 c
+55.166 422.342 54.620 422.116 54.231 421.727 c
+53.842 421.338 53.616 420.792 53.616 420.242 c
+53.616 419.692 53.842 419.146 54.231 418.757 c
+54.620 418.369 55.166 418.142 55.716 418.142 c
+56.266 418.142 56.812 418.369 57.201 418.757 c
+57.589 419.146 57.816 419.692 57.816 420.242 c f
+BT 64.016 405.137 Td /F3 12.0 Tf  [(data_prep.py)] TJ ET
+BT 127.676 405.137 Td /F2 12.0 Tf  [(: Functions to take raw miniseed and sc3ml files and output usable QML and pyasdf files )] TJ ET
+BT 64.016 390.881 Td /F2 12.0 Tf  [(for use in main workflows. This includes functionality for creating templates.)] TJ ET
+57.816 367.730 m 
+57.816 368.280 57.589 368.826 57.201 369.215 c
+56.812 369.604 56.266 369.830 55.716 369.830 c
+55.166 369.830 54.620 369.604 54.231 369.215 c
+53.842 368.826 53.616 368.280 53.616 367.730 c
+53.616 367.180 53.842 366.634 54.231 366.245 c
+54.620 365.857 55.166 365.630 55.716 365.630 c
+56.266 365.630 56.812 365.857 57.201 366.245 c
+57.589 366.634 57.816 367.180 57.816 367.730 c f
+BT 64.016 352.625 Td /F3 12.0 Tf  [(relocate.py)] TJ ET
+BT 117.668 352.625 Td /F2 12.0 Tf  [(: Functions for relocating events in catalogs, including NLLoc, HypoDD and GrowClust.)] TJ ET
+57.816 329.474 m 
+57.816 330.024 57.589 330.570 57.201 330.959 c
+56.812 331.348 56.266 331.574 55.716 331.574 c
+55.166 331.574 54.620 331.348 54.231 330.959 c
+53.842 330.570 53.616 330.024 53.616 329.474 c
+53.616 328.924 53.842 328.378 54.231 327.989 c
+54.620 327.601 55.166 327.374 55.716 327.374 c
+56.266 327.374 56.812 327.601 57.201 327.989 c
+57.589 328.378 57.816 328.924 57.816 329.474 c f
+BT 64.016 314.369 Td /F3 12.0 Tf  [(magnitudes.py)] TJ ET
+BT 133.676 314.369 Td /F2 12.0 Tf  [(: Wrappers on magnitude calculation functions in EQcorrscan for matched filter )] TJ ET
+BT 64.016 300.113 Td /F2 12.0 Tf  [(detections.)] TJ ET
+57.816 276.962 m 
+57.816 277.512 57.589 278.058 57.201 278.447 c
+56.812 278.836 56.266 279.062 55.716 279.062 c
+55.166 279.062 54.620 278.836 54.231 278.447 c
+53.842 278.058 53.616 277.512 53.616 276.962 c
+53.616 276.412 53.842 275.866 54.231 275.477 c
+54.620 275.089 55.166 274.862 55.716 274.862 c
+56.266 274.862 56.812 275.089 57.201 275.477 c
+57.589 275.866 57.816 276.412 57.816 276.962 c f
+BT 64.016 261.857 Td /F3 12.0 Tf  [(obspyck_util)] TJ ET
+BT 124.676 261.857 Td /F2 12.0 Tf  [(: Wrapper functions on the python-based picker GUI, Obspyck. These were used for )] TJ ET
+BT 64.016 247.601 Td /F2 12.0 Tf  [(making all polarity picks.)] TJ ET
+57.816 224.450 m 
+57.816 225.000 57.589 225.546 57.201 225.935 c
+56.812 226.324 56.266 226.550 55.716 226.550 c
+55.166 226.550 54.620 226.324 54.231 225.935 c
+53.842 225.546 53.616 225.000 53.616 224.450 c
+53.616 223.900 53.842 223.354 54.231 222.965 c
+54.620 222.577 55.166 222.350 55.716 222.350 c
+56.266 222.350 56.812 222.577 57.201 222.965 c
+57.589 223.354 57.816 223.900 57.816 224.450 c f
+BT 64.016 209.345 Td /F3 12.0 Tf  [(focal_mecs)] TJ ET
+BT 118.004 209.345 Td /F2 12.0 Tf  [(: Focal mechanism calculation, plotting and file parsing for use with a number of packages )] TJ ET
+BT 64.016 195.089 Td /F2 12.0 Tf  [(including: MTFit, Richard Arnold's R codes, HybridMT, etc...)] TJ ET
+57.816 171.938 m 
+57.816 172.488 57.589 173.034 57.201 173.423 c
+56.812 173.812 56.266 174.038 55.716 174.038 c
+55.166 174.038 54.620 173.812 54.231 173.423 c
+53.842 173.034 53.616 172.488 53.616 171.938 c
+53.616 171.388 53.842 170.842 54.231 170.453 c
+54.620 170.065 55.166 169.838 55.716 169.838 c
+56.266 169.838 56.812 170.065 57.201 170.453 c
+57.589 170.842 57.816 171.388 57.816 171.938 c f
+BT 64.016 156.833 Td /F3 12.0 Tf  [(shelly_focmecs.py)] TJ ET
+BT 150.992 156.833 Td /F2 12.0 Tf  [(: Python implementation functions for David Shelly's polarity clustering routines. )] TJ ET
+BT 64.016 142.577 Td /F2 12.0 Tf  [(Read the paper )] TJ ET
+0.000 0.000 0.800 rg
+BT 138.992 142.577 Td /F2 12.0 Tf  [(here)] TJ ET
+0.000 0.000 0.800 RG
+0.6 w 0 J [  ] 0 d
+138.992 139.877 m 159.644 139.877 l S
+0.000 0.000 0.000 rg
+0.000 0.000 0.000 RG
+57.816 119.426 m 
+57.816 119.976 57.589 120.522 57.201 120.911 c
+56.812 121.300 56.266 121.526 55.716 121.526 c
+55.166 121.526 54.620 121.300 54.231 120.911 c
+53.842 120.522 53.616 119.976 53.616 119.426 c
+53.616 118.876 53.842 118.330 54.231 117.941 c
+54.620 117.553 55.166 117.326 55.716 117.326 c
+56.266 117.326 56.812 117.553 57.201 117.941 c
+57.589 118.330 57.816 118.876 57.816 119.426 c f
+BT 64.016 104.321 Td /F3 12.0 Tf  [(shelly_mags.py)] TJ ET
+BT 137.672 104.321 Td /F2 12.0 Tf  [(: Python implementation functions for David Shelly's relative-amplitude calculation )] TJ ET
+BT 64.016 90.065 Td /F2 12.0 Tf  [(workflow. Read the paper )] TJ ET
+0.000 0.000 0.800 rg
+BT 191.648 90.065 Td /F2 12.0 Tf  [(here)] TJ ET
+0.000 0.000 0.800 RG
+0.6 w 0 J [  ] 0 d
+191.648 87.365 m 212.300 87.365 l S
+0.000 0.000 0.000 rg
+BT 34.016 51.809 Td /F2 12.0 Tf  [(##Plotting functions: * )] TJ ET
+BT 147.032 51.809 Td /F3 12.0 Tf  [(plot_detections.py)] TJ ET
+BT 234.692 51.809 Td /F2 12.0 Tf  [(: A large number of plotting functions for catalog locations, time )] TJ ET
+endstream
+endobj
+8 0 obj
+<< /Type /Font
+/Subtype /Type1
+/Name /F1
+/BaseFont /Times-Bold
+/Encoding /WinAnsiEncoding
+>>
+endobj
+9 0 obj
+<< /Type /Font
+/Subtype /Type1
+/Name /F2
+/BaseFont /Times-Roman
+/Encoding /WinAnsiEncoding
+>>
+endobj
+10 0 obj
+<< /Type /Font
+/Subtype /Type1
+/Name /F3
+/BaseFont /Times-Italic
+/Encoding /WinAnsiEncoding
+>>
+endobj
+11 0 obj
+<< /Type /Font
+/Subtype /Type1
+/Name /F4
+/BaseFont /Courier
+/Encoding /WinAnsiEncoding
+>>
+endobj
+12 0 obj
+<< /Type /Annot
+/Subtype /Link
+/A 13 0 R
+/Border [0 0 0]
+/H /I
+/Rect [ 138.9917 141.4975 159.6437 153.3775 ]
+>>
+endobj
+13 0 obj
+<< /Type /Action
+/S /URI
+/URI (https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2016JB013437)
+>>
+endobj
+14 0 obj
+<< /Type /Annot
+/Subtype /Link
+/A 15 0 R
+/Border [0 0 0]
+/H /I
+/Rect [ 191.6477 88.9855 212.2997 100.8655 ]
+>>
+endobj
+15 0 obj
+<< /Type /Action
+/S /URI
+/URI (https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015JB012719)
+>>
+endobj
+16 0 obj
+<< /Type /Page
+/Parent 3 0 R
+/Annots [ 18 0 R 20 0 R 22 0 R 24 0 R ]
+/Contents 17 0 R
+>>
+endobj
+17 0 obj
+<<
+/Length 5058 >>
+stream
+
+0.000 0.000 0.000 rg
+0.000 0.000 0.800 RG
+0.6 w 0 J [  ] 0 d
+BT 34.016 796.469 Td /F2 12.0 Tf  [(series, cumulative detections and much more)] TJ ET
+0.000 0.000 0.000 RG
+57.816 773.318 m 
+57.816 773.868 57.589 774.414 57.201 774.803 c
+56.812 775.192 56.266 775.418 55.716 775.418 c
+55.166 775.418 54.620 775.192 54.231 774.803 c
+53.842 774.414 53.616 773.868 53.616 773.318 c
+53.616 772.768 53.842 772.222 54.231 771.833 c
+54.620 771.445 55.166 771.218 55.716 771.218 c
+56.266 771.218 56.812 771.445 57.201 771.833 c
+57.589 772.222 57.816 772.768 57.816 773.318 c f
+BT 64.016 758.213 Td /F3 12.0 Tf  [(plot_mags.py)] TJ ET
+BT 128.348 758.213 Td /F2 12.0 Tf  [(: Various magnitude plotting functions \(i.e. b-values, magnitude time series, etc...\))] TJ ET
+57.816 735.062 m 
+57.816 735.612 57.589 736.158 57.201 736.547 c
+56.812 736.936 56.266 737.162 55.716 737.162 c
+55.166 737.162 54.620 736.936 54.231 736.547 c
+53.842 736.158 53.616 735.612 53.616 735.062 c
+53.616 734.512 53.842 733.966 54.231 733.577 c
+54.620 733.189 55.166 732.962 55.716 732.962 c
+56.266 732.962 56.812 733.189 57.201 733.577 c
+57.589 733.966 57.816 734.512 57.816 735.062 c f
+BT 64.016 719.957 Td /F3 12.0 Tf  [(plot_stresses.py)] TJ ET
+BT 140.348 719.957 Td /F2 12.0 Tf  [(: Plotting mostly of the output of Richard and John's focal mechanism inversion codes, )] TJ ET
+BT 64.016 705.701 Td /F2 12.0 Tf  [(including a python version of the principal stress axes and pdfs.)] TJ ET
+57.816 682.550 m 
+57.816 683.100 57.589 683.646 57.201 684.035 c
+56.812 684.424 56.266 684.650 55.716 684.650 c
+55.166 684.650 54.620 684.424 54.231 684.035 c
+53.842 683.646 53.616 683.100 53.616 682.550 c
+53.616 682.000 53.842 681.454 54.231 681.065 c
+54.620 680.677 55.166 680.450 55.716 680.450 c
+56.266 680.450 56.812 680.677 57.201 681.065 c
+57.589 681.454 57.816 682.000 57.816 682.550 c f
+BT 64.016 667.445 Td /F3 12.0 Tf  [(plot_well_data.py)] TJ ET
+BT 150.356 667.445 Td /F2 12.0 Tf  [(: Large number of functions for plotting most of the Mercury datasets including PTS )] TJ ET
+BT 64.016 653.189 Td /F2 12.0 Tf  [(runs, flow rates, pressures, well locations, etc)] TJ ET
+BT 34.016 599.449 Td /F1 24.0 Tf  [(Data location and processing)] TJ ET
+BT 34.016 566.261 Td /F1 12.0 Tf  [(This section serves as reference for any VUW students and staff needing to locate and access the data )] TJ ET
+BT 34.016 552.005 Td /F1 12.0 Tf  [(files used in this project)] TJ ET
+BT 34.016 517.107 Td /F1 18.0 Tf  [(Waveform files:)] TJ ET
+BT 34.016 486.485 Td /F2 12.0 Tf  [(The raw day-long miniseed files live in two locations on the network:)] TJ ET
+BT 34.016 460.229 Td /F2 12.0 Tf  [(For 2012-2013 data: * /Volumes/Taranaki_01/data/civilfra/Rotokawa_Seismic/raw_data/RT-NM_mseed)] TJ ET
+BT 34.016 433.973 Td /F2 12.0 Tf  [(For 2014-2015 data: * /Volumes/Taranaki_01/data/hoppche/waveform_data)] TJ ET
+BT 34.016 407.717 Td /F2 12.0 Tf  [(For a local archive of all GeoNet waveforms relevant to our network: * /Volumes/GeoPhysics_07/users-)] TJ ET
+BT 34.016 393.461 Td /F2 12.0 Tf  [(data/hoppche/geonet_waveforms)] TJ ET
+BT 34.016 358.563 Td /F1 18.0 Tf  [(Earthquake catalogs)] TJ ET
+BT 34.016 327.941 Td /F2 12.0 Tf  [(The final earthquake catalogs and station information can be accessed at: * )] TJ ET
+0.000 0.000 0.800 rg
+BT 396.596 327.941 Td /F2 12.0 Tf  [(This project's OSF repository)] TJ ET
+0.000 0.000 0.800 RG
+0.6 w 0 J [  ] 0 d
+396.596 325.241 m 537.752 325.241 l S
+0.000 0.000 0.000 rg
+BT 537.752 327.941 Td /F2 12.0 Tf  [( * )] TJ ET
+BT 34.016 313.685 Td /F2 12.0 Tf  [(On the VUW network: /Volumes/GeoPhysics_07/users-data/hoppche/FINAL_FILES_29-3-19)] TJ ET
+BT 34.016 278.787 Td /F1 18.0 Tf  [(Mercury datasets)] TJ ET
+BT 34.016 248.165 Td /F2 12.0 Tf  [(The Mercury flow rate and pressure datasets used throughout the project are found in the following directory )] TJ ET
+BT 34.016 233.909 Td /F2 12.0 Tf  [(on the network: * /Volumes/GeoPhysics_07/users-data/hoppche/MERCURY_FILES)] TJ ET
+BT 34.016 207.653 Td /F2 12.0 Tf  [(I will retain these locally, but will not make them publically available via the above repo, as they are )] TJ ET
+BT 34.016 193.397 Td /F2 12.0 Tf  [(proprietary.)] TJ ET
+BT 34.016 158.499 Td /F1 18.0 Tf  [(Acknowledgments)] TJ ET
+BT 34.016 127.877 Td /F2 12.0 Tf  [(These scripts rely heavily upon other Python packages including, but not limited to: * )] TJ ET
+0.000 0.000 0.800 rg
+BT 448.328 127.877 Td /F2 12.0 Tf  [(EQcorrscan)] TJ ET
+0.6 w 0 J [  ] 0 d
+448.328 125.177 m 504.968 125.177 l S
+0.000 0.000 0.000 rg
+BT 504.968 127.877 Td /F2 12.0 Tf  [( * )] TJ ET
+0.000 0.000 0.800 rg
+BT 516.968 127.877 Td /F2 12.0 Tf  [(Obspy)] TJ ET
+0.6 w 0 J [  ] 0 d
+516.968 125.177 m 548.300 125.177 l S
+0.000 0.000 0.000 rg
+BT 548.300 127.877 Td /F2 12.0 Tf  [( * )] TJ ET
+0.000 0.000 0.800 rg
+BT 34.016 113.621 Td /F2 12.0 Tf  [(Obspyck)] TJ ET
+0.6 w 0 J [  ] 0 d
+34.016 110.921 m 76.676 110.921 l S
+0.000 0.000 0.000 rg
+BT 76.676 113.621 Td /F2 12.0 Tf  [( These scripts assume that the above are installed properly and are accessible on the users machine.)] TJ ET
+endstream
+endobj
+18 0 obj
+<< /Type /Annot
+/Subtype /Link
+/A 19 0 R
+/Border [0 0 0]
+/H /I
+/Rect [ 396.5957 326.8615 537.7517 338.7415 ]
+>>
+endobj
+19 0 obj
+<< /Type /Action
+/S /URI
+/URI (10.17605/OSF.IO/C2M6U)
+>>
+endobj
+20 0 obj
+<< /Type /Annot
+/Subtype /Link
+/A 21 0 R
+/Border [0 0 0]
+/H /I
+/Rect [ 448.3277 126.7975 504.9677 138.6775 ]
+>>
+endobj
+21 0 obj
+<< /Type /Action
+/S /URI
+/URI (https://eqcorrscan.github.io/)
+>>
+endobj
+22 0 obj
+<< /Type /Annot
+/Subtype /Link
+/A 23 0 R
+/Border [0 0 0]
+/H /I
+/Rect [ 516.9677 126.7975 548.2997 138.6775 ]
+>>
+endobj
+23 0 obj
+<< /Type /Action
+/S /URI
+/URI (https://docs.obspy.org/)
+>>
+endobj
+24 0 obj
+<< /Type /Annot
+/Subtype /Link
+/A 25 0 R
+/Border [0 0 0]
+/H /I
+/Rect [ 34.0157 112.5415 76.6757 124.4215 ]
+>>
+endobj
+25 0 obj
+<< /Type /Action
+/S /URI
+/URI (https://github.com/megies/obspyck)
+>>
+endobj
+xref
+0 26
+0000000000 65535 f 
+0000000009 00000 n 
+0000000074 00000 n 
+0000000120 00000 n 
+0000000313 00000 n 
+0000000342 00000 n 
+0000000456 00000 n 
+0000000545 00000 n 
+0000007797 00000 n 
+0000007905 00000 n 
+0000008014 00000 n 
+0000008125 00000 n 
+0000008231 00000 n 
+0000008359 00000 n 
+0000008480 00000 n 
+0000008607 00000 n 
+0000008728 00000 n 
+0000008833 00000 n 
+0000013944 00000 n 
+0000014072 00000 n 
+0000014145 00000 n 
+0000014273 00000 n 
+0000014354 00000 n 
+0000014482 00000 n 
+0000014557 00000 n 
+0000014683 00000 n 
+trailer
+<<
+/Size 26
+/Root 1 0 R
+/Info 5 0 R
+>>
+startxref
+14768
+%%EOF

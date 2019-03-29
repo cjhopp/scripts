@@ -19,7 +19,7 @@ path before using: `from plot_mags import plot_mags`, for example.
 
 The most important files are explained below.
 
-##Workflow functions:
+## Workflow functions:
 
 * *data_prep.py*: Functions to take raw miniseed and sc3ml files and output
 usable QML and pyasdf files for use in main workflows. This includes
@@ -46,7 +46,7 @@ Read the paper [here](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2
 relative-amplitude calculation workflow.
 Read the paper [here](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015JB012719)
 
-##Plotting functions:
+## Plotting functions:
 * *plot_detections.py*: A large number of plotting functions for catalog
 locations, time series, cumulative detections and much more
 
@@ -69,23 +69,23 @@ locate and access the data files used in this project**
 The raw day-long miniseed files live in two locations on the network:
 
 For 2012-2013 data:
-*/Volumes/Taranaki_01/data/civilfra/Rotokawa_Seismic/raw_data/RT-NM_mseed
+* **/Volumes/Taranaki_01/data/civilfra/Rotokawa_Seismic/raw_data/RT-NM_mseed**
 
 For 2014-2015 data:
-*/Volumes/Taranaki_01/data/hoppche/waveform_data
+* **/Volumes/Taranaki_01/data/hoppche/waveform_data**
 
 For a local archive of all GeoNet waveforms relevant to our network:
-*/Volumes/GeoPhysics_07/users-data/hoppche/geonet_waveforms
+* **/Volumes/GeoPhysics_07/users-data/hoppche/geonet_waveforms**
 
 ## Earthquake catalogs
 The final earthquake catalogs and station information can be accessed at:
 * [This project's OSF repository](10.17605/OSF.IO/C2M6U)
-* On the VUW network: /Volumes/GeoPhysics_07/users-data/hoppche/FINAL_FILES_29-3-19
+* On the VUW network: **/Volumes/GeoPhysics_07/users-data/hoppche/FINAL_FILES_29-3-19**
 
 ## Mercury datasets
 The Mercury flow rate and pressure datasets used throughout the project are
 found in the following directory on the network:
-*/Volumes/GeoPhysics_07/users-data/hoppche/MERCURY_FILES
+* **/Volumes/GeoPhysics_07/users-data/hoppche/MERCURY_FILES**
 
 I will retain these locally, but will not make them publically available via
 the above repo, as they are proprietary.
