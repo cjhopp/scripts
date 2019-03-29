@@ -28,6 +28,7 @@ from glob import glob
 from itertools import cycle
 from subprocess import Popen, PIPE
 from matplotlib import patches, transforms
+from mplstereonet import StereonetAxes
 from shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog, UTCDateTime
 from scipy.signal import argrelmax, argrelmin
@@ -402,7 +403,8 @@ def calculate_instability(sdr, Shmax, regime, R, debug=0):
         return (s_aux, d_aux, None), pole_aux
 
 
-def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R, label=None,
+def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R, poles=False,
+                               planes=False, label=None,
                                cardinal_dirs=True, ax=None, show=False):
     """
     Take the output of focal mechanisms and plot the least stable of the nodal
@@ -410,6 +412,17 @@ def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R, label=None,
 
     :param cat: Catalog corresponding to sdr file
     :param sdr_file: Output file with strike, dip and rake for events
+    :param Shmax: Azimuth of Shmax (probably as output from stress inversion)
+    :param regime: What sort of faulting regime? Options are: 'n', 'ss', 'r'
+    :param R: Stress ratio for the local stress regime:
+        (sig1 - sig2) / (sig1 - sig3)
+    :param poles: Plot the dots for the poles?
+    :param planes: Plot the planes as great-circle lines?
+    :param label: Label to the top left? Give us one.
+    :param cardinal_dirs: Include cardinal direction labels?
+    :param ax: Axes object to plot onto
+    :param show: Show it?
+
     :return:
     """
     sdr_dict = {}
@@ -429,19 +442,18 @@ def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R, label=None,
                                                regime=regime, R=R)
             plot_sdrs.append(plottables)
     if not ax:
-        fig = plt.figure()
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
+        fig = plt.figure(figsize=(4, 4))
+        ax = StereonetAxes(rect=[0.1, 0.1, 0.8, 0.8], fig=fig)
+        fig.add_axes(ax)
     # Plotting now
     # Unpack the output from calculate_instability
-    sdrs, poles = zip(*plot_sdrs)
+    sdrs, _ = zip(*plot_sdrs)
     strike, dip, rake = zip(*sdrs)
     # Calculate trend and plunge of pole
     strike = np.array(strike)
-    trend = strike - 90.
-    trend = np.where(trend >= 0., trend, trend + 360.)
     comp_plunge = np.array(dip) # Plunge as degrees up from down
-    ax = rose_plot(np.deg2rad(trend), np.deg2rad(comp_plunge), np.deg2rad(strike),
-                   label=label, cardinal_dirs=cardinal_dirs, ax=ax,
+    ax = rose_plot(strike=strike, dip=dip, label=label, poles=poles,
+                   planes=planes, cardinal_dirs=cardinal_dirs, ax=ax,
                    show=show)
     mean_dip = np.rad2deg(circmean(np.deg2rad(comp_plunge)))
     std_dip = np.rad2deg(circstd(np.deg2rad(comp_plunge)))
@@ -452,17 +464,18 @@ def plot_unstable_nodal_planes(cat, sdr_file, Shmax, regime, R, label=None,
     return ax
 
 
-def rose_plot(trend, plunge, strike, label=None, cardinal_dirs=False,
-              ax=None, show=True, outfile=None, cbar=None, jointplot=False):
+def rose_plot(strike, dip, label=None, cardinal_dirs=False, planes=False,
+              poles=False, ax=None, show=True, outfile=None, cbar=None):
     """
     Plot a set of poles and strikes on a polar axis as a heatmap overlain
     by a rose plot
 
-    :param trend: np.ndarray of trends in radians
-    :param plunge: np.ndarray of plunges in radians
-    :param strike: np.ndarray of strikes in radians
+    :param strike: np.ndarray of strikes in degrees
+    :param dip: np.ndarray of dips in degrees
     :param label: Text to label plot with
     :param cardinal_dirs: Boolean for plotting cardinal dirs
+    :param planes: Plot the great circles for the planes?
+    :param poles: Plot the dots for the poles?
     :param ax: Axes object to plot onto
     :param show: Boolean to show figure
     :param outfile: Path to potential output file
@@ -470,53 +483,24 @@ def rose_plot(trend, plunge, strike, label=None, cardinal_dirs=False,
     """
     if not ax:
         fig = plt.figure()
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
-    dip_bins = np.linspace(0, 95, 9) # 5 degree bins
-    r_bins = np.deg2rad(dip_bins)
-    N_az_bin = 36 # 36 10-degree azimuth bins
-    bin_width = 360 / (N_az_bin) # Width of bins in deg
-    rad_bin_width = np.deg2rad(bin_width)
-    az_bins = np.linspace(-rad_bin_width / 2.,
-                          2. * np.pi + rad_bin_width / 2.,
-                          N_az_bin + 1)
-    # 1D histogram
-    number_of_strikes, bin_edges = np.histogram(strike, az_bins[:-1])
-    norm_num_strk = number_of_strikes / number_of_strikes.max() # Normalize
-    # Scale to y-range
-    norm_num_strk *= (np.pi / 2)
-    # 2D histogram
-    H, az_edges, dip_edges = np.histogram2d(trend, plunge,
-                                            bins=(az_bins, r_bins))
-    # plot data in the middle of the bins
-    r_mid = .5 * (dip_edges[:-1] + dip_edges[1:])
-    theta_mid = .5 * (az_edges[:-1] + az_edges[1:])
-    az_mid = .5 * (bin_edges[:-1] + bin_edges[1:])
-    if jointplot:
-        ax = sns.jointplot(trend, plunge, color='k', kind='kde', ax=ax)
-    else:
-        cax = ax.contourf(theta_mid, r_mid, H.T, 10, cmap=plt.cm.Purples)
-        ax.scatter(trend, plunge, color='k', s=0.1, alpha=0.5)
-        # Bar plot on top
-        # Normalize number of strikes to 0 np.pi / 2!!!!!
-        ax.bar(az_mid, norm_num_strk, width=rad_bin_width, bottom=0.0,
-               color='gray', edgecolor='k', alpha=.7)
-        if cbar:
-            plt.colorbar(cax)
-        ax.yaxis.grid(False)
-        ax.xaxis.grid(False)
-        ax.margins(0.0)
-        if label:
-            ax.text(-0.1, 1.0, label, fontsize=14,
-                    transform=ax.transAxes)
-        # Set up to North, clockwise scale, 180 offset
-        ax.set_theta_direction(-1)
-        ax.set_theta_offset(np.pi / 2.0)
-        ax.set_yticklabels([])
-        ax.set_ylim([0, np.pi / 2.])
-        if cardinal_dirs:
-            ax.set_xticklabels(['N', '', 'E', '', 'S', '', 'W'])
-        else:
-            ax.set_xticklabels([])
+        ax = StereonetAxes(rect=[0.1, 0.1, 0.8, 0.8], fig=fig)
+        fig.add_axes(ax)
+    if planes:
+        ax.plane(strike, dip, color='k', linewidth=0.1, alpha=0.2)
+    if poles:
+        ax.pole(strike, dip, color='k', markersize=0.5, alpha=0.5)
+    cax = ax.density_contourf(strike, dip, cmap=plt.cm.Purples)
+    if cbar:
+        plt.colorbar(cax)
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(False)
+    ax.margins(0.0)
+    if label:
+        ax.text(-0.1, 1.0, label, fontsize=26,
+                transform=ax.transAxes)
+    if cardinal_dirs:
+        ax.set_azimuth_ticklabels(['N', '', 'E', '', 'S', '', 'W'],
+                                  fontsize=18)
     if show:
         plt.show()
     elif outfile:
@@ -526,7 +510,7 @@ def rose_plot(trend, plunge, strike, label=None, cardinal_dirs=False,
 
 
 def plot_fracs(well, label=True, cardinal_dirs=True, depth_interval=None,
-               ax=None, show=False, outfile=None, jointplot=False):
+               poles=False, planes=False, ax=None, show=False, outfile=None):
     """
     Plot density plot of poles to fractures from AFIT/FMI logs for a given well
     :param well: path to well file (depth, dip, strike, dip direction, ...)
@@ -537,11 +521,11 @@ def plot_fracs(well, label=True, cardinal_dirs=True, depth_interval=None,
     :return:
     """
     if not ax:
-        fig = plt.figure()
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
+        fig = plt.figure(figsize=(4, 4))
+        ax = StereonetAxes(rect=[0.1, 0.1, 0.8, 0.8], fig=fig)
+        fig.add_axes(ax)
     # Read in arrays
     data = np.genfromtxt(well, delimiter=',', skip_header=1)
-    depth = data[:,0]
     # Select only fractures within depth interval
     if depth_interval:
         # Check your depth interval is valid
@@ -569,9 +553,10 @@ def plot_fracs(well, label=True, cardinal_dirs=True, depth_interval=None,
     # Plot'em
     if label:
         lab = well.split('_')[-2].split('/')[-1]
-    ax = rose_plot(trend=pole_az, plunge=pole_angle, strike=strk_az, label=lab,
+    ax = rose_plot(strike=np.rad2deg(strk_az), dip=dip, poles=poles,
+                   planes=planes, label=lab,
                    cardinal_dirs=cardinal_dirs, ax=ax, show=show,
-                   outfile=outfile, jointplot=jointplot)
+                   outfile=outfile)
     mean_dip = np.rad2deg(circmean(pole_angle))
     std_dip = np.rad2deg(circstd(pole_angle))
     mean_strike = np.rad2deg(circmean(strk_az))

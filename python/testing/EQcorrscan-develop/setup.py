@@ -43,7 +43,7 @@ except:
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the relevant file
-long_description = read_md('README.md')
+long_description = read_md('README.md.md')
 
 # Get a list of all the scripts not to be installed
 # scriptfiles = glob.glob('eqcorrscan/scripts/*.py')

@@ -148,6 +148,25 @@ def plot_cumulative_mo(catalog, method='Ristau', dates=None,
             ax.legend(fontsize=12)
     return ax
 
+
+def make_sdrs(fm_file, cat_format):
+    # Take output from fm codes and parse to dictionary keyed to event id
+    sdrs = {}
+    with open(fm_file, 'r') as f:
+        next(f)
+        for line in f:
+            line = line.rstrip('\n')
+            line = line.split(',')
+            if cat_format == 'detections':
+                fid = line[0].split('.')[0][:-6]
+                sdrs[fid] = (float(line[1]), float(line[2]),
+                             float(line[3]))
+            elif cat_format == 'templates':
+                sdrs[line[0].split('.')[0]] = (float(line[1]), float(line[2]),
+                                               float(line[3]))
+    return sdrs
+
+
 def plot_mags(cats, dates=None, metric='time', ax=None, title=None, show=True,
               fm_file=None, fm_color=None, cat_format='templates',
               focmecs=False):
@@ -217,21 +236,9 @@ def plot_mags(cats, dates=None, metric='time', ax=None, title=None, show=True,
     # Make all event times UTC for purposes of dto compare
     mag_tup = []
     fm_tup = []
-    sdrs = {}
     # Dictionary of fm strike-dip-rake from Arnold/Townend pkg
     if fm_file:
-        with open(fm_file, 'r') as f:
-            next(f)
-            for line in f:
-                line = line.rstrip('\n')
-                line = line.split(',')
-                if cat_format == 'detections':
-                    fid = line[0].split('.')[0][:-6]
-                    sdrs[fid] = (float(line[1]), float(line[2]),
-                                 float(line[3]))
-                elif cat_format == 'templates':
-                    sdrs[line[0].split('.')[0]] = (float(line[1]), float(line[2]),
-                                                   float(line[3]))
+        sdrs = make_sdrs(fm_file=fm_file, cat_format=cat_format)
     for ev in cat:
         if start < pytz.utc.localize(ev.origins[-1].time.datetime) < end:
             if cat_format == 'detections' and focmecs:
@@ -746,6 +753,7 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
     .. note: RK24 Feedzones: (-38.6149, 176.2025, 2.9)
              RK23 Feedzones: (-38.6162, 176.2076, 2.9)
              NM06 feedzones: (-38.5653, 176.1948, 2.88)
+             NM09 feedzones: (-38.5358, 176.1857, 2.45)
     """
     if not ax:
         fig, axes = plt.subplots(figsize=(7, 5))
@@ -780,9 +788,9 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
     x = np.array(x)
     y_flts = np.array([float(s) for s in y])
     # Scatter plot
-    axes.scatter(x, y_flts, marker='.', color='k', s=5.0, alpha=0.1)
+    axes.scatter(x, y_flts, marker='.', color='k', s=8.0, alpha=0.2)
     # Calculate averages/variance
-    bins = np.arange(min(x), max(x), 50) #100 m bins
+    bins = np.arange(min(x), max(x), 50) #50 m bins
     digitized = np.digitize(x, bins)
     bin_means = [y_flts[digitized == i].mean() for i in range(1, len(bins))]
     bin_std = [y_flts[digitized == i].std() for i in range(1, len(bins))]
@@ -803,14 +811,14 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
         axes.set_xlabel('Distance (m)', fontsize=16)
     else:
         axes.set_xlabel('Depth (m)', fontsize=16)
-    axes.set_ylabel('b-value', fontsize=16)
+    axes.set_ylabel('$b$-value', fontsize=16)
     if not title:
-        axes.set_title('b-value with distance', fontsize=18)
+        axes.set_title('$b$-value with distance', fontsize=18)
     else:
         axes.set_title(title, fontsize=18)
     axes.set_xlim(xlim)
     axes.set_ylim(ylim)
-    axes.legend()
+    axes.legend(fontsize=14)
     if show:
         plt.show()
         plt.close()

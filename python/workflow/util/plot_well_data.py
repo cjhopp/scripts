@@ -613,6 +613,21 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
         plt.close('all')
     return ax1
 
+
+def make_McGarr_moments():
+    # Just return the dictionary of moments from McGarr 2014
+    data_dict = {
+        'KTB': [200, 1.43e11], 'Soultz': [3.98e4, 2.51e13],
+        'Dallas-Ft. Worth': [2.82e5, 8.9e13], 'Basel': [1.15e4, 1.41e14],
+        'Ashtabula 1987': [6.17e4, 2.82e14], 'Cooper Basin': [2.e4, 3.98e14],
+        'Ashtabula 2001': [3.4e5, 8.e14], 'Youngstown': [8.34e4, 8.3e14],
+        'Paradox Valley': [3.287e6, 3.16e15], 'Raton Basin 01': [4.26e5, 4.5e15],
+        'Guy': [6.29e5, 1.2e16], 'Painesville': [1.19e6, 2.e16],
+        'Rocky Mtn. Arsenal': [6.25e5, 2.1e16], 'Timpson': [9.91e5, 2.21e16],
+        'Raton Basin 11': [7.84e6, 1.e17], 'Prague': [1.2e7, 3.92e17]
+    }
+    return data_dict
+
 def plot_volume_Mmax(plot_moment=False, plot_McGarr=True, show=True):
     """
     Just a way of jotting down data from Figure 3b in Geobel&Brodsky for
@@ -623,10 +638,10 @@ def plot_volume_Mmax(plot_moment=False, plot_McGarr=True, show=True):
     :return:
     """
     fig, ax = plt.subplots()
+    mcgarr_moments = make_McGarr_moments()
     data_dict = {
-        'Ml': {'Basel': [11570, 3.4], 'St Gallen': [1165, 3.5],
-               'Fenton Hill 83': [21600, 1.0], 'Fenton Hill 86': [37000, 1.0],
-               'KTB': [4000, 0.7], 'Soultz': [4.4E4, 2.],
+        'Ml': {'St Gallen': [1165, 3.5], 'Fenton Hill 83': [21600, 1.0],
+               'Fenton Hill 86': [37000, 1.0],
                'Landau': [1.13E4, 2.7], 'NM08': [7E4, 2.1], 'NM10': [6E4, 2.1]
                },
         # So I'm not sure how we should deal with the Ml vs Mw scaling??
@@ -675,13 +690,32 @@ def plot_volume_Mmax(plot_moment=False, plot_McGarr=True, show=True):
                                                 headwidth=2.),
                                 textcoords='offset pixels', fontsize=10,
                                 color='goldenrod')
+    for loc, pts in mcgarr_moments.items():
+        if loc.startswith('Ashtabula'):
+            align = 'left'
+            align_v = 'center'
+        elif loc == 'Timpson':
+            align = 'left'
+            align_v = 'bottom'
+        elif loc == 'Painesville':
+            align = 'left'
+            align_v = 'top'
+        else:
+            align = 'right'
+            align_v = None
+        ax.scatter(pts[0], pts[1], marker='o', label=loc, s=3,
+                   color='gray', alpha=0.5)
+        ax.annotate(xy=(pts[0], pts[1]), s=loc, xytext=(0.1, 2),
+                    textcoords='offset points', fontsize=8,
+                    horizontalalignment=align, verticalalignment=align_v,
+                    color='gray')
     if plot_McGarr:
         mmax = []
-        vols = np.linspace(1E2, 1E7, 100)
+        vols = np.linspace(1E2, 3E7, 100)
         for v in vols:
             mmax.append(v * 3E10) # G = 3E10 Pa from McGarr 2014
-        ax.plot(vols, mmax, '--', color='lightgray')
-        ax.text(x=2E5, y=1E16, s='$M_{o}=GV$', rotation=28., color='lightgray',
+        ax.plot(vols, mmax, '--', color='dimgray')
+        ax.text(x=5E2, y=3E13, s='$M_{o}=GV$', rotation=28., color='dimgray',
                 horizontalalignment='center', verticalalignment='center')
     if plot_moment:
         ax.set_yscale('log')
