@@ -446,8 +446,8 @@ def bval_calc(cat, bin_size, MC, weight=False):
     else:
         Mc = MC
     # Establish bin limits and spacing
-    bin_vals = np.arange(min(mags), max(mags), bin_size)
-    # bin_vals = np.arange(-1., 4., bin_size)
+    # bin_vals = np.arange(min(mags), max(mags), bin_size)
+    bin_vals = np.arange(-1., 4., bin_size)
     non_cum_bins = []
     cum_bins = []
     bval_vals = []
@@ -486,7 +486,7 @@ def bval_calc(cat, bin_size, MC, weight=False):
 
 def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                      histograms=False, title=None, weight=False,
-                     show=True, savefig=None, ax=None, colors=None,
+                     show=True, savefig=None, axes=None, colors=None,
                      linestyles=None, plot_text=False, xlim=None, ylim=None,
                      insets=False, reference=True, bplotvar=False):
     """
@@ -500,8 +500,8 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     :param title: Title of plot
     :param show: Do we show the plot?
     :param savefig: None or name of saved file
-    :param ax: Axes object to plot to (optional)
-    :param colors: itertools.Cycle of desired colors
+    :param axes: Axes object to plot to (optional)
+    :param colors: iterable of desired color strings
     :param linestyles: itertools.Cycle of desired linestyles
     :param plot_text: Boolean for placing text on plot
     :param xlim: Custom x limits
@@ -512,10 +512,14 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
 
     :return:
     """
-    if not colors:
+    if colors == False:
         colors = cycle(sns.color_palette('muted').as_hex())
-    if not ax:
+    else:
+        colors = cycle(colors)
+    if not axes:
         fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        ax = axes
     # Array of b-values and std_errs for many catalogs for further plotting
     bs = []
     std_errs = []
@@ -543,42 +547,33 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                           for m in comp_mags]) / (neq * (neq - 1))
         std_err = 2.30 * np.sqrt(std_dev) * (b ** 2)
         col = next(colors)
-        if not name.endswith('(GNS)'):
-            if not linestyles:
-                lin = '-'
-            else:
-                lin = next(linestyles)
-            if histograms:
-                sns.distplot(mags, kde=False, color=col,
-                             hist_kws={'alpha': 1.0},
-                             ax=ax)
-            # Reversed cumulative hist
-            ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
-                    color=col, linestyle=lin, alpha=0.8, linewidth=0.8)
-            if i == 0:
-                y = 0.9
-            elif i == 1:
-                y = 0.8
-            elif i == 2:
-                y = 0.7
-            bs.append(b)
-            std_errs.append(std_err)
-            text = 'B-value: {:.2f}$\pm${:.2f}'.format(b, std_err)
-            if plot_text:
-                ax.text(0.80, y - 0.05, text, transform=ax.transAxes,
-                        color=col, horizontalalignment='center',
-                        fontsize=14.)
-                ax.text(0.80, y, 'Mc=%.2f' % Mc,
-                        color=col, transform=ax.transAxes,
-                        horizontalalignment='center', fontsize=14.)
+        if not linestyles:
+            lin = '-'
         else:
-            if histograms:
-                sns.distplot(mags, kde=False, color=col,
-                             hist_kws={'alpha': 1.0},
-                             ax=ax)
-            # Reversed cumulative hist
-            ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
-                    color=col, linestyle='--')
+            lin = next(linestyles)
+        if histograms:
+            sns.distplot(mags, kde=False, color=col,
+                         hist_kws={'alpha': 1.0},
+                         ax=ax)
+        # Reversed cumulative hist
+        ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
+                color=col, linestyle=lin, linewidth=1.5)
+        if i == 0:
+            y = 0.9
+        elif i == 1:
+            y = 0.8
+        elif i == 2:
+            y = 0.7
+        bs.append(b)
+        std_errs.append(std_err)
+        text = 'B-value: {:.2f}$\pm${:.2f}'.format(b, std_err)
+        if plot_text:
+            ax.text(0.80, y - 0.05, text, transform=ax.transAxes,
+                    color=col, horizontalalignment='center',
+                    fontsize=14.)
+            ax.text(0.80, y, 'Mc=%.2f' % Mc,
+                    color=col, transform=ax.transAxes,
+                    horizontalalignment='center', fontsize=14.)
     if insets:
         inset1 = inset_axes(ax, width='98%', height='40%',
                             bbox_to_anchor=(.6, .5, .4, .5),
@@ -600,7 +595,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
         nums = 10**(np.log10(a_ref) - mags)
         ax.plot(mags, nums, label='$b=1', color='black', linewidth=0.8,
                 linestyle='--')
-        ax.text(mags[-1] + 0.1, nums[-1], '$b=1$', fontsize=10, rotation=-36,
+        ax.text(mags[-1] + 0.1, nums[-1], '$b$=1$', fontsize=10, rotation=-36,
                 horizontalalignment='center')
     ax.set_yscale('log')
     ax.tick_params(labelsize=14.)
@@ -615,7 +610,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     else:
         ax.set_title('B-value plot', fontsize=18)
     if len(catalogs) < 6:
-        leg = ax.legend(fontsize=14., markerscale=0.7, loc=3)
+        leg = ax.legend(loc=3)
         leg.get_frame().set_alpha(0.9)
     if show:
         plt.show()
@@ -740,14 +735,22 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
     return bval_out
 
 
-def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
-             ylim=[0, 2.5], dimension=3, title=None, color=None, label=None):
+def r_b_plot(catalog, injection_point, dimension=3, axes=None, show=False,
+             xlim=[0, 1000], ylim=[0, 2.5], title=None, color=None, label=None):
     """
     Plot b-values with distance from an injection point
     :param catalog: Catalog of events with a Comment in the preferred_origin()
         with the bval in it.
     :param injection_point: Tuple of (lat, lon, depth) for the desired
         injection point
+    :param dimension: Calculate distance in map distance or include depth (3)?
+    :param axes: matlotlib Axes instance to plot into
+    :param show: Show the plot?
+    :param outfile: Save plot to a file?
+    :param title: String for the plot title
+    :param color: Curve color
+    :param label: Label the curve with this string
+
     :return:
 
     .. note: RK24 Feedzones: (-38.6149, 176.2025, 2.9)
@@ -755,10 +758,8 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
              NM06 feedzones: (-38.5653, 176.1948, 2.88)
              NM09 feedzones: (-38.5358, 176.1857, 2.45)
     """
-    if not ax:
+    if not axes:
         fig, axes = plt.subplots(figsize=(7, 5))
-    else:
-        axes = ax
     if dimension == 3:
         pts = [(dist_calc(injection_point,
                           (ev.preferred_origin().latitude,
@@ -812,13 +813,15 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
     else:
         axes.set_xlabel('Depth (m)', fontsize=16)
     axes.set_ylabel('$b$-value', fontsize=16)
-    if not title:
+    if title == None:
         axes.set_title('$b$-value with distance', fontsize=18)
     else:
         axes.set_title(title, fontsize=18)
     axes.set_xlim(xlim)
     axes.set_ylim(ylim)
     axes.legend(fontsize=14)
+    plt.setp(axes.get_xticklabels(), fontsize=14)
+    plt.setp(axes.get_yticklabels(), fontsize=14)
     if show:
         plt.show()
         plt.close()

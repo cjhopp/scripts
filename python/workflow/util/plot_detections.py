@@ -1005,7 +1005,7 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
                           deviation=False, plot_dates=None, title=None,
                           thresh=None, rate_bin=None):
     """
-    Plot cumulative detections or detecton rate in time.
+    Plot cumulative detections or detection rate in time.
 
     Simple plotting function to take a list of either datetime objects or
     :class:`eqcorrscan.core.match_filter.Detection` objects and plot
@@ -1040,7 +1040,7 @@ def cumulative_detections(dates=None, template_names=None, detections=None,
     :param color: Define a color for a single line, will be red otherwise
     :type color: Str or None
     :param colors: Custom cycle of colors to be used
-    :type colors: itertools.Cycle
+    :type colors: iterable of color strings
     :param linestyles: Provide list of linestyles to cycle through
     :type linestyles: itertools.Cycle
     :param tick_colors: Whether to color axis ticks same as curve

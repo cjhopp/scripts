@@ -227,7 +227,7 @@ def proj_point(a, b, p):
 def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
                          ax=None, show=False, outfile=None, feedzones=None,
                          fz_labels=True, focal_mechs=None, cat_format=None,
-                         fm_color='b', ylims=None, dd_only=True,
+                         fm_color=None, ylims=None, dd_only=True,
                          colorbar=False, c_axes=None, xsection=None,
                          half_width=None, errors=False):
     """
@@ -309,24 +309,24 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
                 fm_tup.append(None)
     if wells == 'Rotokawa':
         wells = []
-        for well_file in glob('/home/chet/gmt/data/NZ/wells/RK??_xyz_pts.csv'):
+        for well_file in glob('/home/chet/gmt_output/data/NZ/wells/RK??_xyz_pts.csv'):
             wells.append(well_file.split('/')[-1][:4])
             well_pt_lists.append(format_well_data(well_file, depth='mbsl'))
     elif wells == 'Ngatamariki':
         wells = []
-        for well_file in glob('/home/chet/gmt/data/NZ/wells/NM??_xyz_pts.csv'):
+        for well_file in glob('/home/chet/gmt_output/data/NZ/wells/NM??_xyz_pts.csv'):
             wells.append(well_file.split('/')[-1][:4])
             well_pt_lists.append(format_well_data(well_file, depth='mbsl'))
     else:
         for well in wells:
-            well_file = '/home/chet/gmt/data/NZ/wells/{}_xyz_pts.csv'.format(well)
+            well_file = '/home/chet/gmt_output/data/NZ/wells/{}_xyz_pts.csv'.format(well)
             # Grab well pts (these are depth (kmRF)) correct accordingly
             well_pt_lists.append(format_well_data(well_file, depth='mbsl'))
     if len(catalog) > 0:
         t0 = catalog[0].preferred_origin().time.datetime
         if errors:
-            pts = [(ev.preferred_origin().longitude,
-                    ev.preferred_origin().latitude,
+            pts = [(degrees2kilometers(ev.preferred_origin().longitude) * 1000.,
+                    degrees2kilometers(ev.preferred_origin().latitude) * 1000.,
                     ev.preferred_origin().depth,
                     ev.preferred_magnitude().mag,
                     (ev.preferred_origin().time.datetime - t0).total_seconds(),
@@ -335,8 +335,8 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
                    for ev in catalog]
             lons, lats, ds, mags, secs, hus, dus = zip(*pts)
         else:
-            pts = [(ev.preferred_origin().longitude,
-                    ev.preferred_origin().latitude,
+            pts = [(degrees2kilometers(ev.preferred_origin().longitude) * 1000.,
+                    degrees2kilometers(ev.preferred_origin().latitude) * 1000.,
                     ev.preferred_origin().depth,
                     ev.preferred_magnitude().mag,
                     (ev.preferred_origin().time.datetime - t0).total_seconds())
@@ -504,34 +504,36 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
                     else:
                         view = [-1. * az, 90, 90.]
                     bball = beach_mod(fm, xy=(proj_dists[i], ds[i]),
-                                      width=(mags[i] ** 2) * 100,
+                                      width=(mags[i] ** 2) * 50,
                                       linewidth=1, axes=ax1,
                                       facecolor=fm_col,
                                       viewpoint=view)
                 elif profile == 'NS':
                     bball = beach_mod(fm, xy=(lats[i], ds[i]),
-                                      width=(mags[i] ** 2) * 100,
+                                      width=(mags[i] ** 2) * 50,
                                       linewidth=1, axes=ax1,
                                       facecolor=fm_col,
                                       viewpoint=[0., -90., -90.])
                 elif profile == 'EW':
                     bball = beach_mod(fm, xy=(lons[i], ds[i]),
-                                      width=(mags[i] ** 2) * 100,
+                                      width=(mags[i] ** 2) * 50,
                                       linewidth=1, axes=ax1,
                                       facecolor=fm_col,
                                       viewpoint=[-90., 0., 0.])
                 elif profile == 'map':
                     bball = beach_mod(fm, xy=(lons[i], lats[i]),
-                                      width=(mags[i] ** 2) * 100,
+                                      width=(mags[i] ** 2) * 50,
                                       linewidth=1, axes=ax1,
                                       facecolor=fm_col,
                                       viewpoint=[0., 0., 0.])
                 ax1.add_collection(bball)
+    # Set scale as equal (both are meters)
+    ax1.axis('equal')
     # Redo the xaxis ticks to be in meters by calculating the distance from
     # origin to ticks
     # Extend bounds for deviated wells
     if not half_width:
-        half_width = 0.02
+        half_width = 500.
     # Now center on wellhead position (should work for last wlat as only
     # wells from same wellpad should be plotted this way)
     print(wells)
@@ -554,11 +556,11 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
         ax1.set_ylim([-38.61 - half_width, -38.61 + half_width])
     if profile != 'map' and not ylims: # Adjust depth limits depending on well
         if 'NM10' in wells or 'NM06' in wells:
-            ax1.set_ylim([4000., 0.])
+            ax1.set_ylim([2900., 1800.])
         elif wells[0].startswith('RK'):
             ax1.set_ylim([5000., 0.])
         else:
-            ax1.set_ylim([4000., 0.])
+            ax1.set_ylim([2900.,1800.])
     elif profile != 'map' and ylims:
         ax1.set_ylim(ylims)
     if not wells[0].startswith('RK') and len([x in ['NM08', 'NM09']
@@ -575,32 +577,6 @@ def plot_well_seismicity(catalog, wells, profile='NS', dates=None, color=True,
             if fz_labels:
                 ax1.text(x0, (fz[0] + fz[1]) / 2., 'Feedzone',
                          fontsize=10, color='k', verticalalignment='center')
-    new_labs = []
-    new_labs_y  = []
-    if profile == 'NS':
-        orig = (ax1.get_xlim()[0], wlon[0], 0.)
-    elif profile == 'EW':
-        orig = (wlat[0], ax1.get_xlim()[0], 0.)
-    elif profile == 'map':
-        # ax1.set_aspect('equal')
-        orig = (ax1.get_ylim()[0], ax1.get_xlim()[0], 0.)
-        for laby in ax1.get_yticks():
-            new_labs_y.append('{:4.0f}'.format(
-                dist_calc(orig, (laby, ax1.get_xlim()[0], 0.)) * 1000.))
-        ax1.set_yticklabels(new_labs_y)
-    for lab in ax1.get_xticks():
-        if profile == 'NS':
-            new_labs.append('{:4.0f}'.format(
-                dist_calc(orig, (lab, wlon[0], 0.)) * 1000.))
-        elif profile == 'EW':
-            new_labs.append('{:4.0f}'.format(
-                dist_calc(orig, (wlat[0], lab, 0.)) * 1000.))
-        elif profile == 'map':
-            new_labs.append('{:4.0f}'.format(
-                dist_calc(orig, (ax1.get_ylim()[0], lab, 0.)) * 1000.))
-        elif type(profile) == list:
-            new_labs.append('{:4.0f}'.format(lab * 1000.))
-    ax1.set_xticklabels(new_labs)
     ax1.set_xlabel('Meters', fontsize=16)
     if profile != 'map':
         ax1.set_ylabel('Depth (m bsl)', fontsize=16)
@@ -1169,6 +1145,7 @@ def format_well_data(well_file, depth='mRF'):
     Helper to format well txt files into (lat, lon, depth(km)) tups
     :param well_file: Well txt file
     :param depth: Returning depth as m RF or m bsl
+    :param map: Return map coords as 'deg' or 'meters'
     :return: list of tuples
     """
     pts = []
@@ -1176,22 +1153,22 @@ def format_well_data(well_file, depth='mRF'):
         with open(well_file) as f:
             rdr = csv.reader(f, delimiter=' ')
             for row in rdr:
+                x, y = (degrees2kilometers(float(row[1])) * 1000.,
+                        degrees2kilometers(float(row[0])) * 1000.)
                 if row[2] == '0':
-                    pts.append((float(row[1]), float(row[0]),
-                                float(row[4]) / 1000.))
+                    pts.append((x, y, float(row[4]) / 1000.))
                 else:
-                    pts.append((float(row[1]), float(row[0]),
-                                float(row[3]) / 1000.))
+                    pts.append((x, y, float(row[3]) / 1000.))
     elif depth == 'mbsl':
         with open(well_file) as f:
             rdr = csv.reader(f, delimiter=' ')
             for row in rdr:
+                x, y = (degrees2kilometers(float(row[1])) * 1000.,
+                        degrees2kilometers(float(row[0])) * 1000.)
                 if row[2] == '0':
-                    pts.append((float(row[1]), float(row[0]),
-                                float(row[-1]) / -1000.))
+                    pts.append((x, y, float(row[-1]) / -1000.))
                 else:
-                    pts.append((float(row[1]), float(row[0]),
-                                float(row[-1]) / -1000.))
+                    pts.append((x, y, float(row[-1]) / -1000.))
     return pts
 
 def calculate_pressure(D, r, q0, qt, t, t0=None):

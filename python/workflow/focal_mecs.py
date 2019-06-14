@@ -1925,17 +1925,19 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
                                    showlegend=True))
         else:
             print('No surfaces fitted')
-    xax = go.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Easting (m)', autorange=True, range=xlims)
-    yax = go.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Northing (m)', autorange=True, range=ylims)
-    zax = go.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Elevation (m)', autorange=True, range=zlims)
-    layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax,
-                                  zaxis=zax,
+    xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Easting (m)',
+                                autorange=True, range=xlims)
+    yax = go.layout.scene.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Northing (m)',
+                                autorange=True, range=ylims)
+    zax = go.layout.scene.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Elevation (m)',
+                                autorange=True, range=zlims)
+    layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
                        title=title)
@@ -1980,13 +1982,13 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
         print('You dont need a video')
     else:
         if offline:
-            plotly.offline.plot(fig, filename=outfile)
+            plotly.offline.iplot(fig, filename=outfile)
         else:
             py.plot(fig, filename=outfile)
     return
 
-def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
-                   perm_zones_dir='/home/chet/gmt/data/NZ/wells/feedzones',
+def make_well_dict(track_dir='/home/chet/gmt_output/data/NZ/wells',
+                   perm_zones_dir='/home/chet/gmt_output/data/NZ/wells/feedzones',
                    field='Nga', nga_wells=['NM08', 'NM09', 'NM10', 'NM06'],
                    rot_wells=['RK20', 'RK21', 'RK22', 'RK23', 'RK24']):
     track_files = glob('{}/*_xyz_pts.csv'.format(track_dir))

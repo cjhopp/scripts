@@ -2,19 +2,23 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$USER_HOME$/hashpy/dist/HASHpy-0.0.0_tar_zipball-py3.5-linux-x86_64.egg" afterPath="$USER_HOME$/hashpy/dist/HASHpy-0.0.0_tar_zipball-py3.5-linux-x86_64.egg" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/obspy/obspy/clients/seishub/client.py" afterPath="$USER_HOME$/obspy/obspy/clients/seishub/client.py" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/obspy/obspy/clients/seishub/sftp_client.py" afterPath="$USER_HOME$/obspy/obspy/clients/seishub/sftp_client.py" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/obspyck/obspyck.py" afterPath="$USER_HOME$/obspyck/obspyck/obspyck.py" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/obspyck/plugin_dir/nlloc/locate_BY.nlloc" afterPath="$USER_HOME$/obspyck/plugin_dir/nlloc/locate_BY.nlloc" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/Vagrantfile" afterPath="$USER_HOME$/pymap/Vagrantfile" />
-      <change type="MODIFICATION" beforePath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" afterPath="$USER_HOME$/pymap/pymap/ui/mainwindow/mainwindow.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/README.md" afterPath="$PROJECT_DIR$/README.md" />
+      <change afterPath="$PROJECT_DIR$/.idea/libraries/R_User_Library.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/hypoDDpy.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/hypoDDpy.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/scripts.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/scripts.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/focal_mecs.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/focal_mecs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_mags.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_mags.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" afterDir="false" />
     </list>
     <ignored path="scripts.iws" />
     <ignored path=".idea/workspace.xml" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
-    <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -23,30 +27,18 @@
   <component name="CreatePatchCommitExecutor">
     <option name="PATCH_PATH" value="" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="default_target" />
   <component name="FavoritesManager">
     <favorites_list name="scripts" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.4569071">
+    <splitter split-orientation="horizontal" split-proportion="0.4921745">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="600">
-          <file leaf-file-name="mag_calc.py" pinned="false" current-in-tab="true">
-            <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/mag_calc.py">
+          <file pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/python/workflow/magnitudes.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="30">
-                  <caret line="252" column="38" lean-forward="false" selection-start-line="252" selection-start-column="38" selection-end-line="252" selection-end-column="38" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="plotting.py" pinned="false" current-in-tab="false">
-            <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="54690">
-                  <caret line="1843" column="24" lean-forward="false" selection-start-line="1843" selection-start-column="24" selection-end-line="1843" selection-end-column="24" />
-                  <folding />
+                <state relative-caret-position="137">
+                  <caret line="285" column="68" selection-start-line="285" selection-start-column="68" selection-end-line="285" selection-end-column="68" />
                 </state>
               </provider>
             </entry>
@@ -55,12 +47,125 @@
       </split-first>
       <split-second>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="600">
-          <file leaf-file-name="README.md" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/README.md">
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="2460">
-                  <caret line="82" column="87" lean-forward="false" selection-start-line="82" selection-start-column="87" selection-end-line="82" selection-end-column="87" />
-                  <folding />
+                <state relative-caret-position="-22371">
+                  <caret line="449" column="50" selection-start-line="449" selection-start-column="44" selection-end-line="449" selection-end-column="50" />
+                  <folding>
+                    <element signature="e#992#1116#0" />
+                    <element signature="e#1182#2809#0" />
+                    <element signature="e#2855#3293#0" />
+                    <element signature="e#3319#3604#0" />
+                    <element signature="e#3747#6701#0" />
+                    <element signature="e#6746#7300#0" />
+                    <element signature="e#7331#8285#0" />
+                    <element signature="e#56237#65090#0" />
+                    <element signature="e#65144#67970#0" />
+                    <element signature="e#68111#74385#0" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="2523">
+                  <caret line="1005" column="54" selection-start-line="1005" selection-start-column="54" selection-end-line="1005" selection-end-column="54" />
+                  <folding>
+                    <element signature="e#22#39#0" expanded="true" />
+                    <element signature="e#1003#1195#0" />
+                    <element signature="e#1243#1367#0" />
+                    <element signature="e#1417#3683#0" />
+                    <element signature="e#3719#3929#0" />
+                    <element signature="e#3963#4661#0" />
+                    <element signature="e#4720#5725#0" />
+                    <element signature="e#5913#14064#0" />
+                    <element signature="e#14287#20353#0" />
+                    <element signature="e#20390#21252#0" />
+                    <element signature="e#21392#24296#0" />
+                    <element signature="e#24346#24636#0" />
+                    <element signature="e#24745#28696#0" />
+                    <element signature="e#28785#30105#0" />
+                    <element signature="e#30164#30947#0" />
+                    <element signature="e#30164#30301#1" />
+                    <element signature="e#31002#32355#0" />
+                    <element signature="e#32424#35012#0" />
+                    <element signature="e#35178#39570#0" />
+                    <element signature="e#39788#43426#0" />
+                    <element signature="e#43470#44667#0" />
+                    <element signature="e#45175#55497#0" />
+                    <element signature="e#55574#57231#0" />
+                    <element signature="e#57292#58359#0" />
+                    <element signature="e#58451#62475#0" />
+                    <element signature="e#62524#62666#0" />
+                    <element signature="e#62702#63073#0" />
+                    <element signature="e#63210#66304#0" />
+                    <element signature="e#66343#69671#0" />
+                    <element signature="e#69756#70218#0" />
+                    <element signature="e#70274#70679#0" />
+                    <element signature="e#70721#71278#0" />
+                    <element signature="e#71331#78655#0" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_stresses.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="5945">
+                  <caret line="215" column="67" selection-start-line="215" selection-start-column="58" selection-end-line="215" selection-end-column="67" />
+                  <folding>
+                    <element signature="e#14749#19190#0" />
+                    <element signature="e#19272#21440#0" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="3990">
+                  <caret line="1986" column="15" lean-forward="true" selection-start-line="1986" selection-start-column="15" selection-end-line="1986" selection-end-column="15" />
+                  <folding>
+                    <element signature="e#1896#4217#0" />
+                    <element signature="e#4486#6671#0" />
+                    <element signature="e#6951#10358#0" />
+                    <element signature="e#10780#12540#0" />
+                    <element signature="e#12731#13458#0" />
+                    <element signature="e#13524#16674#0" />
+                    <element signature="e#16888#19295#0" />
+                    <element signature="e#19449#20834#0" />
+                    <element signature="e#20993#23331#0" />
+                    <element signature="e#23633#28025#0" />
+                    <element signature="e#28091#28368#0" />
+                    <element signature="e#28436#28728#0" />
+                    <element signature="e#28761#29073#0" />
+                    <element signature="e#29148#31737#0" />
+                    <element signature="e#31871#37486#0" />
+                    <element signature="e#37599#40637#0" />
+                    <element signature="e#40716#42222#0" />
+                    <element signature="e#42284#43447#0" />
+                    <element signature="e#43654#45306#0" />
+                    <element signature="e#45385#49658#0" />
+                    <element signature="e#49774#55162#0" />
+                    <element signature="e#55208#55448#0" />
+                    <element signature="e#55494#55923#0" />
+                    <element signature="e#56060#56438#0" />
+                    <element signature="e#56498#59018#0" />
+                    <element signature="e#59058#59395#0" />
+                    <element signature="e#59637#61881#0" />
+                    <element signature="e#62062#71268#0" />
+                    <element signature="e#71336#72569#0" />
+                    <element signature="e#72606#73628#0" />
+                    <element signature="e#73674#74477#0" />
+                    <element signature="e#74527#75383#0" />
+                    <element signature="e#85449#86691#0" />
+                    <element signature="e#87045#93483#0" />
+                  </folding>
                 </state>
               </provider>
             </entry>
@@ -78,10 +183,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>groups</find>
-      <find>spacing</find>
-      <find>class Tam</find>
-      <find>multichannel_normxcorr</find>
       <find>_match</find>
       <find>_finalise_figure</find>
       <find>dist_calc</find>
@@ -108,6 +209,10 @@
       <find>local_to_moment_Majer</find>
       <find>class Family</find>
       <find>polar</find>
+      <find>heatmap</find>
+      <find>density</find>
+      <find>* 100</find>
+      <find>def beach_mod</find>
     </findStrings>
     <dirStrings>
       <dir>$PROJECT_DIR$/python/workflow</dir>
@@ -118,15 +223,15 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$USER_HOME$/EQcorrscan" value="4d9b72b3993ff77f7511f71a7cacfa0b39880e86" />
+        <entry key="$PROJECT_DIR$/../EQcorrscan" value="4d9b72b3993ff77f7511f71a7cacfa0b39880e86" />
       </map>
     </option>
   </component>
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$USER_HOME$/obspyck/obspyck/obspyck.py" />
-        <option value="$USER_HOME$/obspyck/hoppch_local.obspyckrc17" />
+        <option value="$PROJECT_DIR$/../obspyck/obspyck/obspyck.py" />
+        <option value="$PROJECT_DIR$/../obspyck/hoppch_local.obspyckrc17" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl" />
         <option value="$PROJECT_DIR$/python/workflow/old_util_2015/pyasdf2temp_stefan_sac.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_grp50_24hr.sl" />
@@ -140,165 +245,95 @@
         <option value="$PROJECT_DIR$/python/testing/eqcorrscan_mem_profiling.py" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
-        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/subspace.py" />
-        <option value="$USER_HOME$/hashpy/hashpy/io/obspyIO.py" />
+        <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/subspace.py" />
+        <option value="$PROJECT_DIR$/../hashpy/hashpy/io/obspyIO.py" />
         <option value="$PROJECT_DIR$/python/workflow/shelly_mags.py" />
         <option value="$PROJECT_DIR$/python/workflow/data_prep.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_temps_Rot_0.7.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_temps_Rot_1sec_cc_min_0.6_for_GC.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_0.7.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_1sec_cc_min_0.6_for_GC.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py" />
         <option value="$PROJECT_DIR$/python/workflow/shelly_focmecs.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks.py" />
-        <option value="$USER_HOME$/hypoDDpy/hypoddpy/hypodd_compiler.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/hypoddpy/hypodd_compiler.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/gantt_chart.py" />
-        <option value="$USER_HOME$/hypoDDpy/hypoddpy/hypodd_relocator.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/hypoddpy/hypodd_relocator.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/make_stefan_SAC.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_Rot_GNS_manual_for_GC.py" />
-        <option value="$USER_HOME$/EQcorrscan/setup.py" />
-        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py" />
-        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py" />
-        <option value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_Rot_GNS_manual_for_GC.py" />
+        <option value="$PROJECT_DIR$/../EQcorrscan/setup.py" />
+        <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter.py" />
+        <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/plotting.py" />
+        <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/clustering.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_186.py" />
-        <option value="$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_2.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_186.py" />
+        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_2.py" />
         <option value="$PROJECT_DIR$/python/workflow/relocate.py" />
-        <option value="$USER_HOME$/FMC_1.01/plotFMC.py" />
+        <option value="$PROJECT_DIR$/../FMC_1.01/plotFMC.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/gmt_plotting.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/plot_stresses.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/plot_stations.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
-        <option value="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
         <option value="$PROJECT_DIR$/python/workflow/README" />
         <option value="$PROJECT_DIR$/python/workflow/README.md" />
         <option value="$PROJECT_DIR$/README.md" />
+        <option value="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
+        <option value="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds">
-    <option name="x" value="129" />
-    <option name="y" value="13" />
-    <option name="width" value="3712" />
-    <option name="height" value="2148" />
-  </component>
-  <component name="ProjectInspectionProfilesVisibleTreeState">
-    <entry key="Project Default">
-      <profile-state>
-        <expanded-state>
-          <State>
-            <id />
-          </State>
-          <State>
-            <id>Python</id>
-          </State>
-        </expanded-state>
-        <selected-state>
-          <State>
-            <id>PyCompatibilityInspection</id>
-          </State>
-        </selected-state>
-      </profile-state>
-    </entry>
+  <component name="ProjectFrameBounds" extendedState="6">
+    <option name="x" value="1920" />
+    <option name="y" value="38" />
+    <option name="width" value="3840" />
+    <option name="height" value="2122" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
   <component name="ProjectView">
-    <navigator currentView="ProjectPane" proportions="" version="1">
-      <flattenPackages />
-      <showMembers />
-      <showModules />
-      <showLibraryContents />
-      <hideEmptyPackages />
-      <abbreviatePackageNames />
-      <autoscrollToSource />
-      <autoscrollFromSource />
-      <sortByType />
-      <manualOrder />
+    <navigator proportions="" version="1">
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
       <pane id="Scope" />
-      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scripts" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scripts" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scripts" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scripts" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="python" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scripts" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scripts" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="python" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="workflow" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scripts" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scripts" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="python" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="workflow" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="util" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
+          <expand>
+            <path>
+              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
+              <item name="scripts" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
+              <item name="scripts" type="462c0819:PsiDirectoryNode" />
+              <item name="python" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
+              <item name="scripts" type="462c0819:PsiDirectoryNode" />
+              <item name="python" type="462c0819:PsiDirectoryNode" />
+              <item name="workflow" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
+              <item name="scripts" type="462c0819:PsiDirectoryNode" />
+              <item name="python" type="462c0819:PsiDirectoryNode" />
+              <item name="workflow" type="462c0819:PsiDirectoryNode" />
+              <item name="util" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
         </subPane>
       </pane>
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$USER_HOME$/FMC_1.01" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
-    <property name="settings.editor.splitter.proportion" value="0.2" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="preferences.sourceCode" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
@@ -306,10 +341,10 @@
       <recent name="$PROJECT_DIR$/python/old_scripts_4-1" />
     </key>
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$USER_HOME$/hypoDDpy" />
+      <recent name="$PROJECT_DIR$/../hypoDDpy" />
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts" />
       <recent name="$PROJECT_DIR$/python/workflow/util" />
-      <recent name="$USER_HOME$/obspyck" />
+      <recent name="$PROJECT_DIR$/../obspyck" />
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts/" />
     </key>
   </component>
@@ -326,149 +361,6 @@
     </option>
   </component>
   <component name="RunManager" selected="Python tests.Doctests in plotting">
-    <configuration default="false" name="4_refine_relocate" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/python/workflow" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="scripts" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015/_4_relocate.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <method />
-    </configuration>
-    <configuration default="false" name="Doctests in plotting" type="tests" factoryName="Doctests" temporary="true" nameIsGenerated="true">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$USER_HOME$/EQcorrscan/eqcorrscan/utils" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="EQcorrscan" />
-      <option name="SCRIPT_NAME" value="$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py" />
-      <option name="CLASS_NAME" value="" />
-      <option name="METHOD_NAME" value="" />
-      <option name="FOLDER_NAME" value="" />
-      <option name="TEST_TYPE" value="TEST_SCRIPT" />
-      <option name="PATTERN" value="" />
-      <option name="USE_PATTERN" value="false" />
-      <method />
-    </configuration>
-    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="scripts" />
-      <option name="SCRIPT_NAME" value="" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <method />
-    </configuration>
-    <configuration default="true" type="Tox" factoryName="Tox">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="scripts" />
-      <method />
-    </configuration>
-    <configuration default="true" type="tests" factoryName="Doctests">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="scripts" />
-      <option name="SCRIPT_NAME" value="" />
-      <option name="CLASS_NAME" value="" />
-      <option name="METHOD_NAME" value="" />
-      <option name="FOLDER_NAME" value="" />
-      <option name="TEST_TYPE" value="TEST_SCRIPT" />
-      <option name="PATTERN" value="" />
-      <option name="USE_PATTERN" value="false" />
-      <method />
-    </configuration>
-    <configuration default="true" type="tests" factoryName="Nosetests">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="scripts" />
-      <option name="_new_regexPattern" value="&quot;&quot;" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;.&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
-      <method />
-    </configuration>
-    <configuration default="true" type="tests" factoryName="Unittests">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="scripts" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;.&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
-      <method />
-    </configuration>
-    <configuration default="true" type="tests" factoryName="py.test">
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="scripts" />
-      <option name="_new_keywords" value="&quot;&quot;" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;.&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
-      <method />
-    </configuration>
-    <list size="2">
-      <item index="0" class="java.lang.String" itemvalue="Python.4_refine_relocate" />
-      <item index="1" class="java.lang.String" itemvalue="Python tests.Doctests in plotting" />
-    </list>
-    <recent_temporary>
-      <list size="2">
-        <item index="0" class="java.lang.String" itemvalue="Python tests.Doctests in plotting" />
-        <item index="1" class="java.lang.String" itemvalue="Python.4_refine_relocate" />
-      </list>
-    </recent_temporary>
     <configuration default="true" type="tests" factoryName="Attests">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -488,9 +380,99 @@
       <option name="USE_PATTERN" value="false" />
       <method />
     </configuration>
-  </component>
-  <component name="ShelveChangesManager" show_recycled="false">
-    <option name="remove_strategy" value="false" />
+    <configuration name="4_refine_relocate" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="scripts" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/python/workflow" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015/_4_relocate.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Doctests in plotting" type="tests" factoryName="Doctests" temporary="true" nameIsGenerated="true">
+      <module name="EQcorrscan" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/plotting.py" />
+      <option name="CLASS_NAME" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="FOLDER_NAME" value="" />
+      <option name="TEST_TYPE" value="TEST_SCRIPT" />
+      <option name="PATTERN" value="" />
+      <option name="USE_PATTERN" value="false" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="Nosetests">
+      <module name="scripts" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_regexPattern" value="&quot;&quot;" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;.&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="Unittests">
+      <module name="scripts" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;.&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="tests" factoryName="py.test">
+      <module name="scripts" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_keywords" value="&quot;&quot;" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;.&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python.4_refine_relocate" />
+      <item itemvalue="Python tests.Doctests in plotting" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python tests.Doctests in plotting" />
+        <item itemvalue="Python.4_refine_relocate" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SvnConfiguration">
     <configuration />
@@ -510,29 +492,39 @@
       <configuration name="Doctests in plotting" configurationId="tests" />
     </history-entry>
   </component>
+  <component name="TodoView">
+    <todo-panel id="selected-file">
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+    <todo-panel id="all">
+      <are-packages-shown value="true" />
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+  </component>
   <component name="ToolWindowManager">
-    <frame x="129" y="13" width="3712" height="2148" extended-state="6" />
-    <editor active="true" />
+    <frame x="1920" y="38" width="3840" height="2122" extended-state="6" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.12318059" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
-      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32977644" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3293382" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32977644" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
-      <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
-      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39979756" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
-      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
-      <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
-      <window_info id="Thumbnails" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32977644" sideWeight="0.5" order="11" side_tool="false" content_ui="tabs" />
-      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
-      <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.20133333" />
+      <window_info id="Structure" order="1" weight="0.24986666" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" weight="0.32879695" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.32977644" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.39979756" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="6" weight="0.3298857" />
+      <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" weight="0.32934132" />
+      <window_info anchor="bottom" id="Version Control" order="8" />
+      <window_info anchor="bottom" id="Terminal" order="9" />
+      <window_info anchor="bottom" id="Python Console" order="10" />
+      <window_info anchor="bottom" id="Thumbnails" order="11" weight="0.32977644" />
+      <window_info anchor="right" id="Commander" order="0" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+      <window_info anchor="right" id="Data View" order="3" />
+      <window_info anchor="right" id="R Graphics" order="4" />
+      <window_info anchor="right" id="R Packages" order="5" />
     </layout>
   </component>
   <component name="Vcs.Log.UiProperties">
@@ -543,9 +535,6 @@
       <collection />
     </option>
   </component>
-  <component name="VcsContentAnnotationSettings">
-    <option name="myLimit" value="2678400000" />
-  </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <default-breakpoints>
@@ -555,414 +544,276 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="35" />
     </breakpoint-manager>
-    <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_temps_Rot_0.7.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="600">
-          <caret line="126" column="28" lean-forward="true" selection-start-line="126" selection-start-column="28" selection-end-line="126" selection-end-column="28" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/.gitignore">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1140">
-          <caret line="43" column="17" lean-forward="true" selection-start-line="43" selection-start-column="17" selection-end-line="43" selection-end-column="17" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1565">
-          <caret line="177" column="41" lean-forward="false" selection-start-line="125" selection-start-column="0" selection-end-line="177" selection-end-column="41" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5160">
-          <caret line="178" column="41" lean-forward="false" selection-start-line="178" selection-start-column="41" selection-end-line="178" selection-end-column="41" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/obspy/obspy/imaging/scripts/mopad.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="2826" column="42" lean-forward="false" selection-start-line="2826" selection-start-column="33" selection-end-line="2826" selection-end-column="42" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/hypoddpy/hypodd_compiler.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="565">
-          <caret line="190" column="27" lean-forward="false" selection-start-line="190" selection-start-column="13" selection-end-line="190" selection-end-column="27" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/.virtualenvs/work_2.7/local/lib/python2.7/site-packages/numpy/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_0.7.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/.gitignore" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks.py" />
+    <entry file="file://$PROJECT_DIR$/../obspy/obspy/imaging/scripts/mopad.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/hypoddpy/hypodd_compiler.py" />
+    <entry file="file://$PROJECT_DIR$/../.virtualenvs/work_2.7/local/lib/python2.7/site-packages/numpy/__init__.py" />
     <entry file="file://$PROJECT_DIR$/python/workflow/util/gantt_chart.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="180">
-          <caret line="7" column="0" lean-forward="false" selection-start-line="7" selection-start-column="0" selection-end-line="7" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-9900">
-          <caret line="457" column="25" lean-forward="false" selection-start-line="457" selection-start-column="25" selection-end-line="457" selection-end-column="25" />
+          <caret line="7" selection-start-line="7" selection-end-line="7" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/shelly_focmecs.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="20070">
-          <caret line="676" column="35" lean-forward="false" selection-start-line="676" selection-start-column="35" selection-end-line="676" selection-end-column="35" />
+          <caret line="676" column="35" selection-start-line="676" selection-start-column="35" selection-end-line="676" selection-end-column="35" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/util/make_stefan_SAC.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="5430">
-          <caret line="189" column="34" lean-forward="false" selection-start-line="189" selection-start-column="34" selection-end-line="189" selection-end-column="34" />
+          <caret line="189" column="34" selection-start-line="189" selection-start-column="34" selection-end-line="189" selection-end-column="34" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_temps_Nga_0.7_w_manual.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Nga_0.7_w_manual.py" />
     <entry file="file://$PROJECT_DIR$/bash/combine_cc.bash">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
+      <provider selected="true" editor-type-id="text-editor" />
     </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/correlate.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-9630">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/tests/correlate_test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-12960">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/lib/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/correlate.py" />
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/correlate_test.py" />
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/__init__.py" />
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/lib/__init__.py" />
     <entry file="file://$PROJECT_DIR$/python/workflow/util/hypoDD_quick_analysis.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-270">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
+        <state relative-caret-position="-270" />
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/setup.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5010">
-          <caret line="167" column="0" lean-forward="false" selection-start-line="167" selection-start-column="0" selection-end-line="167" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/clustering.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="3540">
-          <caret line="137" column="21" lean-forward="false" selection-start-line="137" selection-start-column="12" selection-end-line="137" selection-end-column="21" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/pre_processing.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="18840">
-          <caret line="641" column="15" lean-forward="false" selection-start-line="641" selection-start-column="8" selection-end-line="641" selection-end-column="15" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_temps_Rot_1sec_cc_min_0.6_for_GC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2910">
-          <caret line="101" column="54" lean-forward="false" selection-start-line="101" selection-start-column="54" selection-end-line="101" selection-end-column="54" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_186.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="14" column="128" lean-forward="false" selection-start-line="14" selection-start-column="128" selection-end-line="14" selection-end-column="128" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_2.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="300">
-          <caret line="16" column="61" lean-forward="false" selection-start-line="16" selection-start-column="61" selection-end-line="16" selection-end-column="61" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4770">
-          <caret line="165" column="31" lean-forward="false" selection-start-line="165" selection-start-column="31" selection-end-line="165" selection-end-column="31" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/tests/subspace_test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1303">
-          <caret line="393" column="64" lean-forward="false" selection-start-line="393" selection-start-column="58" selection-end-line="393" selection-end-column="64" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/FMC_1.01/FMC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-2550">
-          <caret line="93" column="25" lean-forward="false" selection-start-line="93" selection-start-column="17" selection-end-line="93" selection-end-column="25" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/FMC_1.01/plotFMC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-174">
-          <caret line="56" column="59" lean-forward="false" selection-start-line="56" selection-start-column="59" selection-end-line="56" selection-end-column="59" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/setup.py" />
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/clustering.py" />
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/pre_processing.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_1sec_cc_min_0.6_for_GC.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_186.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_2.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs.py" />
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/subspace_test.py" />
+    <entry file="file://$PROJECT_DIR$/../FMC_1.01/FMC.py" />
+    <entry file="file://$PROJECT_DIR$/../FMC_1.01/plotFMC.py" />
     <entry file="file://$PROJECT_DIR$/python/workflow/util/gmt_plotting.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="750">
-          <caret line="62" column="24" lean-forward="false" selection-start-line="62" selection-start-column="24" selection-end-line="62" selection-end-column="24" />
+          <caret line="62" column="24" selection-start-line="62" selection-start-column="24" selection-end-line="62" selection-end-column="24" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/catalog_to_dd.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_Rot_GNS_manual_for_GC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="14" column="102" lean-forward="false" selection-start-line="14" selection-start-column="11" selection-end-line="14" selection-end-column="110" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/plotting.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="54690">
-          <caret line="1843" column="24" lean-forward="false" selection-start-line="1843" selection-start-column="24" selection-end-line="1843" selection-end-column="24" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/catalog_to_dd.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_Rot_GNS_manual_for_GC.py" />
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/plotting.py" />
     <entry file="file://$PROJECT_DIR$/python/workflow/relocate.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="7440">
-          <caret line="257" column="18" lean-forward="false" selection-start-line="257" selection-start-column="18" selection-end-line="257" selection-end-column="18" />
-          <folding />
+          <caret line="257" column="18" selection-start-line="257" selection-start-column="18" selection-end-line="257" selection-end-column="18" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_stations.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="390">
-          <caret line="15" column="65" lean-forward="false" selection-start-line="15" selection-start-column="65" selection-end-line="15" selection-end-column="65" />
+          <caret line="15" column="65" selection-start-line="15" selection-start-column="65" selection-end-line="15" selection-end-column="65" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/shelly_mags.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="7530">
-          <caret line="262" column="32" lean-forward="false" selection-start-line="262" selection-start-column="24" selection-end-line="262" selection-end-column="32" />
+          <caret line="262" column="32" selection-start-line="262" selection-start-column="24" selection-end-line="262" selection-end-column="32" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="270">
-          <caret line="15" column="100" lean-forward="true" selection-start-line="15" selection-start-column="100" selection-end-line="15" selection-end-column="100" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC.py" />
     <entry file="file://$PROJECT_DIR$/python/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
+      <provider selected="true" editor-type-id="text-editor" />
     </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/utils/mag_calc.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="252" column="38" lean-forward="false" selection-start-line="252" selection-start-column="38" selection-end-line="252" selection-end-column="38" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/hypoDDpy/hypoddpy/hypodd_relocator.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-8790">
-          <caret line="247" column="11" lean-forward="false" selection-start-line="247" selection-start-column="11" selection-end-line="247" selection-end-column="11" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/EQcorrscan/eqcorrscan/core/match_filter.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-13295">
-          <caret line="1063" column="15" lean-forward="false" selection-start-line="1063" selection-start-column="8" selection-end-line="1063" selection-end-column="15" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="13560">
-          <caret line="474" column="26" lean-forward="false" selection-start-line="474" selection-start-column="26" selection-end-line="474" selection-end-column="26" />
-          <folding>
-            <element signature="e#22#39#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="630">
-          <caret line="27" column="20" lean-forward="false" selection-start-line="27" selection-start-column="20" selection-end-line="27" selection-end-column="20" />
-          <folding>
-            <element signature="e#68900#75174#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="12540">
-          <caret line="1171" column="43" lean-forward="false" selection-start-line="1171" selection-start-column="42" selection-end-line="1171" selection-end-column="43" />
-          <folding>
-            <element signature="e#22#39#0" expanded="true" />
-            <element signature="e#1003#1195#0" expanded="false" />
-            <element signature="e#1243#1367#0" expanded="false" />
-            <element signature="e#1417#3683#0" expanded="false" />
-            <element signature="e#3719#3929#0" expanded="false" />
-            <element signature="e#3963#4661#0" expanded="false" />
-            <element signature="e#4720#5725#0" expanded="false" />
-            <element signature="e#14287#20353#0" expanded="false" />
-            <element signature="e#20390#21252#0" expanded="false" />
-            <element signature="e#21392#24296#0" expanded="false" />
-            <element signature="e#24346#24636#0" expanded="false" />
-            <element signature="e#24745#28696#0" expanded="false" />
-            <element signature="e#28785#30105#0" expanded="false" />
-            <element signature="e#30164#30947#0" expanded="false" />
-            <element signature="e#30164#30301#1" expanded="false" />
-            <element signature="e#31002#32355#0" expanded="false" />
-            <element signature="e#32424#35012#0" expanded="false" />
-            <element signature="e#35178#39570#0" expanded="false" />
-            <element signature="e#39788#43426#0" expanded="false" />
-            <element signature="e#43470#44667#0" expanded="false" />
-            <element signature="e#55563#57220#0" expanded="false" />
-            <element signature="e#57281#58348#0" expanded="false" />
-            <element signature="e#58440#62464#0" expanded="false" />
-            <element signature="e#62513#62655#0" expanded="false" />
-            <element signature="e#62691#63062#0" expanded="false" />
-            <element signature="e#63199#66293#0" expanded="false" />
-            <element signature="e#66332#69660#0" expanded="false" />
-            <element signature="e#69745#70207#0" expanded="false" />
-            <element signature="e#70263#70668#0" expanded="false" />
-            <element signature="e#70710#71267#0" expanded="false" />
-            <element signature="e#71320#78644#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_stresses.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="14280">
-          <caret line="486" column="52" lean-forward="false" selection-start-line="486" selection-start-column="47" selection-end-line="486" selection-end-column="52" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/magnitudes.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-7890">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/mag_calc.py" />
+    <entry file="file://$PROJECT_DIR$/../hypoDDpy/hypoddpy/hypodd_relocator.py" />
+    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter.py" />
     <entry file="file://$PROJECT_DIR$/python/workflow/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        <state>
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/README.md">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1020">
-          <caret line="444" column="38" lean-forward="false" selection-start-line="444" selection-start-column="38" selection-end-line="444" selection-end-column="38" />
+        <state>
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/README.md">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2460">
-          <caret line="82" column="87" lean-forward="false" selection-start-line="82" selection-start-column="87" selection-end-line="82" selection-end-column="87" />
-          <folding />
+        <state relative-caret-position="1030">
+          <caret line="82" column="87" selection-start-line="82" selection-start-column="87" selection-end-line="82" selection-end-column="87" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="12441">
+          <caret line="457" column="25" selection-start-line="457" selection-start-column="25" selection-end-line="457" selection-end-column="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/magnitudes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="137">
+          <caret line="285" column="68" selection-start-line="285" selection-start-column="68" selection-end-line="285" selection-end-column="68" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_stresses.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="5945">
+          <caret line="215" column="67" selection-start-line="215" selection-start-column="58" selection-end-line="215" selection-end-column="67" />
+          <folding>
+            <element signature="e#14749#19190#0" />
+            <element signature="e#19272#21440#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1279">
+          <caret line="815" column="20" selection-start-line="815" selection-start-column="20" selection-end-line="815" selection-end-column="20" />
+          <folding>
+            <element signature="e#22#39#0" expanded="true" />
+            <element signature="e#822#946#0" />
+            <element signature="e#975#1074#0" />
+            <element signature="e#1225#2603#0" />
+            <element signature="e#2823#5734#0" />
+            <element signature="e#5777#6405#0" />
+            <element signature="e#6588#15856#0" />
+            <element signature="e#15904#17908#0" />
+            <element signature="e#17963#20118#0" />
+            <element signature="e#20469#25473#0" />
+            <element signature="e#25526#25651#0" />
+            <element signature="e#25694#26137#0" />
+            <element signature="e#26268#29727#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2523">
+          <caret line="1005" column="54" selection-start-line="1005" selection-start-column="54" selection-end-line="1005" selection-end-column="54" />
+          <folding>
+            <element signature="e#22#39#0" expanded="true" />
+            <element signature="e#1003#1195#0" />
+            <element signature="e#1243#1367#0" />
+            <element signature="e#1417#3683#0" />
+            <element signature="e#3719#3929#0" />
+            <element signature="e#3963#4661#0" />
+            <element signature="e#4720#5725#0" />
+            <element signature="e#5913#14064#0" />
+            <element signature="e#14287#20353#0" />
+            <element signature="e#20390#21252#0" />
+            <element signature="e#21392#24296#0" />
+            <element signature="e#24346#24636#0" />
+            <element signature="e#24745#28696#0" />
+            <element signature="e#28785#30105#0" />
+            <element signature="e#30164#30947#0" />
+            <element signature="e#30164#30301#1" />
+            <element signature="e#31002#32355#0" />
+            <element signature="e#32424#35012#0" />
+            <element signature="e#35178#39570#0" />
+            <element signature="e#39788#43426#0" />
+            <element signature="e#43470#44667#0" />
+            <element signature="e#45175#55497#0" />
+            <element signature="e#55574#57231#0" />
+            <element signature="e#57292#58359#0" />
+            <element signature="e#58451#62475#0" />
+            <element signature="e#62524#62666#0" />
+            <element signature="e#62702#63073#0" />
+            <element signature="e#63210#66304#0" />
+            <element signature="e#66343#69671#0" />
+            <element signature="e#69756#70218#0" />
+            <element signature="e#70274#70679#0" />
+            <element signature="e#70721#71278#0" />
+            <element signature="e#71331#78655#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-13932">
+          <caret line="132" column="4" selection-start-line="132" selection-start-column="4" selection-end-line="132" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-22371">
+          <caret line="449" column="50" selection-start-line="449" selection-start-column="44" selection-end-line="449" selection-end-column="50" />
+          <folding>
+            <element signature="e#992#1116#0" />
+            <element signature="e#1182#2809#0" />
+            <element signature="e#2855#3293#0" />
+            <element signature="e#3319#3604#0" />
+            <element signature="e#3747#6701#0" />
+            <element signature="e#6746#7300#0" />
+            <element signature="e#7331#8285#0" />
+            <element signature="e#56237#65090#0" />
+            <element signature="e#65144#67970#0" />
+            <element signature="e#68111#74385#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3990">
+          <caret line="1986" column="15" lean-forward="true" selection-start-line="1986" selection-start-column="15" selection-end-line="1986" selection-end-column="15" />
+          <folding>
+            <element signature="e#1896#4217#0" />
+            <element signature="e#4486#6671#0" />
+            <element signature="e#6951#10358#0" />
+            <element signature="e#10780#12540#0" />
+            <element signature="e#12731#13458#0" />
+            <element signature="e#13524#16674#0" />
+            <element signature="e#16888#19295#0" />
+            <element signature="e#19449#20834#0" />
+            <element signature="e#20993#23331#0" />
+            <element signature="e#23633#28025#0" />
+            <element signature="e#28091#28368#0" />
+            <element signature="e#28436#28728#0" />
+            <element signature="e#28761#29073#0" />
+            <element signature="e#29148#31737#0" />
+            <element signature="e#31871#37486#0" />
+            <element signature="e#37599#40637#0" />
+            <element signature="e#40716#42222#0" />
+            <element signature="e#42284#43447#0" />
+            <element signature="e#43654#45306#0" />
+            <element signature="e#45385#49658#0" />
+            <element signature="e#49774#55162#0" />
+            <element signature="e#55208#55448#0" />
+            <element signature="e#55494#55923#0" />
+            <element signature="e#56060#56438#0" />
+            <element signature="e#56498#59018#0" />
+            <element signature="e#59058#59395#0" />
+            <element signature="e#59637#61881#0" />
+            <element signature="e#62062#71268#0" />
+            <element signature="e#71336#72569#0" />
+            <element signature="e#72606#73628#0" />
+            <element signature="e#73674#74477#0" />
+            <element signature="e#74527#75383#0" />
+            <element signature="e#85449#86691#0" />
+            <element signature="e#87045#93483#0" />
+          </folding>
         </state>
       </provider>
     </entry>

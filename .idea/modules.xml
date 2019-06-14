@@ -2,13 +2,6 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$USER_HOME$/EQcorrscan/.idea/EQcorrscan.iml" filepath="$USER_HOME$/EQcorrscan/.idea/EQcorrscan.iml" />
-      <module fileurl="file://$USER_HOME$/FMC_1.01/.idea/FMC_1.01.iml" filepath="$USER_HOME$/FMC_1.01/.idea/FMC_1.01.iml" />
-      <module fileurl="file://$USER_HOME$/hashpy/.idea/hashpy.iml" filepath="$USER_HOME$/hashpy/.idea/hashpy.iml" />
-      <module fileurl="file://$USER_HOME$/hypoDDpy/.idea/hypoDDpy.iml" filepath="$USER_HOME$/hypoDDpy/.idea/hypoDDpy.iml" />
-      <module fileurl="file://$USER_HOME$/obspy/.idea/obspy.iml" filepath="$USER_HOME$/obspy/.idea/obspy.iml" />
-      <module fileurl="file://$USER_HOME$/obspyck/.idea/obspyck.iml" filepath="$USER_HOME$/obspyck/.idea/obspyck.iml" />
-      <module fileurl="file://$USER_HOME$/pymap/.idea/pymap.iml" filepath="$USER_HOME$/pymap/.idea/pymap.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/scripts.iml" filepath="$PROJECT_DIR$/.idea/scripts.iml" />
     </modules>
   </component>
