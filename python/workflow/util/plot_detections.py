@@ -17,17 +17,19 @@ from itertools import cycle
 from matplotlib.patches import Ellipse
 from matplotlib.dates import date2num
 from pyproj import Proj, transform
-from obspy import Catalog, UTCDateTime, Stream
+from obspy import Catalog, UTCDateTime, Stream, read
 from obspy.core.event import ResourceIdentifier
 from eqcorrscan.utils import plotting, pre_processing
 from eqcorrscan.utils.mag_calc import dist_calc
 from eqcorrscan.utils.plotting import detection_multiplot
 from eqcorrscan.core.match_filter import Detection, Family, Party, Template
+from eqcorrscan.utils.stacking import align_traces
 # Import local stress functions
 try:
     from plot_stresses import parse_arnold_params, parse_arnold_grid
 except:
     print('On server. pathlib not installed')
+
 
 def get_cmap(n, name='hsv'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
@@ -539,6 +541,141 @@ def plot_detection_wavs(family, tribe, wav_dirs, start=None, end=None,
             plt.close('all')
     return
 
+def family_stack_plot(event_list, wav_dirs, station, channel, selfs,
+                      title='Detections', shift=True, shift_len=0.3,
+                      pre_pick_plot=1., post_pick_plot=5., pre_pick_corr=0.05,
+                      post_pick_corr=0.5, spacing_param=2, normalize=True,
+                      figsize=(6, 15), savefig=None):
+    """
+    Plot list of traces for a stachan one just above the other (modified from
+    subspace_util.stack_plot()
+
+    :param events: List of events from which we'll extract picks for aligning
+    :param wav_dirs: List of directories containing SAC files for above events
+    :param station: Station to plot
+    :param channel: channel to plot
+    :param selfs: List of self detection ids for coloring the template
+    :param title: Plot title
+    :param shift: Whether to allow alignment of the wavs
+    :param shift_len: Length in seconds to allow wav to shift
+    :param pre_pick_plot: Seconds before p-pick to plot
+    :param post_pick_plot: Seconds after p-pick to plot
+    :param pre_pick_corr: Seconds before p-pick to use in correlation alignment
+    :param post_pick_corr: Seconds after p-pick to use in correlation alignment
+    :param spacing_param: Parameter determining vertical spacing of traces.
+        value of 1 indicates unit of 1 between traces. Less than one, tighter,
+        greater than 1 looser.
+    :param normalize: Flag to normalize traces
+    :param figsize: Tuple of matplotlib figure size
+    :param savefig: Name of the file to write
+    :return:
+
+    .. note: When using the waveforms clipped for stefan, they were clipped
+    based on origin time (I think??), so should be clipped on the pick time
+    to plot aligned on the P-pick.
+    """
+    streams = [] # List of tup: (Stream, name string)
+    rm_evs = []
+    events = deepcopy(event_list)
+    for i, adir in enumerate(wav_dirs):
+        try:
+            streams.append(read('{}/*'.format(adir)))
+        except Exception: # If this directory doesn't exist, remove event
+            print('{} doesnt exist'.format(adir))
+            rm_evs.append(events[i])
+    for rm in rm_evs:
+        events.remove(rm)
+    print(len(streams), len(events))
+    # Select all traces
+    traces = []
+    tr_evs = []
+    colors = [] # Plotting colors
+    for i, (st, ev) in enumerate(zip(streams, events)):
+        if len(st.select(station=station, channel=channel)) == 1:
+            st1 = pre_processing.shortproc(st=st, lowcut=1.0, highcut=20.,
+                                           filt_order=3, samp_rate=100.)
+            tr = st1.select(station=station, channel=channel)[0]
+            try:
+                pk = [pk for pk in ev.picks
+                      if pk.waveform_id.station_code == station
+                      and pk.waveform_id.channel_code == channel][0]
+            except:
+                print('No pick for this event')
+                continue
+            # Lax trim around pick for plotting
+            tr.trim(starttime=pk.time - pre_pick_plot,
+                    endtime=pk.time + post_pick_plot)
+            traces.append(tr)
+            tr_evs.append(ev)
+            if ev.resource_id.id.split('/')[-1] in selfs:
+                colors.append('maroon')
+            else:
+                colors.append('k')
+        else:
+            print('No trace in stream for {}.{}'.format(station, channel))
+    # Normalize traces, demean and make dates vect
+    date_labels = []
+    print(len(traces))
+    for tr in traces:
+        date_labels.append(str(tr.stats.starttime.date))
+        tr.data -= np.mean(tr.data)
+        if normalize:
+            tr.data /= max(tr.data)
+    # Vertical space array
+    vert_steps = np.linspace(0, len(traces) * spacing_param, len(traces))
+    fig, ax = plt.subplots(figsize=figsize)
+    if shift: # align traces on cc
+        shift_samp = int(shift_len * traces[0].stats.sampling_rate)
+        pks = [pk.time for ev in tr_evs for pk in ev.picks
+               if pk.waveform_id.station_code == station and
+               pk.waveform_id.channel_code == channel]
+        # Establish which sample the pick will be plotted at (prior to slicing)
+        pk_samples = [(pk - tr.stats.starttime) * tr.stats.sampling_rate
+                      for tr, pk in zip(traces, pks)]
+        print(pk_samples)
+        cut_traces = [tr.slice(starttime=p_time - pre_pick_corr,
+                               endtime=p_time + post_pick_corr)
+                      for tr, p_time in zip(traces, pks)]
+        shifts, ccs = align_traces(cut_traces, shift_len=shift_samp)
+        print(shifts)
+        dt_vects = []
+        pk_xs = []
+        arb_dt = UTCDateTime(1970, 1, 1)
+        td = timedelta(microseconds=int(1 / tr.stats.sampling_rate * 1000000))
+        for shif, tr, p_samp in zip(shifts, traces, pk_samples):
+            # Make new arbitrary time vectors as they otherwise occur on
+            # different dates
+            dt_vects.append([(arb_dt + shif).datetime + (i * td)
+                             for i in range(len(tr.data))])
+            pk_xs.append((arb_dt + shif).datetime + (p_samp * td))
+        # Plotting chronologically from top
+        for tr, vert_step, dt_v, col, pk_x in zip(traces,
+                                                  list(reversed(vert_steps)),
+                                                  dt_vects, colors, pk_xs):
+            ax.plot(dt_v, tr.data + vert_step, color=col)
+            ax.vlines(x=pk_x, ymin=vert_step - spacing_param / 2.,
+                      ymax=vert_step + spacing_param / 2., linestyle='--',
+                      color='red')
+    else:
+        for tr, vert_step in zip(list(reversed(traces)), vert_steps):
+            ax.plot(tr.data + vert_step, color='k')
+    if shift:
+        ax.set_xlabel('Seconds', fontsize=19)
+    else:
+        ax.set_xlabel('Samples', fontsize=19)
+    ax.set_ylabel('Date', fontsize=19)
+    # Change y labels to dates
+    ax.yaxis.set_ticks(vert_steps)
+    ax.set_yticklabels(date_labels[::-1], fontsize=16)
+    ax.set_title(title, fontsize=19)
+    if savefig:
+        fig.tight_layout()
+        plt.savefig(savefig)
+        plt.close()
+    else:
+        fig.tight_layout()
+        plt.show()
+    return
 
 def bounding_box(cat, bbox, depth_thresh):
     new_cat = Catalog()
