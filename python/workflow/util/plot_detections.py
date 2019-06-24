@@ -544,8 +544,9 @@ def plot_detection_wavs(family, tribe, wav_dirs, start=None, end=None,
 def family_stack_plot(event_list, wav_dirs, station, channel, selfs,
                       title='Detections', shift=True, shift_len=0.3,
                       pre_pick_plot=1., post_pick_plot=5., pre_pick_corr=0.05,
-                      post_pick_corr=0.5, spacing_param=2, normalize=True,
-                      figsize=(6, 15), savefig=None):
+                      post_pick_corr=0.5, cc_thresh=0.5, spacing_param=2,
+                      normalize=True, plot_mags=False, figsize=(6, 15),
+                      savefig=None):
     """
     Plot list of traces for a stachan one just above the other (modified from
     subspace_util.stack_plot()
@@ -585,11 +586,12 @@ def family_stack_plot(event_list, wav_dirs, station, channel, selfs,
             rm_evs.append(events[i])
     for rm in rm_evs:
         events.remove(rm)
-    print(len(streams), len(events))
+    print('Have {} streams and {} events'.format(len(streams), len(events)))
     # Select all traces
     traces = []
+    pk_offsets = []
     tr_evs = []
-    colors = [] # Plotting colors
+    colors = []  # Plotting colors
     for i, (st, ev) in enumerate(zip(streams, events)):
         if len(st.select(station=station, channel=channel)) == 1:
             st1 = pre_processing.shortproc(st=st, lowcut=1.0, highcut=20.,
@@ -602,70 +604,111 @@ def family_stack_plot(event_list, wav_dirs, station, channel, selfs,
             except:
                 print('No pick for this event')
                 continue
-            # Lax trim around pick for plotting
-            tr.trim(starttime=pk.time - pre_pick_plot,
-                    endtime=pk.time + post_pick_plot)
             traces.append(tr)
             tr_evs.append(ev)
             if ev.resource_id.id.split('/')[-1] in selfs:
-                colors.append('maroon')
+                colors.append('red')
+                master_trace = tr
+                pk_offsets.append(0.0)
             else:
                 colors.append('k')
+                pk_offsets.append(0.1) #  Deal with template pick offset
         else:
             print('No trace in stream for {}.{}'.format(station, channel))
     # Normalize traces, demean and make dates vect
     date_labels = []
-    print(len(traces))
-    for tr in traces:
+    print('{} traces found'.format(len(traces)))
+    # for tr in traces:
+    #     date_labels.append(str(tr.stats.starttime.date))
+    #     tr.data -= np.mean(tr.data)
+    #     if normalize:
+    #         tr.data /= max(tr.data)
+    # Vertical space array
+    vert_steps = np.linspace(0, len(traces) * spacing_param, len(traces))
+    fig, ax = plt.subplots(figsize=figsize)
+    shift_samp = int(shift_len * traces[0].stats.sampling_rate)
+    pks = []
+    for ev, pk_offset in zip(tr_evs, pk_offsets):
+        pks.append([pk.time + pk_offset for pk in ev.picks
+                    if pk.waveform_id.station_code == station and
+                    pk.waveform_id.channel_code == channel][0])
+    mags = [ev.preferred_magnitude().mag for ev in tr_evs]
+    # Copy these out of the way for safe keeping
+    if shift:
+        cut_traces = [tr.copy().trim(starttime=p_time - pre_pick_corr,
+                                     endtime=p_time + post_pick_corr)
+                      for tr, p_time in zip(traces, pks)]
+        shifts, ccs = align_traces(cut_traces, shift_len=shift_samp,
+                                   master=master_trace)
+        shifts = np.array(shifts)
+        shifts /= tr.stats.sampling_rate  # shifts is in samples, we need sec
+    # Now trim traces down to plotting length
+    for tr, pk in zip(traces, pks):
+        tr.trim(starttime=pk - pre_pick_plot,
+                endtime=pk + post_pick_plot)
         date_labels.append(str(tr.stats.starttime.date))
         tr.data -= np.mean(tr.data)
         if normalize:
             tr.data /= max(tr.data)
-    # Vertical space array
-    vert_steps = np.linspace(0, len(traces) * spacing_param, len(traces))
-    fig, ax = plt.subplots(figsize=figsize)
-    if shift: # align traces on cc
-        shift_samp = int(shift_len * traces[0].stats.sampling_rate)
-        pks = [pk.time for ev in tr_evs for pk in ev.picks
-               if pk.waveform_id.station_code == station and
-               pk.waveform_id.channel_code == channel]
+    if shift:
         # Establish which sample the pick will be plotted at (prior to slicing)
         pk_samples = [(pk - tr.stats.starttime) * tr.stats.sampling_rate
                       for tr, pk in zip(traces, pks)]
-        print(pk_samples)
-        cut_traces = [tr.slice(starttime=p_time - pre_pick_corr,
-                               endtime=p_time + post_pick_corr)
-                      for tr, p_time in zip(traces, pks)]
-        shifts, ccs = align_traces(cut_traces, shift_len=shift_samp)
-        print(shifts)
         dt_vects = []
         pk_xs = []
         arb_dt = UTCDateTime(1970, 1, 1)
         td = timedelta(microseconds=int(1 / tr.stats.sampling_rate * 1000000))
-        for shif, tr, p_samp in zip(shifts, traces, pk_samples):
+        for shif, cc, tr, p_samp in zip(shifts, ccs, traces, pk_samples):
             # Make new arbitrary time vectors as they otherwise occur on
             # different dates
-            dt_vects.append([(arb_dt + shif).datetime + (i * td)
+            if cc >= cc_thresh:
+                dt_vects.append([(arb_dt + shif).datetime + (i * td)
+                                 for i in range(len(tr.data))])
+                pk_xs.append((arb_dt + shif).datetime + (p_samp * td))
+            else:
+                dt_vects.append([(arb_dt).datetime + (i * td)
+                                 for i in range(len(tr.data))])
+                pk_xs.append((arb_dt).datetime + (p_samp * td))
+    else:
+        pk_samples = [(pk - tr.stats.starttime) * tr.stats.sampling_rate
+                      for tr, pk in zip(traces, pks)]
+        dt_vects = []
+        pk_xs = []
+        arb_dt = UTCDateTime(1970, 1, 1)
+        td = timedelta(microseconds=int(1 / tr.stats.sampling_rate * 1000000))
+        for tr, p_samp in zip(traces, pk_samples):
+            # Make new arbitrary time vectors as they otherwise occur on
+            # different dates
+            dt_vects.append([(arb_dt).datetime + (i * td)
                              for i in range(len(tr.data))])
-            pk_xs.append((arb_dt + shif).datetime + (p_samp * td))
-        # Plotting chronologically from top
-        for tr, vert_step, dt_v, col, pk_x in zip(traces,
-                                                  list(reversed(vert_steps)),
-                                                  dt_vects, colors, pk_xs):
-            ax.plot(dt_v, tr.data + vert_step, color=col)
+            pk_xs.append((arb_dt).datetime + (p_samp * td))
+    # Plotting chronologically from top
+    for tr, vert_step, dt_v, col, pk_x, mag in zip(traces,
+                                                   list(reversed(
+                                                       vert_steps)),
+                                                   dt_vects, colors, pk_xs,
+                                                   mags):
+        ax.plot(dt_v, tr.data + vert_step, color=col)
+        if shift:
             ax.vlines(x=pk_x, ymin=vert_step - spacing_param / 2.,
                       ymax=vert_step + spacing_param / 2., linestyle='--',
                       color='red')
-    else:
-        for tr, vert_step in zip(list(reversed(traces)), vert_steps):
-            ax.plot(tr.data + vert_step, color='k')
-    if shift:
-        ax.set_xlabel('Seconds', fontsize=19)
-    else:
-        ax.set_xlabel('Samples', fontsize=19)
+        # Magnitude text
+        mag_text = 'M$_L$={:0.2f}'.format(mag)
+        if shift:
+            mag_x = (arb_dt + post_pick_plot + max(shifts)).datetime
+        else:
+            mag_x = (arb_dt + post_pick_plot).datetime
+        if plot_mags:
+            ax.text(mag_x, vert_step + spacing_param / 2., mag_text, fontsize=14,
+                    verticalalignment='center', horizontalalignment='left',
+                    bbox=dict(ec='k', fc='w'))
+    ax.set_xlabel('Seconds', fontsize=19)
     ax.set_ylabel('Date', fontsize=19)
     # Change y labels to dates
     ax.yaxis.set_ticks(vert_steps)
+    date_labels[1::3] = ['' for d in date_labels[1::3]]
+    date_labels[2::3] = ['' for d in date_labels[2::3]]
     ax.set_yticklabels(date_labels[::-1], fontsize=16)
     ax.set_title(title, fontsize=19)
     if savefig:
