@@ -2,9 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
+      <change afterPath="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/hypoDDpy.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/hypoDDpy.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" afterDir="false" />
     </list>
     <ignored path="scripts.iws" />
@@ -44,13 +46,25 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="466">
-              <caret line="628" column="63" lean-forward="true" selection-start-line="628" selection-start-column="63" selection-end-line="628" selection-end-column="63" />
+            <state relative-caret-position="20068">
+              <caret line="716" column="68" selection-start-line="716" selection-start-column="68" selection-end-line="716" selection-end-column="68" />
               <folding>
                 <element signature="e#22#39#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1438">
+              <caret line="70" column="72" selection-start-line="70" selection-start-column="72" selection-end-line="70" selection-end-column="72" />
+              <folding>
+                <element signature="e#114#123#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -59,7 +73,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="29">
+            <state relative-caret-position="551">
               <caret line="24" column="50" selection-start-line="24" selection-start-column="38" selection-end-line="24" selection-end-column="50" />
               <folding>
                 <element signature="e#5053#5928#0" />
@@ -189,7 +203,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/../obspyck/obspyck/obspyck.py" />
         <option value="$PROJECT_DIR$/../obspyck/hoppch_local.obspyckrc17" />
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl" />
         <option value="$PROJECT_DIR$/python/workflow/old_util_2015/pyasdf2temp_stefan_sac.py" />
@@ -240,6 +253,7 @@
         <option value="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
         <option value="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" />
       </list>
     </option>
   </component>
@@ -257,8 +271,36 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="ProjectPane">
+        <subPane>
+          <expand>
+            <path>
+              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
+              <item name="scripts" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
+              <item name="scripts" type="462c0819:PsiDirectoryNode" />
+              <item name="python" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
+              <item name="scripts" type="462c0819:PsiDirectoryNode" />
+              <item name="python" type="462c0819:PsiDirectoryNode" />
+              <item name="workflow" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
+              <item name="scripts" type="462c0819:PsiDirectoryNode" />
+              <item name="python" type="462c0819:PsiDirectoryNode" />
+              <item name="workflow" type="462c0819:PsiDirectoryNode" />
+              <item name="util" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
       <pane id="Scope" />
-      <pane id="ProjectPane" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -436,7 +478,7 @@
     <frame x="1920" y="38" width="3840" height="2122" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.20613334" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21573333" />
       <window_info id="Structure" order="1" weight="0.24986666" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -479,7 +521,6 @@
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_0.7.py" />
     <entry file="file://$PROJECT_DIR$/../hypoDDpy/.gitignore" />
     <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
     <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py" />
@@ -646,6 +687,33 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="20068">
+          <caret line="716" column="68" selection-start-line="716" selection-start-column="68" selection-end-line="716" selection-end-column="68" />
+          <folding>
+            <element signature="e#22#39#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="551">
+          <caret line="24" column="50" selection-start-line="24" selection-start-column="38" selection-end-line="24" selection-end-column="50" />
+          <folding>
+            <element signature="e#5053#5928#0" />
+            <element signature="e#6044#8634#0" />
+            <element signature="e#12270#15916#0" />
+            <element signature="e#16073#21730#0" />
+            <element signature="e#21933#23512#0" />
+            <element signature="e#23559#24310#0" />
+            <element signature="e#24387#26277#0" />
+            <element signature="e#26359#26533#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_stresses.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="5945">
@@ -698,29 +766,12 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="29">
-          <caret line="24" column="50" selection-start-line="24" selection-start-column="38" selection-end-line="24" selection-end-column="50" />
+        <state relative-caret-position="1438">
+          <caret line="70" column="72" selection-start-line="70" selection-start-column="72" selection-end-line="70" selection-end-column="72" />
           <folding>
-            <element signature="e#5053#5928#0" />
-            <element signature="e#6044#8634#0" />
-            <element signature="e#12270#15916#0" />
-            <element signature="e#16073#21730#0" />
-            <element signature="e#21933#23512#0" />
-            <element signature="e#23559#24310#0" />
-            <element signature="e#24387#26277#0" />
-            <element signature="e#26359#26533#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="466">
-          <caret line="628" column="63" lean-forward="true" selection-start-line="628" selection-start-column="63" selection-end-line="628" selection-end-column="63" />
-          <folding>
-            <element signature="e#22#39#0" expanded="true" />
+            <element signature="e#114#123#0" expanded="true" />
           </folding>
         </state>
       </provider>

@@ -594,7 +594,7 @@ def family_stack_plot(event_list, wav_dirs, station, channel, selfs,
     colors = []  # Plotting colors
     for i, (st, ev) in enumerate(zip(streams, events)):
         if len(st.select(station=station, channel=channel)) == 1:
-            st1 = pre_processing.shortproc(st=st, lowcut=1.0, highcut=20.,
+            st1 = pre_processing.shortproc(st=st, lowcut=1.0, highcut=40.,
                                            filt_order=3, samp_rate=100.)
             tr = st1.select(station=station, channel=channel)[0]
             try:
@@ -703,6 +703,20 @@ def family_stack_plot(event_list, wav_dirs, station, channel, selfs,
             ax.text(mag_x, vert_step + spacing_param / 2., mag_text, fontsize=14,
                     verticalalignment='center', horizontalalignment='left',
                     bbox=dict(ec='k', fc='w'))
+    # Plot the stack of all the waveforms (maybe with mean pick and then AIC
+    # pick following Rowe et al. 2004 JVGR)
+    data_stack = np.sum(np.array([tr.data for tr in traces]), axis=0)
+    # Demean and normalize
+    data_stack -= np.mean(data_stack)
+    data_stack /= np.max(data_stack)
+    # Plot using last datetime vector from loop above for convenience
+    ax.plot(dt_vects[-1], data_stack * 2 - vert_steps[8],
+            color='b')
+    # Have to suss out average pick time tho
+    av_p_time = (arb_dt).datetime + (np.mean(pk_samples) * td)
+    ax.vlines(x=av_p_time, ymin=-vert_steps[8] - (spacing_param * 2),
+              ymax=-vert_steps[8] + (spacing_param * 2),
+              color='green')
     ax.set_xlabel('Seconds', fontsize=19)
     ax.set_ylabel('Date', fontsize=19)
     # Change y labels to dates
@@ -713,7 +727,7 @@ def family_stack_plot(event_list, wav_dirs, station, channel, selfs,
     ax.set_title(title, fontsize=19)
     if savefig:
         fig.tight_layout()
-        plt.savefig(savefig)
+        plt.savefig(savefig, dpi=300)
         plt.close()
     else:
         fig.tight_layout()
