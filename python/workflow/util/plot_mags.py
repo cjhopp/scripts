@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import matplotlib
 import pytz
+import scipy.spatial as ss
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.cm as cm
@@ -593,9 +594,9 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
         a_ref = 4000
         mags = np.linspace(0.5, 3., 50)
         nums = 10**(np.log10(a_ref) - mags)
-        ax.plot(mags, nums, label='$b=1', color='black', linewidth=0.8,
+        ax.plot(mags, nums, label='$b$=1', color='black', linewidth=0.8,
                 linestyle='--')
-        ax.text(mags[-1] + 0.1, nums[-1], '$b$=1$', fontsize=10, rotation=-36,
+        ax.text(mags[-1] + 0.1, nums[-1], '$b=1$', fontsize=10, rotation=-36,
                 horizontalalignment='center')
     ax.set_yscale('log')
     ax.tick_params(labelsize=14.)
@@ -646,7 +647,7 @@ def bval_null_prob(N1, N2, b1, b2):
     return P0
 
 
-def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
+def map_bvalue(catalog, max_ev, no_above_Mc, Man_Mc=None, show=False, outfile=None,
                dimension=3, plotvar=False):
     """
     Do b-value mapping using a catalog, as described in Bachmann et al. 2012:
@@ -656,6 +657,11 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
     :param catalog: Catalog of events for which to map b-value
     :param max_ev: Number of nearest events to use in calculation
     :param no_above_Mc: Required number of events above Mc for b calculation
+    :param Man_Mc: If desired, can provide a static Mc for all clusters
+    :param show: Plot flag for locations colored by b and Mc
+    :param outfile: Path to output file for plotting with GMT
+    :param dimension: 2 (xy) or 3 (xyz) dimensional inter-event distance calcs
+    :param plotvar: Plot flag for the b-value calculation function
     :return:
     """
     # Sort catalog
@@ -675,16 +681,29 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
     # Make KDTree to query
     treebeard = KDTree(pts)
     bvals = []
+    Mcs = []
+    errs = []
+    volumes = []
     # Make catalog of nearest points for each event
     for pt in pts:
         # print('Working on pt: {}'.format(pt))
         dists, ney_burs = treebeard.query(pt, k=max_ev)
         sub_cat = Catalog(events=[catalog[i] for i in ney_burs])
-        # Do bval calculation
+        lats = [degrees2kilometers(ev.preferred_origin().latitude) * 1000
+                for ev in sub_cat]
+        lons = [degrees2kilometers(ev.preferred_origin().longitude) * 1000
+                for ev in sub_cat]
+        zs = [ev.preferred_origin().depth for ev in sub_cat]
         mags = [ev.preferred_magnitude().mag for ev in sub_cat]
+        # Do bval calculation
+        # If Man_Mc, enforce b-value calculation for only one Mc value
+        if not Man_Mc:
+            completenesses = np.arange(min(mags), max(mags), 0.1)
+        else:
+            completenesses = np.array([Man_Mc])
         bcalc = calc_b_value(
             magnitudes=mags,
-            completeness=np.arange(min(mags), max(mags), 0.1),
+            completeness=completenesses,
             plotvar=plotvar)
         bcalc.sort(key=lambda x: x[2])
         # b = bcalc[-1][1]
@@ -703,26 +722,49 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
         if len([ev for ev in sub_cat
                 if ev.preferred_magnitude().mag > Mc]) > no_above_Mc:
             bvals.append(b)
+            Mcs.append(Mc)
+            errs.append(std_err)
+            hull = ss.ConvexHull(np.stack((lons, lats, zs)).T)
+            volumes.append(hull.volume)
         else:
-            # Othersize dont save
+            # Otherwise dont save
             bvals.append(None)
-    # Make output array of lon, lat, depth, mag, b
-    print(len(catalog), len(bvals)) # Check consistent lengths
+            Mcs.append(None)
+            errs.append(None)
+            volumes.append(None)
+    # Make output array of lon, lat, depth, mag, b, Mc
+    print(len(catalog), len(bvals), len(Mcs)) # Check consistent lengths
     bval_out = []
     for i, ev in enumerate(catalog):
         # Add bvalue Comment to origin (in place)
         ev.preferred_origin().comments.append(
             Comment(text='b={}'.format(bvals[i])))
+        ev.preferred_origin().comments.append(
+            Comment(text='Mc={}'.format(Mcs[i])))
+        ev.preferred_origin().comments.append(
+            Comment(text='b error={}'.format(errs[i])))
+        ev.preferred_origin().comments.append(
+            Comment(text='b volume={}'.format(volumes[i])))
         bval_out.append([ev.preferred_origin().longitude,
                          ev.preferred_origin().latitude,
                          ev.preferred_origin().depth,
                          ev.preferred_magnitude().mag,
-                         bvals[i]])
+                         bvals[i], Mcs[i], errs[i], volumes[i]])
     if show:
-        fig, ax = plt.subplots(figsize=(10, 10))
-        x, y, z, m, c = zip(*bval_out)
-        scat = ax.scatter(x, y, s=m, c=c)
-        plt.colorbar(scat)
+        fig, axes = plt.subplots(2, 2, figsize=(15, 15))
+        x, y, z, m, b, mc, err, vol = zip(*bval_out)
+        scat_b = axes[0, 0].scatter(x, y, s=m, c=b)
+        scat_mc = axes[0, 1].scatter(x, y, s=m, c=mc)
+        scat_err = axes[1, 0].scatter(x, y, s=m, c=err)
+        scat_vol = axes[1, 1].scatter(x, y, s=m, c=vol)
+        fig.colorbar(scat_b, ax=axes[0, 0])
+        fig.colorbar(scat_mc, ax=axes[0, 1])
+        fig.colorbar(scat_err, ax=axes[1, 0])
+        fig.colorbar(scat_vol, ax=axes[1, 1])
+        axes[0, 0].set_title('$b$-value')
+        axes[0, 1].set_title('M$_c$')
+        axes[1, 0].set_title('Std error')
+        axes[1, 1].set_title('Volume (m$^3$')
         plt.show()
         plt.close()
     if outfile:
@@ -730,8 +772,10 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
             for ln in bval_out:
                 if ln[4] == None:
                     continue
-                outf.write('{} {} {} {} {}\n'.format(ln[0], ln[1], ln[2],
-                                                     ln[3], ln[4]))
+                outf.write('{} {} {} {} {} {} {} {}\n'.format(ln[0], ln[1],
+                                                              ln[2], ln[3],
+                                                              ln[4], ln[5],
+                                                              ln[6], ln[7]))
     return bval_out
 
 

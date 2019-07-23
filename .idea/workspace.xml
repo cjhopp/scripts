@@ -2,12 +2,14 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/hypoDDpy.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/hypoDDpy.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_detections.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/focal_mecs.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/focal_mecs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/shelly_mags.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/shelly_mags.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_mags.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_mags.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" afterDir="false" />
     </list>
     <ignored path="scripts.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -28,8 +30,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="7743">
-              <caret line="449" column="50" selection-start-line="449" selection-start-column="44" selection-end-line="449" selection-end-column="50" />
+            <state relative-caret-position="33176">
+              <caret line="1596" column="31" selection-start-line="1596" selection-start-column="29" selection-end-line="1596" selection-end-column="31" />
               <folding>
                 <element signature="e#992#1116#0" />
                 <element signature="e#1182#2809#0" />
@@ -40,7 +42,6 @@
                 <element signature="e#7331#8285#0" />
                 <element signature="e#56237#65090#0" />
                 <element signature="e#65144#67970#0" />
-                <element signature="e#68111#74385#0" />
               </folding>
             </state>
           </provider>
@@ -49,8 +50,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="20068">
-              <caret line="716" column="68" selection-start-line="716" selection-start-column="68" selection-end-line="716" selection-end-column="68" />
+            <state relative-caret-position="19140">
+              <caret line="684" selection-start-line="676" selection-end-line="684" />
               <folding>
                 <element signature="e#22#39#0" expanded="true" />
               </folding>
@@ -58,13 +59,13 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1438">
-              <caret line="70" column="72" selection-start-line="70" selection-start-column="72" selection-end-line="70" selection-end-column="72" />
+            <state relative-caret-position="3509">
+              <caret line="132" column="28" selection-start-line="132" selection-start-column="28" selection-end-line="132" selection-end-column="28" />
               <folding>
-                <element signature="e#114#123#0" expanded="true" />
+                <element signature="e#114#129#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -105,42 +106,33 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="10846">
-              <caret line="1986" column="15" selection-start-line="1986" selection-start-column="15" selection-end-line="1986" selection-end-column="15" />
+            <state relative-caret-position="4147">
+              <caret line="255" column="60" selection-start-line="255" selection-start-column="60" selection-end-line="255" selection-end-column="60" />
               <folding>
                 <element signature="e#1896#4217#0" />
                 <element signature="e#4486#6671#0" />
-                <element signature="e#6951#10358#0" />
-                <element signature="e#10780#12540#0" />
-                <element signature="e#12731#13458#0" />
-                <element signature="e#13524#16674#0" />
-                <element signature="e#16888#19295#0" />
-                <element signature="e#19449#20834#0" />
-                <element signature="e#20993#23331#0" />
-                <element signature="e#23633#28025#0" />
-                <element signature="e#28091#28368#0" />
-                <element signature="e#28436#28728#0" />
-                <element signature="e#28761#29073#0" />
-                <element signature="e#29148#31737#0" />
-                <element signature="e#31871#37486#0" />
-                <element signature="e#37599#40637#0" />
-                <element signature="e#40716#42222#0" />
-                <element signature="e#42284#43447#0" />
-                <element signature="e#43654#45306#0" />
-                <element signature="e#45385#49658#0" />
-                <element signature="e#49774#55162#0" />
-                <element signature="e#55208#55448#0" />
-                <element signature="e#55494#55923#0" />
-                <element signature="e#56060#56438#0" />
-                <element signature="e#56498#59018#0" />
-                <element signature="e#59058#59395#0" />
-                <element signature="e#59637#61881#0" />
-                <element signature="e#62062#71268#0" />
-                <element signature="e#71336#72569#0" />
-                <element signature="e#72606#73628#0" />
-                <element signature="e#73674#74477#0" />
-                <element signature="e#74527#75383#0" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="3886">
+              <caret line="777" column="62" selection-start-line="777" selection-start-column="62" selection-end-line="777" selection-end-column="62" />
+              <folding>
+                <element signature="e#22#39#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/python/workflow/shelly_mags.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="928">
+              <caret line="43" column="58" lean-forward="true" selection-start-line="43" selection-start-column="58" selection-end-line="43" selection-end-column="58" />
             </state>
           </provider>
         </entry>
@@ -156,7 +148,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>def place</find>
       <find>def plot</find>
       <find>magnit</find>
       <find>def catalog</find>
@@ -165,7 +156,6 @@
       <find>k</find>
       <find>kmeans</find>
       <find>simple</find>
-      <find>cl</find>
       <find>np.where</find>
       <find>r_b</find>
       <find>plot_well_data</find>
@@ -176,7 +166,6 @@
       <find>cumulative</find>
       <find>def r_b</find>
       <find>NM09</find>
-      <find>local_to_moment_Majer</find>
       <find>class Family</find>
       <find>polar</find>
       <find>heatmap</find>
@@ -186,6 +175,9 @@
       <find>align_traces</find>
       <find>ax.text</find>
       <find>text</find>
+      <find>cl</find>
+      <find>local_to_moment</find>
+      <find>local_to_moment_Majer</find>
     </findStrings>
     <dirStrings>
       <dir>$PROJECT_DIR$/python/workflow</dir>
@@ -219,7 +211,6 @@
         <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
         <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/subspace.py" />
         <option value="$PROJECT_DIR$/../hashpy/hashpy/io/obspyIO.py" />
-        <option value="$PROJECT_DIR$/python/workflow/shelly_mags.py" />
         <option value="$PROJECT_DIR$/python/workflow/data_prep.py" />
         <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_0.7.py" />
         <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
@@ -250,15 +241,15 @@
         <option value="$PROJECT_DIR$/python/workflow/README.md" />
         <option value="$PROJECT_DIR$/README.md" />
         <option value="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
-        <option value="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
         <option value="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" />
+        <option value="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
+        <option value="$PROJECT_DIR$/python/workflow/shelly_mags.py" />
+        <option value="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="1920" />
     <option name="y" value="38" />
     <option name="width" value="3840" />
     <option name="height" value="2122" />
@@ -271,6 +262,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -300,7 +292,6 @@
           <select />
         </subPane>
       </pane>
-      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -478,7 +469,7 @@
     <frame x="1920" y="38" width="3840" height="2122" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21573333" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.18213333" />
       <window_info id="Structure" order="1" weight="0.24986666" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -490,8 +481,8 @@
       <window_info anchor="bottom" id="TODO" order="6" weight="0.3298857" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" weight="0.32934132" />
       <window_info anchor="bottom" id="Version Control" order="8" />
-      <window_info anchor="bottom" id="Terminal" order="9" />
-      <window_info anchor="bottom" id="Python Console" order="10" />
+      <window_info anchor="bottom" id="Terminal" order="9" weight="0.3298857" />
+      <window_info anchor="bottom" id="Python Console" order="10" weight="0.3298857" />
       <window_info anchor="bottom" id="Thumbnails" order="11" weight="0.32977644" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
@@ -596,14 +587,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/shelly_mags.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="7530">
-          <caret line="262" column="32" selection-start-line="262" selection-start-column="24" selection-end-line="262" selection-end-column="32" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC.py" />
     <entry file="file://$PROJECT_DIR$/python/__init__.py">
       <provider selected="true" editor-type-id="text-editor" />
@@ -639,39 +622,17 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1279">
-          <caret line="815" column="20" selection-start-line="815" selection-start-column="20" selection-end-line="815" selection-end-column="20" />
-          <folding>
-            <element signature="e#22#39#0" expanded="true" />
-            <element signature="e#822#946#0" />
-            <element signature="e#975#1074#0" />
-            <element signature="e#1225#2603#0" />
-            <element signature="e#2823#5734#0" />
-            <element signature="e#5777#6405#0" />
-            <element signature="e#6588#15856#0" />
-            <element signature="e#15904#17908#0" />
-            <element signature="e#17963#20118#0" />
-            <element signature="e#20469#25473#0" />
-            <element signature="e#25526#25651#0" />
-            <element signature="e#25694#26137#0" />
-            <element signature="e#26268#29727#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/magnitudes.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="133">
-          <caret line="285" column="68" selection-start-line="285" selection-start-column="68" selection-end-line="285" selection-end-column="68" />
+        <state relative-caret-position="87">
+          <caret line="19" column="19" selection-start-line="19" selection-start-column="4" selection-end-line="19" selection-end-column="19" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="7743">
-          <caret line="449" column="50" selection-start-line="449" selection-start-column="44" selection-end-line="449" selection-end-column="50" />
+        <state relative-caret-position="33176">
+          <caret line="1596" column="31" selection-start-line="1596" selection-start-column="29" selection-end-line="1596" selection-end-column="31" />
           <folding>
             <element signature="e#992#1116#0" />
             <element signature="e#1182#2809#0" />
@@ -682,17 +643,26 @@
             <element signature="e#7331#8285#0" />
             <element signature="e#56237#65090#0" />
             <element signature="e#65144#67970#0" />
-            <element signature="e#68111#74385#0" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="20068">
-          <caret line="716" column="68" selection-start-line="716" selection-start-column="68" selection-end-line="716" selection-end-column="68" />
+        <state relative-caret-position="19140">
+          <caret line="684" selection-start-line="676" selection-end-line="684" />
           <folding>
             <element signature="e#22#39#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3509">
+          <caret line="132" column="28" selection-start-line="132" selection-start-column="28" selection-end-line="132" selection-end-column="28" />
+          <folding>
+            <element signature="e#114#129#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -727,51 +697,28 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="10846">
-          <caret line="1986" column="15" selection-start-line="1986" selection-start-column="15" selection-end-line="1986" selection-end-column="15" />
+        <state relative-caret-position="4147">
+          <caret line="255" column="60" selection-start-line="255" selection-start-column="60" selection-end-line="255" selection-end-column="60" />
           <folding>
             <element signature="e#1896#4217#0" />
             <element signature="e#4486#6671#0" />
-            <element signature="e#6951#10358#0" />
-            <element signature="e#10780#12540#0" />
-            <element signature="e#12731#13458#0" />
-            <element signature="e#13524#16674#0" />
-            <element signature="e#16888#19295#0" />
-            <element signature="e#19449#20834#0" />
-            <element signature="e#20993#23331#0" />
-            <element signature="e#23633#28025#0" />
-            <element signature="e#28091#28368#0" />
-            <element signature="e#28436#28728#0" />
-            <element signature="e#28761#29073#0" />
-            <element signature="e#29148#31737#0" />
-            <element signature="e#31871#37486#0" />
-            <element signature="e#37599#40637#0" />
-            <element signature="e#40716#42222#0" />
-            <element signature="e#42284#43447#0" />
-            <element signature="e#43654#45306#0" />
-            <element signature="e#45385#49658#0" />
-            <element signature="e#49774#55162#0" />
-            <element signature="e#55208#55448#0" />
-            <element signature="e#55494#55923#0" />
-            <element signature="e#56060#56438#0" />
-            <element signature="e#56498#59018#0" />
-            <element signature="e#59058#59395#0" />
-            <element signature="e#59637#61881#0" />
-            <element signature="e#62062#71268#0" />
-            <element signature="e#71336#72569#0" />
-            <element signature="e#72606#73628#0" />
-            <element signature="e#73674#74477#0" />
-            <element signature="e#74527#75383#0" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py">
+    <entry file="file://$PROJECT_DIR$/python/workflow/shelly_mags.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1438">
-          <caret line="70" column="72" selection-start-line="70" selection-start-column="72" selection-end-line="70" selection-end-column="72" />
+        <state relative-caret-position="928">
+          <caret line="43" column="58" lean-forward="true" selection-start-line="43" selection-start-column="58" selection-end-line="43" selection-end-column="58" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3886">
+          <caret line="777" column="62" selection-start-line="777" selection-start-column="62" selection-end-line="777" selection-end-column="62" />
           <folding>
-            <element signature="e#114#123#0" expanded="true" />
+            <element signature="e#22#39#0" expanded="true" />
           </folding>
         </state>
       </provider>

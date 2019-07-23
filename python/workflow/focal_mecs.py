@@ -191,6 +191,8 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
     :param inversion_options: What data to include in the inversion
     :param number_location_samples: How many random samples to draw from the
         NLLoc location PDF
+    :param MT: Run the full MT inversion?
+    :param DC: Run the constrained DC inversion?
 
     :return:
     """
@@ -217,14 +219,15 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
         print(type(data))
         print(data['PPolarity'])
         data['UID'] = '{}_ppolarity'.format(eid)
-        # Set the convert flag to convert the output to other source parameterisations
+        # Set the convert flag to convert the output to other source
+        # parameterisations
         convert = True
         # Set location uncertainty file path
         location_pdf_file_path = [path for path in nlloc_fs
                                   if path.endswith('.scatangle')][0]
         # Handle location uncertainty
-        # Set number of location samples to use (randomly sampled from PDF) as this
-        #    reduces calculation time
+        # Set number of location samples to use (randomly sampled from PDF) as
+        # this reduces calculation time
         # (each location sample is equivalent to running an additional event)
         bin_scatangle = True
         if DC:
@@ -232,9 +235,11 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
             max_samples = 100000
             dc = True
             print('Running DC for {}'.format(eid))
-            mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
-                  parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
-                  max_samples=max_samples, convert=convert, bin_scatangle=bin_scatangle,
+            mtfit(data, location_pdf_file_path=location_pdf_file_path,
+                  algorithm=algorithm, parallel=parallel,
+                  inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
+                  max_samples=max_samples, convert=convert,
+                  bin_scatangle=bin_scatangle,
                   number_location_samples=number_location_samples, n=n)
         if MT:
             ### Now for full MT
@@ -243,8 +248,9 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
             dc = False
             print('Running full MT for {}'.format(eid))
             # Create the inversion object with the set parameters.
-            mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
-                  parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem,
+            mtfit(data, location_pdf_file_path=location_pdf_file_path,
+                  algorithm=algorithm, parallel=parallel,
+                  inversion_options=inversion_options, phy_mem=phy_mem,
                   max_samples=max_samples, convert=convert, dc=dc,
                   bin_scatangle=bin_scatangle,
                   number_location_samples=number_location_samples, n=n)

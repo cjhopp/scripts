@@ -4,11 +4,16 @@ Functions for retrieving and plotting data from a raspberry shake
 on the local network
 """
 
-import os
 import paramiko
 
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 from glob import glob
-from obspy import read
+from itertools import cycle
+from datetime import timedelta
+from obspy import read, Stream, UTCDateTime
 from obspy.taup import TauPyModel
 from obspy.clients.fdsn import Client
 
@@ -73,3 +78,59 @@ def calculate_arrivals(event, sta_lat=47.1314, sta_lon=-88.5947):
                                       source_latitude_in_deg=o.latitude,
                                       receiver_longitude_in_deg=sta_lon,
                                       receiver_latitude_in_deg=sta_lat)
+
+
+def plot_event(event, pre_P_time=120., length=1200.):
+    """
+    Main function to be called for plotting waveforms from rpi shake
+    overlain with picks predicted from TauP
+
+    :param event: obspy.core.events.Event object to be plotted
+    :param pre_P_time: Seconds before theoretical P to be plotted
+    :param length: Total number of seconds to be plotted
+    :return:
+    """
+    # Set up phase coloring cycle
+    phase_colors = cycle(sns.color_palette())
+    # Calculate the arrivals
+    arrivals = calculate_arrivals(event)
+    o = event.preferred_origin()
+    P_arrival = [arr for arr in arrivals if arr.name == 'P'][0]
+    # TauP arrivals only store travel time
+    P_pick = (o.time + P_arrival.time)
+    # Get the day-long wavform file(s)
+    wavs = fetch_wavs(starttime=P_pick - pre_P_time,
+                      endtime=P_pick - pre_P_time + length)
+    st = Stream() # Preallocate Stream object and add waveforms
+    for wav in wavs:
+        st += wav
+    # Merge for cases of segmented files or multiple days
+    st.merge()
+    # Cut to plotting length
+    st.trim(starttime=P_pick - pre_P_time, endtime=P_pick -pre_P_time + length)
+    tr = st[0] # Will only be one trace
+    # Just set up the plot yourself....
+    start_dt = tr.stats.starttime
+    td = timedelta(microseconds=int(1 / tr.stats.sampling_rate * 1000000))
+    dt_vect = [start_dt.datetime + (i * td) for i in range(len(tr.data))]
+    data = tr.data
+    # Plot em
+    fig, ax = plt.subplots(figsize=(15, 5))
+    ax.plot(dt_vect, data, color='k', linewidth=1.0)
+    # Now loop all arrivals, plot line and annotate
+    for arr in arrivals:
+        ph_col = next(phase_colors)
+        pk_time = (o.time + arr.time).datetime
+        if pk_time > tr.stats.endtime:
+            continue
+        ax.axvline(pk_time, ymin=0.2, ymax=0.8, color=ph_col,
+                   label='{}'.format(arr.name))
+        ax.annotate(arr.name, xy=(pk_time, 0.8 * np.max(data)), xycoords='data',
+                    color=ph_col, horizontalalignment='center',
+                    fontsize=14)
+    ax.set_title('{} | {} {} | {} km'.format(o.time, o.longitude, o.latitude,
+                                             o.depth),
+                 fontsize=16)
+    fig.autofmt_xdate()
+    plt.show()
+    return fig
