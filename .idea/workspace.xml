@@ -2,17 +2,192 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/hypoDDpy.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/hypoDDpy.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../hypoDDpy/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../hypoDDpy/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../SURF_SEIS/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file9.raw" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/ignored_file.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/python/lbnl/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/python/lbnl/coordinates.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/python/lbnl/instruments.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/python/workflow/util/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/_DS_Store" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/_DS_Store" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/README.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/README.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/_gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/_gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/ms_rsync_processing_pool.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/ms_rsync_processing_pool.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/rsync_processing_pool.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/rsync_processing_pool.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/autocruncher_log" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/autocruncher_log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/autocruncher_log.debug" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/autocruncher_log.debug" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/output/file1.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/output/file10.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/output/file2.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/output/file2.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/output/file3.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/output/file3.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/output/file4.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/output/file4.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/output/file5.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/output/file5.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/output/file6.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/output/file6.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/rsync_to_here/file2.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/rsync_to_here/file2.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/rsync_to_here/file3.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/rsync_to_here/file3.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/rsync_to_here/file4.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/rsync_to_here/file4.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/rsync_to_here/file6.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/rsync_to_here/file6.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file1.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/output/file1.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file10.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/output/file10.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file2.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file1.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file4.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file10.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file5.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file2.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file6.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file4.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file7.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file5.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file8.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file6.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/file9.raw" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file7.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test/src/ignored_file.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test/src/file8.raw" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/autocrunch-master/test_rsync_processing_pool.sh" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/autocrunch-master/test_rsync_processing_pool.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp1.40_ms" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp1.40_ms" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/_DS_Store" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/_DS_Store" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/_DS_Store" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/_DS_Store" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/allsubs.f" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/allsubs.f" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/allsubs.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/allsubs.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/box2.inc" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/box2.inc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/box3.inc" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/box3.inc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/common.inc" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/common.inc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyate.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyate.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyate.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyate.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hybda.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hybda.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hybda.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hybda.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hybeg.f" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hybeg.f" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hybeg.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hybeg.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycal.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycal.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycal.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycal.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycmd.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycmd.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycmd.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycmd.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycre.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycre.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycre.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycre.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycrh.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycrh.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycrh.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycrh.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycrt.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycrt.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hycrt.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hycrt.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hydatum.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hydatum.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hydatum.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hydatum.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hydel.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hydel.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hydel.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hydel.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hydelt.f" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hydelt.f" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hydelt.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hydelt.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyedit.f" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyedit.f" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyedit.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyedit.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyfile.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyfile.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyfile.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyfile.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyfmc.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyfmc.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyfmc.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyfmc.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyinit.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyinit.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyinit.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyinit.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyinp.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyinp.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyinp.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyinp.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hylin.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hylin.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hylin.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hylin.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hylinv.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hylinv.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hylinv.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hylinv.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyloc.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyloc.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyloc.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyloc.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hylst.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hylst.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hylst.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hylst.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hymag.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hymag.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hymag.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hymag.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hymagp.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hymagp.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hymagp.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hymagp.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyopen.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyopen.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyopen.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyopen.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyp.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyp.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyp.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyp.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyphs.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyphs.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyphs.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyphs.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hypref.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hypref.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hypref.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hypref.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hypro.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hypro.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hypro.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hypro.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyrep.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyrep.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyrep.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyrep.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysol.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysol.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysol.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysol.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysou.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysou.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysou.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysou.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysta.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysta.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysta.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysta.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hystl.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hystl.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hystl.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hystl.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysum.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysum.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysum.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysum.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysvd.f" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysvd.f" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hysvd.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hysvd.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytime.f" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytime.f" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytime.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytime.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytra.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytra.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytra.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytra.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytre.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytre.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytre.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytre.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytrh.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytrh.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytrh.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytrh.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytrl.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytrl.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytrl.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytrl.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytrt.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytrt.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hytrt.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hytrt.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyxmc.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyxmc.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/hyxmc.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/hyxmc.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/integer.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/integer.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/linv.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/linv.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/linv.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/linv.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/linvol.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/linvol.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/linvol.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/linvol.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/makefile" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/medwt.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/medwt.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/medwt.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/medwt.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/trvcon.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/trvcon.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/trvcon.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/trvcon.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/utmcal.for" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/utmcal.for" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_ms/source/utmcal.o" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_ms/source/utmcal.o" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hyp_stations.dat" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hyp_stations.dat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/hypinst" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/hypinst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/assoc1D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/assoc1D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/assoc3D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/assoc3D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/func1D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/func1D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/func3D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/func3D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/plot1D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/plot1D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/plot3D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/plot3D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/search.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/search.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/tables1D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/tables1D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/tables3D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/tables3D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/tt_stations_1D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/tt_stations_1D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/associator/tt_stations_3D.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/associator/tt_stations_3D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/aicdpicker.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/aicdpicker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/cf_aicd.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/cf_aicd.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/cf_fb.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/cf_fb.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/cf_kt.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/cf_kt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/fbpicker.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/fbpicker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/ktpicker.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/ktpicker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/scnl.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/scnl.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/phasepapy/phasepicker/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/phasepapy/phasepicker/util.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/process_vibbox_file.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/process_vibbox_file.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/realtime_vibbox_proc (copy).py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc (copy).py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/realtime_vibbox_proc.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/realtime_vibbox_proc_old.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc_old.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/realtime_vibbox_proc_v181203.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc_v181203.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/realtime_vibbox_proc_v181219.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc_v181219.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/realtime_vibbox_proc_v190606.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc_v190606.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/realtime_vibbox_proc_v190617.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc_v190617.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/stations_local_coordinates.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/stations_local_coordinates.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/surf.crh" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/surf.crh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/test.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/test.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/test_pyinotify.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/test_pyinotify.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/vibbox.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/vibbox.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/vibbox_v2_old.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/vibbox_v2_old.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/scripts.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/scripts.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/workflow/focal_mecs.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/focal_mecs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/workflow/shelly_mags.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/shelly_mags.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_mags.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_mags.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/__init__.py" afterDir="false" />
     </list>
-    <ignored path="scripts.iws" />
-    <ignored path=".idea/workspace.xml" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,120 +200,6 @@
   <component name="FavoritesManager">
     <favorites_list name="scripts" />
   </component>
-  <component name="FileEditorManager">
-    <leaf SIDE_TABS_SIZE_LIMIT_KEY="600">
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="33176">
-              <caret line="1596" column="31" selection-start-line="1596" selection-start-column="29" selection-end-line="1596" selection-end-column="31" />
-              <folding>
-                <element signature="e#992#1116#0" />
-                <element signature="e#1182#2809#0" />
-                <element signature="e#2855#3293#0" />
-                <element signature="e#3319#3604#0" />
-                <element signature="e#3747#6701#0" />
-                <element signature="e#6746#7300#0" />
-                <element signature="e#7331#8285#0" />
-                <element signature="e#56237#65090#0" />
-                <element signature="e#65144#67970#0" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="19140">
-              <caret line="684" selection-start-line="676" selection-end-line="684" />
-              <folding>
-                <element signature="e#22#39#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="3509">
-              <caret line="132" column="28" selection-start-line="132" selection-start-column="28" selection-end-line="132" selection-end-column="28" />
-              <folding>
-                <element signature="e#114#129#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="551">
-              <caret line="24" column="50" selection-start-line="24" selection-start-column="38" selection-end-line="24" selection-end-column="50" />
-              <folding>
-                <element signature="e#5053#5928#0" />
-                <element signature="e#6044#8634#0" />
-                <element signature="e#12270#15916#0" />
-                <element signature="e#16073#21730#0" />
-                <element signature="e#21933#23512#0" />
-                <element signature="e#23559#24310#0" />
-                <element signature="e#24387#26277#0" />
-                <element signature="e#26359#26533#0" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_stresses.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="5945">
-              <caret line="215" column="67" selection-start-line="215" selection-start-column="58" selection-end-line="215" selection-end-column="67" />
-              <folding>
-                <element signature="e#14749#19190#0" />
-                <element signature="e#19272#21440#0" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="4147">
-              <caret line="255" column="60" selection-start-line="255" selection-start-column="60" selection-end-line="255" selection-end-column="60" />
-              <folding>
-                <element signature="e#1896#4217#0" />
-                <element signature="e#4486#6671#0" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="3886">
-              <caret line="777" column="62" selection-start-line="777" selection-start-column="62" selection-end-line="777" selection-end-column="62" />
-              <folding>
-                <element signature="e#22#39#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/python/workflow/shelly_mags.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="928">
-              <caret line="43" column="58" lean-forward="true" selection-start-line="43" selection-start-column="58" selection-end-line="43" selection-end-column="58" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-    </leaf>
-  </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
@@ -146,158 +207,24 @@
       </list>
     </option>
   </component>
-  <component name="FindInProjectRecents">
-    <findStrings>
-      <find>def plot</find>
-      <find>magnit</find>
-      <find>def catalog</find>
-      <find>cumulative_dete</find>
-      <find>def plot_well</find>
-      <find>k</find>
-      <find>kmeans</find>
-      <find>simple</find>
-      <find>np.where</find>
-      <find>r_b</find>
-      <find>plot_well_data</find>
-      <find>plot_well_d</find>
-      <find>legend</find>
-      <find>def plot_mags</find>
-      <find>plot_arnold</find>
-      <find>cumulative</find>
-      <find>def r_b</find>
-      <find>NM09</find>
-      <find>class Family</find>
-      <find>polar</find>
-      <find>heatmap</find>
-      <find>density</find>
-      <find>* 100</find>
-      <find>def beach_mod</find>
-      <find>align_traces</find>
-      <find>ax.text</find>
-      <find>text</find>
-      <find>cl</find>
-      <find>local_to_moment</find>
-      <find>local_to_moment_Majer</find>
-    </findStrings>
-    <dirStrings>
-      <dir>$PROJECT_DIR$/python/workflow</dir>
-    </dirStrings>
-  </component>
   <component name="Git.Settings">
-    <option name="ROOT_SYNC" value="SYNC" />
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
         <entry key="$PROJECT_DIR$/../EQcorrscan" value="4d9b72b3993ff77f7511f71a7cacfa0b39880e86" />
       </map>
     </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="ROOT_SYNC" value="SYNC" />
   </component>
-  <component name="IdeDocumentHistory">
-    <option name="CHANGED_PATHS">
-      <list>
-        <option value="$PROJECT_DIR$/../obspyck/hoppch_local.obspyckrc17" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_200_24hr.sl" />
-        <option value="$PROJECT_DIR$/python/workflow/old_util_2015/pyasdf2temp_stefan_sac.py" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_grp50_24hr.sl" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test_48hr.sl" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.sl" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_2012.sl" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_12-15.sl" />
-        <option value="$PROJECT_DIR$/python/experiment/dist_mat2groups.py" />
-        <option value="$PROJECT_DIR$/python/workflow/obspyck_util.py" />
-        <option value="$PROJECT_DIR$/python/workflow/process_parties.py" />
-        <option value="$PROJECT_DIR$/python/testing/eqcorrscan_mem_profiling.py" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed_test.sl" />
-        <option value="$PROJECT_DIR$/python/workflow/PAN_scripts/PAN_MF_mseed.py" />
-        <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/subspace.py" />
-        <option value="$PROJECT_DIR$/../hashpy/hashpy/io/obspyIO.py" />
-        <option value="$PROJECT_DIR$/python/workflow/data_prep.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_0.7.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_1sec_cc_min_0.6_for_GC.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py" />
-        <option value="$PROJECT_DIR$/python/workflow/shelly_focmecs.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/hypoddpy/hypodd_compiler.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/gantt_chart.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/hypoddpy/hypodd_relocator.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/make_stefan_SAC.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_Rot_GNS_manual_for_GC.py" />
-        <option value="$PROJECT_DIR$/../EQcorrscan/setup.py" />
-        <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter.py" />
-        <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/plotting.py" />
-        <option value="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/clustering.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/subspace_util.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_186.py" />
-        <option value="$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_2.py" />
-        <option value="$PROJECT_DIR$/python/workflow/relocate.py" />
-        <option value="$PROJECT_DIR$/../FMC_1.01/plotFMC.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/gmt_plotting.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_stresses.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_stations.py" />
-        <option value="$PROJECT_DIR$/python/workflow/README" />
-        <option value="$PROJECT_DIR$/python/workflow/README.md" />
-        <option value="$PROJECT_DIR$/README.md" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_well_data.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_detections.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py" />
-        <option value="$PROJECT_DIR$/python/workflow/focal_mecs.py" />
-        <option value="$PROJECT_DIR$/python/workflow/shelly_mags.py" />
-        <option value="$PROJECT_DIR$/python/workflow/util/plot_mags.py" />
-      </list>
-    </option>
-  </component>
-  <component name="ProjectFrameBounds" extendedState="6">
-    <option name="y" value="38" />
-    <option name="width" value="3840" />
-    <option name="height" value="2122" />
-  </component>
+  <component name="ProjectId" id="1QmwAL74XOkR2k2ocOVK9lGb37B" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
-  <component name="ProjectView">
-    <navigator proportions="" version="1">
-      <foldersAlwaysOnTop value="true" />
-    </navigator>
-    <panes>
-      <pane id="Scope" />
-      <pane id="ProjectPane">
-        <subPane>
-          <expand>
-            <path>
-              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
-              <item name="scripts" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
-              <item name="scripts" type="462c0819:PsiDirectoryNode" />
-              <item name="python" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
-              <item name="scripts" type="462c0819:PsiDirectoryNode" />
-              <item name="python" type="462c0819:PsiDirectoryNode" />
-              <item name="workflow" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="scripts" type="b2602c69:ProjectViewProjectNode" />
-              <item name="scripts" type="462c0819:PsiDirectoryNode" />
-              <item name="python" type="462c0819:PsiDirectoryNode" />
-              <item name="workflow" type="462c0819:PsiDirectoryNode" />
-              <item name="util" type="462c0819:PsiDirectoryNode" />
-            </path>
-          </expand>
-          <select />
-        </subPane>
-      </pane>
-    </panes>
-  </component>
   <component name="PropertiesComponent">
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="settings.editor.selected.configurable" value="preferences.sourceCode" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../miniconda3/envs/py37" />
+    <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.colors.General" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
@@ -451,11 +378,6 @@
     </task>
     <servers />
   </component>
-  <component name="TestHistory">
-    <history-entry file="Doctests_in_plotting - 2016.11.03 at 14h 44m 37s.xml">
-      <configuration name="Doctests in plotting" configurationId="tests" />
-    </history-entry>
-  </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
       <is-autoscroll-to-source value="true" />
@@ -465,32 +387,18 @@
       <is-autoscroll-to-source value="true" />
     </todo-panel>
   </component>
-  <component name="ToolWindowManager">
-    <frame x="1920" y="38" width="3840" height="2122" extended-state="6" />
-    <editor active="true" />
-    <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.18213333" />
-      <window_info id="Structure" order="1" weight="0.24986666" />
-      <window_info id="Favorites" order="2" side_tool="true" />
-      <window_info anchor="bottom" id="Message" order="0" />
-      <window_info anchor="bottom" id="Find" order="1" weight="0.32879695" />
-      <window_info anchor="bottom" id="Run" order="2" weight="0.32977644" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.39979756" />
-      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
-      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="6" weight="0.3298857" />
-      <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" weight="0.32934132" />
-      <window_info anchor="bottom" id="Version Control" order="8" />
-      <window_info anchor="bottom" id="Terminal" order="9" weight="0.3298857" />
-      <window_info anchor="bottom" id="Python Console" order="10" weight="0.3298857" />
-      <window_info anchor="bottom" id="Thumbnails" order="11" weight="0.32977644" />
-      <window_info anchor="right" id="Commander" order="0" weight="0.4" />
-      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
-      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="right" id="Data View" order="3" />
-      <window_info anchor="right" id="R Graphics" order="4" />
-      <window_info anchor="right" id="R Packages" order="5" />
-    </layout>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="COLUMN_ORDER" />
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="Vcs.Log.UiProperties">
     <option name="RECENTLY_FILTERED_USER_GROUPS">
@@ -510,218 +418,5 @@
         </breakpoint>
       </default-breakpoints>
     </breakpoint-manager>
-  </component>
-  <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/.gitignore" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Nga_ALL_dets_FINAL_noSORA_NM08_NM10_manual_1sec_cc_0.6_for_GC.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks.py" />
-    <entry file="file://$PROJECT_DIR$/../obspy/obspy/imaging/scripts/mopad.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/hypoddpy/hypodd_compiler.py" />
-    <entry file="file://$PROJECT_DIR$/../.virtualenvs/work_2.7/local/lib/python2.7/site-packages/numpy/__init__.py" />
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/gantt_chart.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="180">
-          <caret line="7" selection-start-line="7" selection-end-line="7" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/shelly_focmecs.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="20070">
-          <caret line="676" column="35" selection-start-line="676" selection-start-column="35" selection-end-line="676" selection-end-column="35" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/make_stefan_SAC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5430">
-          <caret line="189" column="34" selection-start-line="189" selection-start-column="34" selection-end-line="189" selection-end-column="34" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Nga_0.7_w_manual.py" />
-    <entry file="file://$PROJECT_DIR$/bash/combine_cc.bash">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/correlate.py" />
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/correlate_test.py" />
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/__init__.py" />
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/lib/__init__.py" />
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/hypoDD_quick_analysis.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-270" />
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/setup.py" />
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/clustering.py" />
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/pre_processing.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_temps_Rot_1sec_cc_min_0.6_for_GC.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_186.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs_2.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC_vpvs.py" />
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/subspace_test.py" />
-    <entry file="file://$PROJECT_DIR$/../FMC_1.01/FMC.py" />
-    <entry file="file://$PROJECT_DIR$/../FMC_1.01/plotFMC.py" />
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/gmt_plotting.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="750">
-          <caret line="62" column="24" selection-start-line="62" selection-start-column="24" selection-end-line="62" selection-end-column="24" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/catalog_to_dd.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_Rot_GNS_manual_for_GC.py" />
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/plotting.py" />
-    <entry file="file://$PROJECT_DIR$/python/workflow/relocate.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="7440">
-          <caret line="257" column="18" selection-start-line="257" selection-start-column="18" selection-end-line="257" selection-end-column="18" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_stations.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="390">
-          <caret line="15" column="65" selection-start-line="15" selection-start-column="65" selection-end-line="15" selection-end-column="65" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/run_hypoDD_Rot_ALL_dets_Spicks_for_GC.py" />
-    <entry file="file://$PROJECT_DIR$/python/__init__.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/mag_calc.py" />
-    <entry file="file://$PROJECT_DIR$/../hypoDDpy/hypoddpy/hypodd_relocator.py" />
-    <entry file="file://$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter.py" />
-    <entry file="file://$PROJECT_DIR$/python/workflow/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/README.md">
-      <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/README.md">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1030">
-          <caret line="82" column="87" selection-start-line="82" selection-start-column="87" selection-end-line="82" selection-end-column="87" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/data_prep.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="12441">
-          <caret line="457" column="25" selection-start-line="457" selection-start-column="25" selection-end-line="457" selection-end-column="25" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/magnitudes.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="87">
-          <caret line="19" column="19" selection-start-line="19" selection-start-column="4" selection-end-line="19" selection-end-column="19" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_well_data.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="33176">
-          <caret line="1596" column="31" selection-start-line="1596" selection-start-column="29" selection-end-line="1596" selection-end-column="31" />
-          <folding>
-            <element signature="e#992#1116#0" />
-            <element signature="e#1182#2809#0" />
-            <element signature="e#2855#3293#0" />
-            <element signature="e#3319#3604#0" />
-            <element signature="e#3747#6701#0" />
-            <element signature="e#6746#7300#0" />
-            <element signature="e#7331#8285#0" />
-            <element signature="e#56237#65090#0" />
-            <element signature="e#65144#67970#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_detections.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="19140">
-          <caret line="684" selection-start-line="676" selection-end-line="684" />
-          <folding>
-            <element signature="e#22#39#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_raspberry_shake.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="3509">
-          <caret line="132" column="28" selection-start-line="132" selection-start-column="28" selection-end-line="132" selection-end-column="28" />
-          <folding>
-            <element signature="e#114#129#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/subspace_util.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="551">
-          <caret line="24" column="50" selection-start-line="24" selection-start-column="38" selection-end-line="24" selection-end-column="50" />
-          <folding>
-            <element signature="e#5053#5928#0" />
-            <element signature="e#6044#8634#0" />
-            <element signature="e#12270#15916#0" />
-            <element signature="e#16073#21730#0" />
-            <element signature="e#21933#23512#0" />
-            <element signature="e#23559#24310#0" />
-            <element signature="e#24387#26277#0" />
-            <element signature="e#26359#26533#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_stresses.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5945">
-          <caret line="215" column="67" selection-start-line="215" selection-start-column="58" selection-end-line="215" selection-end-column="67" />
-          <folding>
-            <element signature="e#14749#19190#0" />
-            <element signature="e#19272#21440#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/focal_mecs.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4147">
-          <caret line="255" column="60" selection-start-line="255" selection-start-column="60" selection-end-line="255" selection-end-column="60" />
-          <folding>
-            <element signature="e#1896#4217#0" />
-            <element signature="e#4486#6671#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/shelly_mags.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="928">
-          <caret line="43" column="58" lean-forward="true" selection-start-line="43" selection-start-column="58" selection-end-line="43" selection-end-column="58" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/python/workflow/util/plot_mags.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="3886">
-          <caret line="777" column="62" selection-start-line="777" selection-start-column="62" selection-end-line="777" selection-end-column="62" />
-          <folding>
-            <element signature="e#22#39#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
   </component>
 </project>

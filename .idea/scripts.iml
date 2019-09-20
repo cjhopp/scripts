@@ -14,6 +14,8 @@
     <orderEntry type="module" module-name="FMC_1.01" />
     <orderEntry type="library" name="R User Library" level="project" />
     <orderEntry type="library" name="R Skeletons" level="application" />
+    <orderEntry type="module" module-name="EQcorrscan" />
+    <orderEntry type="module" module-name="SURF_SEIS" />
   </component>
   <component name="TestRunnerService">
     <option name="projectConfiguration" value="Nosetests" />
