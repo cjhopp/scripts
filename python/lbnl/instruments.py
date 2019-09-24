@@ -56,36 +56,40 @@ def surf_stations_to_inv(excel_file, debug=0):
                 print(np.array((row['Sx'], row['Sy'], row['Sz'])))
                 print(az, dip)
         if row['Sensor'].endswith(('Z', 'X', 'Y')):
-            chan = row['Sensor'][-1]
+            chan = 'XN{}'.format(row['Sensor'][-1])
             # Geophones
             if row['Sensor'].startswith('G'):
                 no = row['Sensor'][-3]
             # Accelerometers
             else:
                 no = row['Sensor'].split('_')[1]
-        # Hydrophones just skip for now
-        else:
-            continue
-        sta_name = '{}{}'.format(row['Desc'], no)
-        # Save HMC coords to custom attributes of Station and Channel
-        extra = AttribDict({
-            'hmc_east': {
-                'value': row['Easting(m)'],
-                'namespace': 'smi:local/hmc'
-            },
-            'hmc_north': {
-                'value': row['Northing(m)'],
-                'namespace': 'smi:local/hmc'
-            },
-            'hmc_elev': {
-                'value': row['Elev(m)'],
-                'namespace': 'smi:local/hmc'
-            }
-        })
-        channel = Channel(code=chan, location_code='', latitude=lat,
-                          longitude=lon, elevation=elev, depth=depth,
-                          azimuth=az, dip=dip)
-        channel.extra = extra
+            sta_name = '{}{}'.format(row['Desc'], no)
+            # Save HMC coords to custom attributes of Station and Channel
+            extra = AttribDict({
+                'hmc_east': {
+                    'value': row['Easting(m)'],
+                    'namespace': 'smi:local/hmc'
+                },
+                'hmc_north': {
+                    'value': row['Northing(m)'],
+                    'namespace': 'smi:local/hmc'
+                },
+                'hmc_elev': {
+                    'value': row['Elev(m)'],
+                    'namespace': 'smi:local/hmc'
+                }
+            })
+            channel = Channel(code=chan, location_code='', latitude=lat,
+                              longitude=lon, elevation=elev, depth=depth,
+                              azimuth=az, dip=dip)
+            channel.extra = extra
+        # TODO add hydrophones as they will eventually be used in locations
+        elif row['Sensor'].startswith('Hydro'):
+            chan = 'XN1'
+            sta_name = 'H{}{}'.format(row['Sensor'].split('-')[0][-1],
+                                      row['Sensor'].split('-')[-1])
+            channel = Channel(code=chan, location_code='', latitude=lat,
+                              longitude=lon, elevation=elev, depth=depth)
         if sta_name in sta_dict.keys():
             sta_dict[sta_name].append(channel)
         else:
@@ -97,7 +101,8 @@ def surf_stations_to_inv(excel_file, debug=0):
                           longitude=chans[0].longitude,
                           elevation=chans[0].elevation,
                           channels=chans)
-        station.extra = chans[0].extra
+        if not nm.startswith('H'):
+            station.extra = chans[0].extra
         stas.append(station)
     # Build inventory
     inventory = Inventory(networks=[Network(code='SV', stations=stas)],
