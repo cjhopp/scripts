@@ -5,6 +5,7 @@
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
+import matplotlib.pyplot as plt
 
 # 6x6 calibration matrix for SIMFIP
 mA1 = np.array([0.021747883, -0.142064305, 0.120457028, 0.120410153,
@@ -40,7 +41,8 @@ def raw_simfip_correction(files, angles):
     FM_df = wings_2_FM(df)
     UTheta = FM_2_UTheta(FM_df)
     U = rotate_UTheta(UTheta, angles=angles)
-    return U
+    Uc = remove_clamps(U, df, angles)
+    return Uc
 
 def read_simfip(files):
     """
@@ -50,10 +52,13 @@ def read_simfip(files):
     :return: pandas.DataFrame
     """
     # Use Dask as its significantly faster for this many data points
-    dask_df = dd.read_csv(files, encoding='ISO-8859-1',
-                          parse_dates=True)
+    dask_df = dd.read_csv(files, encoding='ISO-8859-1')
     df = dask_df.compute()
-    df = df.set_index('Unnamed: 0')
+    df['dt'] = pd.to_datetime(df['Unnamed: 0'], format='%m/%d/%Y %H:%M:%S.%f')
+    df = df.set_index('dt')
+    df = df.drop(['Unnamed: 0'], axis=1)
+    # Sort index as this isn't forced by pandas for DateTime indices
+    df = df.sort_index()
     df.index.name = None
     return df
 
@@ -127,4 +132,37 @@ def remove_clamps(U, df, angles):
     U_correction = R.dot(clamp_correct)
     Uc = pd.DataFrame((U - U_correction).T)
     Uc = Uc.set_index(df.index)
+    Uc['Pc'] = df['Pz1']
     return Uc
+
+### Plotting functions below here ###
+
+def plot_displacements(Uc, starttime, endtime, decimation=1000):
+    # Filter by dates
+    filt_Uc = Uc[starttime:endtime]
+    # Grab raw datetime array
+    dtos = filt_Uc.index.to_pydatetime()[::decimation]
+    # X, Y, Z as seperate arrays
+    X = filt_Uc[0].values[::decimation]
+    Y = filt_Uc[1].values[::decimation]
+    Z = filt_Uc[2].values[::decimation]
+    P = filt_Uc['Pc'].values[::decimation] * 0.00689476 # to MPa (real unit)
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.plot(dtos, X - X[0], color='b', label='Ux (Yates)')
+    ax.plot(dtos, Y - Y[0], color='r', label='Uy')
+    ax.plot(dtos, Z - Z[0], color='g', label='Uz')
+    hands, labs = ax.get_legend_handles_labels()
+    ax2 = ax.twinx()
+    ax2.plot(dtos, P, color='gray', label='Chamber P')
+    hands2, labs2 = ax2.get_legend_handles_labels()
+    labs.extend(labs2)
+    hands.extend(hands2)
+    ax.set_ylabel('Displacement (m?)', fontsize=16)
+    ax2.set_ylabel('MPa', fontsize=16)
+    ax.set_title('Corrected displacements with pressure', fontsize=20)
+    plt.legend(handles=hands, labels=labs, loc=2)
+    fig.autofmt_xdate()
+    ax.set_xlabel('Date', fontsize=16)
+    plt.tight_layout()
+    plt.show()
+    return ax
