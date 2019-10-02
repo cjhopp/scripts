@@ -7,7 +7,7 @@ Functions for reading/writing and processing waveform data
 import numpy as np
 
 from glob import glob
-from obspy import read, Stream
+from obspy import read, Stream, Catalog
 from surf_seis.vibbox import vibbox_preprocess
 
 
@@ -60,13 +60,14 @@ def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
             streams[t_stamp] = new_st
     return streams
 
-def find_largest_SURF(wav_dir, catalog, method='avg'):
+def find_largest_SURF(wav_dir, catalog, method='avg', sig=2):
     """
     Find the largest-amplitude events for the SURF catalog
 
     :param wav_dir: path to eventfiles_raw (or similar)
     :param catalog: obspy.core.Catalog
     :param method: 'avg' or a station name to solely use
+    :param sig: How many sigma to use as a minimum amplitude threshold
     :return:
     """
     stream_dict = extract_event_signal(wav_dir, catalog)
@@ -78,6 +79,19 @@ def find_largest_SURF(wav_dir, catalog, method='avg'):
                 avg += np.max(np.abs(tr.data))
             amp_dict[eid] = (avg / len(st))
         else:
-            amp_dict[eid] = np.max(np.abs(st.select(station='method')[0].data))
-    return amp_dict, stream_dict
+            if len(st.select(station=method)) > 0:
+                amp_dict[eid] = np.max(np.abs(
+                    st.select(station=method)[0].data))
+    # Now determine largest and output corresponding catalog
+    big_eids = []
+    amps = [amp for eid, amp in amp_dict.items()]
+    thresh = np.mean(amps) + (sig * np.std(amps))
+    print('Amplitude threshold: {}'.format(thresh))
+    for eid, amp in amp_dict.items():
+        if amp >= thresh:
+            big_eids.append(eid)
+    big_ev_cat = Catalog(events=[ev for ev in catalog
+                                 if ev.resource_id.id.split('/')[-1]
+                                 in big_eids])
+    return big_ev_cat
 

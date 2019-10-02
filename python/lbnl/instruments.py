@@ -10,7 +10,7 @@ import pandas as pd
 
 from lbnl.coordinates import SURF_converter
 from obspy.core.util import AttribDict
-from obspy.core.inventory import Inventory, Network, Station, Channel, Comment
+from obspy.core.inventory import Inventory, Network, Station, Channel, Response
 
 def surf_stations_to_inv(excel_file, debug=0):
     """
@@ -81,7 +81,7 @@ def surf_stations_to_inv(excel_file, debug=0):
             })
             channel = Channel(code=chan, location_code='', latitude=lat,
                               longitude=lon, elevation=elev, depth=depth,
-                              azimuth=az, dip=dip)
+                              azimuth=az, dip=dip, response=Response())
             channel.extra = extra
         # TODO add hydrophones as they will eventually be used in locations
         elif row['Sensor'].startswith('Hydro'):
@@ -89,7 +89,8 @@ def surf_stations_to_inv(excel_file, debug=0):
             sta_name = 'H{}{}'.format(row['Sensor'].split('-')[0][-1],
                                       row['Sensor'].split('-')[-1])
             channel = Channel(code=chan, location_code='', latitude=lat,
-                              longitude=lon, elevation=elev, depth=depth)
+                              longitude=lon, elevation=elev, depth=depth,
+                              response=Response())
         if sta_name in sta_dict.keys():
             sta_dict[sta_name].append(channel)
         else:

@@ -4,10 +4,14 @@
 Functions for the processing, reading, converting of events and event files
 """
 
-from obspy import UTCDateTime, Catalog
+import os
+
+from glob import glob
+from subprocess import call
+from obspy import UTCDateTime, Catalog, read
 from obspy.core.util import AttribDict
 from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
-    WaveformStreamID
+    WaveformStreamID, ResourceIdentifier
 from lbnl.coordinates import SURF_converter
 
 
@@ -29,7 +33,6 @@ def surf_events_to_cat(loc_file, pick_file):
         for ln in f:
             ln = ln.strip('\n')
             line = ln.split(',')
-            print(line)
             eid = line[0]
             if eid not in pick_dict:
                 print('No picks for this location, skipping for now.')
@@ -57,9 +60,10 @@ def surf_events_to_cat(loc_file, pick_file):
                 }
             })
             o.extra = extra
+            rid = ResourceIdentifier(id=ot.strftime('%Y%m%d%H%M%S%f'))
             # Dummy magnitude of 1. for all events until further notice
             ev = Event(origins=[o], magnitudes=[Magnitude(mag=1.)],
-                       picks=pick_dict[eid])
+                       picks=pick_dict[eid], resource_id=rid)
             surf_cat.append(ev)
     return surf_cat
 
@@ -99,3 +103,59 @@ def parse_picks(pick_file):
             else:
                 pick_dict[eid].append(pk)
     return pick_dict
+
+
+def obspyck_from_local(inv_path, wav_dir, catalog):
+    """
+    Function to take local catalog, inventory and waveforms for picking.
+
+    This has been gutted from scripts.python.workflow.obspyck_util for use
+    with SURF/FS-B networks.
+
+    :param inv: Station inventory
+    :param wav_dir: Directory of mseeds named according to timestamp
+        eid convention
+    :param catalog: catalog of events to pick
+    :return:
+    """
+
+    # Grab all stationxml files
+    inv_files = [inv_path]
+    all_wavs = glob('{}/*'.format(wav_dir))
+    # Sort events, although they should already be sorted and it doesnt matter
+    catalog.events.sort(key=lambda x: x.origins[-1].time)
+    if len(catalog) == 0:
+        print('No events in catalog')
+        return
+    eids = [ev.resource_id.id.split('/')[-1] for ev in catalog]
+    wav_files = [p for p in all_wavs if p.split('/')[-1].split('_')[0] in eids]
+    if not os.path.isdir('tmp'):
+        os.mkdir('tmp')
+    for ev in catalog:
+        o = ev.origins[0]
+        eid = ev.resource_id.id.split('/')[-1]
+        wav_file = [f for f in wav_files if f.split('/')[-1].split('_')[0]
+                    == eid]
+        # Create temporary mseed without the superfluous non-seis traces
+        st = read(wav_file[0])
+        rms = [tr for tr in st
+               if tr.stats.station in ['CMon', 'CTrig', 'CEnc', 'PPS']]
+        for rm in rms:
+            st.traces.remove(rm)
+        tmp_wav_file = ['tmp/tmp_wav.mseed']
+        st.write(tmp_wav_file[0], format="MSEED")
+        # If not pick uncertainties, assign some arbitrary ones
+        for pk in ev.picks:
+            if not pk.time_errors:
+                pk.time_errors.uncertainty = 0.0001
+        tmp_name = 'tmp/%s' % str(ev.resource_id).split('/')[-1]
+        ev.write(tmp_name, format='QUAKEML')
+        print('Launching obspyck for ev: {}' .format(
+              str(ev.resource_id).split('/')[-1]))
+        input_file = '/home/chet/obspyck/hoppch_surf.obspyckrc17'
+        root = ['obspyck -c {} -t {} -d 0.01 -s SV --event {}'.format(
+            input_file, str(o.time - 0.0002), tmp_name)]
+        cmd = ' '.join(root + tmp_wav_file + inv_files)
+        print(cmd)
+        call(cmd, shell=True)
+    return

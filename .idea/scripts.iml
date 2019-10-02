@@ -16,6 +16,12 @@
     <orderEntry type="library" name="R Skeletons" level="application" />
     <orderEntry type="module" module-name="EQcorrscan" />
     <orderEntry type="module" module-name="SURF_SEIS" />
+    <orderEntry type="module" module-name="obspyck" />
+    <orderEntry type="module" module-name="obspyck" />
+    <orderEntry type="module" module-name="obspyck" />
+    <orderEntry type="module" module-name="obspyck" />
+    <orderEntry type="module" module-name="obspyck" />
+    <orderEntry type="module" module-name="obspyck" />
   </component>
   <component name="TestRunnerService">
     <option name="projectConfiguration" value="Nosetests" />
