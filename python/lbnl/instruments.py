@@ -86,8 +86,8 @@ def surf_stations_to_inv(excel_file, debug=0):
         # TODO add hydrophones as they will eventually be used in locations
         elif row['Sensor'].startswith('Hydro'):
             chan = 'XN1'
-            sta_name = 'H{}{}'.format(row['Sensor'].split('-')[0][-1],
-                                      row['Sensor'].split('-')[-1])
+            sta_name = '{}{}'.format(row['Desc'],
+                                     row['Sensor'].split('-')[-1].zfill(2))
             channel = Channel(code=chan, location_code='', latitude=lat,
                               longitude=lon, elevation=elev, depth=depth,
                               response=Response())
