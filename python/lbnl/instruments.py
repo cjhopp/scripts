@@ -102,7 +102,7 @@ def surf_stations_to_inv(excel_file, debug=0):
                           longitude=chans[0].longitude,
                           elevation=chans[0].elevation,
                           channels=chans)
-        if not nm.startswith('H'):
+        if not len(chans) == 1:
             station.extra = chans[0].extra
         stas.append(station)
     # Build inventory
