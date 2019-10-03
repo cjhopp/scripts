@@ -11,7 +11,8 @@ from subprocess import call
 from obspy import UTCDateTime, Catalog, read
 from obspy.core.util import AttribDict
 from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
-    WaveformStreamID, ResourceIdentifier
+    WaveformStreamID, ResourceIdentifier, OriginQuality, OriginUncertainty,\
+    QuantityError
 from lbnl.coordinates import SURF_converter
 
 
@@ -41,10 +42,23 @@ def surf_events_to_cat(loc_file, pick_file):
             hmc_east = float(line[2])
             hmc_north = float(line[3])
             hmc_elev = float(line[4])
+            gap = float(line[-5])
+            rms = float(line[-3])
+            errXY = float(line[-2])
+            errZ = float(line[-1])
             converter = SURF_converter()
             lon, lat, elev = converter.to_lonlat((hmc_east, hmc_north,
                                                   hmc_elev))
             o = Origin(time=ot, longitude=lon, latitude=lat, depth=elev)
+            o.origin_uncertainty = OriginUncertainty()
+            o.quality = OriginQuality()
+            ou = o.origin_uncertainty
+            oq = o.quality
+            ou.horizontal_uncertainty = errXY * 1e3
+            ou.preferred_description = "horizontal uncertainty"
+            o.depth_errors.uncertainty = errZ * 1e3
+            oq.standard_error = rms  # XXX stimmt diese Zuordnung!!!?!
+            oq.azimuthal_gap = gap
             extra = AttribDict({
                 'hmc_east': {
                     'value': hmc_east,
@@ -62,7 +76,8 @@ def surf_events_to_cat(loc_file, pick_file):
             o.extra = extra
             rid = ResourceIdentifier(id=ot.strftime('%Y%m%d%H%M%S%f'))
             # Dummy magnitude of 1. for all events until further notice
-            ev = Event(origins=[o], magnitudes=[Magnitude(mag=1.)],
+            mag = Magnitude(mag=1., mag_errors=QuantityError(uncertainty=1.))
+            ev = Event(origins=[o], magnitudes=[mag],
                        picks=pick_dict[eid], resource_id=rid)
             surf_cat.append(ev)
     return surf_cat
