@@ -1,6 +1,12 @@
 #!/usr/bin/python
 """
 Functions for working with instrumentation for EGS Collab, FS-B, etc...
+
+IMPORTANT
+***********************************************
+For SURF, the arbitrary zero depth point is elev = 130 m
+***********************************************
+
 """
 
 import obspy
@@ -27,15 +33,33 @@ def surf_stations_to_inv(excel_file, debug=0):
     inventory = Inventory(networks=[network], source=obspy.__version__)
     # Create dict before, then build inventory from channel level upwards
     sta_dict = {}
+    extra_dict = {}
     for i, row in sta_df.iterrows():
         # Station location
         # Convert from SURF coords to lat lon, but keep local for actual use
         lon, lat, elev = converter.to_lonlat((row['Easting(m)'],
                                               row['Northing(m)'],
                                               row['Elev(m)']))
+        # Correct for arbitrary zero 'depth' of 130m
+        elev -= 130
         # Already accounted for in the elevation but will include here as its
         # ...a required arg for Channel()
         depth = row['Depth (m)']
+        # Save HMC coords to custom attributes of Station and Channel
+        extra = AttribDict({
+            'hmc_east': {
+                'value': row['Easting(m)'],
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_north': {
+                'value': row['Northing(m)'],
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_elev': {
+                'value': row['Elev(m)'], # extra will preserve absolute elev
+                'namespace': 'smi:local/hmc'
+            }
+        })
         # Sort out azimuth and dip for this channel (if it exists)
         if not np.isnan(row['Sx']):
             # TODO Something is real effed here. Answers are right though.
@@ -64,26 +88,10 @@ def surf_stations_to_inv(excel_file, debug=0):
             else:
                 no = row['Sensor'].split('_')[1]
             sta_name = '{}{}'.format(row['Desc'], no)
-            # Save HMC coords to custom attributes of Station and Channel
-            extra = AttribDict({
-                'hmc_east': {
-                    'value': row['Easting(m)'],
-                    'namespace': 'smi:local/hmc'
-                },
-                'hmc_north': {
-                    'value': row['Northing(m)'],
-                    'namespace': 'smi:local/hmc'
-                },
-                'hmc_elev': {
-                    'value': row['Elev(m)'],
-                    'namespace': 'smi:local/hmc'
-                }
-            })
             channel = Channel(code=chan, location_code='', latitude=lat,
                               longitude=lon, elevation=elev, depth=depth,
                               azimuth=az, dip=dip, response=Response())
-            channel.extra = extra
-        # TODO add hydrophones as they will eventually be used in locations
+            # channel.extra = extra
         elif row['Sensor'].startswith('Hydro'):
             chan = 'XN1'
             sta_name = '{}{}'.format(row['Desc'],
@@ -91,6 +99,8 @@ def surf_stations_to_inv(excel_file, debug=0):
             channel = Channel(code=chan, location_code='', latitude=lat,
                               longitude=lon, elevation=elev, depth=depth,
                               response=Response())
+        extra_dict[sta_name] = extra
+            # channel.extra = extra
         if sta_name in sta_dict.keys():
             sta_dict[sta_name].append(channel)
         else:
@@ -102,8 +112,7 @@ def surf_stations_to_inv(excel_file, debug=0):
                           longitude=chans[0].longitude,
                           elevation=chans[0].elevation,
                           channels=chans)
-        if not len(chans) == 1:
-            station.extra = chans[0].extra
+        station.extra = extra_dict[nm]
         stas.append(station)
     # Build inventory
     inventory = Inventory(networks=[Network(code='SV', stations=stas)],

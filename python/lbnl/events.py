@@ -2,17 +2,25 @@
 
 """
 Functions for the processing, reading, converting of events and event files
+
+IMPORTANT
+***********************************************
+Arbitrary zero depth point is elev = 130 m
+***********************************************
 """
 
 import os
 
+import numpy as np
+
 from glob import glob
 from subprocess import call
-from obspy import UTCDateTime, Catalog, read
+from obspy import UTCDateTime, Catalog, read, read_inventory, Stream, Trace
 from obspy.core.util import AttribDict
 from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
     WaveformStreamID, ResourceIdentifier, OriginQuality, OriginUncertainty,\
     QuantityError
+from obspy.signal.rotate import rotate2zne
 from lbnl.coordinates import SURF_converter
 
 
@@ -49,7 +57,7 @@ def surf_events_to_cat(loc_file, pick_file):
             converter = SURF_converter()
             lon, lat, elev = converter.to_lonlat((hmc_east, hmc_north,
                                                   hmc_elev))
-            o = Origin(time=ot, longitude=lon, latitude=lat, depth=elev)
+            o = Origin(time=ot, longitude=lon, latitude=lat, depth=130 - elev)
             o.origin_uncertainty = OriginUncertainty()
             o.quality = OriginQuality()
             ou = o.origin_uncertainty
@@ -57,7 +65,7 @@ def surf_events_to_cat(loc_file, pick_file):
             ou.horizontal_uncertainty = errXY * 1e3
             ou.preferred_description = "horizontal uncertainty"
             o.depth_errors.uncertainty = errZ * 1e3
-            oq.standard_error = rms  # XXX stimmt diese Zuordnung!!!?!
+            oq.standard_error = rms
             oq.azimuthal_gap = gap
             extra = AttribDict({
                 'hmc_east': {
@@ -136,6 +144,7 @@ def obspyck_from_local(inv_path, wav_dir, catalog):
 
     # Grab all stationxml files
     inv_files = [inv_path]
+    inv = read_inventory(inv_path)
     all_wavs = glob('{}/*'.format(wav_dir))
     # Sort events, although they should already be sorted and it doesnt matter
     catalog.events.sort(key=lambda x: x.origins[-1].time)
@@ -157,8 +166,48 @@ def obspyck_from_local(inv_path, wav_dir, catalog):
                if tr.stats.station in ['CMon', 'CTrig', 'CEnc', 'PPS']]
         for rm in rms:
             st.traces.remove(rm)
+        # Rotate to ZNE not in obspyck so do it here.
+        rotated_st = Stream()
+        # Loop each station in inv and append to new st
+        for sta in inv[0]:
+            sta_st = st.select(station=sta.code)
+            if len(sta_st) < 3 and len(sta_st) > 0:
+                # Ignore hydrophones here
+                rotated_st += sta_st
+                continue
+            elif len(sta_st) == 0:
+                continue
+            data1 = sta_st.select(channel='*Z')[0]
+            dip1 = sta.select(channel='*Z')[0].dip
+            az1 = sta.select(channel='*Z')[0].azimuth
+            data2 = sta_st.select(channel='*X')[0]
+            dip2 = sta.select(channel='*X')[0].dip
+            az2 = sta.select(channel='*X')[0].azimuth
+            data3 = sta_st.select(channel='*Y')[0]
+            dip3 = sta.select(channel='*Y')[0].dip
+            az3 = sta.select(channel='*Y')[0].azimuth
+            rot_np = rotate2zne(data_1=data1.data, azimuth_1=az1, dip_1=dip1,
+                                data_2=data2.data, azimuth_2=az2, dip_2=dip2,
+                                data_3=data3.data, azimuth_3=az3, dip_3=dip3,
+                                inverse=False)
+            # Check that traces are indeed different from before
+            print(not np.all(data1.data == rot_np[0]))
+            print(not np.all(data2.data == rot_np[1]))
+            print(not np.all(data3.data == rot_np[2]))
+            # Reassemble rotated stream
+            # TODO Without renaming XYZ, just assuming user understands
+            # TODO that X is North, Y is East....fix this by adding channels
+            # TODO to inventory later!
+            new_trZ = Trace(data=rot_np[0], header=data1.stats)
+            # new_trZ.stats.channel = 'XNZ'
+            new_trN = Trace(data=rot_np[1], header=data2.stats)
+            # new_trN.stats.channel = 'XNN'
+            new_trE = Trace(data=rot_np[2], header=data3.stats)
+            # new_trE.stats.channel = 'XNE'
+            rot_st = Stream(traces=[new_trZ, new_trN, new_trE])
+            rotated_st += rot_st
         tmp_wav_file = ['tmp/tmp_wav.mseed']
-        st.write(tmp_wav_file[0], format="MSEED")
+        rotated_st.write(tmp_wav_file[0], format="MSEED")
         # If not pick uncertainties, assign some arbitrary ones
         for pk in ev.picks:
             if not pk.time_errors:
