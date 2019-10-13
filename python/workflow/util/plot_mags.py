@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import matplotlib
 import pytz
+import scipy.spatial as ss
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.cm as cm
@@ -446,8 +447,8 @@ def bval_calc(cat, bin_size, MC, weight=False):
     else:
         Mc = MC
     # Establish bin limits and spacing
-    bin_vals = np.arange(min(mags), max(mags), bin_size)
-    # bin_vals = np.arange(-1., 4., bin_size)
+    # bin_vals = np.arange(min(mags), max(mags), bin_size)
+    bin_vals = np.arange(-1., 4., bin_size)
     non_cum_bins = []
     cum_bins = []
     bval_vals = []
@@ -486,7 +487,7 @@ def bval_calc(cat, bin_size, MC, weight=False):
 
 def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                      histograms=False, title=None, weight=False,
-                     show=True, savefig=None, ax=None, colors=None,
+                     show=True, savefig=None, axes=None, colors=None,
                      linestyles=None, plot_text=False, xlim=None, ylim=None,
                      insets=False, reference=True, bplotvar=False):
     """
@@ -500,8 +501,8 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     :param title: Title of plot
     :param show: Do we show the plot?
     :param savefig: None or name of saved file
-    :param ax: Axes object to plot to (optional)
-    :param colors: itertools.Cycle of desired colors
+    :param axes: Axes object to plot to (optional)
+    :param colors: iterable of desired color strings
     :param linestyles: itertools.Cycle of desired linestyles
     :param plot_text: Boolean for placing text on plot
     :param xlim: Custom x limits
@@ -512,10 +513,14 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
 
     :return:
     """
-    if not colors:
+    if colors == False:
         colors = cycle(sns.color_palette('muted').as_hex())
-    if not ax:
+    else:
+        colors = cycle(colors)
+    if not axes:
         fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        ax = axes
     # Array of b-values and std_errs for many catalogs for further plotting
     bs = []
     std_errs = []
@@ -543,42 +548,33 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
                           for m in comp_mags]) / (neq * (neq - 1))
         std_err = 2.30 * np.sqrt(std_dev) * (b ** 2)
         col = next(colors)
-        if not name.endswith('(GNS)'):
-            if not linestyles:
-                lin = '-'
-            else:
-                lin = next(linestyles)
-            if histograms:
-                sns.distplot(mags, kde=False, color=col,
-                             hist_kws={'alpha': 1.0},
-                             ax=ax)
-            # Reversed cumulative hist
-            ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
-                    color=col, linestyle=lin, alpha=0.8, linewidth=0.8)
-            if i == 0:
-                y = 0.9
-            elif i == 1:
-                y = 0.8
-            elif i == 2:
-                y = 0.7
-            bs.append(b)
-            std_errs.append(std_err)
-            text = 'B-value: {:.2f}$\pm${:.2f}'.format(b, std_err)
-            if plot_text:
-                ax.text(0.80, y - 0.05, text, transform=ax.transAxes,
-                        color=col, horizontalalignment='center',
-                        fontsize=14.)
-                ax.text(0.80, y, 'Mc=%.2f' % Mc,
-                        color=col, transform=ax.transAxes,
-                        horizontalalignment='center', fontsize=14.)
+        if not linestyles:
+            lin = '-'
         else:
-            if histograms:
-                sns.distplot(mags, kde=False, color=col,
-                             hist_kws={'alpha': 1.0},
-                             ax=ax)
-            # Reversed cumulative hist
-            ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
-                    color=col, linestyle='--')
+            lin = next(linestyles)
+        if histograms:
+            sns.distplot(mags, kde=False, color=col,
+                         hist_kws={'alpha': 1.0},
+                         ax=ax)
+        # Reversed cumulative hist
+        ax.plot(b_dict['bin_vals'], b_dict['cum_bins'], label=name,
+                color=col, linestyle=lin, linewidth=1.5)
+        if i == 0:
+            y = 0.9
+        elif i == 1:
+            y = 0.8
+        elif i == 2:
+            y = 0.7
+        bs.append(b)
+        std_errs.append(std_err)
+        text = 'B-value: {:.2f}$\pm${:.2f}'.format(b, std_err)
+        if plot_text:
+            ax.text(0.80, y - 0.05, text, transform=ax.transAxes,
+                    color=col, horizontalalignment='center',
+                    fontsize=14.)
+            ax.text(0.80, y, 'Mc=%.2f' % Mc,
+                    color=col, transform=ax.transAxes,
+                    horizontalalignment='center', fontsize=14.)
     if insets:
         inset1 = inset_axes(ax, width='98%', height='40%',
                             bbox_to_anchor=(.6, .5, .4, .5),
@@ -598,7 +594,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
         a_ref = 4000
         mags = np.linspace(0.5, 3., 50)
         nums = 10**(np.log10(a_ref) - mags)
-        ax.plot(mags, nums, label='$b=1', color='black', linewidth=0.8,
+        ax.plot(mags, nums, label='$b$=1', color='black', linewidth=0.8,
                 linestyle='--')
         ax.text(mags[-1] + 0.1, nums[-1], '$b=1$', fontsize=10, rotation=-36,
                 horizontalalignment='center')
@@ -615,7 +611,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     else:
         ax.set_title('B-value plot', fontsize=18)
     if len(catalogs) < 6:
-        leg = ax.legend(fontsize=14., markerscale=0.7, loc=3)
+        leg = ax.legend(loc=3)
         leg.get_frame().set_alpha(0.9)
     if show:
         plt.show()
@@ -651,7 +647,7 @@ def bval_null_prob(N1, N2, b1, b2):
     return P0
 
 
-def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
+def map_bvalue(catalog, max_ev, no_above_Mc, Man_Mc=None, show=False, outfile=None,
                dimension=3, plotvar=False):
     """
     Do b-value mapping using a catalog, as described in Bachmann et al. 2012:
@@ -661,6 +657,11 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
     :param catalog: Catalog of events for which to map b-value
     :param max_ev: Number of nearest events to use in calculation
     :param no_above_Mc: Required number of events above Mc for b calculation
+    :param Man_Mc: If desired, can provide a static Mc for all clusters
+    :param show: Plot flag for locations colored by b and Mc
+    :param outfile: Path to output file for plotting with GMT
+    :param dimension: 2 (xy) or 3 (xyz) dimensional inter-event distance calcs
+    :param plotvar: Plot flag for the b-value calculation function
     :return:
     """
     # Sort catalog
@@ -680,16 +681,29 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
     # Make KDTree to query
     treebeard = KDTree(pts)
     bvals = []
+    Mcs = []
+    errs = []
+    volumes = []
     # Make catalog of nearest points for each event
     for pt in pts:
         # print('Working on pt: {}'.format(pt))
         dists, ney_burs = treebeard.query(pt, k=max_ev)
         sub_cat = Catalog(events=[catalog[i] for i in ney_burs])
-        # Do bval calculation
+        lats = [degrees2kilometers(ev.preferred_origin().latitude) * 1000
+                for ev in sub_cat]
+        lons = [degrees2kilometers(ev.preferred_origin().longitude) * 1000
+                for ev in sub_cat]
+        zs = [ev.preferred_origin().depth for ev in sub_cat]
         mags = [ev.preferred_magnitude().mag for ev in sub_cat]
+        # Do bval calculation
+        # If Man_Mc, enforce b-value calculation for only one Mc value
+        if not Man_Mc:
+            completenesses = np.arange(min(mags), max(mags), 0.1)
+        else:
+            completenesses = np.array([Man_Mc])
         bcalc = calc_b_value(
             magnitudes=mags,
-            completeness=np.arange(min(mags), max(mags), 0.1),
+            completeness=completenesses,
             plotvar=plotvar)
         bcalc.sort(key=lambda x: x[2])
         # b = bcalc[-1][1]
@@ -708,26 +722,49 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
         if len([ev for ev in sub_cat
                 if ev.preferred_magnitude().mag > Mc]) > no_above_Mc:
             bvals.append(b)
+            Mcs.append(Mc)
+            errs.append(std_err)
+            hull = ss.ConvexHull(np.stack((lons, lats, zs)).T)
+            volumes.append(hull.volume)
         else:
-            # Othersize dont save
+            # Otherwise dont save
             bvals.append(None)
-    # Make output array of lon, lat, depth, mag, b
-    print(len(catalog), len(bvals)) # Check consistent lengths
+            Mcs.append(None)
+            errs.append(None)
+            volumes.append(None)
+    # Make output array of lon, lat, depth, mag, b, Mc
+    print(len(catalog), len(bvals), len(Mcs)) # Check consistent lengths
     bval_out = []
     for i, ev in enumerate(catalog):
         # Add bvalue Comment to origin (in place)
         ev.preferred_origin().comments.append(
             Comment(text='b={}'.format(bvals[i])))
+        ev.preferred_origin().comments.append(
+            Comment(text='Mc={}'.format(Mcs[i])))
+        ev.preferred_origin().comments.append(
+            Comment(text='b error={}'.format(errs[i])))
+        ev.preferred_origin().comments.append(
+            Comment(text='b volume={}'.format(volumes[i])))
         bval_out.append([ev.preferred_origin().longitude,
                          ev.preferred_origin().latitude,
                          ev.preferred_origin().depth,
                          ev.preferred_magnitude().mag,
-                         bvals[i]])
+                         bvals[i], Mcs[i], errs[i], volumes[i]])
     if show:
-        fig, ax = plt.subplots(figsize=(10, 10))
-        x, y, z, m, c = zip(*bval_out)
-        scat = ax.scatter(x, y, s=m, c=c)
-        plt.colorbar(scat)
+        fig, axes = plt.subplots(2, 2, figsize=(15, 15))
+        x, y, z, m, b, mc, err, vol = zip(*bval_out)
+        scat_b = axes[0, 0].scatter(x, y, s=m, c=b)
+        scat_mc = axes[0, 1].scatter(x, y, s=m, c=mc)
+        scat_err = axes[1, 0].scatter(x, y, s=m, c=err)
+        scat_vol = axes[1, 1].scatter(x, y, s=m, c=vol)
+        fig.colorbar(scat_b, ax=axes[0, 0])
+        fig.colorbar(scat_mc, ax=axes[0, 1])
+        fig.colorbar(scat_err, ax=axes[1, 0])
+        fig.colorbar(scat_vol, ax=axes[1, 1])
+        axes[0, 0].set_title('$b$-value')
+        axes[0, 1].set_title('M$_c$')
+        axes[1, 0].set_title('Std error')
+        axes[1, 1].set_title('Volume (m$^3$')
         plt.show()
         plt.close()
     if outfile:
@@ -735,19 +772,29 @@ def map_bvalue(catalog, max_ev, no_above_Mc, Mc=None, show=False, outfile=None,
             for ln in bval_out:
                 if ln[4] == None:
                     continue
-                outf.write('{} {} {} {} {}\n'.format(ln[0], ln[1], ln[2],
-                                                     ln[3], ln[4]))
+                outf.write('{} {} {} {} {} {} {} {}\n'.format(ln[0], ln[1],
+                                                              ln[2], ln[3],
+                                                              ln[4], ln[5],
+                                                              ln[6], ln[7]))
     return bval_out
 
 
-def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
-             ylim=[0, 2.5], dimension=3, title=None, color=None, label=None):
+def r_b_plot(catalog, injection_point, dimension=3, axes=None, show=False,
+             xlim=[0, 1000], ylim=[0, 2.5], title=None, color=None, label=None):
     """
     Plot b-values with distance from an injection point
     :param catalog: Catalog of events with a Comment in the preferred_origin()
         with the bval in it.
     :param injection_point: Tuple of (lat, lon, depth) for the desired
         injection point
+    :param dimension: Calculate distance in map distance or include depth (3)?
+    :param axes: matlotlib Axes instance to plot into
+    :param show: Show the plot?
+    :param outfile: Save plot to a file?
+    :param title: String for the plot title
+    :param color: Curve color
+    :param label: Label the curve with this string
+
     :return:
 
     .. note: RK24 Feedzones: (-38.6149, 176.2025, 2.9)
@@ -755,10 +802,8 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
              NM06 feedzones: (-38.5653, 176.1948, 2.88)
              NM09 feedzones: (-38.5358, 176.1857, 2.45)
     """
-    if not ax:
+    if not axes:
         fig, axes = plt.subplots(figsize=(7, 5))
-    else:
-        axes = ax
     if dimension == 3:
         pts = [(dist_calc(injection_point,
                           (ev.preferred_origin().latitude,
@@ -812,13 +857,15 @@ def r_b_plot(catalog, injection_point, ax=None, show=False, xlim=[0, 1000],
     else:
         axes.set_xlabel('Depth (m)', fontsize=16)
     axes.set_ylabel('$b$-value', fontsize=16)
-    if not title:
+    if title == None:
         axes.set_title('$b$-value with distance', fontsize=18)
     else:
         axes.set_title(title, fontsize=18)
     axes.set_xlim(xlim)
     axes.set_ylim(ylim)
     axes.legend(fontsize=14)
+    plt.setp(axes.get_xticklabels(), fontsize=14)
+    plt.setp(axes.get_yticklabels(), fontsize=14)
     if show:
         plt.show()
         plt.close()

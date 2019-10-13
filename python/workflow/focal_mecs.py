@@ -191,6 +191,8 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
     :param inversion_options: What data to include in the inversion
     :param number_location_samples: How many random samples to draw from the
         NLLoc location PDF
+    :param MT: Run the full MT inversion?
+    :param DC: Run the constrained DC inversion?
 
     :return:
     """
@@ -217,14 +219,15 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
         print(type(data))
         print(data['PPolarity'])
         data['UID'] = '{}_ppolarity'.format(eid)
-        # Set the convert flag to convert the output to other source parameterisations
+        # Set the convert flag to convert the output to other source
+        # parameterisations
         convert = True
         # Set location uncertainty file path
         location_pdf_file_path = [path for path in nlloc_fs
                                   if path.endswith('.scatangle')][0]
         # Handle location uncertainty
-        # Set number of location samples to use (randomly sampled from PDF) as this
-        #    reduces calculation time
+        # Set number of location samples to use (randomly sampled from PDF) as
+        # this reduces calculation time
         # (each location sample is equivalent to running an additional event)
         bin_scatangle = True
         if DC:
@@ -232,9 +235,11 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
             max_samples = 100000
             dc = True
             print('Running DC for {}'.format(eid))
-            mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
-                  parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
-                  max_samples=max_samples, convert=convert, bin_scatangle=bin_scatangle,
+            mtfit(data, location_pdf_file_path=location_pdf_file_path,
+                  algorithm=algorithm, parallel=parallel,
+                  inversion_options=inversion_options, phy_mem=phy_mem, dc=dc,
+                  max_samples=max_samples, convert=convert,
+                  bin_scatangle=bin_scatangle,
                   number_location_samples=number_location_samples, n=n)
         if MT:
             ### Now for full MT
@@ -243,8 +248,9 @@ def run_mtfit(catalog, nlloc_dir, parallel=True, n=8, algorithm='iterate',
             dc = False
             print('Running full MT for {}'.format(eid))
             # Create the inversion object with the set parameters.
-            mtfit(data, location_pdf_file_path=location_pdf_file_path, algorithm=algorithm,
-                  parallel=parallel, inversion_options=inversion_options, phy_mem=phy_mem,
+            mtfit(data, location_pdf_file_path=location_pdf_file_path,
+                  algorithm=algorithm, parallel=parallel,
+                  inversion_options=inversion_options, phy_mem=phy_mem,
                   max_samples=max_samples, convert=convert, dc=dc,
                   bin_scatangle=bin_scatangle,
                   number_location_samples=number_location_samples, n=n)
@@ -1925,17 +1931,19 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
                                    showlegend=True))
         else:
             print('No surfaces fitted')
-    xax = go.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Easting (m)', autorange=True, range=xlims)
-    yax = go.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Northing (m)', autorange=True, range=ylims)
-    zax = go.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)', gridwidth=2,
-                   zerolinecolor='rgb(200, 200, 200)', zerolinewidth=2,
-                   title='Elevation (m)', autorange=True, range=zlims)
-    layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax,
-                                  zaxis=zax,
+    xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Easting (m)',
+                                autorange=True, range=xlims)
+    yax = go.layout.scene.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Northing (m)',
+                                autorange=True, range=ylims)
+    zax = go.layout.scene.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Elevation (m)',
+                                autorange=True, range=zlims)
+    layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
                        title=title)
@@ -1980,13 +1988,13 @@ def plot_clust_cats_3d(cluster_cats, outfile, field, xlims=None, ylims=None,
         print('You dont need a video')
     else:
         if offline:
-            plotly.offline.plot(fig, filename=outfile)
+            plotly.offline.iplot(fig, filename=outfile)
         else:
             py.plot(fig, filename=outfile)
     return
 
-def make_well_dict(track_dir='/home/chet/gmt/data/NZ/wells',
-                   perm_zones_dir='/home/chet/gmt/data/NZ/wells/feedzones',
+def make_well_dict(track_dir='/home/chet/gmt_output/data/NZ/wells',
+                   perm_zones_dir='/home/chet/gmt_output/data/NZ/wells/feedzones',
                    field='Nga', nga_wells=['NM08', 'NM09', 'NM10', 'NM06'],
                    rot_wells=['RK20', 'RK21', 'RK22', 'RK23', 'RK24']):
     track_files = glob('{}/*_xyz_pts.csv'.format(track_dir))

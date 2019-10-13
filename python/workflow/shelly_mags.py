@@ -18,6 +18,61 @@ from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.clustering import cross_chan_coherence, svd
 
 
+def CUSP_to_SC3_rel_mags(det_cat, temp_cat, selfs):
+    """
+    Take a catalog with relative magnitudes calculated using the Ristau 2009
+    CUSP equation and correct them using the updated SeisComP3 scale
+
+    :param det_cat: Catalog of detections and templates with magnitudes
+    :param selfs: List of strings for self detection ids
+    :return:
+    """
+    # Make a dictionary of the CUSP-derived moment, SeisComP M0 for templates
+    temp_mag_dict = {ev.resource_id.id.split('/')[-1]:
+                        {'Old M0':
+                              local_to_moment(ev.magnitudes[0].mag,
+                                              m=0.88, c=0.73),
+                         'New M0':
+                              local_to_moment(ev.magnitudes[0].mag,
+                                              m=0.97, c=0.14)}
+                     for ev in temp_cat}
+    # Now loop the catalog and redo the calculations
+    for det in det_cat:
+        # First determine the relative moment (I didn't save these anywhere...)
+        eid = det.resource_id.id.split('/')[-1]
+        if eid in selfs:
+            print('Template event: Adding a Mw magnitude')
+            det.magnitudes.append(
+                Magnitude(mag=ML_to_Mw(det.magnitudes[0].mag, m=0.97, c=0.14),
+                          magnitude_type='Mw',
+                          comments=[Comment(text='Ristau et al., 2016 BSSA')]))
+            continue
+        tid = det.resource_id.id.split('/')[-1].split('_')[0]
+        det_mo = Mw_to_M0([m.mag for m in det.magnitudes
+                           if m.magnitude_type == 'Mw'][0])
+        rel_mo = det_mo / temp_mag_dict[tid]['Old M0']
+        new_det_mo = rel_mo * temp_mag_dict[tid]['New M0']
+        new_det_Mw = (2. / 3. * np.log10(new_det_mo)) - 9.
+        new_det_ML = (0.97 * new_det_Mw) + 0.14
+        det.magnitudes.append(
+            Magnitude(mag=new_det_Mw, magnitude_type='Mw',
+                      comments=[Comment(text='rel_mo={}'.format(rel_mo))]))
+        det.magnitudes.append(
+            Magnitude(mag=new_det_ML, magnitude_type='ML',
+                      comments=[Comment(text='rel_mo={}'.format(rel_mo))]))
+        det.preferred_magnitude_id = det.magnitudes[-1].resource_id.id
+    return
+
+def Mw_to_M0(Mw):
+    """Simple Hanks and Kanamori calc"""
+    M0 = 10 ** (1.5 * (Mw + 9.0))
+    return M0
+
+def ML_to_Mw(ML, m=0.97, c=0.14):
+    """Simple calc for ML to Mw using Ristau et al., 2016 scaling relation"""
+    Mw = (ML - c) * m
+    return Mw
+
 def local_to_moment(mag, m=0.88, c=0.73):
     """
     From Gabe and/or Calum?
