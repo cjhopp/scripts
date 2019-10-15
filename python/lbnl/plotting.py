@@ -43,7 +43,7 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
     colors = cycle(cl.scales['11']['qual']['Paired'])
     well_colors = cl.scales['9']['seq']['BuPu']
     if not title:
-        title = 'Boogers'
+        title = '3D Plot'
     # Make well point lists and add to Figure
     datas = []
     wells = parse_surf_boreholes(well_file)
@@ -52,19 +52,40 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
         datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
                                   name='Borehole: {}'.format(key),
                                   line=dict(color=next(colors), width=7)))
-    # If no limits specified, take them from catalogs
+    # Do the same for the inventory
+    sta_list = []
+    for sta in inventory[0]: # Assume single network for now
+        sx = float(sta.extra.hmc_east.value)
+        sy = float(sta.extra.hmc_north.value)
+        sz = float(sta.extra.hmc_elev.value)
+        name = sta.code
+        sta_list.append((sx, sy, sz, name))
+    stax, stay, staz, nms = zip(*sta_list)
+    datas.append(go.Scatter3d(x=np.array(stax), y=np.array(stay),
+                              z=np.array(staz),
+                              mode='markers',
+                              name='Station',
+                              hoverinfo='text',
+                              text=nms,
+                              marker=dict(color='black',
+                                size=3.,
+                                symbol='diamond',
+                                line=dict(color='gray',
+                                          width=1),
+                                opacity=0.9)))
+    # If no limits specified, take them from boreholes
     if not xlims:
         xs = [pt[0] for bh, pts in wells.items() for pt in pts]
         ys = [pt[1] for bh, pts in wells.items() for pt in pts]
         xlims = [min(xs), max(xs)]
         ylims = [min(ys), max(ys)]
-        zlims = [100, 160]
+        zlims = [60, 130]
     pt_list = []
     for ev in catalog:
-        o = ev.preferred_origin()
-        ex = o.extras.hmc_east.value
-        ey = o.extras.hmc_north.value
-        ez = o.extras.hmc_elev.value
+        o = ev.origins[-1]
+        ex = float(o.extra.hmc_east.value)
+        ey = float(o.extra.hmc_north.value)
+        ez = float(o.extra.hmc_elev.value)
         if dd_only and not o.method_id:
             print('Not accepting non-dd locations')
             continue
@@ -78,7 +99,7 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
             continue
         if (xlims[0] < ex < xlims[1]
             and ylims[0] < ey < ylims[1]
-            and np.abs(zlims[0]) > ez > (-1 * zlims[1])):
+            and zlims[0] < ez < zlims[1]):
             pt_list.append((ex, ey, ez, m,
                             ev.resource_id.id.split('/')[-1]))
     # if len(pt_list) > 0:
@@ -88,19 +109,19 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
         if len(lst) == 0:
             continue
         x, y, z, m, id = zip(*lst)
-        z = -np.array(z)
+        # z = -np.array(z)
         clust_col = next(colors)
         datas.append(go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
                                   mode='markers',
-                                  name='Cluster {}'.format(i),
+                                  name='Seismic event',
                                   hoverinfo='text',
                                   text=id,
                                   marker=dict(color=clust_col,
-                                    size=np.array(m) ** 2,
-                                    symbol='circle',
-                                    line=dict(color='rgb(204, 204, 204)',
+                                    size=(1.5 * np.array(m)) ** 2,
+                                    symbol='circle-open',
+                                    line=dict(color='gray',
                                               width=1),
-                                    opacity=0.9)))
+                                    opacity=0.7)))
         if surface == 'plane':
             if len(x) <= 2:
                 continue # Cluster just 1-2 events

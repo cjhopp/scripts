@@ -23,6 +23,8 @@ from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
 from obspy.signal.rotate import rotate2zne
 from lbnl.coordinates import SURF_converter
 
+three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
+               'PSB7', 'PSB9', 'PST10', 'PST12']
 
 def surf_events_to_cat(loc_file, pick_file):
     """
@@ -108,7 +110,9 @@ def parse_picks(pick_file):
             phase = line[-2]
             # Placing these per standard convention but not true!!
             # TODO Maybe these should all be Z? Careful when doing correlations
-            if phase == 'P':
+            if line[2] not in three_comps: # Hydrophone channels
+                chan = 'XN1'
+            elif phase == 'P':
                 chan = 'XNZ'
             else:
                 chan = 'XNX'
