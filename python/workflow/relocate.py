@@ -12,8 +12,12 @@ from subprocess import call
 from obspy import UTCDateTime
 from obspy.core.event import Arrival, QuantityError, ResourceIdentifier, \
     OriginUncertainty, Origin
+from obspy.core import AttribDict
 from obspy.geodetics import kilometer2degrees
 from obspy.io.nlloc.core import read_nlloc_hyp
+
+# local imports
+from lbnl.coordinates import SURF_converter
 
 
 """
@@ -29,7 +33,30 @@ def my_conversion(x, y, z):
                          (111111 * np.cos(origin[0] * (np.pi/180))))
     return new_x, new_y, z
 
-def relocate(cat, root_name, in_file, pick_uncertainty):
+def surf_xyz2latlon(x, y, z):
+    """
+    Convert from scaled surf xyz (in km) to lat lon
+
+    Taken from hacked obspyck but supports only a single xyz set
+
+    :param x:
+    :param y:
+    :return:
+    """
+    import pyproj
+
+    # Descale (/10) and convert to meters
+    x *= 10
+    y *= 10
+    orig_utm = (598420.3842806489, 4912272.275375654)
+    utm = pyproj.Proj(init="EPSG:26713")
+    pt_utm = (orig_utm[0] + x, orig_utm[1] + y)
+    lon, lat = utm(pt_utm[0], pt_utm[1], inverse=True)
+    # Return depth / 100 because obspy will just undo this
+    return lon, lat, z / 100.
+
+def relocate(cat, root_name, in_file, pick_uncertainty,
+             convert_func=surf_xyz2latlon):
     """
     Run NonLinLoc relocations on a catalog. This is a function hardcoded for
     my laptop only.
@@ -42,6 +69,9 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
     :param in_file: NLLoc input file
     :type pick_uncertainty: dict
     :param pick_uncertainty: Dictionary mapping uncertainties to sta/chans
+    :type convert_func: func
+    :param convert_func: Either of the two functions defined above
+
     :return: same catalog with new origins appended to each event
     """
     for ev in cat:
@@ -54,7 +84,10 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
                 and not pk.time_errors.uncertainty):
                 sta = pk.waveform_id.station_code[:2]
                 chan = pk.waveform_id.channel_code[-1]
-                pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
+                try:
+                    pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
+                except TypeError as e:
+                    pk.time_errors.uncertainty = pick_uncertainty
         id_str = str(ev.resource_id).split('/')[-1]
         filename = '{}/obs/{}.nll'.format(root_name, id_str)
         outfile = '{}/loc/{}'.format(root_name, id_str)
@@ -77,13 +110,33 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
         out_w_ext = glob(outfile + '.????????.??????.grid0.loc.hyp')
         try:
             new_o = read_nlloc_hyp(out_w_ext[0],
-                                   coordinate_converter=my_conversion,
+                                   coordinate_converter=convert_func,
                                    picks=ev.picks)
         except ValueError as ve:
             print(ve)
             continue
-        ev.origins.append(new_o[0].origins[0])
-        ev.preferred_origin_id = str(new_o[0].origins[0].resource_id)
+        # Take new origin and add in the hmc info
+        new_o_obj = new_o[0].origins[0]
+        hmce, hmcn, hmcz = SURF_converter().to_HMC((new_o_obj.longitude,
+                                                    new_o_obj.latitude,
+                                                    new_o_obj.depth))
+        extra = AttribDict({
+            'hmc_east': {
+                'value': hmce,
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_north': {
+                'value': hmcn,
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_elev': {
+                'value': 130 - hmcz, # Extra attribs maintain absolute elevation
+                'namespace': 'smi:local/hmc'
+            }
+        })
+        new_o_obj.extra = extra
+        ev.origins.append(new_o_obj)
+        ev.preferred_origin_id = new_o_obj.resource_id.id
     return cat
 
 

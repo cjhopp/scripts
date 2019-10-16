@@ -5,14 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/.idea/SURF_SEIS.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/.idea/SURF_SEIS.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/.idea/obspyck.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/obspyck.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/obspyck.py" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/obspyck.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/qt_designer.py" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/qt_designer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/scripts.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/scripts.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/plotting.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/relocate.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/relocate.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -49,7 +44,7 @@
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../obspyck" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../SURF_SEIS" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
@@ -59,11 +54,11 @@
       <recent name="$PROJECT_DIR$/python/old_scripts_4-1" />
     </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/../SURF_SEIS" />
+      <recent name="$PROJECT_DIR$/../SURF_SEIS/surf_seis" />
       <recent name="$PROJECT_DIR$/../hypoDDpy" />
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts" />
       <recent name="$PROJECT_DIR$/python/workflow/util" />
-      <recent name="$PROJECT_DIR$/../obspyck" />
-      <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts/" />
     </key>
   </component>
   <component name="RunDashboard">
