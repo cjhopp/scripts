@@ -31,4 +31,4 @@ class SURF_converter:
         :return: tuple of (easting, northing, elev)
         """
         east, north = self.utm(point[0], point[1])
-        return (self.orig_utm[0] - east, self.orig_utm[1] - north, point[2])
+        return (east - self.orig_utm[0], north - self.orig_utm[1], point[2])

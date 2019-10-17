@@ -5,19 +5,18 @@ Script to handle pick refinement/removal and relocation of catalog earthquakes.
 """
 
 import os
+import locale
+
 import numpy as np
 
 from glob import glob
 from subprocess import call
+from datetime import datetime
 from obspy import UTCDateTime
 from obspy.core.event import Arrival, QuantityError, ResourceIdentifier, \
-    OriginUncertainty, Origin
+    OriginUncertainty, Origin, CreationInfo, OriginQuality
 from obspy.core import AttribDict
 from obspy.geodetics import kilometer2degrees
-from obspy.io.nlloc.core import read_nlloc_hyp
-
-# local imports
-from lbnl.coordinates import SURF_converter
 
 
 """
@@ -33,12 +32,9 @@ def my_conversion(x, y, z):
                          (111111 * np.cos(origin[0] * (np.pi/180))))
     return new_x, new_y, z
 
-def surf_xyz2latlon(x, y, z):
+def surf_xyz2latlon(x, y):
     """
     Convert from scaled surf xyz (in km) to lat lon
-
-    Taken from hacked obspyck but supports only a single xyz set
-
     :param x:
     :param y:
     :return:
@@ -48,15 +44,16 @@ def surf_xyz2latlon(x, y, z):
     # Descale (/10) and convert to meters
     x *= 10
     y *= 10
+    pts = zip(x, y)
     orig_utm = (598420.3842806489, 4912272.275375654)
     utm = pyproj.Proj(init="EPSG:26713")
-    pt_utm = (orig_utm[0] + x, orig_utm[1] + y)
-    lon, lat = utm(pt_utm[0], pt_utm[1], inverse=True)
-    # Return depth / 100 because obspy will just undo this
-    return lon, lat, z / 100.
+    pts_utm = [(orig_utm[0] + pt[0], orig_utm[1] + pt[1])
+               for pt in pts]
+    utmx, utmy = zip(*pts_utm)
+    lon, lat = utm(utmx, utmy, inverse=True)
+    return (lon, lat)
 
-def relocate(cat, root_name, in_file, pick_uncertainty,
-             convert_func=surf_xyz2latlon):
+def relocate(cat, root_name, in_file, pick_uncertainty):
     """
     Run NonLinLoc relocations on a catalog. This is a function hardcoded for
     my laptop only.
@@ -69,8 +66,6 @@ def relocate(cat, root_name, in_file, pick_uncertainty,
     :param in_file: NLLoc input file
     :type pick_uncertainty: dict
     :param pick_uncertainty: Dictionary mapping uncertainties to sta/chans
-    :type convert_func: func
-    :param convert_func: Either of the two functions defined above
 
     :return: same catalog with new origins appended to each event
     """
@@ -96,7 +91,10 @@ def relocate(cat, root_name, in_file, pick_uncertainty,
             # if len(glob(outfile + '.????????.??????.grid0.loc.hyp')) > 0:
             print('LOC file already written, reading output to catalog')
         else:
-            ev.write(filename, format="NLLOC_OBS")
+            # Here forego obspy write func in favor of obspyck dicts2NLLocPhases
+            phases = dicts2NLLocPhases(ev)
+            with open(filename, 'w') as f:
+                f.write(phases)
             # Specify awk command to edit NLLoc .in file
             # Write to unique tmp file (just in_file.bak) so as not to
             # overwrite if multiple instances running.
@@ -109,35 +107,648 @@ def relocate(cat, root_name, in_file, pick_uncertainty,
         # XXX BE MORE CAREFUL HERE. CANNOT GRAB BOTH SUM AND NON-SUM
         out_w_ext = glob(outfile + '.????????.??????.grid0.loc.hyp')
         try:
-            new_o = read_nlloc_hyp(out_w_ext[0],
-                                   coordinate_converter=convert_func,
-                                   picks=ev.picks)
+            loadNLLocOutput(ev=ev, infile=out_w_ext[0])
         except ValueError as ve:
             print(ve)
             continue
-        # Take new origin and add in the hmc info
-        new_o_obj = new_o[0].origins[0]
-        hmce, hmcn, hmcz = SURF_converter().to_HMC((new_o_obj.longitude,
-                                                    new_o_obj.latitude,
-                                                    new_o_obj.depth))
-        extra = AttribDict({
-            'hmc_east': {
-                'value': hmce,
-                'namespace': 'smi:local/hmc'
-            },
-            'hmc_north': {
-                'value': hmcn,
-                'namespace': 'smi:local/hmc'
-            },
-            'hmc_elev': {
-                'value': 130 - hmcz, # Extra attribs maintain absolute elevation
-                'namespace': 'smi:local/hmc'
-            }
-        })
-        new_o_obj.extra = extra
-        ev.origins.append(new_o_obj)
-        ev.preferred_origin_id = new_o_obj.resource_id.id
+        # ev.origins.append(new_o_obj)
+        # ev.preferred_origin_id = new_o_obj.resource_id.id
     return cat
+
+def dicts2NLLocPhases(ev):
+    """
+    *********
+    CJH Stolen from obspyck to use a scaling hack for 6 decimal precision
+    *********
+
+    Returns the pick information in NonLinLoc's own phase
+    file format as a string. This string can then be written to a file.
+    Currently only those fields really needed in location are actually used
+    in assembling the phase information string.
+
+    Information on the file formats can be found at:
+    http://alomax.free.fr/nlloc/soft6.00/formats.html#_phase_
+
+    Quote:
+    NonLinLoc Phase file format (ASCII, NLLoc obsFileType = NLLOC_OBS)
+
+    The NonLinLoc Phase file format is intended to give a comprehensive
+    phase time-pick description that is easy to write and read.
+
+    For each event to be located, this file contains one set of records. In
+    each set there is one "arrival-time" record for each phase at each seismic
+    station. The final record of each set is a blank. As many events as desired can
+    be included in one file.
+
+    Each record has a fixed format, with a blank space between fields. A
+    field should never be left blank - use a "?" for unused characther fields and a
+    zero or invalid numeric value for numeric fields.
+
+    The NonLinLoc Phase file record is identical to the first part of each
+    phase record in the NLLoc Hypocenter-Phase file output by the program NLLoc.
+    Thus the phase list output by NLLoc can be used without modification as time
+    pick observations for other runs of NLLoc.
+
+    NonLinLoc phase record:
+    Fields:
+    Station name (char*6)
+        station name or code
+    Instrument (char*4)
+        instument identification for the trace for which the time pick
+        corresponds (i.e. SP, BRB, VBB)
+    Component (char*4)
+        component identification for the trace for which the time pick
+        corresponds (i.e. Z, N, E, H)
+    P phase onset (char*1)
+        description of P phase arrival onset; i, e
+    Phase descriptor (char*6)
+        Phase identification (i.e. P, S, PmP)
+    First Motion (char*1)
+        first motion direction of P arrival; c, C, u, U = compression;
+        d, D = dilatation; +, -, Z, N; . or ? = not readable.
+    Date (yyyymmdd) (int*6)
+        year (with century), month, day
+    Hour/minute (hhmm) (int*4)
+        Hour, min
+    Seconds (float*7.4)
+        seconds of phase arrival
+    Err (char*3)
+        Error/uncertainty type; GAU
+    ErrMag (expFloat*9.2)
+        Error/uncertainty magnitude in seconds
+    Coda duration (expFloat*9.2)
+        coda duration reading
+    Amplitude (expFloat*9.2)
+        Maxumim peak-to-peak amplitude
+    Period (expFloat*9.2)
+        Period of amplitude reading
+    PriorWt (expFloat*9.2)
+
+    A-priori phase weight Currently can be 0 (do not use reading) or
+    1 (use reading). (NLL_FORMAT_VER_2 - WARNING: under development)
+
+    Example:
+
+    GRX    ?    ?    ? P      U 19940217 2216   44.9200 GAU  2.00e-02 -1.00e+00 -1.00e+00 -1.00e+00
+    GRX    ?    ?    ? S      ? 19940217 2216   48.6900 GAU  4.00e-02 -1.00e+00 -1.00e+00 -1.00e+00
+    CAD    ?    ?    ? P      D 19940217 2216   46.3500 GAU  2.00e-02 -1.00e+00 -1.00e+00 -1.00e+00
+    CAD    ?    ?    ? S      ? 19940217 2216   50.4000 GAU  4.00e-02 -1.00e+00 -1.00e+00 -1.00e+00
+    BMT    ?    ?    ? P      U 19940217 2216   47.3500 GAU  2.00e-02 -1.00e+00 -1.00e+00 -1.00e+00
+    """
+    nlloc_str = ""
+
+    for pick in ev.picks:
+        sta = pick.waveform_id.station_code.ljust(6)
+        inst = "?".ljust(4)
+        comp = "?".ljust(4)
+        onset = "?"
+        phase = pick.phase_hint.ljust(6)
+        pol = "?"
+        t = pick.time
+        # CJH Hack to accommodate full microsecond precision...
+        t = datetime.fromtimestamp(t.datetime.timestamp() * 100)
+        date = t.strftime("%Y%m%d")
+        hour_min = t.strftime("%H%M")
+        sec = "%7.4f" % (t.second + t.microsecond / 1e6)
+        error_type = "GAU"
+        error = None
+        # XXX check: should we take only half of the complete left-to-right error?!?
+        if pick.time_errors.upper_uncertainty and pick.time_errors.lower_uncertainty:
+            error = (pick.time_errors.upper_uncertainty + pick.time_errors.lower_uncertainty) * 100
+        elif pick.time_errors.uncertainty:
+            error = 200 * pick.time_errors.uncertainty
+        error = "%9.2e" % error
+        coda_dur = "-1.00e+00"
+        ampl = "-1.00e+00"
+        period = "-1.00e+00"
+        fields = [sta, inst, comp, onset, phase, pol, date, hour_min,
+                  sec, error_type, error, coda_dur, ampl, period]
+        phase_str = " ".join(fields)
+        nlloc_str += phase_str + "\n"
+    return nlloc_str
+
+def loadNLLocOutput(ev, infile):
+    lines = open(infile, "rt").readlines()
+    if not lines:
+        err = "Error: NLLoc output file (%s) does not exist!" % infile
+        print(err)
+        return
+    # goto signature info line
+    try:
+        line = lines.pop(0)
+        while not line.startswith("SIGNATURE"):
+            line = lines.pop(0)
+    except:
+        err = "Error: No correct location info found in NLLoc " + \
+              "outputfile (%s)!" % infile
+        print(err)
+        return
+
+    line = line.rstrip().split('"')[1]
+    signature, nlloc_version, date, time = line.rsplit(" ", 3)
+    # new NLLoc > 6.0 seems to add prefix 'run:' before date
+    if date.startswith('run:'):
+        date = date[4:]
+    saved_locale = locale.getlocale()
+    try:
+        locale.setlocale(locale.LC_ALL, ('en_US', 'UTF-8'))
+    except:
+        creation_time = None
+    else:
+        creation_time = UTCDateTime().strptime(date + time,
+                                               str("%d%b%Y%Hh%Mm%S"))
+    finally:
+        locale.setlocale(locale.LC_ALL, saved_locale)
+    # goto maximum likelihood origin location info line
+    try:
+        line = lines.pop(0)
+        while not line.startswith("HYPOCENTER"):
+            line = lines.pop(0)
+    except:
+        err = "Error: No correct location info found in NLLoc " + \
+              "outputfile (%s)!" % infile
+        print(err)
+        return
+
+    line = line.split()
+    x = float(line[2])
+    y = float(line[4])
+    # depth = - float(line[6]) # depth: negative down!
+    # CJH I reported depths at SURF in meters below 130 m so positive is
+    # down in this case
+    depth = float(line[6])
+
+    # lon, lat = gk2lonlat(x, y)
+    # Convert coords
+    print('Doing hypo conversion')
+    # Descale first
+    depth *= 10
+    lon, lat = surf_xyz2latlon(np.array([x]), np.array([y]))
+    print(lon, lat)
+    # goto origin time info line
+    try:
+        line = lines.pop(0)
+        while not line.startswith("GEOGRAPHIC  OT"):
+            line = lines.pop(0)
+    except:
+        err = "Error: No correct location info found in NLLoc " + \
+              "outputfile (%s)!" % infile
+        print(err)
+        return
+    line = line.split()
+    year = int(line[2])
+    month = int(line[3])
+    day = int(line[4])
+    hour = int(line[5])
+    minute = int(line[6])
+    seconds = float(line[7])
+    time = UTCDateTime(year, month, day, hour, minute, seconds)
+    # Convert to actual time
+    time = UTCDateTime(datetime.fromtimestamp(
+        time.datetime.timestamp() / 100.
+    ))
+    # goto location quality info line
+    try:
+        line = lines.pop(0)
+        while not line.startswith("QUALITY"):
+            line = lines.pop(0)
+    except:
+        err = "Error: No correct location info found in NLLoc " + \
+              "outputfile (%s)!" % infile
+        print(err)
+        return
+
+    line = line.split()
+    rms = float(line[8])
+    gap = float(line[12])
+
+    # goto location quality info line
+    try:
+        line = lines.pop(0)
+        while not line.startswith("STATISTICS"):
+            line = lines.pop(0)
+    except:
+        err = "Error: No correct location info found in NLLoc " + \
+              "outputfile (%s)!" % infile
+        print(err)
+        return
+    line = line.split()
+    # read in the error ellipsoid representation of the location error.
+    # this is given as azimuth/dip/length of axis 1 and 2 and as length
+    # of axis 3.
+    azim1 = float(line[20])
+    dip1 = float(line[22])
+    len1 = float(line[24])
+    azim2 = float(line[26])
+    dip2 = float(line[28])
+    len2 = float(line[30])
+    len3 = float(line[32])
+
+    # XXX TODO save original nlloc error ellipse?!
+    errX, errY, errZ = errorEllipsoid2CartesianErrors(azim1, dip1, len1,
+                                                      azim2, dip2, len2,
+                                                      len3)
+
+    # XXX
+    # NLLOC uses error ellipsoid for 68% confidence interval relating to
+    # one standard deviation in the normal distribution.
+    # We multiply all errors by 2 to approximately get the 95% confidence
+    # level (two standard deviations)...
+    errX *= 2
+    errY *= 2
+    errZ *= 2
+    # CJH Now descale to correct dimensions
+    errX /= 100
+    errY /= 100
+    errZ /= 100
+    # determine which model was used:
+    # XXX handling of path extremely hackish! to be improved!!
+    dirname = os.path.dirname(infile)
+    controlfile = os.path.join(dirname, "last.in")
+    lines2 = open(controlfile, "rt").readlines()
+    line2 = lines2.pop()
+    while not line2.startswith("LOCFILES"):
+        line2 = lines2.pop()
+    line2 = line2.split()
+    model = line2[3]
+    model = model.split("/")[-1]
+    event = ev
+    if event.creation_info is None:
+        event.creation_info = CreationInfo()
+        event.creation_info.creation_time = UTCDateTime()
+    o = Origin()
+    event.origins = [o]
+    # event.set_creation_info_username('cjhopp')
+    # version field has 64 char maximum per QuakeML RNG schema
+    o.creation_info = CreationInfo(creation_time=creation_time,
+                                   version=nlloc_version[:64])
+    # assign origin info
+    o.method_id = "/".join(["smi:de.erdbeben-in-bayern", "location_method",
+                            "nlloc", "7"])
+    print('Creating origin uncertainty')
+    o.longitude = lon[0]
+    o.latitude = lat[0]
+    print('Assigning depth {}'.format(depth))
+    o.depth = depth# * (-1e3)  # meters positive down!
+    print('Creating extra AttribDict')
+    # Attribute dict for actual hmc coords
+    extra = AttribDict({
+        'hmc_east': {
+            'value': x * 10,
+            'namespace': 'smi:local/hmc'
+        },
+        'hmc_north': {
+            'value': y * 10,
+            'namespace': 'smi:local/hmc'
+        },
+        'hmc_elev': {
+            'value': 130 - depth, # Extra attribs maintain absolute elevation
+            'namespace': 'smi:local/hmc'
+        }
+    })
+    o.extra = extra
+    o.origin_uncertainty = OriginUncertainty()
+    o.quality = OriginQuality()
+    ou = o.origin_uncertainty
+    oq = o.quality
+    if errY > errX:
+        ou.azimuth_max_horizontal_uncertainty = 0
+    else:
+        ou.azimuth_max_horizontal_uncertainty = 90
+    ou.min_horizontal_uncertainty, \
+            ou.max_horizontal_uncertainty = \
+            sorted([errX * 1e3, errY * 1e3])
+    ou.preferred_description = "uncertainty ellipse"
+    o.depth_errors.uncertainty = errZ * 1e3
+    oq.standard_error = rms #XXX stimmt diese Zuordnung!!!?!
+    oq.azimuthal_gap = gap
+    o.depth_type = "from location"
+    o.earth_model_id = "%s/earth_model/%s" % ("smi:de.erdbeben-in-bayern",
+                                              model)
+    o.time = time
+    # goto synthetic phases info lines
+    try:
+        line = lines.pop(0)
+        while not line.startswith("PHASE ID"):
+            line = lines.pop(0)
+    except:
+        err = "Error: No correct synthetic phase info found in NLLoc " + \
+              "outputfile (%s)!" % infile
+        print(err)
+        return
+
+    # remove all non phase-info-lines from bottom of list
+    try:
+        badline = lines.pop()
+        while not badline.startswith("END_PHASE"):
+            badline = lines.pop()
+    except:
+        err = "Error: Could not remove unwanted lines at bottom of " + \
+              "NLLoc outputfile (%s)!" % infile
+        print(err)
+        return
+
+    o.quality.used_phase_count = 0
+    o.quality.extra = AttribDict()
+    o.quality.extra.usedPhaseCountP = {'value': 0,
+                                       'namespace': "http://erdbeben-in-bayern.de/xmlns/0.1"}
+    o.quality.extra.usedPhaseCountS = {'value': 0,
+                                       'namespace': "http://erdbeben-in-bayern.de/xmlns/0.1"}
+
+    # go through all phase info lines
+    """
+    Order of fields:
+    ID Ins Cmp On Pha FM Q Date HrMn Sec Coda Amp Per PriorWt > Err ErrMag
+    TTpred Res Weight StaLoc(X Y Z) SDist SAzim RAz RDip RQual Tcorr
+    TTerrTcorr
+
+    Fields:
+    ID (char*6)
+        station name or code
+    Ins (char*4)
+        instrument identification for the trace for which the time pick corresponds (i.e. SP, BRB, VBB)
+    Cmp (char*4)
+        component identification for the trace for which the time pick corresponds (i.e. Z, N, E, H)
+    On (char*1)
+        description of P phase arrival onset; i, e
+    Pha (char*6)
+        Phase identification (i.e. P, S, PmP)
+    FM (char*1)
+        first motion direction of P arrival; c, C, u, U = compression; d, D = dilatation; +, -, Z, N; . or ? = not readable.
+    Date (yyyymmdd) (int*6)
+        year (with century), month, day
+    HrMn (hhmm) (int*4)
+        Hour, min
+    Sec (float*7.4)
+        seconds of phase arrival
+    Err (char*3)
+        Error/uncertainty type; GAU
+    ErrMag (expFloat*9.2)
+        Error/uncertainty magnitude in seconds
+    Coda (expFloat*9.2)
+        coda duration reading
+    Amp (expFloat*9.2)
+        Maxumim peak-to-peak amplitude
+    Per (expFloat*9.2)
+        Period of amplitude reading
+    PriorWt (expFloat*9.2)
+        A-priori phase weight
+    > (char*1)
+        Required separator between first part (observations) and second part (calculated values) of phase record.
+    TTpred (float*9.4)
+        Predicted travel time
+    Res (float*9.4)
+        Residual (observed - predicted arrival time)
+    Weight (float*9.4)
+        Phase weight (covariance matrix weight for LOCMETH GAU_ANALYTIC, posterior weight for LOCMETH EDT EDT_OT_WT)
+    StaLoc(X Y Z) (3 * float*9.4)
+        Non-GLOBAL: x, y, z location of station in transformed, rectangular coordinates
+        GLOBAL: longitude, latitude, z location of station
+    SDist (float*9.4)
+        Maximum likelihood hypocenter to station epicentral distance in kilometers
+    SAzim (float*6.2)
+        Maximum likelihood hypocenter to station epicentral azimuth in degrees CW from North
+    RAz (float*5.1)
+        Ray take-off azimuth at maximum likelihood hypocenter in degrees CW from North
+    RDip (float*5.1)
+        Ray take-off dip at maximum likelihood hypocenter in degrees upwards from vertical down (0 = down, 180 = up)
+    RQual (float*5.1)
+        Quality of take-off angle estimation (0 = unreliable, 10 = best)
+    Tcorr (float*9.4)
+        Time correction (station delay) used for location
+    TTerr (expFloat*9.2)
+        Traveltime error used for location
+    """
+    used_stations = set()
+    for line in lines:
+        line = line.split()
+        # check which type of phase
+        if line[4] == "P":
+            type = "P"
+        elif line[4] == "S":
+            type = "S"
+        else:
+            print("Encountered a phase that is not P and not S!! "
+                  "This case is not handled yet in reading NLLOC "
+                  "output...")
+            continue
+        # get values from line
+        station = line[0]
+        epidist = float(line[21])
+        azimuth = float(line[23])
+        ray_dip = float(line[24])
+        # if we do the location on traveltime-grids without angle-grids we
+        # do not get ray azimuth/incidence. but we can at least use the
+        # station to hypocenter azimuth which is very close (~2 deg) to the
+        # ray azimuth
+        if azimuth == 0.0 and ray_dip == 0.0:
+            azimuth = float(line[22])
+            ray_dip = np.nan
+        if line[3] == "I":
+            onset = "impulsive"
+        elif line[3] == "E":
+            onset = "emergent"
+        else:
+            onset = None
+        if line[5] == "U":
+            polarity = "positive"
+        elif line[5] == "D":
+            polarity = "negative"
+        else:
+            polarity = None
+        # predicted travel time is zero.
+        # seems to happen when no travel time cube is present for a
+        # provided station reading. show an error message and skip this
+        # arrival.
+        if float(line[15]) == 0.0:
+            msg = ("Predicted travel time for station '%s' is zero. "
+                   "Most likely the travel time cube is missing for "
+                   "this station! Skipping arrival for this station.")
+            print(msg % station)
+            continue
+        res = float(line[16])
+        weight = float(line[17])
+
+        # assign synthetic phase info
+        pick = [p for p in ev.picks if p.waveform_id.station_code == station
+                and p.phase_hint == type]
+        if len(pick) == 0:
+            msg = "This should not happen! Location output was read and a corresponding pick is missing!"
+            raise NotImplementedError(msg)
+        arrival = Arrival(pick_id=pick[0].resource_id.id)
+        o.arrivals.append(arrival)
+        # residual is defined as P-Psynth by NLLOC!
+        arrival.distance = kilometer2degrees(epidist)
+        arrival.phase = type
+        # arrival.time_residual = res
+        arrival.time_residual = res / 1000. # CJH descale time too (why 1000)??
+        arrival.azimuth = azimuth
+        if not np.isnan(ray_dip):
+            arrival.takeoff_angle = ray_dip
+        if onset and not pick.onset:
+            pick.onset = onset
+        if polarity and not pick.polarity:
+            pick.polarity = polarity
+        # we use weights 0,1,2,3 but NLLoc outputs floats...
+        arrival.time_weight = weight
+        o.quality.used_phase_count += 1
+        if type == "P":
+            o.quality.extra.usedPhaseCountP['value'] += 1
+        elif type == "S":
+            o.quality.extra.usedPhaseCountS['value'] += 1
+        else:
+            print("Phase '%s' not recognized as P or S. " % type +
+                  "Not incrementing P nor S phase count.")
+        used_stations.add(station)
+    o.used_station_count = len(used_stations)
+    update_origin_azimuthal_gap(ev)
+    print('Made it through location reading')
+    # read NLLOC scatter file
+    data = readNLLocScatter(infile.replace('hyp', 'scat'))
+    print('Read in scatter')
+    o.nonlinloc_scatter = data
+
+def getPickForArrival(picks, arrival):
+    """
+    searches list of picks for a pick that matches the arrivals pick_id
+    and returns it (empty Pick object otherwise).
+    """
+    pick = None
+    for p in picks:
+        if arrival.pick_id == p.resource_id:
+            pick = p
+            break
+    return pick
+
+def update_origin_azimuthal_gap(ev):
+    origin = ev.origins[0]
+    arrivals = origin.arrivals
+    picks = ev.picks
+    azims = {}
+    for a in arrivals:
+        p = getPickForArrival(picks, a)
+        if p is None:
+            msg = ("Could not find pick for arrival. Aborting calculation "
+                   "of azimuthal gap.")
+            print(msg)
+            return
+        netsta = ".".join([p.waveform_id.network_code, p.waveform_id.station_code])
+        azim = a.azimuth
+        if azim is None:
+            msg = ("Arrival's azimuth is 'None'. "
+                   "Calculated azimuthal gap might be wrong")
+            print(msg)
+        else:
+            azims.setdefault(netsta, []).append(azim)
+    azim_list = []
+    for netsta in azims:
+        tmp_list = azims.get(netsta, [])
+        if not tmp_list:
+            msg = ("No azimuth information for station %s. "
+                   "Aborting calculation of azimuthal gap.")
+            print(msg)
+            return
+        azim_list.append((np.median(tmp_list), netsta))
+    azim_list = sorted(azim_list)
+    azims = np.array([azim for azim, netsta in azim_list])
+    azims.sort()
+    # calculate azimuthal gap
+    gaps = azims - np.roll(azims, 1)
+    gaps[0] += 360.0
+    gap = gaps.max()
+    i_ = gaps.argmax()
+    if origin.quality is None:
+        origin.quality = OriginQuality()
+    origin.quality.azimuthal_gap = gap
+    # calculate secondary azimuthal gap
+    gaps = azims - np.roll(azims, 2)
+    gaps[0] += 360.0
+    gaps[1] += 360.0
+    gap = gaps.max()
+    origin.quality.secondary_azimuthal_gap = gap
+
+def getPick(event, network=None, station=None, phase_hint=None,
+            waveform_id=None, seed_string=None):
+    """
+    returns first matching pick, does NOT ensure there is only one!
+    if setdefault is True then if no pick is found an empty one is returned and inserted into self.picks.
+    """
+    picks = event.picks
+    for p in picks:
+        if network is not None and network != p.waveform_id.network_code:
+            continue
+        if station is not None and station != p.waveform_id.station_code:
+            continue
+        if phase_hint is not None and phase_hint != p.phase_hint:
+            continue
+        if waveform_id is not None and waveform_id != p.waveform_id:
+            continue
+        if seed_string is not None and seed_string != p.waveform_id.get_seed_string():
+            continue
+    return p
+
+def readNLLocScatter(scat_filename):
+    """
+    ****
+    Stolen from obspyck
+    ****
+
+    This function reads location and values of pdf scatter samples from the
+    specified NLLoc *.scat binary file (type "<f4", 4 header values, then 4
+    floats per sample: x, y, z, pdf value) and converts X/Y Gauss-Krueger
+    coordinates (zone 4, central meridian 12 deg) to Longitude/Latitude in
+    WGS84 reference ellipsoid.
+    Messages on stderr are written to specified GUI textview.
+    Returns an array of xy pairs.
+    """
+    # read data, omit the first 4 values (header information) and reshape
+    print('Reading scatter')
+    data = np.fromfile(scat_filename, dtype="<f4").astype("float")[4:]
+    # Explicit floor divide or float--> integer error
+    print('Reshaping')
+    data = data.reshape((data.shape[0] // 4, 4)).swapaxes(0, 1)
+    # data[0], data[1] = gk2lonlat(data[0], data[1])
+    print('Converting scatter coords')
+    data[0], data[1] = surf_xyz2latlon(data[0], data[1])
+    # Descale depth too and convert to m (* 100 / 1000 = * 10)
+    data[2] *= 10
+    return data.T
+
+
+def errorEllipsoid2CartesianErrors(azimuth1, dip1, len1, azimuth2, dip2, len2,
+                                   len3):
+    """
+    This method converts the location error of NLLoc given as the 3D error
+    ellipsoid (two azimuths, two dips and three axis lengths) to a cartesian
+    representation.
+    We calculate the cartesian representation of each of the ellipsoids three
+    eigenvectors and use the maximum of these vectors components on every axis.
+    """
+    z = len1 * np.sin(np.radians(dip1))
+    xy = len1 * np.cos(np.radians(dip1))
+    x = xy * np.sin(np.radians(azimuth1))
+    y = xy * np.cos(np.radians(azimuth1))
+    v1 = np.array([x, y, z])
+
+    z = len2 * np.sin(np.radians(dip2))
+    xy = len2 * np.cos(np.radians(dip2))
+    x = xy * np.sin(np.radians(azimuth2))
+    y = xy * np.cos(np.radians(azimuth2))
+    v2 = np.array([x, y, z])
+
+    v3 = np.cross(v1, v2)
+    v3 /= np.sqrt(np.dot(v3, v3))
+    v3 *= len3
+
+    v1 = np.abs(v1)
+    v2 = np.abs(v2)
+    v3 = np.abs(v3)
+
+    error_x = max([v1[0], v2[0], v3[0]])
+    error_y = max([v1[1], v2[1], v3[1]])
+    error_z = max([v1[2], v2[2], v3[2]])
+
+    return (error_x, error_y, error_z)
 
 
 def dd_time2EQ(catalog, nlloc_root, in_file):
