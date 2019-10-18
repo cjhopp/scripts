@@ -11,6 +11,7 @@ import chart_studio.plotly as py
 import plotly.graph_objs as go
 
 from itertools import cycle
+from datetime import datetime
 from scipy.linalg import lstsq
 
 # Local imports (assumed to be in python path)
@@ -97,10 +98,11 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
         except IndexError:
             print('No magnitude. Wont plot.')
             continue
+        t = o.time.datetime.timestamp()
         if (xlims[0] < ex < xlims[1]
             and ylims[0] < ey < ylims[1]
             and zlims[0] < ez < zlims[1]):
-            pt_list.append((ex, ey, ez, m,
+            pt_list.append((ex, ey, ez, m, t,
                             ev.resource_id.id.split('/')[-1]))
     # if len(pt_list) > 0:
     pt_lists.append(pt_list)
@@ -108,20 +110,33 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
     for i, lst in enumerate(pt_lists):
         if len(lst) == 0:
             continue
-        x, y, z, m, id = zip(*lst)
+        x, y, z, m, t, id = zip(*lst)
         # z = -np.array(z)
         clust_col = next(colors)
-        datas.append(go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
-                                  mode='markers',
-                                  name='Seismic event',
-                                  hoverinfo='text',
-                                  text=id,
-                                  marker=dict(color=clust_col,
-                                    size=(1.5 * np.array(m)) ** 2,
-                                    symbol='circle-open',
-                                    line=dict(color='gray',
-                                              width=1),
-                                    opacity=0.7)))
+        tickvals = np.linspace(min(t), max(t), 10)
+        ticktext = [datetime.fromtimestamp(t) for t in tickvals]
+        scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
+                                mode='markers',
+                                name='Seismic event',
+                                hoverinfo='text',
+                                text=id,
+                                marker=dict(color=t,
+                                  cmin=min(tickvals),
+                                  cmax=max(tickvals),
+                                  size=(1.5 * np.array(m)) ** 2,
+                                  symbol='circle',
+                                  line=dict(color=t,
+                                            width=1,
+                                            colorscale='Cividis'),
+                                  colorbar=dict(
+                                      title=dict(text='Timestamp',
+                                                 font=dict(size=18)),
+                                                x=-0.2,
+                                                ticktext=ticktext,
+                                                tickvals=tickvals),
+                                  colorscale='Cividis',
+                                  opacity=0.5))
+        datas.append(scat_obj)
         if surface == 'plane':
             if len(x) <= 2:
                 continue # Cluster just 1-2 events
@@ -189,6 +204,10 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
                                                           ]}]}])
     # Start figure
     fig = go.Figure(data=datas, layout=layout)
+    # trace = fig.data[-1]
+    # new_tick_text = [datetime.fromtimestamp(t) for t in
+    #                  trace.marker.colorbar.tickvals]
+    # trace.marker.colorbar.ticktext = new_tick_text
     if video and animation:
         zoom = 2
         frames = [dict(layout=dict(

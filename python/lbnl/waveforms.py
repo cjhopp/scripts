@@ -8,6 +8,7 @@ import numpy as np
 
 from glob import glob
 from obspy import read, Stream, Catalog
+from obspy.signal.cross_correlation import xcorr_pick_correction
 from surf_seis.vibbox import vibbox_preprocess
 
 
@@ -95,3 +96,33 @@ def find_largest_SURF(wav_dir, catalog, method='avg', sig=2):
                                  in big_eids])
     return big_ev_cat
 
+def plot_pick_corrections(ev2, st2, ev3, st3):
+    """
+    Hard coded wrapper on xcorr pick correction to be fixed on Monday 10-21
+    :param ev2:
+    :param st2:
+    :param ev3:
+    :param st3:
+    :return:
+    """
+    for pk2 in ev2.picks:
+        sta = pk2.waveform_id.station_code
+        chan = pk2.waveform_id.channel_code
+        tr2 = st2.select(station=sta, channel=chan)
+        tr3 = st3.select(station=sta, channel=chan)
+        pk3 = [pk for pk in ev3.picks
+               if pk.waveform_id.station_code == sta
+               and pk.waveform_id.channel_code == chan]
+        if len(pk3) > 0 and len(tr3) > 0:
+            try:
+                xcorr_pick_correction(pk2.time, tr2[0], pk3[0].time, tr3[0],
+                                      t_before=0.00003, t_after=0.00015,
+                                      cc_maxlag=0.0001, plot=True,
+                                      filter='bandpass',
+                                      filter_options={'corners': 5,
+                                                      'freqmax': 42000.,
+                                                      'freqmin': 2000.})
+            except Exception as e:
+                print(e)
+                continue
+    return
