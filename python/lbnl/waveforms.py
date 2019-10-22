@@ -3,6 +3,8 @@
 """
 Functions for reading/writing and processing waveform data
 """
+import itertools
+import os
 
 import numpy as np
 
@@ -96,33 +98,49 @@ def find_largest_SURF(wav_dir, catalog, method='avg', sig=2):
                                  in big_eids])
     return big_ev_cat
 
-def plot_pick_corrections(ev2, st2, ev3, st3):
+def plot_pick_corrections(catalog, stream_dir, plotdir):
     """
     Hard coded wrapper on xcorr pick correction to be fixed on Monday 10-21
-    :param ev2:
-    :param st2:
-    :param ev3:
-    :param st3:
+    :param catalog: Catalog of events to generate plots for
+    :param stream_dir: Path to directory of *raw.mseed files
+    :param plotdir: Path to root directory for plots
+
     :return:
     """
-    for pk2 in ev2.picks:
-        sta = pk2.waveform_id.station_code
-        chan = pk2.waveform_id.channel_code
-        tr2 = st2.select(station=sta, channel=chan)
-        tr3 = st3.select(station=sta, channel=chan)
-        pk3 = [pk for pk in ev3.picks
-               if pk.waveform_id.station_code == sta
-               and pk.waveform_id.channel_code == chan]
-        if len(pk3) > 0 and len(tr3) > 0:
+    for ev1, ev2 in itertools.combinations(catalog, r=2):
+        eid1 = ev1.resource_id.id.split('/')[-1]
+        eid2 = ev2.resource_id.id.split('/')[-1]
+        for pk1 in ev1.picks:
+            sta = pk1.waveform_id.station_code
+            chan = pk1.waveform_id.channel_code
+            stachandir = '{}/{}.{}'.format(plotdir, sta, chan)
+            if not os.path.isdir(stachandir):
+                os.mkdir(stachandir)
             try:
-                xcorr_pick_correction(pk2.time, tr2[0], pk3[0].time, tr3[0],
-                                      t_before=0.00003, t_after=0.00015,
-                                      cc_maxlag=0.0001, plot=True,
-                                      filter='bandpass',
-                                      filter_options={'corners': 5,
-                                                      'freqmax': 42000.,
-                                                      'freqmin': 2000.})
-            except Exception as e:
+                st1 = read('{}/{}_raw.mseed'.format(stream_dir, eid1))
+                st2 = read('{}/{}_raw.mseed'.format(stream_dir, eid2))
+            except FileNotFoundError as e:
                 print(e)
                 continue
+            tr1 = st1.select(station=sta, channel=chan)
+            tr2 = st2.select(station=sta, channel=chan)
+            pk2 = [pk for pk in ev2.picks
+                   if pk.waveform_id.station_code == sta
+                   and pk.waveform_id.channel_code == chan]
+            if len(pk2) > 0 and len(tr2) > 0:
+                try:
+                    xcorr_pick_correction(pk1.time, tr1[0], pk2[0].time, tr2[0],
+                                          t_before=0.00003, t_after=0.00015,
+                                          cc_maxlag=0.0001, plot=True,
+                                          filter='bandpass',
+                                          filter_options={'corners': 5,
+                                                          'freqmax': 42000.,
+                                                          'freqmin': 2000.},
+                                          filename='{}/{}.{}/{}_{}_{}.{}.pdf'.format(
+                                              plotdir, sta, chan, eid1, eid2,
+                                              sta, chan
+                                          ))
+                except Exception as e:
+                    print(e)
+                    continue
     return

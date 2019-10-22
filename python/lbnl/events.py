@@ -10,6 +10,7 @@ Arbitrary zero depth point is elev = 130 m
 """
 
 import os
+import shutil
 
 import numpy as np
 
@@ -131,6 +132,95 @@ def parse_picks(pick_file):
                 pick_dict[eid].append(pk)
     return pick_dict
 
+def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
+    """
+    Add polarities to the nlloc hyp files produced from Time2EQ. This is the
+    last part of the workflow which takes hypoDD locations, retraces the
+    raypaths with Time2EQ, relocates these with NLLoc and then repopulates
+    the PHASE lines in the .hyp file with the polarities picked in Obspyck
+    (this function). These are then fed into the Arnold focmec stuff.
+
+    :param catalog: Catalog with polarity picks to use
+    :param nlloc_dir: Path to the NLLoc loc/ directory with corresponding
+        location files for the catalog provided
+    :param outdir: Path to output directory for the .scat, .hdr and .hyp files
+        Usually this will be in an Arnold_Townend projects/ directory
+    :param hydrophones: Whether to include polarities measured on hydrophones.
+        Defaults to False as I'm not sure how to handle these yet.
+    :return:
+    """
+    for ev in catalog:
+        print('{}'.format(str(ev.resource_id).split('/')[-1]))
+        nlloc_fs = glob('{}/{}*'.format(
+            nlloc_dir,
+            str(ev.resource_id).split('/')[-1].split('_')[0]))
+        try:
+            hyp_path = [path for path in nlloc_fs
+                        if path.endswith('.hyp')
+                        and 'sum' not in path.split('.')][0]
+        except IndexError as msg:
+            print('No NLLoc location for this event. Probably low SNR?')
+            continue
+        print(hyp_path)
+        # Move hdr and scat files to outdir
+        scat_hdr = [path for path in nlloc_fs
+                    if (path.endswith('.hdr')
+                        or path.endswith('.scat'))
+                    and 'sum' not in path.split('.')]
+        for fl in scat_hdr:
+            shutil.copyfile(fl, '{}/{}'.format(outdir, fl.split('/')[-1]))
+        # Now edit the loc file and write it to outdir
+        with open(hyp_path, 'r') as orig:
+            with open('{}/{}'.format(outdir,
+                                     hyp_path.split('/')[-1]), 'w') as new:
+                phase = False
+                for ln in orig:
+                    line = ln.rstrip()
+                    line = line.split()
+                    if len(line) == 0:
+                        print('End of file')
+                        break
+                    # Write top of file as usual until we get to PHASE lines
+                    if line[0] == 'PHASE':
+                        phase = True
+                        new.write(' '.join(line) + '\n')
+                        continue
+                    elif line[0] == 'END_PHASE':
+                        phase = False
+                    if phase:
+                        # Skip all the S phases
+                        if line[4] == 'S':
+                            print('Ignore S phases')
+                            new.write(' '.join(line) + '\n')
+                            continue
+                        # If hydrophone == False, don't bother with those
+                        if not hydrophones and line[0] not in three_comps:
+                            new.write(' '.join(line) + '\n')
+                            continue
+                        # Try to find a corresponding polarity pick in catalog
+                        # Because P and S traced to all stations, we find only
+                        # phase lines corresponding to actual picks in the
+                        # catalog and populate the FM column. These will be the
+                        # only ones used by the Focal mech package anyways.
+                        print('Try adding for {}'.format(line[0]))
+                        try:
+                            pk = [pk for pk in ev.picks
+                                  if pk.waveform_id.station_code == line[0]
+                                  and line[4] == 'P'][0]
+                        except IndexError:
+                            print('No polarity pick for {}'.format(line[0]))
+                            new.write(' '.join(line) + '\n')
+                            continue
+                        if pk.polarity not in ['positive', 'negative']:
+                            print('No polarity for station {}'.format(line[0]))
+                            new.write(' '.join(line) + '\n')
+                            continue
+                        if pk.polarity == 'positive':
+                            line[5] = 'U'
+                        elif pk.polarity == 'negative':
+                            line[5] = 'D'
+                    new.write(' '.join(line) + '\n')
+    return
 
 def obspyck_from_local(inv_path, wav_dir, catalog):
     """
