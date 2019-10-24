@@ -3,10 +3,12 @@
 """
 Functions for reading/writing and processing waveform data
 """
-import itertools
 import os
+import scipy
+import itertools
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from glob import glob
 from obspy import read, Stream, Catalog
@@ -45,6 +47,7 @@ def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
         try:
             st = wav_dict[t_stamp]
         except KeyError as e:
+            print(t_stamp)
             print(e)
         # De-median the traces (in place)
         st = vibbox_preprocess(st)
@@ -129,18 +132,73 @@ def plot_pick_corrections(catalog, stream_dir, plotdir):
                    and pk.waveform_id.channel_code == chan]
             if len(pk2) > 0 and len(tr2) > 0:
                 try:
-                    xcorr_pick_correction(pk1.time, tr1[0], pk2[0].time, tr2[0],
-                                          t_before=0.00003, t_after=0.00015,
-                                          cc_maxlag=0.0001, plot=True,
-                                          filter='bandpass',
-                                          filter_options={'corners': 5,
-                                                          'freqmax': 42000.,
-                                                          'freqmin': 2000.},
-                                          filename='{}/{}.{}/{}_{}_{}.{}.pdf'.format(
-                                              plotdir, sta, chan, eid1, eid2,
-                                              sta, chan
-                                          ))
+                    xcorr_pick_correction(
+                        pk1.time, tr1[0], pk2[0].time, tr2[0],
+                        t_before=0.00003, t_after=0.00015,
+                        cc_maxlag=0.0001, plot=True,
+                        filter='bandpass',
+                        filter_options={'corners': 5,
+                                        'freqmax': 42000.,
+                                        'freqmin': 2000.},
+                        filename='{}/{}.{}/{}_{}_{}.{}.pdf'.format(
+                            plotdir, sta, chan, eid1, eid2,
+                            sta, chan))
                 except Exception as e:
                     print(e)
                     continue
     return
+
+def plot_raw_spectra(st, ev, inv=None, savefig=None):
+    """
+    Simple function to plot the displacement spectra of a trace
+    :param tr: obspy.core.trace.Trace
+    :param ev: obspy.core.event.Event
+    :param inv: Inventory if we want to remove response
+
+    :return:
+    """
+    fig, ax = plt.subplots()
+    eid = str(ev.resource_id).split('/')[-1]
+    for trace in st:
+        tr = trace.copy()
+        sta = tr.stats.station
+        chan = tr.stats.channel
+        if not chan.endswith(('1', 'Z')):
+            # Only use Z comps for now
+            continue
+        pick = [pk for pk in ev.picks
+                if pk.waveform_id.station_code == sta
+                and pk.waveform_id.channel_code == chan]
+        if len(pick) == 0:
+            continue
+        else:
+            pick = pick[0]
+        if inv:
+            pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
+                       'GEONET': [0.2, 1.1, 40., 49.]}
+            if sta.endswith('Z'):
+                prefilt = pf_dict['GEONET']
+            else:
+                prefilt = pf_dict['MERC']
+            tr.remove_response(inventory=inv, pre_filt=prefilt,
+                               water_level=20, output='DISP')
+        else:
+            print('No instrument response to remove. Raw spectrum only.')
+        tr.trim(starttime=pick.time - 0.005, endtime=pick.time + 0.02)
+        N = len(tr.data)
+        T = 1.0 / tr.stats.sampling_rate
+        xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
+        yf = scipy.fft(tr.data)
+        ax.loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]), label=sta)
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel('Displacement (m/Hz)')
+        ax.legend()
+        ax.set_title('{}: Displacement Spectra'.format(eid))
+    if savefig:
+        dir = '{}/{}'.format(savefig, eid)
+        if not os.path.isdir(dir):
+            os.mkdir(dir)
+        fig.savefig('{}/{}_spectra.png'.format(dir, eid))
+    else:
+        plt.show()
+    return ax

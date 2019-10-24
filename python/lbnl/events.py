@@ -82,6 +82,10 @@ def surf_events_to_cat(loc_file, pick_file):
                 'hmc_elev': {
                     'value': hmc_elev,
                     'namespace': 'smi:local/hmc'
+                },
+                'hmc_eid': {
+                    'value': eid,
+                    'namespace': 'smi:local/hmc'
                 }
             })
             o.extra = extra

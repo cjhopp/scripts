@@ -29,7 +29,7 @@ from itertools import cycle
 from subprocess import Popen, PIPE
 from matplotlib import patches, transforms
 from mplstereonet import StereonetAxes
-from shelly_focmecs import cluster_to_consensus
+from workflow.shelly_focmecs import cluster_to_consensus
 from obspy import read, Catalog, UTCDateTime
 from scipy.signal import argrelmax, argrelmin
 from scipy.stats import circmean, circstd
@@ -575,7 +575,8 @@ def plot_fracs(well, label=True, cardinal_dirs=True, depth_interval=None,
 
 def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                          id_type='detection', dd=True, date_range=[],
-                         color_by_date=True, field=None, pscoupe=False):
+                         color_by_date=True, field=None, pscoupe=False,
+                         hmc_coords=False):
     """
     Take *_sdr.dat output file from Arnold FM software
     add magnitudes, and output to psmeca format
@@ -590,6 +591,7 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
     :param field: If coloring, specify which field is being plotted
     :param pscoupe: Flag to trigger hacky workaround for coloring beachballs
         in cross-sections projected with pscoupe.
+    :param hmc_coords: Plot hmc coordinates
     :return:
     """
     # If len 0 catalog, warn and write empty file for gmt-plotting loop
@@ -643,7 +645,8 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                         print('No mags for event: {}'.format(ev.resource_id))
                         print(ev)
                         continue
-                    o = ev.preferred_origin()
+                    o = ev.preferred_origin() or ev.origins[-1]
+                    m = ev.preferred_magnitude() or ev.magnitudes[-1]
                     if dd and not o.method_id.id.split('/')[-1] == 'GrowClust':
                         continue
                     if names:
@@ -655,21 +658,23 @@ def format_arnold_to_gmt(arnold_file, catalog, outfile, names=False,
                                   / 86400.)
                         of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
                             o.longitude, o.latitude, o.depth / 1000.,
-                            line[1], line[2], line[3],
-                            ev.preferred_magnitude().mag, day))
+                            line[1], line[2], line[3], m.mag, day))
                     elif color_by_date and not pscoupe:
                         day = int((o.time.datetime - date0).total_seconds()
                                   / 86400.)
                         of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
                             o.longitude, o.latitude, day,
-                            line[1], line[2], line[3],
-                            ev.preferred_magnitude().mag, name))
-
+                            line[1], line[2], line[3], m.mag, name))
+                    elif hmc_coords:
+                        x = float(o.extra.hmc_east.value)
+                        y = float(o.extra.hmc_north.value)
+                        z = float(o.extra.hmc_elev.value)
+                        of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
+                            x, y, z, line[1], line[2], line[3], m.mag, name))
                     else:
                         of.write('{} {} {} {} {} {} {} 0 0 {}\n'.format(
                             o.longitude, o.latitude, o.depth / 1000., line[1],
-                            line[2], line[3], ev.preferred_magnitude().mag,
-                            name))
+                            line[2], line[3], m.mag, name))
     return
 
 

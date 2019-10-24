@@ -3,6 +3,10 @@
 """
 Utilities for handling various formats of borehole trajectory/orientation files
 """
+import numpy as np
+import seaborn as sns
+
+from itertools import cycle
 
 def parse_surf_boreholes(file_path):
     """
@@ -26,3 +30,17 @@ def parse_surf_boreholes(file_path):
             else:
                 well_dict[name] = [(xm, ym, zm)]
     return well_dict
+
+def wells_4850_to_gmt(outfile):
+    colors = cycle(sns.color_palette())
+    well_file = '/media/chet/data/chet-collab/boreholes/surf_4850_wells.csv'
+    wells = parse_surf_boreholes(well_file)
+    with open(outfile, 'w') as f:
+        for key, pts in wells.items():
+            col = np.array(next(colors))
+            col *= 255
+            col_str = '{}/{}/{}'.format(int(col[0]), int(col[1]), int(col[2]))
+            f.write('>-W1.0,{} -L{}\n'.format(col_str, key))
+            for pt in pts:
+                f.write('{} {}\n'.format(pt[0], pt[1]))
+    return

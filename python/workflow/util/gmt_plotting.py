@@ -3,7 +3,7 @@
 """
 Functions to replace gmt shell scripts
 """
-import gmt
+import pygmt
 import os
 import numpy as np
 import matplotlib
@@ -13,11 +13,12 @@ import seaborn as sns
 from glob import glob
 from subprocess import call
 from obspy import UTCDateTime, Catalog
-from focal_mecs import format_arnold_to_gmt
-from gmt.clib import LibGMT
+from workflow.focal_mecs import format_arnold_to_gmt
+from lbnl.boreholes import parse_surf_boreholes
+from pygmt.clib import LibGMT
 from itertools import cycle
-from gmt.base_plotting import BasePlotting
-from gmt.utils import build_arg_string, dummy_context, data_kind
+from pygmt.base_plotting import BasePlotting
+from pygmt.utils import build_arg_string, dummy_context, data_kind
 
 
 def date_generator(start_date, end_date):
@@ -481,7 +482,6 @@ def plot_fm_map(catalog, fm_file, color, old_cat=False):
             lib.call_module('psmeca', arg_str)
     return
 
-
 def plot_fm_depth(catalog, center_pt, end_pt, region,
                   scale, Y, B_list, fig, old_cat):
     if old_cat:
@@ -521,6 +521,39 @@ def plot_fm_depth(catalog, center_pt, end_pt, region,
                 arg_str = ' '.join([fname, build_arg_string(args)])
                 lib.call_module('psmeca', arg_str)
         fig.basemap(B=B_list)
+    return
+
+def plot_4850_wells(fig):
+    well_file = '/media/chet/data/chet-collab/boreholes/surf_4850_wells.csv'
+    wells = parse_surf_boreholes(well_file)
+    for i, (key, pts) in enumerate(wells.items()):
+        x, y, z = zip(*pts)
+        fig.plot(x=x, y=y, W='1.0,black,-')
+    return
+
+def plot_SURF_4850L(catalog, wells=True, stations=True, FMs=False):
+    """
+    Plot wells and events for 4850L
+    :return:
+    """
+    region = [780, 860, -1350, -1270]
+    with LibGMT() as lib:
+        lib.call_module('gmtset', 'FONT_ANNOT_PRIMARY 10p')
+        lib.call_module('gmtset', 'FORMAT_GEO_MAP ddd.xx')
+        lib.call_module('gmtset', 'MAP_FRAME_TYPE plain')
+        lib.call_module('gmtset', 'PS_MEDIA A3')
+    # Set up figure
+    fig = pygmt.Figure()
+    if wells:
+        plot_4850_wells(fig)
+    if FMs:
+        plot_fm_map(catalog, FMs, color='b')
+    else:
+        x, y, z = zip(*[(float(ev.origins[-1].extra.hmc_east.value),
+                         float(ev.origins[-1].extra.hmc_north.value),
+                         float(ev.origins[-1].extra.hmc_elev.value))
+                        for ev in catalog])
+        fig.plot(x=np.array(x), y=np.array(y), size=1.0, style='cc')
     return
 
 def plot_Nga_static(cat, start_pt=None, end_pt=None, secs=[], mags=[],
