@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from obspy import UTCDateTime
+from matplotlib.collections import LineCollection
 
 # 6x6 calibration matrix for SIMFIP
 mA1 = np.array([0.021747883, -0.142064305, 0.120457028, 0.120410153,
@@ -44,12 +45,10 @@ def raw_simfip_correction(files, angles, clamps=False):
     df = read_simfip(files)
     FM_df = wings_2_FM(df)
     UTheta = FM_2_UTheta(FM_df)
-    U = rotate_UTheta(UTheta, df=df, angles=angles)
+    df = rotate_UTheta(UTheta, df=df, angles=angles)
     if clamps:
-        Uc = remove_clamps(U, df, angles)
-        return Uc
-    else:
-        return U
+        df = remove_clamps(df, angles)
+    return df
 
 def read_simfip(files):
     """
@@ -128,7 +127,7 @@ def rotate_UTheta(ut_df, df, angles):
     df['Z'] = U[2]
     return df
 
-def remove_clamps(U, df, angles):
+def remove_clamps(df, angles):
     """
     Remove clamp pressure response from displacements
     :param U: ndarray of rows x, y, z in borehole coordinates
@@ -146,15 +145,15 @@ def remove_clamps(U, df, angles):
     R = make_rotation_mat(angles)
     # Rotate 'em
     U_correction = R.dot(clamp_correct)
-    Uc = pd.DataFrame((U - U_correction).T)
-    Uc = Uc.set_index(df.index)
-    Uc['Pc'] = df['Pz1']
-    return Uc
+    df['Xc'] = df['X'] - U_correction[0]
+    df['Yc'] = df['Y'] - U_correction[1]
+    df['Zc'] = df['Z'] - U_correction[2]
+    return df
 
 ################### Plotting functions below here #######################
 
-def plot_raw_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
-                      endtime=UTCDateTime(2018, 5, 22, 18)):
+def plot_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
+                  endtime=UTCDateTime(2018, 5, 22, 18), corrected=True):
     """
     Three-panel plot with flow on top, packer/interval pressures in middle
     and xyz on bottom
@@ -163,8 +162,14 @@ def plot_raw_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
         columns from rotate_UTheta()
     :param starttime: Start time of the plot
     :param endtime: End time of the plot
+    :param corrected: Plot the clamp-removed, rotated streams
+
     :return:
     """
+    if corrected:
+        heads = ('Xc', 'Yc', 'Zc')
+    else:
+        heads = ('X', 'Y', 'Z')
     date_formatter = mdates.DateFormatter('%H:%M')
     df = df[starttime.datetime:endtime.datetime]
     fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
@@ -173,9 +178,9 @@ def plot_raw_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
     axes[1].plot(df['Pz1'], label='Interval P')
     axes[1].plot(df['Tb2'], label='Upper Packer P') # Header wrong
     axes[1].plot(df['Pb2'], label='Bottom Packer P') # Header wrong
-    axes[2].plot(df['X'] - df['X'][0], label='X-Yates')
-    axes[2].plot(df['Y'] - df['Y'][0], label='Y-Top')
-    axes[2].plot(df['Z'] - df['Z'][0], label='Z')
+    axes[2].plot(df[heads[0]] - df[heads[0]][0], label='X-Yates')
+    axes[2].plot(df[heads[1]] - df[heads[1]][0], label='Y-Top')
+    axes[2].plot(df[heads[2]] - df[heads[2]][0], label='Z')
     axes[0].set_ylabel('Flow (mL/min)', fontsize=16)
     axes[1].set_ylabel('Pressure (psi)', fontsize=16)
     axes[2].set_ylabel('Displacement (microns)', fontsize=16)
@@ -193,27 +198,41 @@ def plot_raw_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
 
 def plot_displacement_components(df, starttime=UTCDateTime(2018, 5, 22, 11, 24),
                                  endtime=UTCDateTime(2018, 5, 22, 12, 36),
-                                 plot_clamp_curves=False):
+                                 rotated=True, plot_clamp_curves=False,
+                                 remove_clamps=True):
     """
     Plot X, Y and Z on separate axes and compare to clamp effects if desired
 
     :param df: dataframe with X, Y, Z colums appended
+    :param starttime: Plot start time
+    :param endtime: Plot end time
     :param plot_clamp_curves: Whether to plot Yves clamping curves or not
+    :param remove_clamps: 'High' or "Low' clamp curve to subtract
+
     :return:
     """
     # Set out date formatter
     date_formatter = mdates.DateFormatter('%H:%M')
     df = df[starttime.datetime:endtime.datetime]
     fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+    if rotated and not remove_clamps:
+        headers = ('Xc', 'Yc', 'Zc')
+    elif rotated:
+        headers = ('X', 'Y', 'Z')
+    else:
+        headers = ('ux', 'uy', 'uz')
     # Plot measurements first
-    axes[0].plot(df['ux'] - df['ux'][0], label='Ux measurement',
+    axes[0].plot(df[headers[0]] - df[headers[0]][0],
+                 label='{} measurement'.format(headers[0]),
                  color='steelblue', linewidth=1.5)
-    axes[1].plot(df['uy'] - df['uy'][0], label='Uy measurement', color='orange',
+    axes[1].plot(df[headers[1]] - df[headers[1]][0],
+                 label='{} measurement'.format(headers[1]), color='orange',
                  linewidth=1.5)
-    axes[2].plot(df['uz'] - df['uz'][0], label='Uz measurement', color='green',
+    axes[2].plot(df[headers[2]] - df[headers[2]][0],
+                 label='{} measurement'.format(headers[2]), color='green',
                  linewidth=1.5)
     # If plotting possible clamp effects
-    if plot_clamp_curves:
+    if plot_clamp_curves and not remove_clamps and not rotated:
         axes[0].plot(-0.00028805 + (-7.8e-6 * df['Pz1'] / 300.),
                      color='steelblue', alpha=0.3,
                      label='Ux clamp low')
@@ -232,11 +251,24 @@ def plot_displacement_components(df, starttime=UTCDateTime(2018, 5, 22, 11, 24),
         axes[2].plot(0.000027204 + (-6.01e-6 * df['Pz1'] / 300.),
                      color='green', alpha=0.5,
                      label='Uz clamp high')
+    elif remove_clamps:
+        axes[0].plot(df[headers[0]] - df[headers[0]][0] - (-17.2e-6 * df['Pz1']
+                                                           / 300.),
+                     color='steelblue', alpha=0.7,
+                     label='{} - clamp'.format(headers[0]))
+        axes[1].plot(df[headers[1]] - df[headers[1]][0] - (23.e-6 * df['Pz1']
+                                                           / 300.),
+                     color='orange', alpha=0.7,
+                     label='{} - clamp'.format(headers[1]))
+        axes[2].plot(df[headers[2]] - df[headers[2]][0] - (-6.01e-6 * df['Pz1']
+                                                           / 300.),
+                     color='green', alpha=0.7,
+                     label='{} - clamp'.format(headers[2]))
     # Format it up
     # axes[0].set_ylabel('Flow (mL/min)', fontsize=16)
     axes[1].set_ylabel('Displacement (microns)', fontsize=20)
     # axes[2].set_ylabel('Displacement (microns)', fontsize=16)
-    axes[2].set_xlabel('Date', fontsize=16)
+    axes[2].set_xlabel('Time', fontsize=16)
     axes[0].legend(fontsize=12, loc=1)
     axes[1].legend(fontsize=12, loc=1)
     axes[2].legend(fontsize=12, loc=1)
@@ -245,6 +277,43 @@ def plot_displacement_components(df, starttime=UTCDateTime(2018, 5, 22, 11, 24),
     tstamp = df.index[0]
     axes[0].set_title('{}-{}-{}'.format(tstamp.year, tstamp.month, tstamp.day),
                       fontsize=22)
+    return
+
+
+def plot_displacement_pressure(df, starttime, endtime):
+    """
+    Plot pressure, and displacement vs pressure
+    :param df: DataFrame containing corrected displacements
+    :param starttime: Starttime of the plot
+    :param endtime: Endtime of the plot
+    :return:
+    """
+    fig = plt.figure(figsize=(12, 12))
+    ax_P = fig.add_subplot(221)
+    ax_X = fig.add_subplot(222)
+    ax_Y = fig.add_subplot(223, sharex=ax_X, sharey=ax_X)
+    ax_Z = fig.add_subplot(224, sharex=ax_X, sharey=ax_X)
+    # Filter for time
+    df = df[starttime.datetime:endtime.datetime]
+    # Make date array
+    mpl_times = mdates.date2num(df.index.to_pydatetime())
+    # Make color array
+    norm = plt.Normalize(mpl_times.min(), mpl_times.max())
+    # Plot the pressure with continuous color
+    # (Discrete colormap would require user input)
+    points = np.array([mpl_times, df['Pz1']]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap='viridis', norm=norm)
+    lc.set_array(mpl_times)
+    lc.set_linewidth(2.)
+    line = ax_P.add_collection(lc)
+    ax_P.set_xlim([mpl_times.min(), mpl_times.max()])
+    ax_P.set_ylim([df['Pz1'].min(), df['Pz1'].max()])
+    cbar = fig.colorbar(line, ax=ax_P)
+    # Change ticks
+    cbar.ax.yaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    # Axis formatting
+    ax_P.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     return
 
 
