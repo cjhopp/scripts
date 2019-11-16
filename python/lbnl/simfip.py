@@ -288,7 +288,7 @@ def plot_displacement_pressure(df, starttime, endtime):
     :param endtime: Endtime of the plot
     :return:
     """
-    fig = plt.figure(figsize=(12, 12))
+    fig = plt.figure(figsize=(9, 8))
     ax_P = fig.add_subplot(221)
     ax_X = fig.add_subplot(222)
     ax_Y = fig.add_subplot(223, sharex=ax_X, sharey=ax_X)
@@ -303,17 +303,64 @@ def plot_displacement_pressure(df, starttime, endtime):
     # (Discrete colormap would require user input)
     points = np.array([mpl_times, df['Pz1']]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-    lc = LineCollection(segments, cmap='viridis', norm=norm)
+    lc = LineCollection(segments, cmap='cividis', norm=norm)
     lc.set_array(mpl_times)
-    lc.set_linewidth(2.)
+    lc.set_linewidth(1.)
     line = ax_P.add_collection(lc)
+    ## Now X displacement
+    pts_X = np.array([df['Pz1'], df['Xc'] - df['Xc'][0]]).T.reshape(-1, 1, 2)
+    segs_X = np.concatenate([pts_X[:-1], pts_X[1:]], axis=1)
+    lc_X = LineCollection(segs_X, cmap='cividis', norm=norm)
+    line_X = ax_X.add_collection(lc_X)
+    lc_X.set_array(mpl_times)
+    lc_X.set_linewidth(1.)
+    ## Now Y displacement
+    pts_Y = np.array([df['Pz1'], df['Yc'] - df['Yc'][0]]).T.reshape(-1, 1, 2)
+    segs_Y = np.concatenate([pts_Y[:-1], pts_Y[1:]], axis=1)
+    lc_Y = LineCollection(segs_Y, cmap='cividis', norm=norm)
+    line_Y = ax_Y.add_collection(lc_Y)
+    lc_Y.set_array(mpl_times)
+    lc_Y.set_linewidth(1.)
+    ## Now Z displacement
+    pts_Z = np.array([df['Pz1'], df['Zc'] - df['Zc'][0]]).T.reshape(-1, 1, 2)
+    segs_Z = np.concatenate([pts_Z[:-1], pts_Z[1:]], axis=1)
+    lc_Z = LineCollection(segs_Z, cmap='cividis', norm=norm)
+    line_Z = ax_Z.add_collection(lc_Z)
+    lc_Z.set_array(mpl_times)
+    lc_Z.set_linewidth(1.)
+    ## Formatting
+    # ax_P
+    ax_P.set_title('Pressure')
+    ax_P.set_xlabel('Time')
+    ax_P.set_ylabel('Pressure (psi)')
     ax_P.set_xlim([mpl_times.min(), mpl_times.max()])
     ax_P.set_ylim([df['Pz1'].min(), df['Pz1'].max()])
-    cbar = fig.colorbar(line, ax=ax_P)
-    # Change ticks
-    cbar.ax.yaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    # ax_X
+    ax_X.set_title('Yates (X)')
+    data = df['Xc'] - df['Xc'][0]
+    ax_X.set_xlim([df['Pz1'].min(), df['Pz1'].max()])
+    ax_X.set_ylim([data.min(), data.max()])
+    plt.setp(ax_X.get_xticklabels(), visible=False)
+    ax_X.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
+    ax_X.set_ylabel('Displacement (m)')
+    # ax_Y
+    ax_Y.set_title('Top (Y)')
+    ax_Y.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
+    ax_Y.set_ylabel('Displacement (m)')
+    ax_Y.set_xlabel('Pressure (psi)')
+    # ax_Z
+    ax_Z.set_title('Borehole axis (Z)')
+    plt.setp(ax_Z.get_yticklabels(), visible=False)
+    ax_Z.set_xlabel('Pressure (psi)')
     # Axis formatting
     ax_P.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    plt.subplots_adjust(bottom=0.1, right=0.85, top=0.9,
+                        wspace=0.25, hspace=0.25)
+    # Make colorbar
+    cax = plt.axes([0.87, 0.1, 0.04, 0.8])
+    cbar = fig.colorbar(line, cax=cax)
+    # Change colorbar ticks
+    cbar.ax.yaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     return
 
 
