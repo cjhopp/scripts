@@ -364,45 +364,36 @@ def plot_displacement_pressure(df, starttime, endtime):
     return
 
 
-def plot_displacements(Uc, starttime=None, endtime=None, decimation=1000):
+def plot_displacement_planes(df, starttime, endtime):
     """
-    # TODO Needs review and change to use df with everything and correct cols
-    Plot all three displacement components with interval pressure
+    Plot 3D displacement on 3, 2D planes colored by time
 
-    :param Uc: dataframe??
-    :param starttime: Start time of plot
-    :param endtime: End time of plot
-    :param decimation: Decimation so plots are drawn more quickly
+    :param df: DataFrame with corrected displacements under headers Xc Yc Zc
+    :param starttime: Time at start of plot
+    :param endtime: Time at end of plot
+
     :return:
     """
-    # Filter by dates
-    if starttime and endtime:
-        filt_Uc = Uc[starttime:endtime]
-    else:
-        filt_Uc = Uc
-    # Grab raw datetime array
-    dtos = filt_Uc.index.to_pydatetime()[::decimation]
-    # X, Y, Z as seperate arrays
-    X = filt_Uc[0].values[::decimation]
-    Y = filt_Uc[1].values[::decimation]
-    Z = filt_Uc[2].values[::decimation]
-    P = filt_Uc['Pc'].values[::decimation] * 0.00689476 # to MPa (real unit)
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.plot(dtos, X - X[0], color='b', label='Ux (Yates)')
-    ax.plot(dtos, Y - Y[0], color='r', label='Uy')
-    ax.plot(dtos, (Z - Z[0]) * 10, color='g', label='Uz*10')
-    hands, labs = ax.get_legend_handles_labels()
-    ax2 = ax.twinx()
-    ax2.plot(dtos, P, color='gray', label='Chamber P')
-    hands2, labs2 = ax2.get_legend_handles_labels()
-    labs.extend(labs2)
-    hands.extend(hands2)
-    ax.set_ylabel('Displacement (m?)', fontsize=16)
-    ax2.set_ylabel('MPa', fontsize=16)
-    ax.set_title('Corrected displacements with pressure', fontsize=20)
-    plt.legend(handles=hands, labels=labs, loc=2)
-    fig.autofmt_xdate()
-    ax.set_xlabel('Date', fontsize=16)
-    plt.tight_layout()
-    plt.show()
-    return ax
+    # Will use same layout as P-D plot above, including reference pressure
+    # plot in top left
+    fig = plt.figure(figsize=(9, 8))
+    ax_P = fig.add_subplot(221)
+    ax_XY = fig.add_subplot(222)
+    ax_ZX = fig.add_subplot(223, sharex=ax_X, sharey=ax_X)
+    ax_ZY = fig.add_subplot(224, sharex=ax_X, sharey=ax_X)
+    # Filter for time
+    df = df[starttime.datetime:endtime.datetime]
+    # Make date array
+    mpl_times = mdates.date2num(df.index.to_pydatetime())
+    # Make color array
+    norm = plt.Normalize(mpl_times.min(), mpl_times.max())
+    # Plot the pressure with continuous color
+    # (Discrete colormap would require user input)
+    points = np.array([mpl_times, df['Pz1']]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap='cividis', norm=norm)
+    lc.set_array(mpl_times)
+    lc.set_linewidth(1.)
+    line = ax_P.add_collection(lc)
+
+    return
