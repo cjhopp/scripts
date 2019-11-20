@@ -1,12 +1,16 @@
 #!/usr/bin/python
 
 """SIMFIP I/O and analysis functions"""
+import plotly
 
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import colorlover as cl
+import chart_studio.plotly as py
+import plotly.graph_objs as go
 
 from obspy import UTCDateTime
 from matplotlib.collections import LineCollection
@@ -30,7 +34,7 @@ CO1 = np.array([0.001196667, 0, 3.375e-07, 0, 0.0023775, 0, 0, 0.001197333, 0,
                 0, -0.000139802, 0, 0.02293582]).reshape((6, 6))
 
 
-def raw_simfip_correction(files, angles, clamps=False):
+def raw_simfip_correction(files, angles, clamps=False, resample='S'):
     """
     Take a list of files and covert to displacement in the borehole coordinate
     system.
@@ -39,7 +43,8 @@ def raw_simfip_correction(files, angles, clamps=False):
     :param angles: Tuple of the angles (in radians) for rotation around
         the (X, Y, Z) axes
     :param clamps: Whether to remove clamp response or not
-
+    :param resample: Resample string passed to pandas resample().
+        Defaults to 'S'.
     :return: pandas DataFrame with three columns; one for each axis X, Y, Z
     """
     df = read_simfip(files)
@@ -48,7 +53,7 @@ def raw_simfip_correction(files, angles, clamps=False):
     df = rotate_UTheta(UTheta, df=df, angles=angles)
     if clamps:
         df = remove_clamps(df, angles)
-    return df
+    return df.resample('S').mean()
 
 def read_simfip(files):
     """
@@ -283,6 +288,9 @@ def plot_displacement_components(df, starttime=UTCDateTime(2018, 5, 22, 11, 24),
 def plot_displacement_pressure(df, starttime, endtime):
     """
     Plot pressure, and displacement vs pressure
+
+    TODO THIS THING AND THE FOLLOWING FUNC ARE NEARLY IDENTICAL. MERGE THEM.
+
     :param df: DataFrame containing corrected displacements
     :param starttime: Starttime of the plot
     :param endtime: Endtime of the plot
@@ -364,45 +372,133 @@ def plot_displacement_pressure(df, starttime, endtime):
     return
 
 
-def plot_displacements(Uc, starttime=None, endtime=None, decimation=1000):
+def plot_displacement_planes(df, starttime=UTCDateTime(2018, 5, 22, 11, 55),
+                             endtime=UTCDateTime(2018, 5, 22, 12, 30)):
     """
-    # TODO Needs review and change to use df with everything and correct cols
-    Plot all three displacement components with interval pressure
+    Plot 3D displacement on 3, 2D planes colored by time
 
-    :param Uc: dataframe??
-    :param starttime: Start time of plot
-    :param endtime: End time of plot
-    :param decimation: Decimation so plots are drawn more quickly
+    :param df: DataFrame with corrected displacements under headers Xc Yc Zc
+    :param starttime: Time at start of plot
+    :param endtime: Time at end of plot
+
     :return:
     """
-    # Filter by dates
-    if starttime and endtime:
-        filt_Uc = Uc[starttime:endtime]
-    else:
-        filt_Uc = Uc
-    # Grab raw datetime array
-    dtos = filt_Uc.index.to_pydatetime()[::decimation]
-    # X, Y, Z as seperate arrays
-    X = filt_Uc[0].values[::decimation]
-    Y = filt_Uc[1].values[::decimation]
-    Z = filt_Uc[2].values[::decimation]
-    P = filt_Uc['Pc'].values[::decimation] * 0.00689476 # to MPa (real unit)
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.plot(dtos, X - X[0], color='b', label='Ux (Yates)')
-    ax.plot(dtos, Y - Y[0], color='r', label='Uy')
-    ax.plot(dtos, (Z - Z[0]) * 10, color='g', label='Uz*10')
-    hands, labs = ax.get_legend_handles_labels()
-    ax2 = ax.twinx()
-    ax2.plot(dtos, P, color='gray', label='Chamber P')
-    hands2, labs2 = ax2.get_legend_handles_labels()
-    labs.extend(labs2)
-    hands.extend(hands2)
-    ax.set_ylabel('Displacement (m?)', fontsize=16)
-    ax2.set_ylabel('MPa', fontsize=16)
-    ax.set_title('Corrected displacements with pressure', fontsize=20)
-    plt.legend(handles=hands, labels=labs, loc=2)
-    fig.autofmt_xdate()
-    ax.set_xlabel('Date', fontsize=16)
-    plt.tight_layout()
-    plt.show()
-    return ax
+    # Will use same layout as P-D plot above, including reference pressure
+    # plot in top left
+    fig = plt.figure(figsize=(9, 8))
+    ax_P = fig.add_subplot(221)
+    ax_XY = fig.add_subplot(222)
+    ax_ZX = fig.add_subplot(223, sharex=ax_XY, sharey=ax_XY)
+    ax_ZY = fig.add_subplot(224, sharex=ax_XY, sharey=ax_XY)
+    # Filter for time
+    df = df[starttime.datetime:endtime.datetime]
+    # Make date array
+    mpl_times = mdates.date2num(df.index.to_pydatetime())
+    # Make color array
+    norm = plt.Normalize(mpl_times.min(), mpl_times.max())
+    # Plot the pressure with continuous color
+    # (Discrete colormap would require user input)
+    points = np.array([mpl_times, df['Pz1']]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap='cividis', norm=norm)
+    lc.set_array(mpl_times)
+    lc.set_linewidth(2.)
+    line = ax_P.add_collection(lc)
+    # Yates-Top plane
+    pts_XY = np.array([df['Xc'] - df['Xc'][0],
+                      df['Yc'] - df['Yc'][0]]).T.reshape(-1, 1, 2)
+    segs_XY = np.concatenate([pts_XY[:-1], pts_XY[1:]], axis=1)
+    lc_XY = LineCollection(segs_XY, cmap='cividis', norm=norm)
+    line_XY = ax_XY.add_collection(lc_XY)
+    lc_XY.set_array(mpl_times)
+    lc_XY.set_linewidth(2.)
+    ## Now Y displacement
+    pts_ZX = np.array([df['Xc'] - df['Xc'][0],
+                       df['Zc'] - df['Zc'][0]]).T.reshape(-1, 1, 2)
+    segs_ZX = np.concatenate([pts_ZX[:-1], pts_ZX[1:]], axis=1)
+    lc_ZX = LineCollection(segs_ZX, cmap='cividis', norm=norm)
+    line_ZX = ax_ZX.add_collection(lc_ZX)
+    lc_ZX.set_array(mpl_times)
+    lc_ZX.set_linewidth(2.)
+    ## Now Z displacement
+    pts_ZY = np.array([df['Zc'] - df['Zc'][0],
+                       df['Yc'] - df['Yc'][0]]).T.reshape(-1, 1, 2)
+    segs_ZY = np.concatenate([pts_ZY[:-1], pts_ZY[1:]], axis=1)
+    lc_ZY = LineCollection(segs_ZY, cmap='cividis', norm=norm)
+    line_ZY = ax_ZY.add_collection(lc_ZY)
+    lc_ZY.set_array(mpl_times)
+    lc_ZY.set_linewidth(2.)
+    ## Formatting
+    # ax_P
+    ax_P.set_title('Pressure')
+    ax_P.set_xlabel('Time')
+    ax_P.set_ylabel('Pressure (psi)')
+    ax_P.set_xlim([mpl_times.min(), mpl_times.max()])
+    ax_P.set_ylim([df['Pz1'].min(), df['Pz1'].max()])
+    # ax_X
+    ax_XY.set_title('Yates-Up plane')
+    datz = df['Xc'] - df['Xc'][0]
+    ax_XY.set_xlim([-datz.max(), datz.max()])
+    ax_XY.set_ylim([-datz.max(), datz.max()])
+    plt.setp(ax_XY.get_xticklabels(), visible=False)
+    ax_XY.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
+    ax_XY.set_ylabel('Displacement (m)')
+    # ax_Y
+    ax_ZX.set_title('Yates-Z plane')
+    ax_ZX.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))
+    ax_ZX.set_ylabel('Displacement (m)')
+    ax_ZX.set_xlabel('Displacement (m)')
+    # ax_Z
+    ax_ZY.set_title('Z-Up plane')
+    plt.setp(ax_ZY.get_yticklabels(), visible=False)
+    ax_ZY.set_xlabel('Displacement (m)')
+    # Axis formatting
+    ax_P.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    plt.subplots_adjust(bottom=0.1, right=0.85, top=0.9,
+                        wspace=0.25, hspace=0.25)
+    # Make colorbar
+    cax = plt.axes([0.87, 0.1, 0.04, 0.8])
+    cbar = fig.colorbar(line, cax=cax)
+    # Change colorbar ticks
+    cbar.ax.yaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+    return
+
+
+def plot_3D_displacement(df, starttime=UTCDateTime(2018, 5, 22, 11, 55),
+                         endtime=UTCDateTime(2018, 5, 22, 12, 30),
+                         outfile='SIMFIP_test'):
+    """
+    Make a plotly figure of 3D SIMFIP displacement
+
+    :param df: DataFrame with corrected displacements under headers Xc Yc Zc
+    :param starttime: Time at start of plot
+    :param endtime: Time at end of plot
+
+    :return:
+    """
+    # Filter for time
+    df = df[starttime.datetime:endtime.datetime]
+    # Make date array
+    mpl_times = mdates.date2num(df.index.to_pydatetime())
+    tickvals = np.linspace(min(mpl_times), max(mpl_times), 10)
+    ticktext = [mdates.num2date(t).strftime('%H:%M') for t in tickvals]
+    # Plot colored points first. Maybe line segments later
+    fig = go.Figure(data=go.Scatter3d(x=df['Xc'] - df['Xc'][0],
+                                      y=df['Yc'] - df['Yc'][0],
+                                      z=df['Zc'] - df['Zc'][0],
+                                      marker=dict(size=2., color=mpl_times,
+                                                  colorbar=dict(
+                                                      title=dict(text='Time',
+                                                                 font=dict(size=18)),
+                                                      x=-0.2,
+                                                      ticktext=ticktext,
+                                                      tickvals=tickvals),
+                                                  colorscale='cividis'),
+                                      line=dict(color='darkblue', width=2)))
+    fig.update_layout(width=800, height=800, autosize=False,
+                      scene=dict(camera=dict(up=dict(x=0, y=1, z=0),
+                                             eye=dict(x=0, y=1.0707, z=3.)),
+                                 aspectmode='data'),
+                      title=outfile)
+    py.plot(fig, filename=outfile)
+    return
