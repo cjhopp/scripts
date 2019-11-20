@@ -14,6 +14,10 @@ from glob import glob
 from obspy import read, Stream, Catalog
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from surf_seis.vibbox import vibbox_preprocess
+from eqcorrscan.utils.pre_processing import shortproc
+from eqcorrscan.utils import stacking, clustering
+from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 
 
 def read_raw_wavs(wav_dir):
@@ -202,3 +206,169 @@ def plot_raw_spectra(st, ev, inv=None, savefig=None):
     else:
         plt.show()
     return ax
+
+
+def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
+                          show=False, debug=1, method='single'):
+    """
+    In the case that the distance matrix has been saved, forego calculating it
+
+    Functionality extracted from eqcorrscan.utils.clustering.cluster
+    Consider adding this functionality and commiting to new branch
+    :param dist_mat: Distance matrix of pair-wise template wav correlations
+    :param temp_list: List of (Stream, Event) with same length as shape of
+        distance matrix
+    :param corr_thresh: Correlation thresholds corresponding to the method
+        used in the linkage algorithm
+    :param method: Method fed to scipy.heirarchy.linkage
+    :return: Groups of templates
+    """
+    dist_vec = squareform(dist_mat)
+    if debug >= 1:
+        print('Computing linkage')
+    Z = linkage(dist_vec, method=method)
+    if show:
+        if debug >= 1:
+            print('Plotting the dendrogram')
+        dendrogram(Z, color_threshold=1 - corr_thresh,
+                   distance_sort='ascending')
+        plt.show()
+    # Get the indices of the groups
+    if debug >= 1:
+        print('Clustering')
+    indices = fcluster(Z, t=1 - corr_thresh, criterion='distance')
+    # Indices start at 1...
+    group_ids = list(set(indices))  # Unique list of group ids
+    if debug >= 1:
+        msg = ' '.join(['Found', str(len(group_ids)), 'groups'])
+        print(msg)
+    # Convert to tuple of (group id, stream id)
+    indices = [(indices[i], i) for i in range(len(indices))]
+    # Sort by group id
+    indices.sort(key=lambda tup: tup[0])
+    groups = []
+    if debug >= 1:
+        print('Extracting and grouping')
+    for group_id in group_ids:
+        group = []
+        for ind in indices:
+            if ind[0] == group_id:
+                group.append(temp_list[ind[1]])
+            elif ind[0] > group_id:
+                # Because we have sorted by group id, when the index is greater
+                # than the group_id we can break the inner loop.
+                # Patch applied by CJC 05/11/2015
+                groups.append(group)
+                break
+    # Catch the final group
+    groups.append(group)
+    return groups
+
+
+def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
+                dist_mat=False, out_cat=None, show=False, method='average'):
+    """
+    Cross correlate all events in a catalog and return separate tribes for
+    each cluster
+    :param tribe: Tribe to cluster
+    :param corr_thresh: Correlation threshold for clustering
+    :param corr_params: Dictionary of filter parameters. Must include keys:
+        lowcut, highcut, samp_rate, filt_order, pre_pick, length, shift_len,
+        cores
+    :param raw_wav_dir: Directory of waveforms to take from
+    :param dist_mat: If there's a precomputed distance matrix, use this
+        instead of doing all the correlations
+    :param out_cat: Output catalog corresponding to the events
+    :param show: Show the dendrogram? Careful as this can exceed max recursion
+    :param wavs: Should we even bother with processing waveforms? Otherwise
+        will just populate the tribe with an empty Stream
+    :return:
+
+    .. Note: Functionality here is pilaged from align design as we don't
+        want the multiplexed portion of that function.
+    """
+    # Effing catalogs not being sorted by default
+    catalog.events.sort(key=lambda x: x.origins[0].time)
+    if corr_params and raw_wav_dir:
+        shift_len = corr_params['shift_len']
+        lowcut = corr_params['lowcut']
+        highcut = corr_params['highcut']
+        samp_rate = corr_params['samp_rate']
+        filt_order = corr_params['filt_order']
+        pre_pick = corr_params['pre_pick']
+        length = corr_params['length']
+        cores = corr_params['cores']
+        raw_wav_files = glob('%s/*' % raw_wav_dir)
+        raw_wav_files.sort()
+        all_wavs = [wav.split('/')[-1].split('_')[0]
+                    for wav in raw_wav_files]
+        names = [ev.resource_id.id.split('/')[-1] for ev in catalog
+                 if ev.resource_id.id.split('/')[-1] in all_wavs]
+        wavs = [wav for wav in raw_wav_files
+                if wav.split('/')[-1].split('_')[0] in names]
+        print(wavs[0])
+        new_cat = Catalog(events=[ev for ev in catalog
+                                  if ev.resource_id.id.split('/')[-1]
+                                  in names])
+        print(new_cat == catalog)
+        print('Processing temps')
+        temp_list = [(shortproc(read(tmp),lowcut=lowcut,
+                                highcut=highcut, samp_rate=samp_rate,
+                                filt_order=filt_order, parallel=True,
+                                num_cores=cores),
+                      ev.resource_id.id.split('/')[-1])
+                     for tmp, ev in zip(wavs, new_cat)]
+        print(list(set([len(tr) for tup in temp_list for tr in tup[0]])))
+        print('Clipping traces')
+        rm_temps = []
+        for i, temp in enumerate(temp_list):
+            # print('Clipping template %s' % new_cat[i].resource_id.id)
+            rm_ts = [] # Make a list of traces with no pick to remove
+            rm_ev = []
+            for tr in temp[0]:
+                pk = [pk for pk in new_cat[i].picks
+                      if pk.waveform_id.station_code == tr.stats.station
+                      and pk.waveform_id.channel_code == tr.stats.channel]
+                if len(pk) == 0:
+                    rm_ts.append(tr)
+                else:
+                    tr.trim(starttime=pk[0].time - shift_len - pre_pick,
+                            endtime=pk[0].time - pre_pick + length + shift_len)
+                    if len(tr) == 0: # Errant pick
+                        rm_ts.append(tr)
+            # Remove pickless traces
+            for rm in rm_ts:
+                temp[0].traces.remove(rm)
+            # If trace lengths are internally inconsistent, remove template
+            if len(list(set([len(tr) for tr in temp[0]]))) > 1:
+                rm_temps.append(temp)
+            # If template is now length 0, remove it and associated event
+            if len(temp[0]) == 0:
+                rm_temps.append(temp)
+                rm_ev.append(new_cat[i])
+        for t in rm_temps:
+            temp_list.remove(t)
+        # Remove the corresponding events as well so catalog and distmat
+        # are the same shape
+        for rme in rm_ev:
+            new_cat.events.remove(rme)
+    print(new_cat)
+    # new_cat.write(out_cat, format="QUAKEML")
+    print('Clustering')
+    if isinstance(dist_mat, np.ndarray):
+        print('Assuming the tribe provided is the same shape as dist_mat')
+        # Dummy streams
+        temp_list = [(Stream(), ev) for ev in catalog]
+        groups = cluster_from_dist_mat(dist_mat=dist_mat, temp_list=temp_list,
+                                       show=show, corr_thresh=corr_thresh,
+                                       method=method)
+    else:
+        # try:
+        groups = clustering.cluster(temp_list, show=show,
+                                    corr_thresh=corr_thresh,
+                                    shift_len=shift_len * 2,
+                                    save_corrmat=True, cores=cores)
+        # except AssertionError as e:
+        #     print(e) # Probably errant picks with time outside traces?
+        #     return temp_list
+    return groups
