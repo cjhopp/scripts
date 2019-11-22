@@ -4,6 +4,7 @@
 Functions for reading/writing and processing waveform data
 """
 import os
+import copy
 import scipy
 import itertools
 
@@ -11,14 +12,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from glob import glob
-from obspy import read, Stream, Catalog
+from datetime import timedelta
+from obspy import read, Stream, Catalog, UTCDateTime
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.utils.pre_processing import shortproc
-from eqcorrscan.utils import stacking, clustering
+from eqcorrscan.utils.stacking import align_traces
+# from eqcorrscan.utils import stacking, clustering
+from utils import clustering # hackity hack
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 
+extra_stas = ['CMon', 'CTrig', 'CEnc', 'PPS']
 
 def read_raw_wavs(wav_dir):
     """Read all the waveforms in the given directory to a dict"""
@@ -155,6 +160,7 @@ def plot_pick_corrections(catalog, stream_dir, plotdir):
 def plot_raw_spectra(st, ev, inv=None, savefig=None):
     """
     Simple function to plot the displacement spectra of a trace
+
     :param tr: obspy.core.trace.Trace
     :param ev: obspy.core.event.Event
     :param inv: Inventory if we want to remove response
@@ -266,7 +272,7 @@ def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
 
 
 def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
-                dist_mat=False, out_cat=None, show=False, method='average'):
+                dist_mat=False, show=False, method='average'):
     """
     Cross correlate all events in a catalog and return separate tribes for
     each cluster
@@ -298,38 +304,31 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
         pre_pick = corr_params['pre_pick']
         length = corr_params['length']
         cores = corr_params['cores']
-        raw_wav_files = glob('%s/*' % raw_wav_dir)
-        raw_wav_files.sort()
-        all_wavs = [wav.split('/')[-1].split('_')[0]
-                    for wav in raw_wav_files]
-        names = [ev.resource_id.id.split('/')[-1] for ev in catalog
-                 if ev.resource_id.id.split('/')[-1] in all_wavs]
-        wavs = [wav for wav in raw_wav_files
-                if wav.split('/')[-1].split('_')[0] in names]
-        print(wavs[0])
-        new_cat = Catalog(events=[ev for ev in catalog
-                                  if ev.resource_id.id.split('/')[-1]
-                                  in names])
-        print(new_cat == catalog)
+        wav_dict = read_raw_wavs(raw_wav_dir)
+        eids = [ev.resource_id.id.split('/')[-1] for ev in catalog]
+        try:
+            wavs = [wav_dict[eid] for eid in eids]
+        except KeyError as e:
+            print(e)
+            print('All catalog events not present in waveform directory')
+            return
         print('Processing temps')
-        temp_list = [(shortproc(read(tmp),lowcut=lowcut,
-                                highcut=highcut, samp_rate=samp_rate,
-                                filt_order=filt_order, parallel=True,
-                                num_cores=cores),
+        temp_list = [(shortproc(tmp,lowcut=lowcut, highcut=highcut,
+                                samp_rate=samp_rate, filt_order=filt_order,
+                                parallel=True, num_cores=cores),
                       ev.resource_id.id.split('/')[-1])
-                     for tmp, ev in zip(wavs, new_cat)]
-        print(list(set([len(tr) for tup in temp_list for tr in tup[0]])))
+                     for tmp, ev in zip(wavs, catalog)]
         print('Clipping traces')
         rm_temps = []
+        rm_ev = []
         for i, temp in enumerate(temp_list):
-            # print('Clipping template %s' % new_cat[i].resource_id.id)
             rm_ts = [] # Make a list of traces with no pick to remove
-            rm_ev = []
             for tr in temp[0]:
-                pk = [pk for pk in new_cat[i].picks
+                pk = [pk for pk in catalog[i].picks
                       if pk.waveform_id.station_code == tr.stats.station
                       and pk.waveform_id.channel_code == tr.stats.channel]
                 if len(pk) == 0:
+                    # This also, inadvertently removes timing/trigger traces
                     rm_ts.append(tr)
                 else:
                     tr.trim(starttime=pk[0].time - shift_len - pre_pick,
@@ -345,15 +344,13 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
             # If template is now length 0, remove it and associated event
             if len(temp[0]) == 0:
                 rm_temps.append(temp)
-                rm_ev.append(new_cat[i])
+                rm_ev.append(catalog[i])
         for t in rm_temps:
             temp_list.remove(t)
         # Remove the corresponding events as well so catalog and distmat
         # are the same shape
         for rme in rm_ev:
-            new_cat.events.remove(rme)
-    print(new_cat)
-    # new_cat.write(out_cat, format="QUAKEML")
+            catalog.events.remove(rme)
     print('Clustering')
     if isinstance(dist_mat, np.ndarray):
         print('Assuming the tribe provided is the same shape as dist_mat')
@@ -363,12 +360,209 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
                                        show=show, corr_thresh=corr_thresh,
                                        method=method)
     else:
-        # try:
         groups = clustering.cluster(temp_list, show=show,
                                     corr_thresh=corr_thresh,
                                     shift_len=shift_len * 2,
                                     save_corrmat=True, cores=cores)
-        # except AssertionError as e:
-        #     print(e) # Probably errant picks with time outside traces?
-        #     return temp_list
-    return groups
+    group_cats = []
+    for grp in groups:
+        group_cat = Catalog()
+        for ev in grp:
+            group_cat.events.extend([
+                e for e in catalog if e.resource_id.id.split('/')[-1] == ev[1]
+            ])
+        group_cats.append(group_cat)
+    return group_cats
+
+
+def family_stack_plot(event_list, wavs, station, channel, selfs,
+                      title='Detections', shift=True, shift_len=0.3,
+                      pre_pick_plot=1., post_pick_plot=5., pre_pick_corr=0.05,
+                      post_pick_corr=0.5, cc_thresh=0.5, spacing_param=2,
+                      normalize=True, plot_mags=False, figsize=(6, 15),
+                      savefig=None):
+    """
+    Plot list of traces for a stachan one just above the other (modified from
+    subspace_util.stack_plot()
+
+    :param events: List of events from which we'll extract picks for aligning
+    :param wavs: List of files for above events
+    :param station: Station to plot
+    :param channel: channel to plot
+    :param selfs: List of self detection ids for coloring the template
+    :param title: Plot title
+    :param shift: Whether to allow alignment of the wavs
+    :param shift_len: Length in seconds to allow wav to shift
+    :param pre_pick_plot: Seconds before p-pick to plot
+    :param post_pick_plot: Seconds after p-pick to plot
+    :param pre_pick_corr: Seconds before p-pick to use in correlation alignment
+    :param post_pick_corr: Seconds after p-pick to use in correlation alignment
+    :param spacing_param: Parameter determining vertical spacing of traces.
+        value of 1 indicates unit of 1 between traces. Less than one, tighter,
+        greater than 1 looser.
+    :param normalize: Flag to normalize traces
+    :param figsize: Tuple of matplotlib figure size
+    :param savefig: Name of the file to write
+    :return:
+
+    .. note: When using the waveforms clipped for stefan, they were clipped
+    based on origin time (I think??), so should be clipped on the pick time
+    to plot aligned on the P-pick.
+    """
+    streams = [] # List of tup: (Stream, name string)
+    rm_evs = []
+    events = copy.deepcopy(event_list)
+    for i, wav in enumerate(wavs):
+        try:
+            streams.append(read(wav))
+        except Exception: # If this directory doesn't exist, remove event
+            print('{} doesnt exist'.format(wav))
+            rm_evs.append(events[i])
+    for rm in rm_evs:
+        events.remove(rm)
+    print('Have {} streams and {} events'.format(len(streams), len(events)))
+    # Select all traces
+    traces = []
+    tr_evs = []
+    colors = []  # Plotting colors
+    for i, (st, ev) in enumerate(zip(streams, events)):
+        if len(st.select(station=station, channel=channel)) == 1:
+            st1 = shortproc(st=st, lowcut=3000., highcut=42000.,
+                            filt_order=3, samp_rate=100000.)
+            tr = st1.select(station=station, channel=channel)[0]
+            try:
+                pk = [pk for pk in ev.picks
+                      if pk.waveform_id.station_code == station
+                      and pk.waveform_id.channel_code == channel][0]
+            except:
+                print('No pick for this event')
+                continue
+            traces.append(tr)
+            tr_evs.append(ev)
+            if ev.resource_id.id.split('/')[-1] in selfs:
+                colors.append('red')
+                master_trace = tr
+            else:
+                amps = [np.max(np.abs(tr.data) for tr in traces)]
+                master_trace = traces[amps.index(max(amps))]
+                colors.append('k')
+        else:
+            print('No trace in stream for {}.{}'.format(station, channel))
+    # Normalize traces, demean and make dates vect
+    date_labels = []
+    print('{} traces found'.format(len(traces)))
+    # for tr in traces:
+    #     date_labels.append(str(tr.stats.starttime.date))
+    #     tr.data -= np.mean(tr.data)
+    #     if normalize:
+    #         tr.data /= max(tr.data)
+    # Vertical space array
+    vert_steps = np.linspace(0, len(traces) * spacing_param, len(traces))
+    fig, ax = plt.subplots(figsize=figsize)
+    shift_samp = int(shift_len * traces[0].stats.sampling_rate)
+    pks = []
+    for ev in tr_evs:
+        pks.append([pk.time for pk in ev.picks
+                    if pk.waveform_id.station_code == station and
+                    pk.waveform_id.channel_code == channel][0])
+    mags = [ev.magnitudes[0].mag for ev in tr_evs]
+    # Copy these out of the way for safe keeping
+    if shift:
+        cut_traces = [tr.copy().trim(starttime=p_time - pre_pick_corr,
+                                     endtime=p_time + post_pick_corr)
+                      for tr, p_time in zip(traces, pks)]
+        shifts, ccs = align_traces(cut_traces, shift_len=shift_samp,
+                                   master=master_trace)
+        shifts = np.array(shifts)
+        shifts /= tr.stats.sampling_rate  # shifts is in samples, we need sec
+    # Now trim traces down to plotting length
+    for tr, pk in zip(traces, pks):
+        tr.trim(starttime=pk - pre_pick_plot,
+                endtime=pk + post_pick_plot)
+        date_labels.append(str(tr.stats.starttime.date))
+        tr.data -= np.mean(tr.data)
+        if normalize:
+            tr.data /= max(tr.data)
+    if shift:
+        # Establish which sample the pick will be plotted at (prior to slicing)
+        pk_samples = [(pk - tr.stats.starttime) * tr.stats.sampling_rate
+                      for tr, pk in zip(traces, pks)]
+        dt_vects = []
+        pk_xs = []
+        arb_dt = UTCDateTime(1970, 1, 1)
+        td = timedelta(microseconds=int(1 / tr.stats.sampling_rate * 1000000))
+        for shif, cc, tr, p_samp in zip(shifts, ccs, traces, pk_samples):
+            # Make new arbitrary time vectors as they otherwise occur on
+            # different dates
+            if cc >= cc_thresh:
+                dt_vects.append([(arb_dt + shif).datetime + (i * td)
+                                 for i in range(len(tr.data))])
+                pk_xs.append((arb_dt + shif).datetime + (p_samp * td))
+            else:
+                dt_vects.append([(arb_dt).datetime + (i * td)
+                                 for i in range(len(tr.data))])
+                pk_xs.append((arb_dt).datetime + (p_samp * td))
+    else:
+        pk_samples = [(pk - tr.stats.starttime) * tr.stats.sampling_rate
+                      for tr, pk in zip(traces, pks)]
+        dt_vects = []
+        pk_xs = []
+        arb_dt = UTCDateTime(1970, 1, 1)
+        td = timedelta(microseconds=int(1 / tr.stats.sampling_rate * 1000000))
+        for tr, p_samp in zip(traces, pk_samples):
+            # Make new arbitrary time vectors as they otherwise occur on
+            # different dates
+            dt_vects.append([(arb_dt).datetime + (i * td)
+                             for i in range(len(tr.data))])
+            pk_xs.append((arb_dt).datetime + (p_samp * td))
+    # Plotting chronologically from top
+    for tr, vert_step, dt_v, col, pk_x, mag in zip(traces,
+                                                   list(reversed(
+                                                       vert_steps)),
+                                                   dt_vects, colors, pk_xs,
+                                                   mags):
+        ax.plot(dt_v, tr.data + vert_step, color=col)
+        if shift:
+            ax.vlines(x=pk_x, ymin=vert_step - spacing_param / 2.,
+                      ymax=vert_step + spacing_param / 2., linestyle='--',
+                      color='red')
+        # Magnitude text
+        mag_text = 'M$_L$={:0.2f}'.format(mag)
+        if shift:
+            mag_x = (arb_dt + post_pick_plot + max(shifts)).datetime
+        else:
+            mag_x = (arb_dt + post_pick_plot).datetime
+        if plot_mags:
+            ax.text(mag_x, vert_step + spacing_param / 2., mag_text, fontsize=14,
+                    verticalalignment='center', horizontalalignment='left',
+                    bbox=dict(ec='k', fc='w'))
+    # Plot the stack of all the waveforms (maybe with mean pick and then AIC
+    # pick following Rowe et al. 2004 JVGR)
+    data_stack = np.sum(np.array([tr.data for tr in traces]), axis=0)
+    # Demean and normalize
+    data_stack -= np.mean(data_stack)
+    data_stack /= np.max(data_stack)
+    # Plot using last datetime vector from loop above for convenience
+    ax.plot(dt_vects[-1], data_stack * 2 - vert_steps[-1],
+            color='b')
+    # Have to suss out average pick time tho
+    av_p_time = (arb_dt).datetime + (np.mean(pk_samples) * td)
+    ax.vlines(x=av_p_time, ymin=-vert_steps[-1] - (spacing_param * 2),
+              ymax=-vert_steps[-1] + (spacing_param * 2),
+              color='green')
+    ax.set_xlabel('Seconds', fontsize=19)
+    ax.set_ylabel('Date', fontsize=19)
+    # Change y labels to dates
+    ax.yaxis.set_ticks(vert_steps)
+    date_labels[1::3] = ['' for d in date_labels[1::3]]
+    date_labels[2::3] = ['' for d in date_labels[2::3]]
+    ax.set_yticklabels(date_labels[::-1], fontsize=16)
+    ax.set_title(title, fontsize=19)
+    if savefig:
+        fig.tight_layout()
+        plt.savefig(savefig, dpi=300)
+        plt.close()
+    else:
+        fig.tight_layout()
+        plt.show()
+    return

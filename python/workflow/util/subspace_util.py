@@ -225,6 +225,7 @@ def stack_plot(tribe, wav_dir_pat, station, channel, title, shift=True,
                shift_len=0.3, savefig=None):
     """
     Plot list of traces for a stachan one just above the other
+
     :param tribe: Tribe to plot
     :param wav_dir_pat: Glob pattern for all possible wavs
     :param station: Station to plot
