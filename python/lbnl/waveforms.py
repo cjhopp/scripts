@@ -13,13 +13,15 @@ import matplotlib.pyplot as plt
 
 from glob import glob
 from datetime import timedelta
-from obspy import read, Stream, Catalog, UTCDateTime
+from obspy import read, Stream, Catalog, UTCDateTime, Trace
+from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
-# from eqcorrscan.utils import stacking, clustering
-from utils import clustering # hackity hack
+from eqcorrscan.utils import stacking, clustering
+from scipy.stats import special_ortho_group
+from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 
@@ -36,6 +38,44 @@ def read_raw_wavs(wav_dir):
         except TypeError as e:
             print(e)
     return wav_dict
+
+def uniform_rotate_stream(st, measure='Pamp', n=1000):
+    """
+    Sample a uniform distribution of rotations of a stream and return
+    the rotation and stream of interest
+
+    :param st: Stream to rotate
+    :param measure: What measure determines which rotation is returned
+        Defaults to 'Pamp' which finds the rotation which maximizes the
+        P-arrival amplitude on the Z component (somewhat arbitrary, but
+        is convention to pick on Z for surface stations)
+    :param n: Number of samples to draw
+
+    :return:
+    """
+    # Make array of station names
+    stas = list(set([tr.stats.station for tr in st]))
+    # Make array of uniformly distributed rotations to apply to stream
+    rand_Rots = [Rotation.from_dcm(special_ortho_group.rvs(3))
+                 for i in range(n)]
+    rot_streams = []
+    # Create a stream for all possible rotations (this may be memory expensive)
+    for R in rand_Rots:
+        rot_st = Stream()
+        for sta in stas:
+            work_st = st.select(station=sta).copy()
+            if len(work_st) < 3:
+                continue # Ignore single component insts
+            datax = work_st.select(channel='*X')[0].data
+            datay = work_st.select(channel='*Y')[0].data
+            dataz = work_st.select(channel='*Z')[0].data
+            # As select() passes references to traces, can modify in-place
+            datax, datay, dataz = np.dot(R.dcm(), [datax, datay, dataz])
+            rot_st += work_st
+        rot_streams.append(rot_st)
+    # TODO For each station, determine the Rotation which maximizes energy...
+    # TODO ...on the Z component. Save the 
+    return
 
 def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
     """
@@ -74,6 +114,51 @@ def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
         if len(new_st) > 0:
             streams[t_stamp] = new_st
     return streams
+
+def rotate_channels(st, inv):
+    """
+    Take unoriented stream and return it rotated into ZNE
+
+    :param st: stream to be rotated
+    :param inv: Inventory with pertinent channel orientations
+    :return:
+    """
+    rotated_st = Stream()
+    # Loop each station in inv and append to new st
+    for sta in inv[0]:
+        sta_st = st.select(station=sta.code)
+        if len(sta_st) < 3 and len(sta_st) > 0:
+            # Ignore hydrophones here
+            rotated_st += sta_st
+            continue
+        elif len(sta_st) == 0:
+            continue
+        data1 = sta_st.select(channel='*Z')[0]
+        dip1 = sta.select(channel='*Z')[0].dip
+        az1 = sta.select(channel='*Z')[0].azimuth
+        data2 = sta_st.select(channel='*X')[0]
+        dip2 = sta.select(channel='*X')[0].dip
+        az2 = sta.select(channel='*X')[0].azimuth
+        data3 = sta_st.select(channel='*Y')[0]
+        dip3 = sta.select(channel='*Y')[0].dip
+        az3 = sta.select(channel='*Y')[0].azimuth
+        rot_np = rotate2zne(data_1=data1.data, azimuth_1=az1, dip_1=dip1,
+                            data_2=data2.data, azimuth_2=az2, dip_2=dip2,
+                            data_3=data3.data, azimuth_3=az3, dip_3=dip3,
+                            inverse=False)
+        # Reassemble rotated stream
+        # TODO Without renaming XYZ, just assuming user understands
+        # TODO that X is North, Y is East....fix this by adding channels
+        # TODO to inventory later!
+        new_trZ = Trace(data=rot_np[0], header=data1.stats)
+        # new_trZ.stats.channel = 'XNZ'
+        new_trN = Trace(data=rot_np[1], header=data2.stats)
+        # new_trN.stats.channel = 'XNN'
+        new_trE = Trace(data=rot_np[2], header=data3.stats)
+        # new_trE.stats.channel = 'XNE'
+        rot_st = Stream(traces=[new_trZ, new_trN, new_trE])
+        rotated_st += rot_st
+    return rotated_st
 
 def find_largest_SURF(wav_dir, catalog, method='avg', sig=2):
     """
@@ -212,7 +297,6 @@ def plot_raw_spectra(st, ev, inv=None, savefig=None):
     else:
         plt.show()
     return ax
-
 
 def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
                           show=False, debug=1, method='single'):
@@ -565,4 +649,25 @@ def family_stack_plot(event_list, wavs, station, channel, selfs,
     else:
         fig.tight_layout()
         plt.show()
+    return
+
+def plot_arrivals(st, ev, pre_pick, post_pick):
+    """
+    Simple plot of arrivals for showing polarities
+
+    :param st: Stream containing arrivals
+    :param ev: Event with pick information
+    :param pre_pick:
+    :param post_pick:
+    :return:
+    """
+    plot_st = Stream()
+    for pk in ev.picks:
+        sta = pk.waveform_id.station_code
+        chan = pk.waveform_id.channel_code
+        if pk.polarity and len(st.select(station=sta, channel=chan)) != 0:
+            tr = st.select(station=sta, channel=chan)[0]
+            tr.trim(starttime=pk.time - pre_pick, endtime=pk.time + post_pick)
+            plot_st += tr
+    plot_st.plot(equal_scale=False)
     return
