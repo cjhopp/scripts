@@ -22,7 +22,7 @@ from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
     WaveformStreamID, ResourceIdentifier, OriginQuality, OriginUncertainty,\
     QuantityError
 from lbnl.coordinates import SURF_converter
-from lbnl.waveforms import rotate_stream
+from lbnl.waveforms import rotate_channels
 
 three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
                'PSB7', 'PSB9', 'PST10', 'PST12']
@@ -265,7 +265,7 @@ def obspyck_from_local(inv_path, wav_dir, catalog):
         for rm in rms:
             st.traces.remove(rm)
         # Rotate to ZNE not in obspyck so do it here.
-        rotated_st = rotate_stream(st, inv)
+        rotated_st = rotate_channels(st, inv)
         tmp_wav_file = ['tmp/tmp_wav.mseed']
         rotated_st.write(tmp_wav_file[0], format="MSEED")
         # If not pick uncertainties, assign some arbitrary ones

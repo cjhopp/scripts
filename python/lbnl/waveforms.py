@@ -19,13 +19,16 @@ from obspy.signal.cross_correlation import xcorr_pick_correction
 from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
-from eqcorrscan.utils import stacking, clustering
+from eqcorrscan.utils import clustering
 from scipy.stats import special_ortho_group
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 
 extra_stas = ['CMon', 'CTrig', 'CEnc', 'PPS']
+
+three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
+               'PSB7', 'PSB9', 'PST10', 'PST12']
 
 def read_raw_wavs(wav_dir):
     """Read all the waveforms in the given directory to a dict"""
@@ -39,43 +42,85 @@ def read_raw_wavs(wav_dir):
             print(e)
     return wav_dict
 
-def uniform_rotate_stream(st, measure='Pamp', n=1000):
+def uniform_rotate_stream(st, ev, measure='Pamp', n=1000, amp_window=0.0003,
+                          plot=False, plot_station='OT16'):
     """
     Sample a uniform distribution of rotations of a stream and return
     the rotation and stream of interest
 
     :param st: Stream to rotate
+    :param ev: Event with picks used to define the P arrival window
     :param measure: What measure determines which rotation is returned
         Defaults to 'Pamp' which finds the rotation which maximizes the
         P-arrival amplitude on the Z component (somewhat arbitrary, but
         is convention to pick on Z for surface stations)
     :param n: Number of samples to draw
+    :param amp_window: Length (sec) within which to measure the energy of the
+        trace.
+    :param plot: Save images of the rotated stream to file. Can be ordered and
+        made into a movie later...If yes, provide path as plot argument.
+    :param plot_station: To avoid clutter, just give one station to generate
+        plots for.
 
     :return:
     """
     # Make array of station names
-    stas = list(set([tr.stats.station for tr in st]))
+    stas = list(set([tr.stats.station for tr in st
+                     if tr.stats.station in three_comps]))
     # Make array of uniformly distributed rotations to apply to stream
     rand_Rots = [Rotation.from_dcm(special_ortho_group.rvs(3))
                  for i in range(n)]
     rot_streams = []
     # Create a stream for all possible rotations (this may be memory expensive)
-    for R in rand_Rots:
+    amp_dict = {}
+    for sta in stas:
         rot_st = Stream()
-        for sta in stas:
+        amp_dict[sta] = []
+        for R in rand_Rots:
+            # Grab the pick
+            pk = [pk for pk in ev.picks if pk.waveform_id.station_code == sta
+                  and pk.phase_hint == 'P'][0]
+            # Take only the Z comps for triaxials
             work_st = st.select(station=sta).copy()
-            if len(work_st) < 3:
-                continue # Ignore single component insts
+            # Bandpass
+            work_st.filter(type='bandpass', freqmin=3000,
+                           freqmax=42000, corners=3)
+            # Trim to small window
+            work_st.trim(starttime=pk.time - 0.0001,
+                         endtime=pk.time + amp_window)
             datax = work_st.select(channel='*X')[0].data
+            statx = work_st.select(channel='*X')[0].stats
             datay = work_st.select(channel='*Y')[0].data
+            staty = work_st.select(channel='*Y')[0].stats
             dataz = work_st.select(channel='*Z')[0].data
+            statz = work_st.select(channel='*Z')[0].stats
             # As select() passes references to traces, can modify in-place
-            datax, datay, dataz = np.dot(R.dcm(), [datax, datay, dataz])
+            datax, datay, dataz = np.dot(R.as_dcm(), [datax, datay, dataz])
             rot_st += work_st
-        rot_streams.append(rot_st)
-    # TODO For each station, determine the Rotation which maximizes energy...
-    # TODO ...on the Z component. Save the 
-    return
+            # Calc E as sum of squared amplitudes
+            Ex = np.sum([d ** 2 for d in datax])
+            Ey = np.sum([d ** 2 for d in datay])
+            Ez = np.sum([d ** 2 for d in dataz])
+            amp_dict[sta].append([Ex, Ey, Ez])
+            if plot and sta == plot_station:
+                eulers = R.as_euler(seq='xyz')
+                new_trx = Trace(data=datax, header=statx)
+                new_try = Trace(data=datay, header=staty)
+                new_trz = Trace(data=dataz, header=statz)
+                rot_st = Stream(traces=[new_trx, new_try, new_trz])
+                outfile = '{}/{}_{:0.2f}_{:0.2f}_{:0.2f}.png'.format(
+                    plot, sta, np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
+                    np.rad2deg(eulers[2]))
+                rot_st.plot(outfile=outfile)
+    sta_dict = {}
+    for i, (sta, amps) in enumerate(amp_dict.items()):
+        x, y, z = zip(*amps)
+        # Take Y, but could be Z (X is along borehole)
+        sta_dict[sta] = [rand_Rots[np.argmax(y)]]
+    # TODO Back out original orientations of instruments and rotate each station
+    # TODO so that X is radial.
+    radial_stream = Stream()
+    return radial_stream, sta_dict
 
 def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
     """
