@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from glob import glob
 from datetime import timedelta
 from obspy import read, Stream, Catalog, UTCDateTime, Trace
+from obspy.geodetics.base import gps2dist_azimuth
 from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from surf_seis.vibbox import vibbox_preprocess
@@ -29,6 +30,9 @@ extra_stas = ['CMon', 'CTrig', 'CEnc', 'PPS']
 
 three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
                'PSB7', 'PSB9', 'PST10', 'PST12']
+# Rough +/- 1 degree borehole orientations
+borehole_dict = {'OB': [356., 62.5], 'OT': [359., 83.], 'PDB': [259., 67.],
+                 'PDT': [263., 85.4], 'PSB': [260., 67.], 'PST': [265., 87.]}
 
 def read_raw_wavs(wav_dir):
     """Read all the waveforms in the given directory to a dict"""
@@ -42,18 +46,16 @@ def read_raw_wavs(wav_dir):
             print(e)
     return wav_dict
 
-def uniform_rotate_stream(st, ev, measure='Pamp', n=1000, amp_window=0.0003,
-                          plot=False, plot_station='OT16'):
+def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
+                          amp_window=0.0003, plot=False, plot_station='OT16'):
     """
     Sample a uniform distribution of rotations of a stream and return
     the rotation and stream of interest
 
     :param st: Stream to rotate
     :param ev: Event with picks used to define the P arrival window
-    :param measure: What measure determines which rotation is returned
-        Defaults to 'Pamp' which finds the rotation which maximizes the
-        P-arrival amplitude on the Z component (somewhat arbitrary, but
-        is convention to pick on Z for surface stations)
+    :param rotation: Defaults to a random set of rotations but can be given any
+        axis which will entail a regular grid of rotations around that axis.
     :param n: Number of samples to draw
     :param amp_window: Length (sec) within which to measure the energy of the
         trace.
@@ -67,21 +69,26 @@ def uniform_rotate_stream(st, ev, measure='Pamp', n=1000, amp_window=0.0003,
     # Make array of station names
     stas = list(set([tr.stats.station for tr in st
                      if tr.stats.station in three_comps]))
-    # Make array of uniformly distributed rotations to apply to stream
-    rand_Rots = [Rotation.from_dcm(special_ortho_group.rvs(3))
-                 for i in range(n)]
+    if rotation == 'rand':
+        # Make array of uniformly distributed rotations to apply to stream
+        rots = [Rotation.from_dcm(special_ortho_group.rvs(3))
+                for i in range(n)]
+    else:
+        # Just do every degree...
+        rots = [Rotation.from_euler(rotation, d, degrees=True)
+                for d in range(360)]
     rot_streams = []
     # Create a stream for all possible rotations (this may be memory expensive)
     amp_dict = {}
     for sta in stas:
         rot_st = Stream()
         amp_dict[sta] = []
-        for R in rand_Rots:
+        for R in rots:
             # Grab the pick
             pk = [pk for pk in ev.picks if pk.waveform_id.station_code == sta
                   and pk.phase_hint == 'P'][0]
             # Take only the Z comps for triaxials
-            work_st = st.select(station=sta).copy()
+            work_st = st.select(station=sta).copy().detrend()
             # Bandpass
             work_st.filter(type='bandpass', freqmin=3000,
                            freqmax=42000, corners=3)
@@ -111,16 +118,72 @@ def uniform_rotate_stream(st, ev, measure='Pamp', n=1000, amp_window=0.0003,
                 outfile = '{}/{}_{:0.2f}_{:0.2f}_{:0.2f}.png'.format(
                     plot, sta, np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
                     np.rad2deg(eulers[2]))
-                rot_st.plot(outfile=outfile)
+                fig = rot_st.plot(handle=True, show=False)
+                fig.suptitle('X: {:0.2f} Y: {:0.2f} Z: {:0.2f}'.format(
+                    np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
+                    np.rad2deg(eulers[2])))
+                plt.savefig(outfile)
+                plt.close()
     sta_dict = {}
-    for i, (sta, amps) in enumerate(amp_dict.items()):
+    for sta, amps in amp_dict.items():
         x, y, z = zip(*amps)
         # Take Y, but could be Z (X is along borehole)
-        sta_dict[sta] = [rand_Rots[np.argmax(y)]]
-    # TODO Back out original orientations of instruments and rotate each station
-    # TODO so that X is radial.
+        sta_dict[sta] = {'matrix': rots[np.argmax(y)]}
+    # Rotate a final stream so that all instruments have X oriented radially
     radial_stream = Stream()
+    for sta in stas:
+        # Hack to get correct length well names
+        if sta.startswith('O'):
+            well_int = 2
+        else:
+            well_int = 3
+        rot = sta_dict[sta]['matrix']
+        work_st = st.select(station=sta).copy()
+        datax = work_st.select(channel='*X')[0].data
+        statx = work_st.select(channel='*X')[0].stats
+        datay = work_st.select(channel='*Y')[0].data
+        staty = work_st.select(channel='*Y')[0].stats
+        dataz = work_st.select(channel='*Z')[0].data
+        statz = work_st.select(channel='*Z')[0].stats
+        # As select() passes references to traces, can modify in-place
+        datax, datay, dataz = np.dot(rot.as_dcm(), [datax, datay, dataz])
+        new_trx = Trace(data=datax, header=statx)
+        new_try = Trace(data=datay, header=staty)
+        new_trz = Trace(data=dataz, header=statz)
+        rot_st = Stream(traces=[new_trx, new_try, new_trz])
+        radial_stream += rot_st
+        # Sort out original orientation
+        new_vect = az_toa_vect(inv.select(station=sta)[0][0], ev.origins[-1])
+        # Multiply with inverse rotation matrix
+        orig_vect = np.dot(rot.inv().as_dcm(), new_vect.T)
+        # Do some trig
+        # This comes out as deg from (1, 0) vector (i.e. positive E)
+        az = np.rad2deg(np.arctan2(orig_vect[1], orig_vect[0])) + 90.
+        # Will be degrees from horizontal (negative value is upgoing ray)
+        dip = np.rad2deg(np.arccos(orig_vect[2])) - 90.
+        sta_dict[sta]['az-dip'] = (az, dip)
+        bhz = np.sin(np.deg2rad(borehole_dict[sta[:well_int]][1]))
+        bhh = np.sqrt(1 - bhz ** 2)
+        bhx = np.sin(np.deg2rad(borehole_dict[sta[:well_int]][0])) * bhh
+        bhy = np.cos(np.deg2rad(borehole_dict[sta[:well_int]][0])) * bhh
+        bh_vect = np.array([bhx, bhy, bhz])
+        sta_dict[sta]['borehole angle'] = np.arccos(np.dot(orig_vect, bh_vect) /
+                                                    (np.linalg.norm(orig_vect) *
+                                                     np.linalg.norm(bh_vect)))
     return radial_stream, sta_dict
+
+
+def az_toa_vect(station, origin):
+    """
+    Returns a unit radial vector from the source to station
+    """
+    n_diff = float(station.extra.hmc_north.value) - float(origin.extra.hmc_north.value)
+    e_diff = float(station.extra.hmc_east.value) - float(origin.extra.hmc_east.value)
+    elev_diff = float(station.extra.hmc_elev.value) - float(origin.extra.hmc_elev.value)
+    unit_vect = np.array([e_diff, n_diff, elev_diff])
+    unit_vect /= np.linalg.norm(unit_vect)
+    return unit_vect
+
 
 def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
     """
