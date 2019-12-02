@@ -46,7 +46,41 @@ def read_raw_wavs(wav_dir):
             print(e)
     return wav_dict
 
-def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
+
+def rotate_catalog_streams(catalog, wav_dir, inv, orientations=None, **kwargs):
+    """
+    Return a list of rotated streams and a single
+
+    :param catalog: Catalog of events used to orient seismometers
+    :param wav_dir: Directory of waveform files to draw from
+    :param inv: Station inventory
+    :param orientations: Some structure holding predefined station orientations
+        (not yet implemented)
+    :param kwargs:
+    :return:
+    """
+    mseeds = glob('{}/*'.format(wav_dir))
+    eids = [e.resource_id.id.split('/')[-1] for e in catalog]
+    mseeds = {m.split('/')[-1].split('_')[0]: read(m)
+              for m in mseeds if m.split('/')[-1].split('_')[0] in eids}
+    sta_dicts = []
+    rot_streams = []
+    for ev in catalog:
+        eid = ev.resource_id.id.split('/')[-1]
+        rot_stream, sta_d = uniform_rotate_stream(mseeds[eid], ev, inv,
+                                                  **kwargs)
+        rot_streams.append(rot_stream)
+        sta_dicts.append(sta_d)
+    sd = {}
+    # Combine all the dictionaries into one
+    for d in sta_dicts:
+        for k, v in d.iteritems():
+            for ks, vs in v.iteritems():
+                sd[k][ks].append(vs)
+    return rot_streams, sd
+
+
+def uniform_rotate_stream(st, ev, inv, rotation='rand', n=500,
                           amp_window=0.0003, plot=False, plot_station='OT16'):
     """
     Sample a uniform distribution of rotations of a stream and return
@@ -83,53 +117,69 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
     for sta in stas:
         rot_st = Stream()
         amp_dict[sta] = []
-        for R in rots:
-            # Grab the pick
-            pk = [pk for pk in ev.picks if pk.waveform_id.station_code == sta
+        # Handle case where no pick for this station
+        # Grab the pick
+        try:
+            pk = [pk for pk in ev.picks
+                  if pk.waveform_id.station_code == sta
                   and pk.phase_hint == 'P'][0]
-            # Take only the Z comps for triaxials
-            work_st = st.select(station=sta).copy().detrend()
-            # Bandpass
-            work_st.filter(type='bandpass', freqmin=3000,
-                           freqmax=42000, corners=3)
-            # Trim to small window
-            work_st.trim(starttime=pk.time - 0.0001,
-                         endtime=pk.time + amp_window)
-            datax = work_st.select(channel='*X')[0].data
-            statx = work_st.select(channel='*X')[0].stats
-            datay = work_st.select(channel='*Y')[0].data
-            staty = work_st.select(channel='*Y')[0].stats
-            dataz = work_st.select(channel='*Z')[0].data
-            statz = work_st.select(channel='*Z')[0].stats
-            # As select() passes references to traces, can modify in-place
-            datax, datay, dataz = np.dot(R.as_dcm(), [datax, datay, dataz])
-            rot_st += work_st
-            # Calc E as sum of squared amplitudes
-            Ex = np.sum([d ** 2 for d in datax])
-            Ey = np.sum([d ** 2 for d in datay])
-            Ez = np.sum([d ** 2 for d in dataz])
-            amp_dict[sta].append([Ex, Ey, Ez])
-            if plot and sta == plot_station:
-                eulers = R.as_euler(seq='xyz')
-                new_trx = Trace(data=datax, header=statx)
-                new_try = Trace(data=datay, header=staty)
-                new_trz = Trace(data=dataz, header=statz)
-                rot_st = Stream(traces=[new_trx, new_try, new_trz])
-                outfile = '{}/{}_{:0.2f}_{:0.2f}_{:0.2f}.png'.format(
-                    plot, sta, np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
-                    np.rad2deg(eulers[2]))
-                fig = rot_st.plot(handle=True, show=False)
-                fig.suptitle('X: {:0.2f} Y: {:0.2f} Z: {:0.2f}'.format(
-                    np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
-                    np.rad2deg(eulers[2])))
-                plt.savefig(outfile)
-                plt.close()
+        except IndexError:
+            # If no pick at this station, break the rotations loop
+            continue
+        try:
+            for R in rots:
+                # Take only the Z comps for triaxials
+                work_st = st.select(station=sta).copy().detrend()
+                # Bandpass
+                work_st.filter(type='bandpass', freqmin=3000,
+                               freqmax=42000, corners=3)
+                # Trim to small window
+                work_st.trim(starttime=pk.time - 0.00005,
+                             endtime=pk.time + amp_window)
+                try:
+                    datax = work_st.select(channel='*X')[0].data
+                except IndexError:
+                    raise IndexError
+                statx = work_st.select(channel='*X')[0].stats
+                datay = work_st.select(channel='*Y')[0].data
+                staty = work_st.select(channel='*Y')[0].stats
+                dataz = work_st.select(channel='*Z')[0].data
+                statz = work_st.select(channel='*Z')[0].stats
+                # As select() passes references to traces, can modify in-place
+                datax, datay, dataz = np.dot(R.as_dcm(), [datax, datay, dataz])
+                rot_st += work_st
+                # Calc E as sum of squared amplitudes
+                Ex = np.sum([d ** 2 for d in datax])
+                Ey = np.sum([d ** 2 for d in datay])
+                Ez = np.sum([d ** 2 for d in dataz])
+                amp_dict[sta].append([Ex, Ey, Ez])
+                if plot and sta == plot_station:
+                    eulers = R.as_euler(seq='xyz')
+                    new_trx = Trace(data=datax, header=statx)
+                    new_try = Trace(data=datay, header=staty)
+                    new_trz = Trace(data=dataz, header=statz)
+                    rot_st = Stream(traces=[new_trx, new_try, new_trz])
+                    outfile = '{}/{}_{:0.2f}_{:0.2f}_{:0.2f}.png'.format(
+                        plot, sta, np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
+                        np.rad2deg(eulers[2]))
+                    fig = rot_st.plot(handle=True, show=False)
+                    fig.suptitle('X: {:0.2f} Y: {:0.2f} Z: {:0.2f}'.format(
+                        np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
+                        np.rad2deg(eulers[2])))
+                    plt.savefig(outfile)
+                    plt.close()
+        except IndexError:
+            print('{} not in stream for {}'.format(sta, ev.resource_id.id))
+            continue
     sta_dict = {}
     for sta, amps in amp_dict.items():
+        # No picks at this station
+        if len(amps) == 0:
+            continue
         x, y, z = zip(*amps)
         # Take Y, but could be Z (X is along borehole)
         sta_dict[sta] = {'matrix': rots[np.argmax(y)]}
-    # Rotate a final stream so that all instruments have X oriented radially
+    # Rotate a final stream so that all instruments have Y oriented radially
     radial_stream = Stream()
     for sta in stas:
         # Hack to get correct length well names
@@ -137,7 +187,11 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
             well_int = 2
         else:
             well_int = 3
-        rot = sta_dict[sta]['matrix']
+        try:
+            rot = sta_dict[sta]['matrix']
+        except KeyError:
+            # No P pick at this station
+            continue
         work_st = st.select(station=sta).copy()
         datax = work_st.select(channel='*X')[0].data
         statx = work_st.select(channel='*X')[0].stats
@@ -167,9 +221,8 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
         bhx = np.sin(np.deg2rad(borehole_dict[sta[:well_int]][0])) * bhh
         bhy = np.cos(np.deg2rad(borehole_dict[sta[:well_int]][0])) * bhh
         bh_vect = np.array([bhx, bhy, bhz])
-        sta_dict[sta]['borehole angle'] = np.arccos(np.dot(orig_vect, bh_vect) /
-                                                    (np.linalg.norm(orig_vect) *
-                                                     np.linalg.norm(bh_vect)))
+        sta_dict[sta]['borehole angle'] = np.rad2deg(np.arccos(np.dot(orig_vect,
+                                                                      bh_vect)))
     return radial_stream, sta_dict
 
 
