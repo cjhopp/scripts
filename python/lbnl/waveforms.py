@@ -113,8 +113,19 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
     :param plot_station: To avoid clutter, just give one station to generate
         plots for.
 
+    .. note: One complication is that the arrival orientation corresponding to
+        the greatest energy in the signal can be parallel to either the
+        source-reciever path or the reciever-source path (i.e. backazimuth).
+        To account for this, we test both possibilities by rotating both
+        possible arrival vectors by the matrix that provided the highest
+        energy, and selecting the one closest to normal to the borehole axis.
+
     :return:
     """
+    # Catch empty stream
+    if len(st) == 0:
+        print('Stream empty')
+        return Stream(), {}
     # Make array of station names
     stas = list(set([tr.stats.station for tr in st
                      if tr.stats.station in three_comps]))
@@ -142,16 +153,16 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
             # If no pick at this station, break the rotations loop
             continue
         work_st = st.select(station=sta).copy().detrend()
-        try:
-            datax = work_st.select(channel='*X')[0].data
-        except IndexError:
-            continue
         # Bandpass
         work_st.filter(type='bandpass', freqmin=3000,
                        freqmax=42000, corners=3)
         # Trim to small window
-        work_st.trim(starttime=pk.time - 0.00005,
+        work_st.trim(starttime=pk.time - 0.0001,
                      endtime=pk.time + amp_window)
+        try:
+            datax = work_st.select(channel='*X')[0].data
+        except IndexError:
+            continue
         for R in rots:
             r_st = work_st.copy()
             statx = r_st.select(channel='*X')[0].stats
@@ -218,22 +229,35 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
         rot_st = Stream(traces=[new_trx, new_try, new_trz])
         radial_stream += rot_st
         # Sort out original orientation
-        new_vect = az_toa_vect(inv.select(station=sta)[0][0], ev.origins[-1])
+        # Tricky as both azimuth and backazimuth can give a maximum
+        # energy arrival.
+        radial_vect = az_toa_vect(inv.select(station=sta)[0][0], ev.origins[-1])
+        baz_vect = -radial_vect # Other direction
         # Multiply with inverse rotation matrix
-        orig_vect = np.dot(rot.inv().as_dcm(), new_vect.T)
+        orig_vect_rad = np.dot(rot.inv().as_dcm(), radial_vect.T)
+        orig_vect_baz = np.dot(rot.inv().as_dcm(), baz_vect.T)
         # Do some trig
         # This comes out as deg from (1, 0) vector (i.e. positive E)
-        az = np.rad2deg(np.arctan2(orig_vect[1], orig_vect[0])) + 90.
+        az_rad = np.rad2deg(np.arctan2(orig_vect_rad[1],
+                                       orig_vect_rad[0])) + 90.
+        az_baz = np.rad2deg(np.arctan2(orig_vect_baz[1],
+                                       orig_vect_baz[0])) + 90.
         # Will be degrees from horizontal (negative value is upgoing ray)
-        dip = np.rad2deg(np.arccos(orig_vect[2])) - 90.
-        sta_dict[sta]['az-dip'] = (az, dip)
+        dip_rad = np.rad2deg(np.arccos(orig_vect_rad[2])) - 90.
+        dip_baz = np.rad2deg(np.arccos(orig_vect_baz[2])) - 90.
+        # Make borehole vector
         bhz = np.sin(np.deg2rad(borehole_dict[sta[:well_int]][1]))
         bhh = np.sqrt(1 - bhz ** 2)
         bhx = np.sin(np.deg2rad(borehole_dict[sta[:well_int]][0])) * bhh
         bhy = np.cos(np.deg2rad(borehole_dict[sta[:well_int]][0])) * bhh
         bh_vect = np.array([bhx, bhy, bhz])
-        sta_dict[sta]['borehole angle'] = np.rad2deg(np.arccos(np.dot(orig_vect,
-                                                                      bh_vect)))
+        # Sort out which is most normal to borehole
+        angle_rad = np.rad2deg(np.arccos(np.dot(orig_vect_rad, bh_vect)))
+        angle_baz = np.rad2deg(np.arccos(np.dot(orig_vect_baz, bh_vect)))
+        sta_dict[sta]['orientation from radial'] = (az_rad, dip_rad)
+        sta_dict[sta]['bh angle from radial'] = angle_rad
+        sta_dict[sta]['orientation from backazimuth'] = (az_baz, dip_baz)
+        sta_dict[sta]['bh angle from backazimuth'] = angle_baz
     return radial_stream, sta_dict
 
 
@@ -855,8 +879,9 @@ def plot_station_rot_stats(sta_dict):
     """
     fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 12))
     for sta, d in sta_dict.items():
-        az, dip = zip(*d['az-dip'])
-        sns.distplot(d['borehole angle'], label=sta, ax=axes[2], hist=False)
+        az, dip = zip(*d['orientation from backazimuth'])
+        sns.distplot(d['bh angle from backazimuth'], label=sta, ax=axes[2],
+                     hist=False)
         sns.distplot(az, label=sta, ax=axes[0], hist=False)
         sns.distplot(dip, label=sta, ax=axes[1], hist=False)
         axes[0].legend()
