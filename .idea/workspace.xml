@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
+      <change afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/.circleci/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.circleci/config.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/.coveragerc" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.coveragerc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/.gitattributes" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.gitattributes" afterDir="false" />
@@ -522,7 +523,8 @@
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165754031570" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165754031570" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long.m" beforeDir="false" afterPath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long.m" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -549,7 +551,7 @@
         <entry key="$PROJECT_DIR$/../EQcorrscan" value="4d9b72b3993ff77f7511f71a7cacfa0b39880e86" />
       </map>
     </option>
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../obspyck" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="SYNC" />
   </component>
   <component name="ProjectId" id="1QmwAL74XOkR2k2ocOVK9lGb37B" />

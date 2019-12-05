@@ -9,23 +9,39 @@ T(:,end)=[];
 A = table2array(T);
 
 output_filename='/media/chet/data/chet-FS-B/DSS/maria_output/BFSB7_down.out';
+%% CJH Maria's mappings based on foot-marks on fiber jacket
+% BM_ent_B5=76.46; %Borehole mouth entrance [m] for BFS_B5
+% BM_exit_B5=194.11;  
+% 
+% BM_ent_B3=232.21; %Borehole mouth entrance [m] for BFS_B3
+% BM_exit_B3=401.37;
+% 
+% BM_ent_B4=406.56; %Borehole mouth entrance [m] for BFS_B4
+% BM_exit_B4=566.58;
+% 
+% BM_ent_B6=588.22; %Borehole mouth entrance [m] for BFS_B6
+% BM_exit_B6=688.19;
+% 
+% BM_ent_B7=693.37; %Borehole mouth entrance [m] for BFS_B7
+% BM_exit_B7=787.86;
+%% CJH Mappings from 'tug tests' by LBL staff
+
+BM_ent_B5=80.97; %Borehole mouth entrance [m] for BFS_B5
+BM_exit_B5=199.63;  
+
+BM_ent_B3=237.7; %Borehole mouth entrance [m] for BFS_B3
+BM_exit_B3=404.07;
+
+BM_ent_B4=413.52; %Borehole mouth entrance [m] for BFS_B4
+BM_exit_B4=571.90;
+
+BM_ent_B6=594.76; %Borehole mouth entrance [m] for BFS_B6
+BM_exit_B6=694.32;
+
+BM_ent_B7=700.43; %Borehole mouth entrance [m] for BFS_B7
+BM_exit_B7=793.47;
+
 %%
-
-BM_ent_B5=76.46; %Borehole mouth entrance [m] for BFS_B5
-BM_exit_B5=194.11;  
-
-BM_ent_B3=232.21; %Borehole mouth entrance [m] for BFS_B3
-BM_exit_B3=401.37;
-
-BM_ent_B4=406.56; %Borehole mouth entrance [m] for BFS_B4
-BM_exit_B4=566.58;
-
-BM_ent_B6=588.22; %Borehole mouth entrance [m] for BFS_B6
-BM_exit_B6=688.19;
-
-BM_ent_B7=693.37; %Borehole mouth entrance [m] for BFS_B7
-BM_exit_B7=787.86;
-
 %DOWN
 B5_begin=2+BM_ent_B5; B5_end=2+BM_exit_B5; B5_end=(B5_begin+B5_end)/2;
 B3_begin=2+BM_ent_B3; B3_end=2+BM_exit_B3; B3_end=(B3_begin+B3_end)/2;
@@ -55,8 +71,8 @@ a=A(:,1);
 ix=idx9; % index of the borehole: idx1 - B5, idx3 - B3, idx5 - B4, idx7 - B6, idx9 - B7; 
 ix2=idx10; % index of the borehole: idx2 - B5, idx4 - B3, idx6 - B4, idx8 - B6, idx10 - B7;
 
-% B=A(ix:ix2,:);
-B=A;
+B=A(ix:ix2,:);
+% B=A;
 B(:,1)=B(:,1)-A(ix); %for DOWN
 %B(:,1)=(B(:,1)-A(ix2))*(-1); for UP
 %%
