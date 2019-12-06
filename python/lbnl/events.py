@@ -136,6 +136,45 @@ def parse_picks(pick_file):
                 pick_dict[eid].append(pk)
     return pick_dict
 
+def martin_cassm_to_loc_hyp(cassm_dir):
+    """
+    One-time use (probably) to take a number of files and output one location
+    and one pick file for the cassm sources which can then by input into
+    surf_events_to_cat()
+    """
+    # First get ids of only cassm events from catalog
+    cassm_mat = np.genfromtxt('{}/cassm_events_mat.txt'.format(cassm_dir),
+                              skip_header=1, delimiter=',', dtype='str')
+    cassm_ids = cassm_mat[:, 0]
+    # Now put hyp origin times for each cassm event into keys of dict with eid
+    # as value
+    hyp_dict = {}
+    with open(glob('{}/hyp_vibbox*'.format(cassm_dir))[0], 'r') as f:
+        for ln in f:
+            line = ln.split()
+            if len(line) == 6 and line[-1] in cassm_ids:
+                time_str = '{}-{}-{}T{}:{}:{}.{}'.format(
+                    line[0][:4], line[0][4:6], line[0][6:8], line[0][8:10],
+                    line[0][10:12], line[0][12:14], line[0][14])
+                hyp_dict[time_str] = line[-1]
+    # Now build array of lines for new pick file
+    new_pick_lines = []
+    with open(glob('{}/picks_auto*'.format(cassm_dir))[0], 'r') as pf:
+        for ln in pf:
+            line = ln.split()
+            if line[1][:-6] in hyp_dict:
+                # Edit station info and eid for this line
+                line[0] = hyp_dict[line[1][:-6]]
+                # Replace the different naming convention for stations
+                line[2] = line[2].replace('_A.', '').replace('_H.', '')
+                new_pick_lines.append(line)
+    with open('{}/picks_cassm.txt'.format(cassm_dir), 'w') as of:
+        # Add header (even if we'll ignore it later)
+        of.write('eventid,origin,station,pick,phase,snr\n')
+        for out_line in new_pick_lines:
+            of.write(','.join(out_line) + '\n')
+    return
+
 def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
     """
     Add polarities to the nlloc hyp files produced from Time2EQ. This is the

@@ -56,8 +56,6 @@ B7_begin=2+BM_ent_B7; B7_end=2+BM_exit_B7; B7_end=(B7_begin+B7_end)/2;
 % B6_begin=2+BM_ent_B6; B6_end=2+BM_exit_B6; B6_begin=(B6_begin+B6_end)/2; 
 % B7_begin=2+BM_ent_B7; B7_end=2+BM_exit_B7; B7_begin=(B7_begin+B7_end)/2;
 
-% CJH Here she's sorting out which integer channel is closest to the
-% channel mapping (in meters) above
 a=A(:,1);
 [~,idx1]=min(abs(a-B5_begin)); minVal1=a(idx1);
 [~,idx2]=min(abs(a-B5_end)); minVal2=a(idx2);

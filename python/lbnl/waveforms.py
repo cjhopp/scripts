@@ -273,6 +273,53 @@ def az_toa_vect(station, origin):
     return unit_vect
 
 
+def which_server_vibbox(cat, file_list, outfile):
+    """
+    output a list of files we need from the server
+
+    :param cat: Catalog of events we need
+    :param file_list: File containing a list of all vibbox files on the server
+    :param outfile: Path to the output file of only the files we need to scp
+
+    :return:
+    """
+
+    vibbox_files = []
+    with open(file_list, 'r') as f:
+        for ln in f:
+            if ln.endswith('.dat\n'):
+                vibbox_files.append(ln.rstrip('\n'))
+    # Make list of ranges for vibbox files
+    ranges = [(int(vibbox_files[i - 1].split('_')[-1][:14]),
+               int(ln.split('_')[-1][:14]))
+               for i, ln in enumerate(vibbox_files)]
+    out_list = []
+    for ev in cat:
+        time_int = int(ev.origins[-1].time.strftime('%Y%m%d%H%M%S'))
+        for i, r in enumerate(ranges):
+            if r[0] < time_int < r[1] and vibbox_files[i] not in out_list:
+                out_list.append(vibbox_files[i])
+                break
+    with open(outfile, 'w') as of:
+        for out in out_list:
+            of.write('{}\n'.format(out))
+    return
+
+
+def extract_CASSM_wavs(cat, vibbox_dir, pre_ot=0.001, post_ot=0.002):
+    """
+    Extract waveforms from vibbox files for cassm sources
+
+    :param cat: Catalog of cassm events
+    :param vibbox_dir: Directory with waveform files
+    :param pre_ot: Time before origin time to start wavs
+    :param post_ot: Time after origin time to end wavs
+
+    :return:
+    """
+    return
+
+
 def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
     """
     Trim around pick times and filter waveforms
@@ -391,108 +438,6 @@ def find_largest_SURF(wav_dir, catalog, method='avg', sig=2):
                                  in big_eids])
     return big_ev_cat
 
-def plot_pick_corrections(catalog, stream_dir, plotdir):
-    """
-    Hard coded wrapper on xcorr pick correction to be fixed on Monday 10-21
-    :param catalog: Catalog of events to generate plots for
-    :param stream_dir: Path to directory of *raw.mseed files
-    :param plotdir: Path to root directory for plots
-
-    :return:
-    """
-    for ev1, ev2 in itertools.combinations(catalog, r=2):
-        eid1 = ev1.resource_id.id.split('/')[-1]
-        eid2 = ev2.resource_id.id.split('/')[-1]
-        for pk1 in ev1.picks:
-            sta = pk1.waveform_id.station_code
-            chan = pk1.waveform_id.channel_code
-            stachandir = '{}/{}.{}'.format(plotdir, sta, chan)
-            if not os.path.isdir(stachandir):
-                os.mkdir(stachandir)
-            try:
-                st1 = read('{}/{}_raw.mseed'.format(stream_dir, eid1))
-                st2 = read('{}/{}_raw.mseed'.format(stream_dir, eid2))
-            except FileNotFoundError as e:
-                print(e)
-                continue
-            tr1 = st1.select(station=sta, channel=chan)
-            tr2 = st2.select(station=sta, channel=chan)
-            pk2 = [pk for pk in ev2.picks
-                   if pk.waveform_id.station_code == sta
-                   and pk.waveform_id.channel_code == chan]
-            if len(pk2) > 0 and len(tr2) > 0:
-                try:
-                    xcorr_pick_correction(
-                        pk1.time, tr1[0], pk2[0].time, tr2[0],
-                        t_before=0.00003, t_after=0.00015,
-                        cc_maxlag=0.0001, plot=True,
-                        filter='bandpass',
-                        filter_options={'corners': 5,
-                                        'freqmax': 42000.,
-                                        'freqmin': 2000.},
-                        filename='{}/{}.{}/{}_{}_{}.{}.pdf'.format(
-                            plotdir, sta, chan, eid1, eid2,
-                            sta, chan))
-                except Exception as e:
-                    print(e)
-                    continue
-    return
-
-def plot_raw_spectra(st, ev, inv=None, savefig=None):
-    """
-    Simple function to plot the displacement spectra of a trace
-
-    :param tr: obspy.core.trace.Trace
-    :param ev: obspy.core.event.Event
-    :param inv: Inventory if we want to remove response
-
-    :return:
-    """
-    fig, ax = plt.subplots()
-    eid = str(ev.resource_id).split('/')[-1]
-    for trace in st:
-        tr = trace.copy()
-        sta = tr.stats.station
-        chan = tr.stats.channel
-        if not chan.endswith(('1', 'Z')):
-            # Only use Z comps for now
-            continue
-        pick = [pk for pk in ev.picks
-                if pk.waveform_id.station_code == sta
-                and pk.waveform_id.channel_code == chan]
-        if len(pick) == 0:
-            continue
-        else:
-            pick = pick[0]
-        if inv:
-            pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
-                       'GEONET': [0.2, 1.1, 40., 49.]}
-            if sta.endswith('Z'):
-                prefilt = pf_dict['GEONET']
-            else:
-                prefilt = pf_dict['MERC']
-            tr.remove_response(inventory=inv, pre_filt=prefilt,
-                               water_level=20, output='DISP')
-        else:
-            print('No instrument response to remove. Raw spectrum only.')
-        tr.trim(starttime=pick.time - 0.005, endtime=pick.time + 0.02)
-        N = len(tr.data)
-        T = 1.0 / tr.stats.sampling_rate
-        xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
-        yf = scipy.fft(tr.data)
-        ax.loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]), label=sta)
-        ax.set_xlabel('Frequency (Hz)')
-        ax.set_ylabel('Displacement (m/Hz)')
-        ax.legend()
-        ax.set_title('{}: Displacement Spectra'.format(eid))
-    if savefig:
-        dir = '{}/{}'.format(savefig, eid)
-        if not os.path.isdir(dir):
-            os.mkdir(dir)
-        fig.savefig('{}/{}_spectra.png'.format(dir, eid))
-    else:
-        plt.show()
-    return ax
 
 def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
                           show=False, debug=1, method='single'):
@@ -653,6 +598,112 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
             ])
         group_cats.append(group_cat)
     return group_cats
+
+########################## PLOTTING ######################################
+
+def plot_pick_corrections(catalog, stream_dir, plotdir):
+    """
+    Hard coded wrapper on xcorr pick correction to be fixed on Monday 10-21
+    :param catalog: Catalog of events to generate plots for
+    :param stream_dir: Path to directory of *raw.mseed files
+    :param plotdir: Path to root directory for plots
+
+    :return:
+    """
+    for ev1, ev2 in itertools.combinations(catalog, r=2):
+        eid1 = ev1.resource_id.id.split('/')[-1]
+        eid2 = ev2.resource_id.id.split('/')[-1]
+        for pk1 in ev1.picks:
+            sta = pk1.waveform_id.station_code
+            chan = pk1.waveform_id.channel_code
+            stachandir = '{}/{}.{}'.format(plotdir, sta, chan)
+            if not os.path.isdir(stachandir):
+                os.mkdir(stachandir)
+            try:
+                st1 = read('{}/{}_raw.mseed'.format(stream_dir, eid1))
+                st2 = read('{}/{}_raw.mseed'.format(stream_dir, eid2))
+            except FileNotFoundError as e:
+                print(e)
+                continue
+            tr1 = st1.select(station=sta, channel=chan)
+            tr2 = st2.select(station=sta, channel=chan)
+            pk2 = [pk for pk in ev2.picks
+                   if pk.waveform_id.station_code == sta
+                   and pk.waveform_id.channel_code == chan]
+            if len(pk2) > 0 and len(tr2) > 0:
+                try:
+                    xcorr_pick_correction(
+                        pk1.time, tr1[0], pk2[0].time, tr2[0],
+                        t_before=0.00003, t_after=0.00015,
+                        cc_maxlag=0.0001, plot=True,
+                        filter='bandpass',
+                        filter_options={'corners': 5,
+                                        'freqmax': 42000.,
+                                        'freqmin': 2000.},
+                        filename='{}/{}.{}/{}_{}_{}.{}.pdf'.format(
+                            plotdir, sta, chan, eid1, eid2,
+                            sta, chan))
+                except Exception as e:
+                    print(e)
+                    continue
+    return
+
+
+def plot_raw_spectra(st, ev, inv=None, savefig=None):
+    """
+    Simple function to plot the displacement spectra of a trace
+
+    :param tr: obspy.core.trace.Trace
+    :param ev: obspy.core.event.Event
+    :param inv: Inventory if we want to remove response
+
+    :return:
+    """
+    fig, ax = plt.subplots()
+    eid = str(ev.resource_id).split('/')[-1]
+    for trace in st:
+        tr = trace.copy()
+        sta = tr.stats.station
+        chan = tr.stats.channel
+        if not chan.endswith(('1', 'Z')):
+            # Only use Z comps for now
+            continue
+        pick = [pk for pk in ev.picks
+                if pk.waveform_id.station_code == sta
+                and pk.waveform_id.channel_code == chan]
+        if len(pick) == 0:
+            continue
+        else:
+            pick = pick[0]
+        if inv:
+            pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
+                       'GEONET': [0.2, 1.1, 40., 49.]}
+            if sta.endswith('Z'):
+                prefilt = pf_dict['GEONET']
+            else:
+                prefilt = pf_dict['MERC']
+            tr.remove_response(inventory=inv, pre_filt=prefilt,
+                               water_level=20, output='DISP')
+        else:
+            print('No instrument response to remove. Raw spectrum only.')
+        tr.trim(starttime=pick.time - 0.005, endtime=pick.time + 0.02)
+        N = len(tr.data)
+        T = 1.0 / tr.stats.sampling_rate
+        xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
+        yf = scipy.fft(tr.data)
+        ax.loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]), label=sta)
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel('Displacement (m/Hz)')
+        ax.legend()
+        ax.set_title('{}: Displacement Spectra'.format(eid))
+    if savefig:
+        dir = '{}/{}'.format(savefig, eid)
+        if not os.path.isdir(dir):
+            os.mkdir(dir)
+        fig.savefig('{}/{}_spectra.png'.format(dir, eid))
+    else:
+        plt.show()
+    return ax
 
 
 def family_stack_plot(event_list, wavs, station, channel, selfs,

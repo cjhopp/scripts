@@ -5,7 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/.circleci/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.circleci/config.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/.coveragerc" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.coveragerc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/.gitattributes" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.gitattributes" afterDir="false" />
@@ -524,9 +523,11 @@
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long.m" beforeDir="false" afterPath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long_CJH_12_3.m" beforeDir="false" afterPath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long_CJH_12_3.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
-    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -558,12 +559,17 @@
   <component name="ProjectLevelVcsManager" settingsEditedManually="true">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/../SURF_SEIS" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
@@ -577,18 +583,6 @@
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts" />
       <recent name="$PROJECT_DIR$/python/workflow/util" />
     </key>
-  </component>
-  <component name="RunDashboard">
-    <option name="ruleStates">
-      <list>
-        <RuleState>
-          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
-        </RuleState>
-        <RuleState>
-          <option name="name" value="StatusDashboardGroupingRule" />
-        </RuleState>
-      </list>
-    </option>
   </component>
   <component name="RunManager" selected="Python tests.Doctests in plotting">
     <configuration default="true" type="tests" factoryName="Attests">
@@ -704,6 +698,18 @@
       </list>
     </recent_temporary>
   </component>
+  <component name="ServiceViewManager">
+    <option name="viewStates">
+      <list>
+        <serviceView>
+          <treeState>
+            <expand />
+            <select />
+          </treeState>
+        </serviceView>
+      </list>
+    </option>
+  </component>
   <component name="SvnConfiguration">
     <configuration />
   </component>
@@ -746,6 +752,12 @@
     <option name="RECENTLY_FILTERED_BRANCH_GROUPS">
       <collection />
     </option>
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="3009" y="634" key="SettingsEditor" timestamp="1575567866128">
+      <screen x="2560" y="400" width="1920" height="1200" />
+    </state>
+    <state x="3009" y="634" key="SettingsEditor/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1575567866128" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
