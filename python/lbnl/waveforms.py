@@ -28,6 +28,9 @@ from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 
+# Local imports
+from surf_seis.vibbox import vibbox_read, vibbox_preprocess
+
 extra_stas = ['CMon', 'CTrig', 'CEnc', 'PPS']
 
 three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
@@ -275,7 +278,7 @@ def az_toa_vect(station, origin):
 
 def which_server_vibbox(cat, file_list, outfile):
     """
-    output a list of files we need from the server
+    Output a list of files we need from the server
 
     :param cat: Catalog of events we need
     :param file_list: File containing a list of all vibbox files on the server
@@ -289,16 +292,17 @@ def which_server_vibbox(cat, file_list, outfile):
         for ln in f:
             if ln.endswith('.dat\n'):
                 vibbox_files.append(ln.rstrip('\n'))
+    vibbox_files.sort()
     # Make list of ranges for vibbox files
     ranges = [(int(vibbox_files[i - 1].split('_')[-1][:14]),
                int(ln.split('_')[-1][:14]))
-               for i, ln in enumerate(vibbox_files)]
+              for i, ln in enumerate(vibbox_files)]
     out_list = []
     for ev in cat:
         time_int = int(ev.origins[-1].time.strftime('%Y%m%d%H%M%S'))
         for i, r in enumerate(ranges):
-            if r[0] < time_int < r[1] and vibbox_files[i] not in out_list:
-                out_list.append(vibbox_files[i])
+            if r[0] < time_int < r[1] and vibbox_files[i - 1] not in out_list:
+                out_list.append(vibbox_files[i - 1])
                 break
     with open(outfile, 'w') as of:
         for out in out_list:
@@ -306,9 +310,10 @@ def which_server_vibbox(cat, file_list, outfile):
     return
 
 
-def extract_CASSM_wavs(cat, vibbox_dir, pre_ot=0.001, post_ot=0.002):
+def extract_CASSM_wavs(catalog, vibbox_dir, outdir, pre_ot=0.001, post_ot=0.002):
     """
-    Extract waveforms from vibbox files for cassm sources
+    Extract waveforms from vibbox files for cassm sources and write to event
+    files for later processing.
 
     :param cat: Catalog of cassm events
     :param vibbox_dir: Directory with waveform files
@@ -317,7 +322,39 @@ def extract_CASSM_wavs(cat, vibbox_dir, pre_ot=0.001, post_ot=0.002):
 
     :return:
     """
-    return
+    for ev in catalog:
+        eid = ev.resource_id.id.split('/')[-1]
+        ot = ev.origins[-1].time
+        dir = '{}/{}'.format(vibbox_dir, ot.strftime('%Y%m%d'))
+        day_files = glob('{}/*'.format(dir))
+        day_files.sort()
+        if len(day_files) == 1:
+            st = vibbox_read(day_files[0])
+        else:
+            ranges = [(int(day_files[i - 1].split('_')[-1][:14]),
+                       int(ln.split('_')[-1][:14]))
+                      for i, ln in enumerate(day_files)]
+            print(ev.resource_id.id)
+            time_int = int(ev.origins[-1].time.strftime('%Y%m%d%H%M%S'))
+            print(time_int)
+            print(ranges)
+            for i, r in enumerate(ranges):
+                if r[0] < time_int < r[1]:
+                    st = vibbox_read(day_files[i])
+                    if st[0].stats.starttime < ot < st[0].stats.endtime:
+                        print('Origin time within stream')
+                    else:
+                        print('Origin time outside stream')
+                    break
+        # # De-median the traces (in place)
+        # st = vibbox_preprocess(st)
+        # Trim that baby
+        try:
+            st.trim(starttime=ot - pre_ot, endtime=ot + post_ot)
+        except UnboundLocalError:
+            continue
+        st.write('{}/cassm_{}_raw.mseed'.format(outdir, eid), format='MSEED')
+    return print('boom')
 
 
 def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
