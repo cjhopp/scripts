@@ -40,7 +40,9 @@ def read_times(path, encoding='iso-8859-1'):
     return np.array([datetime_parse(t) for t in strings[1:-1]])[::-1]
 
 
-def plot_DSS(path, well='all', date_range=None,
+def plot_DSS(path, well='all',
+             date_range=(datetime(2019, 5, 22, 16, 35, 11),
+                         datetime(2019, 6, 4, 10, 14, 20)),
              denoise_method='detrend', vrange=(-50, 50), title=None):
     """
     Plot a colormap of DSS data
@@ -64,22 +66,26 @@ def plot_DSS(path, well='all', date_range=None,
         end_chan = np.abs(depth - chan_map_fsb[well][1])
         # Find the closest integer channel to meter mapping
         channel_range = (np.argmin(start_chan), np.argmin(end_chan))
-        print(channel_range)
     data = data[channel_range[0]:channel_range[1], :]
     depth = depth[channel_range[0]:channel_range[1]]
     if date_range:
-        times = times[np.where(date_range[0] < times < date_range[1])]
-        data = data[:, np.where(date_range[0] < times < date_range[1])]
+        times = times[np.where((date_range[0] < times) & (times < date_range[1]))]
+        depth = depth[np.where((date_range[0] < times) & (times < date_range[1]))]
+        data = data[:, np.where((date_range[0] < times) & (times < date_range[1]))]
+        data = np.squeeze(data)
     mpl_times = mdates.date2num(times)
     if denoise_method:
         data = denoise(data, denoise_method)
     cmap = ListedColormap(sns.color_palette("RdBu_r", 21).as_hex())
     im = plt.imshow(data, cmap=cmap,
-                    extent=[mpl_times[0], mpl_times[-1], depth[-1], 0],
+                    extent=[mpl_times[0], mpl_times[-1],
+                            depth[-1] - depth[0], 0],
                     aspect='auto', vmin=vrange[0], vmax=vrange[1])
     ax.xaxis_date()
     fig.autofmt_xdate()
-    plt.colorbar()
+    ax.set_ylabel('Length along fiber [m]')
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel(r'$\mu\varepsilon$', fontsize=16, fontweight='bold')
     if not title:
         ax.set_title('DSS well {}: {}'.format(well, denoise_method))
     plt.tight_layout()

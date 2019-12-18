@@ -149,6 +149,7 @@ def martin_cassm_to_loc_hyp(cassm_dir):
     # Now put hyp origin times for each cassm event into keys of dict with eid
     # as value
     hyp_dict = {}
+    new_loc_dict = {}
     with open(glob('{}/hyp_vibbox*'.format(cassm_dir))[0], 'r') as f:
         for ln in f:
             line = ln.split()
@@ -156,7 +157,18 @@ def martin_cassm_to_loc_hyp(cassm_dir):
                 time_str = '{}-{}-{}T{}:{}:{}.{}'.format(
                     line[0][:4], line[0][4:6], line[0][6:8], line[0][8:10],
                     line[0][10:12], line[0][12:14], line[0][14])
+                time_str_full = '{}-{}-{}T{}:{}:{}.{}'.format(
+                    line[0][:4], line[0][4:6], line[0][6:8], line[0][8:10],
+                    line[0][10:12], line[0][12:14], line[0][14:20])
                 hyp_dict[time_str] = line[-1]
+                new_loc_dict[line[-1]] = time_str_full
+    # Now write new loc file with corrected times
+    with open('{}/cassm_events.loc'.format(cassm_dir), 'w') as outf:
+        for row in cassm_mat:
+            row = list(row)
+            row[1] = new_loc_dict[row[0]]
+            row[-1] += '\n'
+            outf.write(','.join(row))
     # Now build array of lines for new pick file
     new_pick_lines = []
     with open(glob('{}/picks_auto*'.format(cassm_dir))[0], 'r') as pf:

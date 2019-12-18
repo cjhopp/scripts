@@ -523,7 +523,6 @@
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long_CJH_12_3.m" beforeDir="false" afterPath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long_CJH_12_3.m" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
@@ -754,6 +753,10 @@
     </option>
   </component>
   <component name="WindowStateProjectService">
+    <state x="2660" y="498" width="1720" height="1002" key="DiffContextDialog" timestamp="1575595943935">
+      <screen x="2560" y="400" width="1920" height="1200" />
+    </state>
+    <state x="2660" y="498" width="1720" height="1002" key="DiffContextDialog/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1575595943935" />
     <state x="3009" y="634" key="SettingsEditor" timestamp="1575567866128">
       <screen x="2560" y="400" width="1920" height="1200" />
     </state>

@@ -325,10 +325,16 @@ def extract_CASSM_wavs(catalog, vibbox_dir, outdir, pre_ot=0.001, post_ot=0.002)
     for ev in catalog:
         eid = ev.resource_id.id.split('/')[-1]
         ot = ev.origins[-1].time
+        pk1 = min([pk.time for pk in ev.picks])
+        print(ot)
+        print(pk1)
         dir = '{}/{}'.format(vibbox_dir, ot.strftime('%Y%m%d'))
         day_files = glob('{}/*'.format(dir))
         day_files.sort()
         if len(day_files) == 1:
+            print('Only one file in dir')
+            print(ev.resource_id.id)
+            print(day_files[0])
             st = vibbox_read(day_files[0])
         else:
             ranges = [(int(day_files[i - 1].split('_')[-1][:14]),
@@ -336,11 +342,10 @@ def extract_CASSM_wavs(catalog, vibbox_dir, outdir, pre_ot=0.001, post_ot=0.002)
                       for i, ln in enumerate(day_files)]
             print(ev.resource_id.id)
             time_int = int(ev.origins[-1].time.strftime('%Y%m%d%H%M%S'))
-            print(time_int)
-            print(ranges)
             for i, r in enumerate(ranges):
                 if r[0] < time_int < r[1]:
-                    st = vibbox_read(day_files[i])
+                    print(day_files[i - 1])
+                    st = vibbox_read(day_files[i - 1])
                     if st[0].stats.starttime < ot < st[0].stats.endtime:
                         print('Origin time within stream')
                     else:
@@ -350,7 +355,7 @@ def extract_CASSM_wavs(catalog, vibbox_dir, outdir, pre_ot=0.001, post_ot=0.002)
         # st = vibbox_preprocess(st)
         # Trim that baby
         try:
-            st.trim(starttime=ot - pre_ot, endtime=ot + post_ot)
+            st.trim(starttime=pk1 - pre_ot, endtime=pk1 + post_ot)
         except UnboundLocalError:
             continue
         st.write('{}/cassm_{}_raw.mseed'.format(outdir, eid), format='MSEED')
