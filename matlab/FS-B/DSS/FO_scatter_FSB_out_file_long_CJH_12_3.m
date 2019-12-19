@@ -70,13 +70,13 @@ a=A(:,1);
 [~,idx9]=min(abs(a-B7_begin)); minVal1=a(idx9);
 [~,idx10]=min(abs(a-B7_end)); minVal2=a(idx10);
 %%
-ix=idx9; % index of the borehole: idx1 - B5, idx3 - B3, idx5 - B4, idx7 - B6, idx9 - B7; 
-ix2=idx10; % index of the borehole: idx2 - B5, idx4 - B3, idx6 - B4, idx8 - B6, idx10 - B7;
+ix=idx3; % index of the borehole: idx1 - B5, idx3 - B3, idx5 - B4, idx7 - B6, idx9 - B7; 
+ix2=idx4; % index of the borehole: idx2 - B5, idx4 - B3, idx6 - B4, idx8 - B6, idx10 - B7;
 
-% B=A(ix:ix2,:);
-B=A;
-B(:,1)=B(:,1)-A(1); %for DOWN
-%B(:,1)=(B(:,1)-A(ix2))*(-1); for UP
+B=A(ix:ix2,:);
+% B=A;
+% B(:,1)=B(:,1)-A(1); %for DOWN
+B(:,1)=(B(:,1)-A(ix2))*(-1); %for UP
 %%
 depth=B(:,1)';
 
@@ -84,12 +84,12 @@ depth=B(:,1)';
 file = importdata(filename,''); 
 Time=file(9,:);
 Time = regexp(char(Time), '	', 'split'); Time(:,end)=[]; Time(:,1)=[];
-% Time=Time(:,196:498); % cut May 22nd 22/05/2019 16:35:11 to June 4th 10:14:20 
+Time=Time(:,196:498); % cut May 22nd 22/05/2019 16:35:11 to June 4th 10:14:20 
 Time_p=datenum(Time);
 Date=datestr(datenum(Time),'dd/mm/yyyy HH:MM:SS\t');
 Time=mat2cell(Date,ones(length(Time),1),20);
 Data=B(:,2:end);
-% Data=Data(:,196:498); % cut May 22nd 22/05/2019 16:35:11 to June 4th 10:14:20 
+Data=Data(:,196:498); % cut May 22nd 22/05/2019 16:35:11 to June 4th 10:14:20 
 First_str = Data(:,end);
 Data_relat= bsxfun(@minus,Data,First_str);
 

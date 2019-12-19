@@ -41,9 +41,8 @@ def read_times(path, encoding='iso-8859-1'):
 
 
 def plot_DSS(path, well='all',
-             date_range=(datetime(2019, 5, 22, 16, 35, 11),
-                         datetime(2019, 6, 4, 10, 14, 20)),
-             denoise_method='detrend', vrange=(-50, 50), title=None):
+             date_range=(datetime(2019, 5, 21), datetime(2019, 6, 5)),
+             denoise_method='detrend', vrange=(-30, 30), title=None):
     """
     Plot a colormap of DSS data
 
@@ -57,7 +56,7 @@ def plot_DSS(path, well='all',
     times = read_times(path)
     # Take first column as the length along the fiber and remove it from data
     depth = data[:, -1]
-    data = data[:-1, :]
+    data = data[:, :-1]
     # Take selected channels
     if well == 'all':
         channel_range = (0, -1)
@@ -69,9 +68,9 @@ def plot_DSS(path, well='all',
     data = data[channel_range[0]:channel_range[1], :]
     depth = depth[channel_range[0]:channel_range[1]]
     if date_range:
-        times = times[np.where((date_range[0] < times) & (times < date_range[1]))]
-        depth = depth[np.where((date_range[0] < times) & (times < date_range[1]))]
-        data = data[:, np.where((date_range[0] < times) & (times < date_range[1]))]
+        indices = np.where((date_range[0] < times) & (times < date_range[1]))
+        times = times[indices]
+        data = data[:, indices]
         data = np.squeeze(data)
     mpl_times = mdates.date2num(times)
     if denoise_method:
@@ -96,6 +95,9 @@ def denoise(data, method='detrend'):
     if method == 'demean':
         mean = data.mean(axis=0)
         data -= mean[np.newaxis, :]
+    elif method == 'demedian':
+        median = np.median(data, axis=0)
+        data -= median[np.newaxis, :]
     elif method == 'detrend':
         data = np.apply_along_axis(detrend, 0, data)
     elif method == 'gaussian':

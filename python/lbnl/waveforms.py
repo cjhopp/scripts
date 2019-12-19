@@ -310,7 +310,7 @@ def which_server_vibbox(cat, file_list, outfile):
     return
 
 
-def extract_CASSM_wavs(catalog, vibbox_dir, outdir, pre_ot=0.001, post_ot=0.002):
+def extract_CASSM_wavs(catalog, vibbox_dir, outdir, pre_ot=0.01, post_ot=0.02):
     """
     Extract waveforms from vibbox files for cassm sources and write to event
     files for later processing.
@@ -347,10 +347,13 @@ def extract_CASSM_wavs(catalog, vibbox_dir, outdir, pre_ot=0.001, post_ot=0.002)
                     print(day_files[i - 1])
                     st = vibbox_read(day_files[i - 1])
                     if st[0].stats.starttime < ot < st[0].stats.endtime:
-                        print('Origin time within stream')
+                        print('Origin time within stream\n')
                     else:
-                        print('Origin time outside stream')
+                        print('Origin time outside stream\n')
                     break
+        if len(st) == 0:
+            print('No file for this event...\n')
+            continue
         # # De-median the traces (in place)
         # st = vibbox_preprocess(st)
         # Trim that baby

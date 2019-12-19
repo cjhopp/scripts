@@ -15,16 +15,20 @@ from datetime import datetime
 from scipy.linalg import lstsq
 
 # Local imports (assumed to be in python path)
-from lbnl.boreholes import parse_surf_boreholes
+from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes
 
-def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
-                 zlims=None, video=False, animation=False, title=None,
-                 offline=False, dd_only=False, surface='plane'):
+
+def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
+                xlims=None, ylims=None, zlims=None, title=None, offline=False,
+                dd_only=False, surface='plane'):
     """
-    Plot a list of catalogs as a plotly 3D figure
-    :param cluster_cats: List of obspy.event.Catalog objects
-    :param outfile: Name of the output figure
-    :param field: Either 'Rot' or 'Nga' depending on which field we want
+    Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
+
+    :param outfile: Name of plot in plotly
+    :param location: Either 'fsb' or 'surf' as of 12-18-19
+    :param catalog: Optional catalog of seismicity
+    :param inventory: Optional inventory for monitoring network
+    :param well_file: If field == 'surf', must provide well (x, y, z) file
     :param xlims: List of [min, max] longitude to plot
     :param ylims: List of [max, min] latitude to plot
     :param zlims: List of [max neg., max pos.] depths to plot
@@ -47,33 +51,37 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
         title = '3D Plot'
     # Make well point lists and add to Figure
     datas = []
-    wells = parse_surf_boreholes(well_file)
+    if location == 'surf':
+        wells = parse_surf_boreholes(well_file)
+    elif location == 'fsb':
+        wells = create_FSB_boreholes()
     for i, (key, pts) in enumerate(wells.items()):
         x, y, z = zip(*pts)
         datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
                                   name='Borehole: {}'.format(key),
                                   line=dict(color=next(colors), width=7)))
-    # Do the same for the inventory
-    sta_list = []
-    for sta in inventory[0]: # Assume single network for now
-        sx = float(sta.extra.hmc_east.value)
-        sy = float(sta.extra.hmc_north.value)
-        sz = float(sta.extra.hmc_elev.value)
-        name = sta.code
-        sta_list.append((sx, sy, sz, name))
-    stax, stay, staz, nms = zip(*sta_list)
-    datas.append(go.Scatter3d(x=np.array(stax), y=np.array(stay),
-                              z=np.array(staz),
-                              mode='markers',
-                              name='Station',
-                              hoverinfo='text',
-                              text=nms,
-                              marker=dict(color='black',
-                                size=3.,
-                                symbol='diamond',
-                                line=dict(color='gray',
-                                          width=1),
-                                opacity=0.9)))
+    if inventory:
+        # Do the same for the inventory
+        sta_list = []
+        for sta in inventory[0]: # Assume single network for now
+            sx = float(sta.extra.hmc_east.value)
+            sy = float(sta.extra.hmc_north.value)
+            sz = float(sta.extra.hmc_elev.value)
+            name = sta.code
+            sta_list.append((sx, sy, sz, name))
+        stax, stay, staz, nms = zip(*sta_list)
+        datas.append(go.Scatter3d(x=np.array(stax), y=np.array(stay),
+                                  z=np.array(staz),
+                                  mode='markers',
+                                  name='Station',
+                                  hoverinfo='text',
+                                  text=nms,
+                                  marker=dict(color='black',
+                                    size=3.,
+                                    symbol='diamond',
+                                    line=dict(color='gray',
+                                              width=1),
+                                    opacity=0.9)))
     # If no limits specified, take them from boreholes
     if not xlims:
         xs = [pt[0] for bh, pts in wells.items() for pt in pts]
@@ -81,88 +89,89 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
         xlims = [min(xs), max(xs)]
         ylims = [min(ys), max(ys)]
         zlims = [60, 130]
-    pt_list = []
-    for ev in catalog:
-        o = ev.origins[-1]
-        ex = float(o.extra.hmc_east.value)
-        ey = float(o.extra.hmc_north.value)
-        ez = float(o.extra.hmc_elev.value)
-        if dd_only and not o.method_id:
-            print('Not accepting non-dd locations')
-            continue
-        elif dd_only and not o.method_id.id.endswith('GrowClust'):
-            print('Not accepting non-GrowClust locations')
-            continue
-        try:
-            m = ev.magnitudes[-1].mag
-        except IndexError:
-            print('No magnitude. Wont plot.')
-            continue
-        t = o.time.datetime.timestamp()
-        if (xlims[0] < ex < xlims[1]
-            and ylims[0] < ey < ylims[1]
-            and zlims[0] < ez < zlims[1]):
-            pt_list.append((ex, ey, ez, m, t,
-                            ev.resource_id.id.split('/')[-1]))
-    # if len(pt_list) > 0:
-    pt_lists.append(pt_list)
-    # Add arrays to the plotly objects
-    for i, lst in enumerate(pt_lists):
-        if len(lst) == 0:
-            continue
-        x, y, z, m, t, id = zip(*lst)
-        # z = -np.array(z)
-        clust_col = next(colors)
-        tickvals = np.linspace(min(t), max(t), 10)
-        ticktext = [datetime.fromtimestamp(t) for t in tickvals]
-        scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
-                                mode='markers',
-                                name='Seismic event',
-                                hoverinfo='text',
-                                text=id,
-                                marker=dict(color=t,
-                                  cmin=min(tickvals),
-                                  cmax=max(tickvals),
-                                  size=(1.5 * np.array(m)) ** 2,
-                                  symbol='circle',
-                                  line=dict(color=t,
-                                            width=1,
-                                            colorscale='Cividis'),
-                                  colorbar=dict(
-                                      title=dict(text='Timestamp',
-                                                 font=dict(size=18)),
-                                                x=-0.2,
-                                                ticktext=ticktext,
-                                                tickvals=tickvals),
-                                  colorscale='Cividis',
-                                  opacity=0.5))
-        datas.append(scat_obj)
-        if surface == 'plane':
-            if len(x) <= 2:
-                continue # Cluster just 1-2 events
-            # Fit plane to this cluster
-            X, Y, Z, stk, dip = pts_to_plane(np.array(x), np.array(y),
-                                             np.array(z))
-            # Add mesh3d object to plotly
-            datas.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
-                                   opacity=0.3, delaunayaxis='z',
-                                   text='Strike: {}, Dip {}'.format(stk, dip),
-                                   showlegend=True))
-        elif surface == 'ellipsoid':
-            if len(x) <= 2:
-                continue # Cluster just 1-2 events
-            # Fit plane to this cluster
-            center, radii, evecs, v = pts_to_ellipsoid(np.array(x),
-                                                       np.array(y),
-                                                       np.array(z))
-            X, Y, Z = ellipsoid_to_pts(center, radii, evecs)
-            # Add mesh3d object to plotly
-            datas.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
-                                   opacity=0.3, delaunayaxis='z',
-                                   # text='A-axis Trend: {}, Plunge {}'.format(stk, dip),
-                                   showlegend=True))
-        else:
-            print('No surfaces fitted')
+    if catalog:
+        pt_list = []
+        for ev in catalog:
+            o = ev.origins[-1]
+            ex = float(o.extra.hmc_east.value)
+            ey = float(o.extra.hmc_north.value)
+            ez = float(o.extra.hmc_elev.value)
+            if dd_only and not o.method_id:
+                print('Not accepting non-dd locations')
+                continue
+            elif dd_only and not o.method_id.id.endswith('GrowClust'):
+                print('Not accepting non-GrowClust locations')
+                continue
+            try:
+                m = ev.magnitudes[-1].mag
+            except IndexError:
+                print('No magnitude. Wont plot.')
+                continue
+            t = o.time.datetime.timestamp()
+            if (xlims[0] < ex < xlims[1]
+                and ylims[0] < ey < ylims[1]
+                and zlims[0] < ez < zlims[1]):
+                pt_list.append((ex, ey, ez, m, t,
+                                ev.resource_id.id.split('/')[-1]))
+        # if len(pt_list) > 0:
+        pt_lists.append(pt_list)
+        # Add arrays to the plotly objects
+        for i, lst in enumerate(pt_lists):
+            if len(lst) == 0:
+                continue
+            x, y, z, m, t, id = zip(*lst)
+            # z = -np.array(z)
+            clust_col = next(colors)
+            tickvals = np.linspace(min(t), max(t), 10)
+            ticktext = [datetime.fromtimestamp(t) for t in tickvals]
+            scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
+                                    mode='markers',
+                                    name='Seismic event',
+                                    hoverinfo='text',
+                                    text=id,
+                                    marker=dict(color=t,
+                                      cmin=min(tickvals),
+                                      cmax=max(tickvals),
+                                      size=(1.5 * np.array(m)) ** 2,
+                                      symbol='circle',
+                                      line=dict(color=t,
+                                                width=1,
+                                                colorscale='Cividis'),
+                                      colorbar=dict(
+                                          title=dict(text='Timestamp',
+                                                     font=dict(size=18)),
+                                                    x=-0.2,
+                                                    ticktext=ticktext,
+                                                    tickvals=tickvals),
+                                      colorscale='Cividis',
+                                      opacity=0.5))
+            datas.append(scat_obj)
+            if surface == 'plane':
+                if len(x) <= 2:
+                    continue # Cluster just 1-2 events
+                # Fit plane to this cluster
+                X, Y, Z, stk, dip = pts_to_plane(np.array(x), np.array(y),
+                                                 np.array(z))
+                # Add mesh3d object to plotly
+                datas.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
+                                       opacity=0.3, delaunayaxis='z',
+                                       text='Strike: {}, Dip {}'.format(stk, dip),
+                                       showlegend=True))
+            elif surface == 'ellipsoid':
+                if len(x) <= 2:
+                    continue # Cluster just 1-2 events
+                # Fit plane to this cluster
+                center, radii, evecs, v = pts_to_ellipsoid(np.array(x),
+                                                           np.array(y),
+                                                           np.array(z))
+                X, Y, Z = ellipsoid_to_pts(center, radii, evecs)
+                # Add mesh3d object to plotly
+                datas.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
+                                       opacity=0.3, delaunayaxis='z',
+                                       # text='A-axis Trend: {}, Plunge {}'.format(stk, dip),
+                                       showlegend=True))
+            else:
+                print('No surfaces fitted')
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
                                 zerolinewidth=2, title='Easting (m)',
@@ -179,54 +188,12 @@ def plot_surf_3D(catalog, inventory, well_file, outfile, xlims=None, ylims=None,
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
                        title=title)
-    # This is a bunch of hooey
-    if video and animation:
-        layout.update(
-            updatemenus=[{'type': 'buttons', 'showactive': False,
-                          'buttons': [{'label': 'Play',
-                                       'method': 'animate',
-                                       'args': [None,
-                                                {'frame': {'duration': 1,
-                                                           'redraw': True},
-                                                 'fromcurrent': True,
-                                                 'transition': {
-                                                    'duration': 0,
-                                                    'mode': 'immediate'}}
-                                                          ]},
-                                      {'label': 'Pause',
-                                       'method': 'animate',
-                                       'args': [[None],
-                                                {'frame': {'duration': 0,
-                                                           'redraw': True},
-                                                           'mode': 'immediate',
-                                                           'transition': {
-                                                               'duration': 0}}
-                                                          ]}]}])
     # Start figure
     fig = go.Figure(data=datas, layout=layout)
-    # trace = fig.data[-1]
-    # new_tick_text = [datetime.fromtimestamp(t) for t in
-    #                  trace.marker.colorbar.tickvals]
-    # trace.marker.colorbar.ticktext = new_tick_text
-    if video and animation:
-        zoom = 2
-        frames = [dict(layout=dict(
-            scene=dict(camera={'eye':{'x': np.cos(rad) * zoom,
-                                      'y': np.sin(rad) * zoom,
-                                      'z': 0.2}})))
-                  for rad in np.linspace(0, 6.3, 630)]
-        fig.frames = frames
-        if offline:
-            plotly.offline.plot(fig, filename=outfile)
-        else:
-            py.plot(fig, filename=outfile)
-    elif video and not animation:
-        print('You dont need a video')
+    if offline:
+        plotly.offline.iplot(fig, filename=outfile)
     else:
-        if offline:
-            plotly.offline.iplot(fig, filename=outfile)
-        else:
-            py.plot(fig, filename=outfile)
+        py.plot(fig, filename=outfile)
     return
 
 def pts_to_plane(x, y, z, method='lstsq'):
