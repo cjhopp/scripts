@@ -523,10 +523,8 @@
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long_CJH_12_3.m" beforeDir="false" afterPath="$PROJECT_DIR$/matlab/FS-B/DSS/FO_scatter_FSB_out_file_long_CJH_12_3.m" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/boreholes.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/boreholes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/plotting.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

@@ -277,7 +277,7 @@ def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
                     new.write(' '.join(line) + '\n')
     return
 
-def obspyck_from_local(inv_path, wav_dir, catalog):
+def obspyck_from_local(inv_path, wav_dir, catalog, cassm=False):
     """
     Function to take local catalog, inventory and waveforms for picking.
 
@@ -288,6 +288,8 @@ def obspyck_from_local(inv_path, wav_dir, catalog):
     :param wav_dir: Directory of mseeds named according to timestamp
         eid convention
     :param catalog: catalog of events to pick
+    :param cassm: Bool for string parsing of cassm event filesxx
+
     :return:
     """
 
@@ -301,16 +303,24 @@ def obspyck_from_local(inv_path, wav_dir, catalog):
         print('No events in catalog')
         return
     eids = [ev.resource_id.id.split('/')[-1] for ev in catalog]
-    wav_files = [p for p in all_wavs if p.split('/')[-1].split('_')[0] in eids]
+    if cassm: str_int = 1
+    else: str_int = 0
+    wav_files = [p for p in all_wavs
+                 if p.split('/')[-1].split('_')[str_int] in eids]
     if not os.path.isdir('tmp'):
         os.mkdir('tmp')
     for ev in catalog:
         o = ev.origins[0]
+        pk1 = min([pk.time for pk in ev.picks])
         eid = ev.resource_id.id.split('/')[-1]
-        wav_file = [f for f in wav_files if f.split('/')[-1].split('_')[0]
+        wav_file = [f for f in wav_files if f.split('/')[-1].split('_')[str_int]
                     == eid]
         # Create temporary mseed without the superfluous non-seis traces
-        st = read(wav_file[0])
+        try:
+            st = read(wav_file[0])
+        except IndexError as e:
+            print('No waveform for this event')
+            continue
         rms = [tr for tr in st
                if tr.stats.station in ['CMon', 'CTrig', 'CEnc', 'PPS']]
         for rm in rms:
@@ -329,7 +339,7 @@ def obspyck_from_local(inv_path, wav_dir, catalog):
               str(ev.resource_id).split('/')[-1]))
         input_file = '/home/chet/obspyck/hoppch_surf.obspyckrc17'
         root = ['obspyck -c {} -t {} -d 0.01 -s SV --event {}'.format(
-            input_file, str(o.time - 0.0002), tmp_name)]
+            input_file, str(pk1 - 0.0002), tmp_name)]
         cmd = ' '.join(root + tmp_wav_file + inv_files)
         print(cmd)
         call(cmd, shell=True)

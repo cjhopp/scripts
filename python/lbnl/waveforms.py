@@ -24,6 +24,7 @@ from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
 from scipy.stats import special_ortho_group
+from scipy.signal import find_peaks
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
@@ -51,15 +52,24 @@ def read_raw_wavs(wav_dir):
             print(e)
     return wav_dict
 
+def SNR(signal, noise):
+    """
+    Simple SNR calculation (in decibels)
+    SNR = 20log10(RMS(sig) / RMS(noise))
+    """
+    sig_pow = np.sqrt(np.mean(signal ** 2))
+    noise_pow = np.sqrt(np.mean(noise ** 2))
+    return 20 * np.log10(sig_pow / noise_pow)
 
-def rotate_catalog_streams(catalog, wav_dir, inv, orientations=None, ncores=8,
-                           **kwargs):
+def rotate_catalog_streams(catalog, wav_dir, inv, cassm=True, orientations=None,
+                           ncores=8, **kwargs):
     """
     Return a list of rotated streams and a single
 
     :param catalog: Catalog of events used to orient seismometers
     :param wav_dir: Directory of waveform files to draw from
     :param inv: Station inventory
+    :param cassm:
     :param orientations: Some structure holding predefined station orientations
         (not yet implemented)
     :param ncores: Number of cores to use, default 8.
@@ -74,14 +84,16 @@ def rotate_catalog_streams(catalog, wav_dir, inv, orientations=None, ncores=8,
             # Empty stream otherwise
             return Stream()
     mseeds = glob('{}/*'.format(wav_dir))
+    wav_ids = [ms.split('/')[-1].split('_')[1] for ms in mseeds]
     eids = [e.resource_id.id.split('/')[-1] for e in catalog]
-    mseeds = {m.split('/')[-1].split('_')[0]: mseed_read(m)
-              for m in mseeds if m.split('/')[-1].split('_')[0] in eids}
+    mseeds = {m.split('/')[-1].split('_')[1]: mseed_read(m)
+              for m in mseeds if m.split('/')[-1].split('_')[1] in eids
+              and m.split('/')[-1].split('_')[1] in wav_ids}
     print('Starting pool')
     results = Parallel(n_jobs=ncores, verbose=10)(
         delayed(uniform_rotate_stream)(mseeds[e.resource_id.id.split('/')[-1]],
                                        e, inv, **kwargs)
-        for e in catalog)
+        for e in catalog if e.resource_id.id.split('/')[-1] in mseeds)
     rot_streams, sta_dicts = zip(*results)
     sd = {}
     # Combine all the dictionaries into one
@@ -99,7 +111,8 @@ def rotate_catalog_streams(catalog, wav_dir, inv, orientations=None, ncores=8,
 
 
 def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
-                          amp_window=0.0003, plot=False, plot_station='OT16'):
+                          amp_window=0.0003, plot=False, plot_station='OT16',
+                          debug=0):
     """
     Sample a uniform distribution of rotations of a stream and return
     the rotation and stream of interest
@@ -156,11 +169,15 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
             # If no pick at this station, break the rotations loop
             continue
         work_st = st.select(station=sta).copy().detrend()
+        # Trim SNR streams
+        noise = work_st.copy().trim(endtime=pk.time - 0.003)
+        signal = work_st.copy().trim(starttime=pk.time - 0.00005,
+                                     endtime=pk.time + 0.005)
         # Bandpass
         work_st.filter(type='bandpass', freqmin=3000,
-                       freqmax=42000, corners=3)
+                       freqmax=25000, corners=3)
         # Trim to small window
-        work_st.trim(starttime=pk.time - 0.0001,
+        work_st.trim(starttime=pk.time - 0.00002,
                      endtime=pk.time + amp_window)
         try:
             datax = work_st.select(channel='*X')[0].data
@@ -173,14 +190,41 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
             staty = r_st.select(channel='*Y')[0].stats
             dataz = r_st.select(channel='*Z')[0].data
             statz = r_st.select(channel='*Z')[0].stats
+            # Noise
+            noisex = noise.select(channel='*X')[0].data
+            noisey = noise.select(channel='*Y')[0].data
+            noisez = noise.select(channel='*Z')[0].data
+            # Signal
+            signalx = signal.select(channel='*X')[0].data
+            signaly = signal.select(channel='*Y')[0].data
+            signalz = signal.select(channel='*Z')[0].data
             # As select() passes references to traces, can modify in-place
             datax, datay, dataz = np.dot(R.as_dcm(), [datax, datay, dataz])
+            noisex, noisey, noisez = np.dot(R.as_dcm(),
+                                            [noisex, noisey, noisez])
+            signalx, signaly, signalz = np.dot(R.as_dcm(),
+                                               [signalx, signaly, signalz])
             rot_st += work_st
             # Calc E as sum of squared amplitudes
-            Ex = np.sum([d ** 2 for d in datax])
-            Ey = np.sum([d ** 2 for d in datay])
-            Ez = np.sum([d ** 2 for d in dataz])
-            amp_dict[sta].append([Ex, Ey, Ez])
+            Ex = np.sum(datax ** 2)
+            Ey = np.sum(datay ** 2)
+            Ez = np.sum(dataz ** 2)
+            h_ratio = Ey / Ez
+            snry = SNR(signaly, noisey)
+            # Decide polarity of arrival
+            pp = find_peaks(datay / np.max(np.abs(datay)), width=1.25,
+                            prominence=0.07, distance=4)
+            pn = find_peaks(-(datay / np.max(np.abs(datay))), width=1.25,
+                            prominence=0.07, distance=4)
+            try:
+                if pp[0][0] < pn[0][0]:
+                    pol = 1 # up
+                else:
+                    pol = 0 # down
+            except IndexError as e: # Case of no suitable peaks found
+                continue
+            amp_dict[sta].append([Ex, Ey, Ez, snry, h_ratio, pol, datay,
+                                  pp[0][0], pn[0][0]])
             if plot and sta == plot_station:
                 eulers = R.as_euler(seq='xyz')
                 new_trx = Trace(data=datax, header=statx)
@@ -197,13 +241,42 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
                 plt.savefig(outfile)
                 plt.close()
     sta_dict = {}
-    for sta, amps in amp_dict.items():
+    if debug > 0:
+        fig, ax = plt.subplots(figsize=(4, 12))
+        labs = []
+        ticks = []
+    for i, (sta, amps) in enumerate(amp_dict.items()):
         # No picks at this station
         if len(amps) == 0:
             continue
-        x, y, z = zip(*amps)
+        x, y, z, snr, rat, p, daty, pp, pn = zip(*amps)
+        best_ind = np.argmax(y)
+        # best_ind = np.argmax(rat) # Maximize the ratio of y to z
         # Take Y, but could be Z (X is along borehole)
-        sta_dict[sta] = {'matrix': rots[np.argmax(y)]}
+        sta_dict[sta] = {'matrix': rots[best_ind]}
+        sta_dict[sta]['polarity'] = p[best_ind]
+        sta_dict[sta]['datay'] = daty[best_ind]
+        sta_dict[sta]['ratio'] = rat[best_ind]
+        sta_dict[sta]['snr'] = snr[best_ind]
+        # Test plotting
+        if debug > 0:
+            labs.append(sta)
+            ticks.append(i)
+            plot_dat = daty[best_ind]
+            plot_dat /= np.max(plot_dat)
+            plot_pol = p[best_ind]
+            # Plot data
+            ax.plot(plot_dat + i, color='k')
+            # Plot polarity picks
+            # Up pick
+            ax.scatter(pp[best_ind], plot_dat[pp[best_ind]] + i,
+                        marker='o', color='r')
+            # Down pick
+            ax.scatter(pn[best_ind], plot_dat[pn[best_ind]] + i,
+                        marker='o', color='b')
+    if debug > 0:
+        ax.set_yticklabels(labs)
+        ax.set_yticks(ticks)
     # Rotate a final stream so that all instruments have Y oriented radially
     radial_stream = Stream()
     for sta in stas:
@@ -214,6 +287,7 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
             well_int = 3
         try:
             rot = sta_dict[sta]['matrix']
+            p = sta_dict[sta]['polarity']
         except KeyError:
             # No P pick at this station
             continue
@@ -231,23 +305,26 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
         new_trz = Trace(data=dataz, header=statz)
         rot_st = Stream(traces=[new_trx, new_try, new_trz])
         radial_stream += rot_st
-        # Sort out original orientation
-        # Tricky as both azimuth and backazimuth can give a maximum
-        # energy arrival.
-        radial_vect = az_toa_vect(inv.select(station=sta)[0][0], ev.origins[-1])
-        baz_vect = -radial_vect # Other direction
+        # Sort out original orientation. If polarity of max energy arrival
+        # is positive, it's the radial vector. Otherwise it's the backazimuth.
+        arrival_vect = az_toa_vect(inv.select(station=sta)[0][0],
+                                   ev.origins[-1])
+        if not p:
+            continue
+        if p == 0: # Negative polarity
+            arrival_vect *= -1. # Other direction
         # Multiply with inverse rotation matrix
-        orig_vect_rad = np.dot(rot.inv().as_dcm(), radial_vect.T)
-        orig_vect_baz = np.dot(rot.inv().as_dcm(), baz_vect.T)
+        orig_vect = np.dot(rot.inv().as_dcm(), arrival_vect.T)
+        # orig_vect_baz = np.dot(rot.inv().as_dcm(), baz_vect.T)
         # Do some trig
         # This comes out as deg from (1, 0) vector (i.e. positive E)
-        az_rad = np.rad2deg(np.arctan2(orig_vect_rad[1],
-                                       orig_vect_rad[0])) + 90.
-        az_baz = np.rad2deg(np.arctan2(orig_vect_baz[1],
-                                       orig_vect_baz[0])) + 90.
+        az = np.rad2deg(np.arctan2(orig_vect[1],
+                                       orig_vect[0])) + 90.
+        # az_baz = np.rad2deg(np.arctan2(orig_vect_baz[1],
+        #                                orig_vect_baz[0])) + 90.
         # Will be degrees from horizontal (negative value is upgoing ray)
-        dip_rad = np.rad2deg(np.arccos(orig_vect_rad[2])) - 90.
-        dip_baz = np.rad2deg(np.arccos(orig_vect_baz[2])) - 90.
+        dip = np.rad2deg(np.arccos(orig_vect[2])) - 90.
+        # dip_baz = np.rad2deg(np.arccos(orig_vect_baz[2])) - 90.
         # Make borehole vector
         bhz = np.sin(np.deg2rad(borehole_dict[sta[:well_int]][1]))
         bhh = np.sqrt(1 - bhz ** 2)
@@ -255,12 +332,12 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
         bhy = np.cos(np.deg2rad(borehole_dict[sta[:well_int]][0])) * bhh
         bh_vect = np.array([bhx, bhy, bhz])
         # Sort out which is most normal to borehole
-        angle_rad = np.rad2deg(np.arccos(np.dot(orig_vect_rad, bh_vect)))
-        angle_baz = np.rad2deg(np.arccos(np.dot(orig_vect_baz, bh_vect)))
-        sta_dict[sta]['orientation from radial'] = (az_rad, dip_rad)
-        sta_dict[sta]['bh angle from radial'] = angle_rad
-        sta_dict[sta]['orientation from backazimuth'] = (az_baz, dip_baz)
-        sta_dict[sta]['bh angle from backazimuth'] = angle_baz
+        angle = np.rad2deg(np.arccos(np.dot(orig_vect, bh_vect)))
+        # angle_baz = np.rad2deg(np.arccos(np.dot(orig_vect_baz, bh_vect)))
+        sta_dict[sta]['orientation'] = (az, dip)
+        sta_dict[sta]['bh angle'] = angle
+        # sta_dict[sta]['orientation from backazimuth'] = (az_baz, dip_baz)
+        # sta_dict[sta]['bh angle from backazimuth'] = angle_baz
     return radial_stream, sta_dict
 
 
@@ -704,7 +781,7 @@ def plot_raw_spectra(st, ev, inv=None, savefig=None):
 
     :return:
     """
-    fig, ax = plt.subplots()
+    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(4, 8))
     eid = str(ev.resource_id).split('/')[-1]
     for trace in st:
         tr = trace.copy()
@@ -731,16 +808,19 @@ def plot_raw_spectra(st, ev, inv=None, savefig=None):
                                water_level=20, output='DISP')
         else:
             print('No instrument response to remove. Raw spectrum only.')
-        tr.trim(starttime=pick.time - 0.005, endtime=pick.time + 0.02)
+        # Hard coded for CASSM sources atm
+        tr.trim(starttime=pick.time - 0.00005, endtime=pick.time + 0.005)
+        axes[0].plot(tr.data)
         N = len(tr.data)
+        print(N)
         T = 1.0 / tr.stats.sampling_rate
         xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
         yf = scipy.fft(tr.data)
-        ax.loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]), label=sta)
-        ax.set_xlabel('Frequency (Hz)')
-        ax.set_ylabel('Displacement (m/Hz)')
-        ax.legend()
-        ax.set_title('{}: Displacement Spectra'.format(eid))
+        axes[1].loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]), label=sta)
+        axes[1].set_xlabel('Frequency (Hz)')
+        axes[1].set_ylabel('Displacement (m/Hz)')
+        axes[1].legend()
+        axes[1].set_title('{}: Displacement Spectra'.format(eid))
     if savefig:
         dir = '{}/{}'.format(savefig, eid)
         if not os.path.isdir(dir):
@@ -748,7 +828,7 @@ def plot_raw_spectra(st, ev, inv=None, savefig=None):
         fig.savefig('{}/{}_spectra.png'.format(dir, eid))
     else:
         plt.show()
-    return ax
+    return axes
 
 
 def family_stack_plot(event_list, wavs, station, channel, selfs,
@@ -973,17 +1053,24 @@ def plot_station_rot_stats(sta_dict):
     :param sta_dict: Nested dictionary with keys 'az-dip', 'borehole angle'
     :return:
     """
-    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 12))
+    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 12))#,
+                             #subplot_kw=dict(polar=True))
     for sta, d in sta_dict.items():
-        az, dip = zip(*d['orientation from backazimuth'])
-        sns.distplot(d['bh angle from backazimuth'], label=sta, ax=axes[2],
+        az, dip = zip(*d['orientation'])
+        sns.distplot(np.deg2rad(d['bh angle']), label=sta, ax=axes[2],
                      hist=False)
-        sns.distplot(az, label=sta, ax=axes[0], hist=False)
-        sns.distplot(dip, label=sta, ax=axes[1], hist=False)
+        sns.distplot(np.deg2rad(az), label=sta, ax=axes[0], hist=False)
+        sns.distplot(np.deg2rad(dip), label=sta, ax=axes[1], hist=False)
         axes[0].legend()
         axes[0].set_title('Channel azimuth')
+        # axes[0].set_theta_zero_location('N')
+        # axes[0].set_theta_direction(-1)
         axes[1].legend()
         axes[1].set_title('Channel dip (from horizontal)')
+        # axes[1].set_theta_zero_location('E')
+        # axes[1].set_theta_direction(-1)
         axes[2].legend()
         axes[2].set_title('Channel angle with borehole axis')
+        # axes[1].set_theta_zero_location('N')
+        # axes[1].set_theta_direction(-1)
     return axes

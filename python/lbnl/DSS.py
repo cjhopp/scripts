@@ -41,7 +41,7 @@ def read_times(path, encoding='iso-8859-1'):
 
 
 def plot_DSS(path, well='all',
-             date_range=(datetime(2019, 5, 21), datetime(2019, 6, 5)),
+             date_range=(datetime(2019, 5, 19), datetime(2019, 6, 5)),
              denoise_method='detrend', vrange=(-30, 30), title=None):
     """
     Plot a colormap of DSS data
