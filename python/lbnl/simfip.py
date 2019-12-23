@@ -155,6 +155,27 @@ def remove_clamps(df, angles):
     df['Zc'] = df['Z'] - U_correction[2]
     return df
 
+def read_excavation(path):
+    """
+    Read excavation displacement data for SIMFIP, tiltmeters, borehole
+    extensometers
+
+    :param path: Path to file from Florian
+    :return:
+    """
+    # Use Dask as its significantly faster for this many data points
+    dask_df = dd.read_csv(path)
+    df = dask_df.compute()
+    df['dt'] = pd.to_datetime(df['TIME (UTC+2)'], format='%d.%m.%y %H:%M:%S')
+    df = df.set_index('dt')
+    df = df.drop(['TIME (UTC+2)'], axis=1)
+    # Sort index as this isn't forced by pandas for DateTime indices
+    df = df.sort_index()
+    df.index.name = None
+    # Assuming these data are corrected for clamp effects now??
+    df.rename(columns={'dispE': 'Xc', 'dispN': 'Yc', 'dispUp': 'Zc'}, inplace=True)
+    return df
+
 ################### Plotting functions below here #######################
 
 def plot_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
@@ -217,7 +238,7 @@ def plot_displacement_components(df, starttime=UTCDateTime(2018, 5, 22, 11, 24),
     :return:
     """
     # Set out date formatter
-    date_formatter = mdates.DateFormatter('%H:%M')
+    date_formatter = mdates.DateFormatter('%b-%d %H:%M')
     df = df[starttime.datetime:endtime.datetime]
     fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
     if rotated and not remove_clamps:
