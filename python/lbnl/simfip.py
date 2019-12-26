@@ -196,7 +196,7 @@ def plot_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
         heads = ('Xc', 'Yc', 'Zc')
     else:
         heads = ('X', 'Y', 'Z')
-    date_formatter = mdates.DateFormatter('%H:%M')
+    date_formatter = mdates.DateFormatter('%b-%d %H:%M')
     df = df[starttime.datetime:endtime.datetime]
     fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
     # These files are wack...

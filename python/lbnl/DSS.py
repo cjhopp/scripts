@@ -13,6 +13,8 @@ from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend
 from datetime import datetime
 from matplotlib.colors import ListedColormap
+from matplotlib.collections import LineCollection
+
 
 chan_map_fsb = {'B3': (237.7, 404.07), 'B4': (413.52, 571.90),
                 'B5': (80.97, 199.63), 'B6': (594.76, 694.32),
@@ -40,9 +42,9 @@ def read_times(path, encoding='iso-8859-1'):
     return np.array([datetime_parse(t) for t in strings[1:-1]])[::-1]
 
 
-def plot_DSS(path, well='all',
+def plot_DSS(path, well='all', inset_channels=True,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 5)),
-             denoise_method='detrend', vrange=(-30, 30), title=None):
+             denoise_method='demedian', vrange=(-60, 60), title=None):
     """
     Plot a colormap of DSS data
 
@@ -51,7 +53,11 @@ def plot_DSS(path, well='all',
     :param date_range: [start date, end date]
     :return:
     """
-    fig, ax = plt.subplots()
+    if inset_channels:
+        fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
+    else:
+        fig, axes = plt.subplots()
+        axes = [axes]
     data = read_ascii(path)
     times = read_times(path)
     # Take first column as the length along the fiber and remove it from data
@@ -67,6 +73,7 @@ def plot_DSS(path, well='all',
         channel_range = (np.argmin(start_chan), np.argmin(end_chan))
     data = data[channel_range[0]:channel_range[1], :]
     depth = depth[channel_range[0]:channel_range[1]]
+    print(depth)
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
@@ -76,18 +83,67 @@ def plot_DSS(path, well='all',
     if denoise_method:
         data = denoise(data, denoise_method)
     cmap = ListedColormap(sns.color_palette("RdBu_r", 21).as_hex())
-    im = plt.imshow(data, cmap=cmap,
-                    extent=[mpl_times[0], mpl_times[-1],
-                            depth[-1] - depth[0], 0],
-                    aspect='auto', vmin=vrange[0], vmax=vrange[1])
-    ax.xaxis_date()
-    fig.autofmt_xdate()
-    ax.set_ylabel('Length along fiber [m]')
-    cbar = plt.colorbar()
+    im = axes[0].imshow(data, cmap=cmap,
+                        extent=[mpl_times[0], mpl_times[-1],
+                                depth[-1] - depth[0], 0],
+                        aspect='auto', vmin=vrange[0], vmax=vrange[1])
+    axes[0].xaxis_date()
+    # fig.autofmt_xdate()
+    axes[0].set_ylabel('Length along fiber [m]')
+    cbar = plt.colorbar(im, ax=axes[0])
     cbar.ax.set_ylabel(r'$\mu\varepsilon$', fontsize=16, fontweight='bold')
     if not title:
-        ax.set_title('DSS well {}: {}'.format(well, denoise_method))
+        axes[0].set_title('DSS well {}: {}'.format(well, denoise_method))
+    # Grid lines on axes 1
+    axes[1].grid(which='both', axis='y')
     plt.tight_layout()
+    # If plotting 1D channel traces, do this last
+    if inset_channels:
+
+        # Define class for plotting new traces
+        class TracePlotter():
+            def __init__(self, figure, data, depth, cmap):
+                self.figure = figure
+                self.cmap = cmap
+                self.data = data
+                self.depth = depth - depth[0]
+                self.xlim = self.figure.axes[0].get_xlim()
+                self.times = np.linspace(self.xlim[0], self.xlim[1],
+                                         data.shape[1])
+                self.cid = self.figure.canvas.mpl_connect('button_press_event',
+                                                          self)
+
+            def __call__(self, event):
+                print('click', event.xdata, event.ydata)
+                global counter
+                if event.inaxes != self.figure.axes[0]:
+                    return
+                # Get channel corresponding to ydata (which was modified to
+                # units of meters during imshow...?
+                chan_dist = np.abs(self.depth - event.ydata)
+                chan = np.argmin(chan_dist)
+                trace = self.data[chan, :]
+                depth = self.depth[chan]
+                # Plot trace for this channel colored by strain as LineCollection
+                points = np.array([self.times, trace]).T.reshape(-1, 1, 2)
+                segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                lc = LineCollection(segments, cmap=self.cmap,
+                                    label='Depth {:0.2f}'.format(depth),
+                                    norm=plt.Normalize(vmin=vrange[0],
+                                                       vmax=vrange[1]))
+                # Set the values used for colormapping
+                lc.set_array(trace)
+                lc.set_linewidth(2)
+                line = self.figure.axes[1].add_collection(lc)
+                self.figure.axes[1].set_ylim([-100, 100]) # Need dynamic way
+                self.figure.axes[1].legend()
+                self.figure.canvas.draw()
+                counter += 1
+
+        global counter
+        counter = 0 # Click counter for trace spacing
+        plotter = TracePlotter(fig, data, depth, cmap)
+        plt.show()
     return
 
 
