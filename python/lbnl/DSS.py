@@ -13,8 +13,11 @@ from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend
 from datetime import datetime
 from matplotlib.colors import ListedColormap
+from matplotlib.gridspec import GridSpec
 from matplotlib.collections import LineCollection
 
+# Local imports
+from lbnl.simfip import read_excavation, plot_displacement_components
 
 chan_map_fsb = {'B3': (237.7, 404.07), 'B4': (413.52, 571.90),
                 'B5': (80.97, 199.63), 'B6': (594.76, 694.32),
@@ -42,22 +45,42 @@ def read_times(path, encoding='iso-8859-1'):
     return np.array([datetime_parse(t) for t in strings[1:-1]])[::-1]
 
 
-def plot_DSS(path, well='all', inset_channels=True,
+def plot_DSS(path, well='all', inset_channels=True, simfip=False,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 5)),
              denoise_method='demedian', vrange=(-60, 60), title=None):
     """
     Plot a colormap of DSS data
 
     :param path: Path to raw data file
-    :param channel_range: [start channel, end channel]
+    :param well: Which well to plot
+    :param inset_channels: Bool for picking channels to plot in separate axes
+    :param simfip: Give path to data file if simfip data over same timespan
     :param date_range: [start date, end date]
+    :param denoise_method: String stipulating the method in denoise() to use
+    :param vrange: Colorbar range (in microstrains)
+    :param title: Title of plot
+
     :return:
     """
-    if inset_channels:
-        fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
+    fig = plt.figure(constrained_layout=True, figsize=(6, 12))
+    if inset_channels and simfip:
+        # fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(6, 12))
+        gs = GridSpec(ncols=5, nrows=9, figure=fig)
+        axes1 = fig.add_subplot(gs[:3, :-1])
+        axes2 = fig.add_subplot(gs[3:6, :-1], sharex=axes1)
+        axes3 = fig.add_subplot(gs[6:, :-1], sharex=axes1)
+        cax = fig.add_subplot(gs[:6, -1])
+        df = read_excavation(simfip)
+    elif inset_channels:
+        gs = GridSpec(ncols=5, nrows=6, figure=fig)
+        axes1 = fig.add_subplot(gs[:3, :-1])
+        axes2 = fig.add_subplot(gs[3:6, :-1])
+        cax = fig.add_subplot(gs[:, -1])
+        # fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(6, 8))
     else:
-        fig, axes = plt.subplots()
-        axes = [axes]
+        gs = GridSpec(ncols=5, nrows=3, figure=fig)
+        axes1 = fig.add_subplot(gs[:3, :-1])
+        cax = fig.add_subplot(gs[:, -1])
     data = read_ascii(path)
     times = read_times(path)
     # Take first column as the length along the fiber and remove it from data
@@ -73,7 +96,6 @@ def plot_DSS(path, well='all', inset_channels=True,
         channel_range = (np.argmin(start_chan), np.argmin(end_chan))
     data = data[channel_range[0]:channel_range[1], :]
     depth = depth[channel_range[0]:channel_range[1]]
-    print(depth)
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
@@ -83,22 +105,46 @@ def plot_DSS(path, well='all', inset_channels=True,
     if denoise_method:
         data = denoise(data, denoise_method)
     cmap = ListedColormap(sns.color_palette("RdBu_r", 21).as_hex())
-    im = axes[0].imshow(data, cmap=cmap,
-                        extent=[mpl_times[0], mpl_times[-1],
-                                depth[-1] - depth[0], 0],
-                        aspect='auto', vmin=vrange[0], vmax=vrange[1])
-    axes[0].xaxis_date()
-    # fig.autofmt_xdate()
-    axes[0].set_ylabel('Length along fiber [m]')
-    cbar = plt.colorbar(im, ax=axes[0])
+    im = axes1.imshow(data, cmap=cmap,
+                      extent=[mpl_times[0], mpl_times[-1],
+                              depth[-1] - depth[0], 0],
+                      aspect='auto', vmin=vrange[0], vmax=vrange[1])
+    # If simfip, plot these data here
+    if simfip:
+        plot_displacement_components(df, starttime=date_range[0],
+                                     endtime=date_range[1], new_axes=axes3,
+                                     remove_clamps=False,
+                                     rotated=True)
+    date_formatter = mdates.DateFormatter('%b-%d %H')
+    fig.axes[-2].xaxis_date()
+    fig.axes[-2].xaxis.set_major_formatter(date_formatter)
+    plt.setp(fig.axes[-2].xaxis.get_majorticklabels(), rotation=30, ha='right')
+    axes1.set_ylabel('Length along fiber [m]', fontsize=16)
+    if simfip:
+        axes2.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
+        axes3.xaxis_date()
+        axes3.xaxis.set_major_formatter(date_formatter)
+        plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
+        plt.setp(axes1.get_xticklabels(), visible=False)
+        plt.setp(axes2.get_xticklabels(), visible=False)
+    elif inset_channels:
+        axes2.xaxis_date()
+        axes2.xaxis.set_major_formatter(date_formatter)
+        plt.setp(axes2.xaxis.get_majorticklabels(), rotation=30, ha='right')
+        plt.setp(axes1.get_xticklabels(), visible=False)
+    else:
+        axes1.xaxis_date()
+        axes1.xaxis.set_major_formatter(date_formatter)
+        plt.setp(axes1.xaxis.get_majorticklabels(), rotation=30, ha='right')
+    cbar = fig.colorbar(im, cax=cax, orientation='vertical')
     cbar.ax.set_ylabel(r'$\mu\varepsilon$', fontsize=16, fontweight='bold')
     if not title:
-        axes[0].set_title('DSS well {}: {}'.format(well, denoise_method))
-    # Grid lines on axes 1
-    axes[1].grid(which='both', axis='y')
+        axes1.set_title('DSS well {}: {}'.format(well, denoise_method))
     plt.tight_layout()
     # If plotting 1D channel traces, do this last
     if inset_channels:
+        # Grid lines on axes 1
+        axes2.grid(which='both', axis='y')
 
         # Define class for plotting new traces
         class TracePlotter():
@@ -133,12 +179,34 @@ def plot_DSS(path, well='all', inset_channels=True,
                                                        vmax=vrange[1]))
                 # Set the values used for colormapping
                 lc.set_array(trace)
-                lc.set_linewidth(2)
+                lc.set_linewidth(1.5)
                 line = self.figure.axes[1].add_collection(lc)
                 self.figure.axes[1].set_ylim([-100, 100]) # Need dynamic way
                 self.figure.axes[1].legend()
                 self.figure.canvas.draw()
                 counter += 1
+
+        # Make a better cursor for picking channels
+        class Cursor(object):
+            def __init__(self, ax):
+                self.ax = ax
+                self.lx = ax.axhline(color='k')  # the horiz line
+                self.ly = ax.axvline(color='k')  # the vert line
+
+            def mouse_move(self, event):
+                if event.inaxes != self.ax:
+                    return
+
+                x, y = event.xdata, event.ydata
+                # update the line positions
+                self.lx.set_ydata(y)
+                self.ly.set_xdata(x)
+
+                self.ax.figure.canvas.draw()
+        # TODO Get the Cursor class to work
+        # Connect cursor to ax1
+        # cursor = Cursor(axes1)
+        # fig.canvas.mpl_connect('motion_notify_event', cursor.mouse_move)
 
         global counter
         counter = 0 # Click counter for trace spacing

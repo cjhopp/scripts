@@ -13,6 +13,7 @@ import chart_studio.plotly as py
 import plotly.graph_objs as go
 
 from obspy import UTCDateTime
+from datetime import datetime
 from matplotlib.collections import LineCollection
 
 # 6x6 calibration matrix for SIMFIP
@@ -222,41 +223,57 @@ def plot_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
     return
 
 
-def plot_displacement_components(df, starttime=UTCDateTime(2018, 5, 22, 11, 24),
-                                 endtime=UTCDateTime(2018, 5, 22, 12, 36),
-                                 rotated=True, plot_clamp_curves=False,
-                                 remove_clamps=True):
+def plot_displacement_components(df, starttime=datetime(2018, 5, 22, 11, 24),
+                                 endtime=datetime(2018, 5, 22, 12, 36),
+                                 new_axes=None, rotated=True,
+                                 plot_clamp_curves=False, remove_clamps=False):
     """
-    Plot X, Y and Z on separate axes and compare to clamp effects if desired
+    Plot X, Y and Z on same  or separate axes and compare to clamp effects
+    if desired
 
-    :param df: dataframe with X, Y, Z colums appended
+    :param df: dataframe with X, Y, Z columns appended
     :param starttime: Plot start time
     :param endtime: Plot end time
+    :param new_axes: Axes instance to plot all traces into
+    :param rotated: Are the streams rotated into cardinal directions?
     :param plot_clamp_curves: Whether to plot Yves clamping curves or not
-    :param remove_clamps: 'High' or "Low' clamp curve to subtract
+    :param remove_clamps: 'High' or 'Low' clamp curve to subtract
 
     :return:
     """
     # Set out date formatter
     date_formatter = mdates.DateFormatter('%b-%d %H:%M')
-    df = df[starttime.datetime:endtime.datetime]
-    fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+    df = df[starttime:endtime]
+    if not new_axes:
+        fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
     if rotated and not remove_clamps:
         headers = ('Xc', 'Yc', 'Zc')
     elif rotated:
         headers = ('X', 'Y', 'Z')
     else:
         headers = ('ux', 'uy', 'uz')
-    # Plot measurements first
-    axes[0].plot(df[headers[0]] - df[headers[0]][0],
-                 label='{} measurement'.format(headers[0]),
-                 color='steelblue', linewidth=1.5)
-    axes[1].plot(df[headers[1]] - df[headers[1]][0],
-                 label='{} measurement'.format(headers[1]), color='orange',
-                 linewidth=1.5)
-    axes[2].plot(df[headers[2]] - df[headers[2]][0],
-                 label='{} measurement'.format(headers[2]), color='green',
-                 linewidth=1.5)
+    if not new_axes:
+        # Plot measurements first
+        axes[0].plot(df[headers[0]] - df[headers[0]][0],
+                     label='{} measurement'.format(headers[0]),
+                     color='steelblue', linewidth=1.5)
+        axes[1].plot(df[headers[1]] - df[headers[1]][0],
+                     label='{} measurement'.format(headers[1]), color='orange',
+                     linewidth=1.5)
+        axes[2].plot(df[headers[2]] - df[headers[2]][0],
+                     label='{} measurement'.format(headers[2]), color='green',
+                     linewidth=1.5)
+    else:
+        # Plot measurements first
+        new_axes.plot(df[headers[0]] - df[headers[0]][0],
+                      label='{} measurement'.format(headers[0]),
+                      color='steelblue', linewidth=1.5)
+        new_axes.plot(df[headers[1]] - df[headers[1]][0],
+                      label='{} measurement'.format(headers[1]), color='orange',
+                      linewidth=1.5)
+        new_axes.plot(df[headers[2]] - df[headers[2]][0],
+                      label='{} measurement'.format(headers[2]), color='green',
+                      linewidth=1.5)
     # If plotting possible clamp effects
     if plot_clamp_curves and not remove_clamps and not rotated:
         axes[0].plot(-0.00028805 + (-7.8e-6 * df['Pz1'] / 300.),
@@ -291,18 +308,23 @@ def plot_displacement_components(df, starttime=UTCDateTime(2018, 5, 22, 11, 24),
                      color='green', alpha=0.7,
                      label='{} - clamp'.format(headers[2]))
     # Format it up
-    # axes[0].set_ylabel('Flow (mL/min)', fontsize=16)
-    axes[1].set_ylabel('Displacement (microns)', fontsize=20)
-    # axes[2].set_ylabel('Displacement (microns)', fontsize=16)
-    axes[2].set_xlabel('Time', fontsize=16)
-    axes[0].legend(fontsize=12, loc=1)
-    axes[1].legend(fontsize=12, loc=1)
-    axes[2].legend(fontsize=12, loc=1)
-    axes[2].xaxis.set_major_formatter(date_formatter)
-    axes[2].tick_params(axis='x', which='major', labelsize=12)
-    tstamp = df.index[0]
-    axes[0].set_title('{}-{}-{}'.format(tstamp.year, tstamp.month, tstamp.day),
-                      fontsize=22)
+    if new_axes:
+        new_axes.set_ylabel('Displacement (microns)', fontsize=16)
+        new_axes.set_title('SIMFIP', fontsize=20)
+        new_axes.legend()
+        new_axes.margins(x=0)
+    else:
+        axes[1].set_ylabel('Displacement (microns)', fontsize=20)
+        axes[2].set_xlabel('Time', fontsize=16)
+        axes[0].legend(fontsize=12, loc=1)
+        axes[1].legend(fontsize=12, loc=1)
+        axes[2].legend(fontsize=12, loc=1)
+        axes[2].xaxis.set_major_formatter(date_formatter)
+        axes[2].tick_params(axis='x', which='major', labelsize=12)
+        tstamp = df.index[0]
+        axes[0].set_title('{}-{}-{}'.format(tstamp.year, tstamp.month, tstamp.day),
+                          fontsize=22)
+        axes[0].margins(x=0)
     return
 
 
