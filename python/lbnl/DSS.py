@@ -12,6 +12,7 @@ from obspy import Stream, Trace
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend
 from datetime import datetime
+from matplotlib.dates import num2date
 from matplotlib.colors import ListedColormap
 from matplotlib.gridspec import GridSpec
 from matplotlib.collections import LineCollection
@@ -188,10 +189,11 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
 
         # Make a better cursor for picking channels
         class Cursor(object):
-            def __init__(self, ax):
+            def __init__(self, ax, fig):
                 self.ax = ax
-                self.lx = ax.axhline(color='k')  # the horiz line
-                self.ly = ax.axvline(color='k')  # the vert line
+                self.figure = fig
+                self.lx = ax.axhline(ax.get_ylim()[0], color='k')  # the horiz line
+                self.ly = ax.axvline(ax.get_xlim()[0], color='k')  # the vert line
 
             def mouse_move(self, event):
                 if event.inaxes != self.ax:
@@ -200,13 +202,14 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                 x, y = event.xdata, event.ydata
                 # update the line positions
                 self.lx.set_ydata(y)
-                self.ly.set_xdata(x)
+                self.ly.set_xdata(num2date(x))
 
-                self.ax.figure.canvas.draw()
+                self.figure.canvas.draw()
+
         # TODO Get the Cursor class to work
         # Connect cursor to ax1
-        # cursor = Cursor(axes1)
-        # fig.canvas.mpl_connect('motion_notify_event', cursor.mouse_move)
+        cursor = Cursor(axes1, fig)
+        fig.canvas.mpl_connect('motion_notify_event', cursor.mouse_move)
 
         global counter
         counter = 0 # Click counter for trace spacing
