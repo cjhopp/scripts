@@ -435,10 +435,6 @@
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/setup.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/setup.cfg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/setup.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/modules.xml" afterDir="false" />
@@ -524,8 +520,6 @@
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -206,7 +206,6 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
 
                 self.figure.canvas.draw()
 
-        # TODO Get the Cursor class to work
         # Connect cursor to ax1
         cursor = Cursor(axes1, fig)
         fig.canvas.mpl_connect('motion_notify_event', cursor.mouse_move)
