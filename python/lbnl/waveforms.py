@@ -111,8 +111,8 @@ def rotate_catalog_streams(catalog, wav_dir, inv, cassm=True, orientations=None,
 
 
 def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
-                          amp_window=0.0003, plot=False, plot_station='OT16',
-                          debug=0):
+                          amp_window=0.0003, metric='ratio', plot=False,
+                          plot_station='OT16', debug=0):
     """
     Sample a uniform distribution of rotations of a stream and return
     the rotation and stream of interest
@@ -124,6 +124,9 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
     :param n: Number of samples to draw
     :param amp_window: Length (sec) within which to measure the energy of the
         trace.
+    :param metric: Whether to use the 'ratio' of radial to transverse components
+        or simply the energy in the 'radial' component to decide on the best
+        rotation matrix for each station.
     :param plot: Save images of the rotated stream to file. Can be ordered and
         made into a movie later...If yes, provide path as plot argument.
     :param plot_station: To avoid clutter, just give one station to generate
@@ -164,7 +167,8 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
         try:
             pk = [pk for pk in ev.picks
                   if pk.waveform_id.station_code == sta
-                  and pk.phase_hint == 'P'][0]
+                  and pk.phase_hint == 'P'
+                  and pk.creation_info != None][0]
         except IndexError:
             # If no pick at this station, break the rotations loop
             continue
@@ -175,9 +179,9 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
                                      endtime=pk.time + 0.005)
         # Bandpass
         work_st.filter(type='bandpass', freqmin=3000,
-                       freqmax=25000, corners=3)
+                       freqmax=42000, corners=3)
         # Trim to small window
-        work_st.trim(starttime=pk.time - 0.00002,
+        work_st.trim(starttime=pk.time,# - 0.00002,
                      endtime=pk.time + amp_window)
         try:
             datax = work_st.select(channel='*X')[0].data
@@ -209,7 +213,7 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
             Ex = np.sum(datax ** 2)
             Ey = np.sum(datay ** 2)
             Ez = np.sum(dataz ** 2)
-            h_ratio = Ey / Ez
+            h_ratio = Ey / (Ez + Ex)
             snry = SNR(signaly, noisey)
             # Decide polarity of arrival
             pp = find_peaks(datay / np.max(np.abs(datay)), width=1.25,
@@ -250,7 +254,10 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
         if len(amps) == 0:
             continue
         x, y, z, snr, rat, p, daty, pp, pn = zip(*amps)
-        best_ind = np.argmax(y)
+        if metric == 'radial':
+            best_ind = np.argmax(y)
+        elif metric == 'ratio':
+            best_ind = np.argmax(rat)
         # best_ind = np.argmax(rat) # Maximize the ratio of y to z
         # Take Y, but could be Z (X is along borehole)
         sta_dict[sta] = {'matrix': rots[best_ind]}
@@ -1045,7 +1052,7 @@ def plot_arrivals(st, ev, pre_pick, post_pick):
     return
 
 
-def plot_station_rot_stats(sta_dict):
+def plot_station_rot_stats(sta_dict, title='Station orientaton stats'):
     """
     Plot the statistics of the station dictionary output by
     rotate_catalog_streams()
@@ -1073,4 +1080,5 @@ def plot_station_rot_stats(sta_dict):
         axes[2].set_title('Channel angle with borehole axis')
         # axes[1].set_theta_zero_location('N')
         # axes[1].set_theta_direction(-1)
+        plt.suptitle(title, fontsize=20)
     return axes
