@@ -61,17 +61,13 @@ def SNR(signal, noise):
     noise_pow = np.sqrt(np.mean(noise ** 2))
     return 20 * np.log10(sig_pow / noise_pow)
 
-def rotate_catalog_streams(catalog, wav_dir, inv, cassm=True, orientations=None,
-                           ncores=8, **kwargs):
+def rotate_catalog_streams(catalog, wav_dir, inv, ncores=8, **kwargs):
     """
     Return a list of rotated streams and a single
 
     :param catalog: Catalog of events used to orient seismometers
     :param wav_dir: Directory of waveform files to draw from
     :param inv: Station inventory
-    :param cassm:
-    :param orientations: Some structure holding predefined station orientations
-        (not yet implemented)
     :param ncores: Number of cores to use, default 8.
     :param kwargs: Keyword arguments passed to uniform_rotate_stream
     :return:
@@ -111,8 +107,7 @@ def rotate_catalog_streams(catalog, wav_dir, inv, cassm=True, orientations=None,
 
 
 def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
-                          amp_window=0.0003, metric='ratio', plot=False,
-                          plot_station='OT16', debug=0):
+                          amp_window=0.0002, metric='ratio', debug=0):
     """
     Sample a uniform distribution of rotations of a stream and return
     the rotation and stream of interest
@@ -127,10 +122,6 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
     :param metric: Whether to use the 'ratio' of radial to transverse components
         or simply the energy in the 'radial' component to decide on the best
         rotation matrix for each station.
-    :param plot: Save images of the rotated stream to file. Can be ordered and
-        made into a movie later...If yes, provide path as plot argument.
-    :param plot_station: To avoid clutter, just give one station to generate
-        plots for.
 
     .. note: One complication is that the arrival orientation corresponding to
         the greatest energy in the signal can be parallel to either the
@@ -173,53 +164,43 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
             # If no pick at this station, break the rotations loop
             continue
         work_st = st.select(station=sta).copy().detrend()
-        # Trim SNR streams
-        noise = work_st.copy().trim(endtime=pk.time - 0.003)
-        signal = work_st.copy().trim(starttime=pk.time - 0.00005,
-                                     endtime=pk.time + 0.005)
         # Bandpass
         work_st.filter(type='bandpass', freqmin=3000,
                        freqmax=42000, corners=3)
-        # Trim to small window
-        work_st.trim(starttime=pk.time,# - 0.00002,
-                     endtime=pk.time + amp_window)
-        try:
-            datax = work_st.select(channel='*X')[0].data
-        except IndexError:
+        # Trim to 0.01s window around pick (hardcoded for indexing convenience)
+        work_st.trim(starttime=pk.time - 0.005,
+                     endtime=pk.time + 0.005)
+        # Leave this unrotated for debug plotting
+        og_signal = work_st.copy().select(channel='*Y')[0].data[495:550]
+        if len(work_st.select(channel='*X')) == 0:
             continue
         for R in rots:
             r_st = work_st.copy()
-            statx = r_st.select(channel='*X')[0].stats
+            datax = r_st.select(channel='*X')[0].data
             datay = r_st.select(channel='*Y')[0].data
-            staty = r_st.select(channel='*Y')[0].stats
             dataz = r_st.select(channel='*Z')[0].data
-            statz = r_st.select(channel='*Z')[0].stats
-            # Noise
-            noisex = noise.select(channel='*X')[0].data
-            noisey = noise.select(channel='*Y')[0].data
-            noisez = noise.select(channel='*Z')[0].data
-            # Signal
-            signalx = signal.select(channel='*X')[0].data
-            signaly = signal.select(channel='*Y')[0].data
-            signalz = signal.select(channel='*Z')[0].data
-            # As select() passes references to traces, can modify in-place
+            # Rotate
             datax, datay, dataz = np.dot(R.as_dcm(), [datax, datay, dataz])
-            noisex, noisey, noisez = np.dot(R.as_dcm(),
-                                            [noisex, noisey, noisez])
-            signalx, signaly, signalz = np.dot(R.as_dcm(),
-                                               [signalx, signaly, signalz])
-            rot_st += work_st
+            # Noise
+            noisey = datay[:301]
+            # Signal
+            signaly = datay[495:550]
             # Calc E as sum of squared amplitudes
-            Ex = np.sum(datax ** 2)
-            Ey = np.sum(datay ** 2)
-            Ez = np.sum(dataz ** 2)
+            energy_int = int(amp_window * work_st[0].stats.sampling_rate)
+            # Amplitude window starting at pick
+            ampx = np.copy(datax[496:496+energy_int])
+            ampy = np.copy(datay[496:496+energy_int])
+            ampz = np.copy(dataz[496:496+energy_int])
+            Ex = np.sum(ampx ** 2)
+            Ey = np.sum(ampy ** 2)
+            Ez = np.sum(ampz ** 2)
             h_ratio = Ey / (Ez + Ex)
             snry = SNR(signaly, noisey)
+            # Normalize data
+            poldat = ampy / np.linalg.norm(ampy)
             # Decide polarity of arrival
-            pp = find_peaks(datay / np.max(np.abs(datay)), width=1.25,
-                            prominence=0.07, distance=4)
-            pn = find_peaks(-(datay / np.max(np.abs(datay))), width=1.25,
-                            prominence=0.07, distance=4)
+            pp = find_peaks(poldat, prominence=0.05, distance=5)
+            pn = find_peaks(-poldat, prominence=0.05, distance=5)
             try:
                 if pp[0][0] < pn[0][0]:
                     pol = 1 # up
@@ -227,63 +208,55 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
                     pol = 0 # down
             except IndexError as e: # Case of no suitable peaks found
                 continue
-            amp_dict[sta].append([Ex, Ey, Ez, snry, h_ratio, pol, datay,
-                                  pp[0][0], pn[0][0]])
-            if plot and sta == plot_station:
-                eulers = R.as_euler(seq='xyz')
-                new_trx = Trace(data=datax, header=statx)
-                new_try = Trace(data=datay, header=staty)
-                new_trz = Trace(data=dataz, header=statz)
-                rot_st = Stream(traces=[new_trx, new_try, new_trz])
-                outfile = '{}/{}_{:0.2f}_{:0.2f}_{:0.2f}.png'.format(
-                    plot, sta, np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
-                    np.rad2deg(eulers[2]))
-                fig = rot_st.plot(handle=True, show=False)
-                fig.suptitle('X: {:0.2f} Y: {:0.2f} Z: {:0.2f}'.format(
-                    np.rad2deg(eulers[0]), np.rad2deg(eulers[1]),
-                    np.rad2deg(eulers[2])))
-                plt.savefig(outfile)
-                plt.close()
+            amp_dict[sta].append([Ex, Ey, Ez, snry, h_ratio, pol, ampy,
+                                  pp[0][0], pn[0][0], signaly, og_signal])
     sta_dict = {}
     if debug > 0:
-        fig, ax = plt.subplots(figsize=(4, 12))
+        fig, axes = plt.subplots(ncols=2, figsize=(10, 12))
         labs = []
         ticks = []
     for i, (sta, amps) in enumerate(amp_dict.items()):
         # No picks at this station
         if len(amps) == 0:
             continue
-        x, y, z, snr, rat, p, daty, pp, pn = zip(*amps)
+        x, y, z, snr, rat, p, ampy, pp, pn, sigy, os = zip(*amps)
         if metric == 'radial':
             best_ind = np.argmax(y)
         elif metric == 'ratio':
             best_ind = np.argmax(rat)
-        # best_ind = np.argmax(rat) # Maximize the ratio of y to z
         # Take Y, but could be Z (X is along borehole)
         sta_dict[sta] = {'matrix': rots[best_ind]}
         sta_dict[sta]['polarity'] = p[best_ind]
-        sta_dict[sta]['datay'] = daty[best_ind]
+        sta_dict[sta]['datay'] = ampy[best_ind]
         sta_dict[sta]['ratio'] = rat[best_ind]
         sta_dict[sta]['snr'] = snr[best_ind]
         # Test plotting
         if debug > 0:
             labs.append(sta)
             ticks.append(i)
-            plot_dat = daty[best_ind]
+            plot_dat = ampy[best_ind]
             plot_dat /= np.max(plot_dat)
-            plot_pol = p[best_ind]
+            rot_sig = sigy[best_ind] / np.max(sigy[best_ind])
             # Plot data
-            ax.plot(plot_dat + i, color='k')
+            axes[0].plot(plot_dat + i, color='k')
             # Plot polarity picks
             # Up pick
-            ax.scatter(pp[best_ind], plot_dat[pp[best_ind]] + i,
-                        marker='o', color='r')
+            axes[0].scatter(pp[best_ind], plot_dat[pp[best_ind]] + i,
+                            marker='o', color='r')
             # Down pick
-            ax.scatter(pn[best_ind], plot_dat[pn[best_ind]] + i,
-                        marker='o', color='b')
+            axes[0].scatter(pn[best_ind], plot_dat[pn[best_ind]] + i,
+                            marker='o', color='b')
+            try:
+                axes[1].plot(rot_sig + i, color='k')
+                axes[1].plot((os[best_ind] / np.max(os[best_ind])) + i,
+                             color='grey')
+            except IndexError as e:
+                continue
     if debug > 0:
-        ax.set_yticklabels(labs)
-        ax.set_yticks(ticks)
+        axes[0].set_yticklabels(labs)
+        axes[0].set_yticks(ticks)
+        axes[1].set_yticklabels(labs)
+        axes[1].set_yticks(ticks)
     # Rotate a final stream so that all instruments have Y oriented radially
     radial_stream = Stream()
     for sta in stas:
@@ -326,7 +299,7 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
         # Do some trig
         # This comes out as deg from (1, 0) vector (i.e. positive E)
         az = np.rad2deg(np.arctan2(orig_vect[1],
-                                       orig_vect[0])) + 90.
+                                   orig_vect[0])) + 90.
         # az_baz = np.rad2deg(np.arctan2(orig_vect_baz[1],
         #                                orig_vect_baz[0])) + 90.
         # Will be degrees from horizontal (negative value is upgoing ray)
