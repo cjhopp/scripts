@@ -158,8 +158,7 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
         try:
             pk = [pk for pk in ev.picks
                   if pk.waveform_id.station_code == sta
-                  and pk.phase_hint == 'P'
-                  and pk.creation_info != None][0]
+                  and pk.phase_hint == 'P'][-1]
         except IndexError:
             # If no pick at this station, break the rotations loop
             continue
