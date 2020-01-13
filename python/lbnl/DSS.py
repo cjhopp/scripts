@@ -63,14 +63,16 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
 
     :return:
     """
-    fig = plt.figure(constrained_layout=True, figsize=(6, 12))
+    fig = plt.figure(constrained_layout=False, figsize=(9, 12))
     if inset_channels and simfip:
         # fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(6, 12))
-        gs = GridSpec(ncols=5, nrows=9, figure=fig)
-        axes1 = fig.add_subplot(gs[:3, :-1])
-        axes2 = fig.add_subplot(gs[3:6, :-1], sharex=axes1)
-        axes3 = fig.add_subplot(gs[6:, :-1], sharex=axes1)
-        cax = fig.add_subplot(gs[:6, -1])
+        gs = GridSpec(ncols=7, nrows=11, figure=fig)
+        axes1 = fig.add_subplot(gs[:5, 2:-1])
+        axes2 = fig.add_subplot(gs[5:8, 2:-1], sharex=axes1)
+        axes3 = fig.add_subplot(gs[8:, 2:-1], sharex=axes1)
+        axes4 = fig.add_subplot(gs[:, 0])
+        axes5 = fig.add_subplot(gs[:, 1], sharex=axes4)
+        cax = fig.add_subplot(gs[:8, -1])
         df = read_excavation(simfip)
     elif inset_channels:
         gs = GridSpec(ncols=5, nrows=6, figure=fig)
@@ -117,9 +119,9 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                                      remove_clamps=False,
                                      rotated=True)
     date_formatter = mdates.DateFormatter('%b-%d %H')
-    fig.axes[-2].xaxis_date()
-    fig.axes[-2].xaxis.set_major_formatter(date_formatter)
-    plt.setp(fig.axes[-2].xaxis.get_majorticklabels(), rotation=30, ha='right')
+    fig.axes[-4].xaxis_date()
+    fig.axes[-4].xaxis.set_major_formatter(date_formatter)
+    plt.setp(fig.axes[-4].xaxis.get_majorticklabels(), rotation=30, ha='right')
     axes1.set_ylabel('Length along fiber [m]', fontsize=16)
     if simfip:
         axes2.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
@@ -169,8 +171,13 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                 # units of meters during imshow...?
                 chan_dist = np.abs(self.depth - event.ydata)
                 chan = np.argmin(chan_dist)
+                # Get column corresponding to xdata time
+                dts = np.abs(self.times - event.xdata)
+                time_int = np.argmin(dts)
                 trace = self.data[chan, :]
                 depth = self.depth[chan]
+                # Grab along-fiber vector
+                fiber_vect = self.data[:, time_int]
                 # Plot trace for this channel colored by strain as LineCollection
                 points = np.array([self.times, trace]).T.reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
@@ -178,11 +185,36 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                                     label='Depth {:0.2f}'.format(depth),
                                     norm=plt.Normalize(vmin=vrange[0],
                                                        vmax=vrange[1]))
+                # Plot two traces for downgoing and upgoing trace at user-
+                # picked time
+                down_d, up_d = np.array_split(self.depth, 2)
+                down_vect, up_vect = np.array_split(fiber_vect, 2)
+                down_pts = np.array([down_vect, down_d]).T.reshape(-1, 1, 2)
+                up_pts = np.array([up_vect, up_d]).T.reshape(-1, 1, 2)
+                down_segs = np.concatenate([down_pts[:-1], down_pts[1:]],
+                                           axis=1)
+                up_segs = np.concatenate([up_pts[:-1], up_pts[1:]], axis=1)
+                lc_down = LineCollection(down_segs, cmap=self.cmap,
+                                         norm=plt.Normalize(vmin=vrange[0],
+                                                            vmax=vrange[1]))
+                lc_up = LineCollection(up_segs, cmap=self.cmap,
+                                       norm=plt.Normalize(vmin=vrange[0],
+                                                          vmax=vrange[1]))
                 # Set the values used for colormapping
                 lc.set_array(trace)
                 lc.set_linewidth(1.5)
                 line = self.figure.axes[1].add_collection(lc)
+                lc_down.set_array(down_vect)
+                lc_down.set_linewidth(1.5)
+                line_down = self.figure.axes[-3].add_collection(lc_down)
+                lc_up.set_array(up_vect)
+                lc_up.set_linewidth(1.5)
+                line_down = self.figure.axes[-2].add_collection(lc_up)
+                # Formatting
                 self.figure.axes[1].set_ylim([-100, 100]) # Need dynamic way
+                self.figure.axes[-3].set_xlim([-100, 100])
+                self.figure.axes[-3].set_ylim([down_d[-1], down_d[0]])
+                self.figure.axes[-2].set_ylim([up_d[0], up_d[-1]])
                 self.figure.axes[1].legend()
                 self.figure.canvas.draw()
                 counter += 1
