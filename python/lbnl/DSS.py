@@ -7,10 +7,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
+import matplotlib.ticker as ticker
 
 from obspy import Stream, Trace
 from scipy.ndimage import gaussian_filter, median_filter
-from scipy.signal import detrend
+from scipy.signal import detrend, welch
 from datetime import datetime
 from matplotlib.dates import num2date
 from matplotlib.colors import ListedColormap
@@ -46,6 +47,28 @@ def read_times(path, encoding='iso-8859-1'):
     return np.array([datetime_parse(t) for t in strings[1:-1]])[::-1]
 
 
+def extract_well(path, well):
+    """
+    Helper to extract only the channels in a specific well
+    """
+    data = read_ascii(path)
+    times = read_times(path)
+    # Take first column as the length along the fiber and remove it from data
+    depth = data[:, -1]
+    data = data[:, :-1]
+    # Take selected channels
+    if well == 'all':
+        channel_range = (0, -1)
+    else:
+        start_chan = np.abs(depth - chan_map_fsb[well][0])
+        end_chan = np.abs(depth - chan_map_fsb[well][1])
+        # Find the closest integer channel to meter mapping
+        channel_range = (np.argmin(start_chan), np.argmin(end_chan))
+    data = data[channel_range[0]:channel_range[1], :]
+    depth = depth[channel_range[0]:channel_range[1]]
+    return times, data, depth
+
+
 def plot_DSS(path, well='all', inset_channels=True, simfip=False,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 5)),
              denoise_method='demedian', vrange=(-60, 60), title=None):
@@ -63,15 +86,15 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
 
     :return:
     """
-    fig = plt.figure(constrained_layout=False, figsize=(9, 12))
+    fig = plt.figure(constrained_layout=False, figsize=(12, 12))
     if inset_channels and simfip:
         # fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(6, 12))
-        gs = GridSpec(ncols=7, nrows=11, figure=fig)
-        axes1 = fig.add_subplot(gs[:5, 2:-1])
-        axes2 = fig.add_subplot(gs[5:8, 2:-1], sharex=axes1)
-        axes3 = fig.add_subplot(gs[8:, 2:-1], sharex=axes1)
-        axes4 = fig.add_subplot(gs[:, 0])
-        axes5 = fig.add_subplot(gs[:, 1], sharex=axes4)
+        gs = GridSpec(ncols=12, nrows=11, figure=fig)
+        axes1 = fig.add_subplot(gs[:5, 5:-1])
+        axes2 = fig.add_subplot(gs[5:8, 5:-1], sharex=axes1)
+        axes3 = fig.add_subplot(gs[8:, 5:-1], sharex=axes1)
+        axes4 = fig.add_subplot(gs[:, :2])
+        axes5 = fig.add_subplot(gs[:, 2:4], sharex=axes4)
         cax = fig.add_subplot(gs[:8, -1])
         df = read_excavation(simfip)
     elif inset_channels:
@@ -84,21 +107,8 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
         gs = GridSpec(ncols=5, nrows=3, figure=fig)
         axes1 = fig.add_subplot(gs[:3, :-1])
         cax = fig.add_subplot(gs[:, -1])
-    data = read_ascii(path)
-    times = read_times(path)
-    # Take first column as the length along the fiber and remove it from data
-    depth = data[:, -1]
-    data = data[:, :-1]
-    # Take selected channels
-    if well == 'all':
-        channel_range = (0, -1)
-    else:
-        start_chan = np.abs(depth - chan_map_fsb[well][0])
-        end_chan = np.abs(depth - chan_map_fsb[well][1])
-        # Find the closest integer channel to meter mapping
-        channel_range = (np.argmin(start_chan), np.argmin(end_chan))
-    data = data[channel_range[0]:channel_range[1], :]
-    depth = depth[channel_range[0]:channel_range[1]]
+    # Get just the channels from the well in question
+    times, data, depth = extract_well(path, well)
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
@@ -118,6 +128,7 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                                      endtime=date_range[1], new_axes=axes3,
                                      remove_clamps=False,
                                      rotated=True)
+        axes3.set_ylabel(r'Displacement [$\mu$m]', fontsize=16)
     date_formatter = mdates.DateFormatter('%b-%d %H')
     fig.axes[-4].xaxis_date()
     fig.axes[-4].xaxis.set_major_formatter(date_formatter)
@@ -143,7 +154,7 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
     cbar.ax.set_ylabel(r'$\mu\varepsilon$', fontsize=16, fontweight='bold')
     if not title:
         axes1.set_title('DSS well {}: {}'.format(well, denoise_method))
-    plt.tight_layout()
+    plt.subplots_adjust(wspace=1., hspace=1.)
     # If plotting 1D channel traces, do this last
     if inset_channels:
         # Grid lines on axes 1
@@ -178,6 +189,9 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                 depth = self.depth[chan]
                 # Grab along-fiber vector
                 fiber_vect = self.data[:, time_int]
+                # Plot xdata on axes2
+                self.figure.axes[1].axvline(x=event.xdata, color='k',
+                                            linestyle='-.')
                 # Plot trace for this channel colored by strain as LineCollection
                 points = np.array([self.times, trace]).T.reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
@@ -210,12 +224,39 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                 lc_up.set_array(up_vect)
                 lc_up.set_linewidth(1.5)
                 line_down = self.figure.axes[-2].add_collection(lc_up)
+                # Plot ydata on axes4/5
+                if event.ydata > down_d[-1]:
+                    self.figure.axes[-2].fill_between(x=np.array([-500, 500]),
+                                                      y1=event.ydata - 0.5,
+                                                      y2=event.ydata + 0.5,
+                                                      alpha=0.5, color='gray')
+                else:
+                    self.figure.axes[-3].fill_between(x=np.array([-500, 500]),
+                                                      y1=event.ydata - 0.5,
+                                                      y2=event.ydata + 0.5,
+                                                      alpha=0.5, color='gray')
                 # Formatting
                 self.figure.axes[1].set_ylim([-100, 100]) # Need dynamic way
                 self.figure.axes[-3].set_xlim([-100, 100])
                 self.figure.axes[-3].set_ylim([down_d[-1], down_d[0]])
                 self.figure.axes[-2].set_ylim([up_d[0], up_d[-1]])
-                self.figure.axes[1].legend()
+                self.figure.axes[-2].yaxis.set_major_locator(
+                    ticker.MultipleLocator(5.))
+                self.figure.axes[-2].yaxis.set_minor_locator(
+                    ticker.MultipleLocator(1.))
+                self.figure.axes[-3].yaxis.set_major_locator(
+                    ticker.MultipleLocator(5.))
+                self.figure.axes[-3].yaxis.set_minor_locator(
+                    ticker.MultipleLocator(1.))
+                self.figure.axes[-3].set_title('Downgoing')
+                self.figure.axes[-3].set_ylabel('Length along fiber (m)',
+                                                fontsize=16)
+                self.figure.axes[-3].set_xlabel(r'$\mu\varepsilon$',
+                                                fontsize=16, fontweight='bold')
+                self.figure.axes[-2].set_xlabel(r'$\mu\varepsilon$',
+                                                fontsize=16, fontweight='bold')
+                self.figure.axes[-2].set_title('Upgoing')
+                self.figure.axes[1].legend(loc=2)
                 self.figure.canvas.draw()
                 counter += 1
 
@@ -263,3 +304,19 @@ def denoise(data, method='detrend'):
     elif method == 'median':
         data = median_filter(data, 2)
     return data
+
+def DSS_spectrum(path, well='all', domain='time'):
+    times, data, depth = extract_well(path, well)
+    if domain == 'time':
+        # Frequency in hours
+        freq, psd = welch(data, fs=1., axis=1)
+        avg_psd = psd.sum(axis=0)
+    elif domain == 'depth':
+        # Frequency in feet
+        freq, psd = welch(data, fs=0.255, axis=0)
+        avg_psd = psd.sum(axis=1)
+    else:
+        print('Invalid domain string')
+    # Plot
+    plt.semilogy(freq, avg_psd)
+    return
