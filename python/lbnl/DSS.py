@@ -117,8 +117,9 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
     mpl_times = mdates.date2num(times)
     if denoise_method:
         data = denoise(data, denoise_method)
-    cmap = ListedColormap(sns.color_palette("RdBu_r", 21).as_hex())
-    im = axes1.imshow(data, cmap=cmap,
+    cmap_d = ListedColormap(sns.diverging_palette(240, 10, n=21, center='dark').as_hex())
+    cmap_l = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
+    im = axes1.imshow(data, cmap=cmap_d,
                       extent=[mpl_times[0], mpl_times[-1],
                               depth[-1] - depth[0], 0],
                       aspect='auto', vmin=vrange[0], vmax=vrange[1])
@@ -237,6 +238,9 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                                                       alpha=0.5, color='gray')
                 # Formatting
                 self.figure.axes[1].set_ylim([-100, 100]) # Need dynamic way
+                self.figure.axes[1].set_facecolor('lightgray')
+                self.figure.axes[-2].set_facecolor('lightgray')
+                self.figure.axes[-3].set_facecolor('lightgray')
                 self.figure.axes[-3].set_xlim([-100, 100])
                 self.figure.axes[-3].set_ylim([down_d[-1], down_d[0]])
                 self.figure.axes[-2].set_ylim([up_d[0], up_d[-1]])
@@ -285,7 +289,7 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
 
         global counter
         counter = 0 # Click counter for trace spacing
-        plotter = TracePlotter(fig, data, depth, cmap)
+        plotter = TracePlotter(fig, data, depth, cmap_d)
         plt.show()
     return
 
