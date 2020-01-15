@@ -269,8 +269,8 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
             def __init__(self, ax, fig):
                 self.ax = ax
                 self.figure = fig
-                self.lx = ax.axhline(ax.get_ylim()[0], color='k')  # the horiz line
-                self.ly = ax.axvline(ax.get_xlim()[0], color='k')  # the vert line
+                self.lx = ax.axhline(ax.get_ylim()[0], color='w')  # the horiz line
+                self.ly = ax.axvline(ax.get_xlim()[0], color='w')  # the vert line
 
             def mouse_move(self, event):
                 if event.inaxes != self.ax:

@@ -13,6 +13,7 @@ import plotly.graph_objs as go
 from itertools import cycle
 from datetime import datetime
 from scipy.linalg import lstsq
+from scipy.signal import resample
 
 # Local imports (assumed to be in python path)
 from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes
@@ -54,21 +55,29 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     if location == 'surf':
         wells = parse_surf_boreholes(well_file)
     elif location == 'fsb':
-        wells = create_FSB_boreholes()
+        wells = create_FSB_boreholes(method='asplanned')
     for i, (key, pts) in enumerate(wells.items()):
-        x, y, z = zip(*pts)
+        try:
+            x, y, z = zip(*pts)
+        except ValueError:
+            x, y, z, d = zip(*pts)
         datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
                                   name='Borehole: {}'.format(key),
                                   line=dict(color=next(colors), width=7)))
     if inventory:
-        # Do the same for the inventory
         sta_list = []
-        for sta in inventory[0]: # Assume single network for now
-            sx = float(sta.extra.hmc_east.value)
-            sy = float(sta.extra.hmc_north.value)
-            sz = float(sta.extra.hmc_elev.value)
-            name = sta.code
-            sta_list.append((sx, sy, sz, name))
+        if isinstance(inventory, dict):
+            for sta, pt in inventory.items():
+                (sx, sy, sz) = pt
+                sta_list.append((sx, sy, sz, sta))
+        else:
+            # Do the same for the inventory
+            for sta in inventory[0]: # Assume single network for now
+                sx = float(sta.extra.hmc_east.value)
+                sy = float(sta.extra.hmc_north.value)
+                sz = float(sta.extra.hmc_elev.value)
+                name = sta.code
+                sta_list.append((sx, sy, sz, name))
         stax, stay, staz, nms = zip(*sta_list)
         datas.append(go.Scatter3d(x=np.array(stax), y=np.array(stay),
                                   z=np.array(staz),

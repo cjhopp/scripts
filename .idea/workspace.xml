@@ -519,7 +519,11 @@
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/matlab/FS-B/boreholes/testWellGeomFSB_V3.m" beforeDir="false" afterPath="$PROJECT_DIR$/matlab/FS-B/boreholes/testWellGeomFSB_V3.m" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/boreholes.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/boreholes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/instruments.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/instruments.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/plotting.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -755,10 +759,10 @@
       <screen x="2560" y="400" width="1920" height="1200" />
     </state>
     <state x="3009" y="634" key="SettingsEditor/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1575567866128" />
-    <state x="2724" y="688" width="707" height="804" key="find.popup" timestamp="1578703834389">
+    <state x="2724" y="688" width="707" height="804" key="find.popup" timestamp="1579037963906">
       <screen x="2560" y="400" width="1920" height="1200" />
     </state>
-    <state x="2724" y="688" width="707" height="804" key="find.popup/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1578703834389" />
+    <state x="2724" y="688" width="707" height="804" key="find.popup/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1579037963906" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

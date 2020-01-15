@@ -5,34 +5,56 @@ Utilities for handling various formats of borehole trajectory/orientation files
 """
 import numpy as np
 import seaborn as sns
+import pandas as pd
 
 from itertools import cycle
+from pathlib import Path
 
-
-def create_FSB_boreholes():
+def create_FSB_boreholes(method='asbuilt'):
     """
     Return dictionary of FSB well coordinates
+
+    :param method: From asbuilt or asplanned specs
     """
-    well_dict = {'B1': [(2579345.22, 1247580.39, 513.20),
-                        (2579345.22, 1247580.39, 450.00)],
-                 'B2': [(2579334.48, 1247570.98, 513.20),
-                        (2579329.36, 1247577.86, 460.41)],
-                 'B3': [(2579324.91, 1247611.68, 514.13),
-                        (2579322.61, 1247556.79, 449.53)],
-                 'B4': [(2579325.50, 1247612.05, 514.07),
-                        (2579338.71, 1247569.11, 447.96)],
-                 'B5': [(2579332.57, 1247597.29, 513.78),
-                        (2579321.52, 1247556.01, 473.52)],
-                 'B6': [(2579334.35, 1247598.44, 513.72),
-                        (2579338.50, 1247569.01, 473.70)],
-                 'B7': [(2579336.22, 1247599.75, 513.76),
-                        (2579351.79, 1247579.12, 474.15)],
-                 'B8': [(2579334.00, 1247602.00, 513.78),
-                        (2579326.50, 1247563.50, 472.50)],
-                 'B9': [(2579328.00, 1247609.00, 513.20),
-                        (2579335.00, 1247570.00, 458.00)]
+    well_dict = {
+                 # As planned
+                 'B1': [(2579345.22, 1247580.39, 513.20, 0),
+                        (2579345.22, 1247580.39, 450.00, 0)],
+                 'B2': [(2579334.48, 1247570.98, 513.20, 0),
+                        (2579329.36, 1247577.86, 460.41, 0)],
+                 # Changed to as built B3-7 1-14-20 CJH
+                 'B3': [(2579324.915, 1247611.678, 514.13, 0),
+                        (2579324.01, 1247557.61, 450.05, 0)],
+                 'B4': [(2579325.497, 1247612.048, 514.07, 0),
+                         (2579337.15, 1247569.67, 448.33, 0)],
+                 'B5': [(2579332.571, 1247597.289, 513.78, 0),
+                        (2579319.59, 1247557.19, 472.50, 0)],
+                 'B6': [(2579333.568, 1247598.048, 513.70, 0),
+                        (2579337.52, 1247568.85, 474.53, 0)],
+                 'B7': [(2579335.555, 1247599.383, 513.70, 0),
+                        (2579352.08, 1247578.44, 475.78, 0)],
+                 # As planned
+                 'B8': [(2579334.00, 1247602.00, 513.78, 0),
+                        (2579326.50, 1247563.50, 472.50, 0)],
+                 'B9': [(2579328.00, 1247609.00, 513.20, 0),
+                        (2579335.00, 1247570.00, 458.00, 0)]
                  }
-    return well_dict
+    if method == 'asplanned':
+        return well_dict
+    elif method == 'asbuilt':
+        excel_asbuilts = []
+        for fname in Path('/media/chet/data/chet-FS-B/wells/').rglob(
+                '*Gamma_Deviation.xlsx'):
+            excel_asbuilts.append(fname)
+        for excel_f in excel_asbuilts:
+            name = str(excel_f).split('-')[-1][:2]
+            top = well_dict[name][0]
+            df = pd.read_excel(excel_f, header=6, skiprows=[7])
+            well_dict[name] = np.stack(((top[0] + df['Easting']).values,
+                                        (top[1] + df['Northing']).values,
+                                        (top[2] - df['TVD']).values,
+                                        df['Depth'].values)).T
+        return well_dict
 
 def parse_surf_boreholes(file_path):
     """

@@ -15,8 +15,54 @@ import numpy as np
 import pandas as pd
 
 from lbnl.coordinates import SURF_converter
+from lbnl.boreholes import create_FSB_boreholes
 from obspy.core.util import AttribDict
 from obspy.core.inventory import Inventory, Network, Station, Channel, Response
+
+
+def read_fsb_asbuilt(path):
+    sens_dict = {}
+    inv = Inventory(networks=[Network(stations=[], code='FS')],
+                    source='FSB')
+    """Read excel spreadsheet of sensor wells and depths"""
+    sensors = pd.read_excel(path, sheet_name=None, skiprows=np.arange(5),
+                            usecols = np.arange(1, 8), header = None)
+    well_dict = create_FSB_boreholes()
+    # Hydrophones first
+    for i, sens in sensors['Hydrophones'].iterrows():
+        if sens[2] != ' -- ': # B3
+            dep = float(sens[2])
+            easts, norths, zs, deps = np.hsplit(well_dict['B3'], 4)
+            # Get closest depth point
+            dists = np.squeeze(np.abs(dep - deps))
+            name = 'B3{:02d}'.format(sens[4])
+        else: #B4
+            dep = float(sens[3])
+            easts, norths, zs, deps = np.hsplit(well_dict['B4'], 4)
+            # Get closest depth point
+            dists = np.squeeze(np.abs(dep - deps))
+            # Use convention that hydrophone string #s zero-padded
+            name = 'B4{:02d}'.format(sens[4])
+        x = easts[np.argmin(dists)][0]
+        y = norths[np.argmin(dists)][0]
+        z = zs[np.argmin(dists)][0]
+        sens_dict[name] = (x, y, z)
+    for i, sens in sensors['Accelerometers'].iterrows():
+        if sens[2] == 'Z': # All info in Z chan row
+            bh = sens[5]
+            dep = float(sens[7])
+            easts, norths, zs, deps = np.hsplit(well_dict[bh], 4)
+            # Name accelerometers after serial # (non zero-padded to keep
+            # namespace clean for hydro strings)
+            no = sens[4].split('_')[1].lstrip('0')
+            name = '{}{}'.format(bh, no)
+            dists = np.squeeze(np.abs(dep - deps))
+            x = easts[np.argmin(dists)][0]
+            y = norths[np.argmin(dists)][0]
+            z = zs[np.argmin(dists)][0]
+            sens_dict[name] = (x, y, z)
+    return sens_dict
+
 
 def surf_stations_to_inv(excel_file, debug=0):
     """
