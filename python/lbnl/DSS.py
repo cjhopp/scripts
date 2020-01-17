@@ -8,11 +8,13 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
 import matplotlib.ticker as ticker
+import matplotlib.patches as mpatches
 
 from obspy import Stream, Trace
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch
 from datetime import datetime
+from itertools import cycle
 from matplotlib.dates import num2date
 from matplotlib.colors import ListedColormap
 from matplotlib.gridspec import GridSpec
@@ -56,6 +58,8 @@ def extract_well(path, well):
     # Take first column as the length along the fiber and remove it from data
     depth = data[:, -1]
     data = data[:, :-1]
+    # First realign this shiz....soooooo slow
+    data = madjdabadi_realign(data)
     # Take selected channels
     if well == 'all':
         channel_range = (0, -1)
@@ -69,7 +73,8 @@ def extract_well(path, well):
     return times, data, depth
 
 
-def plot_DSS(path, well='all', inset_channels=True, simfip=False,
+def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
+             inset_channels=True, simfip=False,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 5)),
              denoise_method='demedian', vrange=(-60, 60), title=None):
     """
@@ -89,13 +94,14 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
     fig = plt.figure(constrained_layout=False, figsize=(12, 12))
     if inset_channels and simfip:
         # fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(6, 12))
-        gs = GridSpec(ncols=12, nrows=11, figure=fig)
-        axes1 = fig.add_subplot(gs[:5, 5:-1])
-        axes2 = fig.add_subplot(gs[5:8, 5:-1], sharex=axes1)
-        axes3 = fig.add_subplot(gs[8:, 5:-1], sharex=axes1)
+        gs = GridSpec(ncols=12, nrows=12, figure=fig)
+        axes1 = fig.add_subplot(gs[:3, 5:-1])
+        axes1b = fig.add_subplot(gs[3:6, 5:-1], sharex=axes1)
+        axes2 = fig.add_subplot(gs[6:9, 5:-1], sharex=axes1)
+        axes3 = fig.add_subplot(gs[9:, 5:-1], sharex=axes1)
         axes4 = fig.add_subplot(gs[:, :2])
         axes5 = fig.add_subplot(gs[:, 2:4], sharex=axes4)
-        cax = fig.add_subplot(gs[:8, -1])
+        cax = fig.add_subplot(gs[:6, -1])
         df = read_excavation(simfip)
     elif inset_channels:
         gs = GridSpec(ncols=5, nrows=6, figure=fig)
@@ -116,13 +122,39 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
         data = np.squeeze(data)
     mpl_times = mdates.date2num(times)
     if denoise_method:
+        data = data - data[:, 0, np.newaxis]
         data = denoise(data, denoise_method)
-    cmap_d = ListedColormap(sns.diverging_palette(240, 10, n=21, center='dark').as_hex())
-    cmap_l = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
-    im = axes1.imshow(data, cmap=cmap_d,
+    else:
+        # Subtract the first column
+        data = data - data[:, 0, np.newaxis]
+    if colorbar_type == 'dark':
+        cmap = ListedColormap(sns.diverging_palette(
+            240, 10, n=21, center='dark').as_hex())
+    elif colorbar_type == 'light':
+        cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
+    if derivative == 'time':
+        data = np.gradient(data, axis=1)
+        label = r'$\mu{}$m $hr^{-1}$'
+    elif derivative == 'length':
+        data = np.gradient(data, axis=0)
+        label = r'$m^{-1}$'
+    else:
+        label = r'$\mu\varepsilon$'
+    # Split the array in two and plot both separately
+    down_data, up_data = np.array_split(data, 2, axis=0)
+    down_d, up_d = np.array_split(depth - depth[0], 2)
+    if down_d.shape[0] != up_d.shape[0]:
+        # prepend last element of down to up if unequal lengths by 1
+        up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+        up_d = np.insert(up_d, 0, down_d[-1])
+    im = axes1.imshow(down_data, cmap=cmap, origin='upper',
                       extent=[mpl_times[0], mpl_times[-1],
-                              depth[-1] - depth[0], 0],
+                              down_d[-1] - down_d[0], 0],
                       aspect='auto', vmin=vrange[0], vmax=vrange[1])
+    imb = axes1b.imshow(up_data, cmap=cmap, origin='lower',
+                        extent=[mpl_times[0], mpl_times[-1],
+                                up_d[-1] - up_d[0], 0],
+                        aspect='auto', vmin=vrange[0], vmax=vrange[1])
     # If simfip, plot these data here
     if simfip:
         plot_displacement_components(df, starttime=date_range[0],
@@ -131,16 +163,20 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
                                      rotated=True)
         axes3.set_ylabel(r'Displacement [$\mu$m]', fontsize=16)
     date_formatter = mdates.DateFormatter('%b-%d %H')
-    fig.axes[-4].xaxis_date()
-    fig.axes[-4].xaxis.set_major_formatter(date_formatter)
-    plt.setp(fig.axes[-4].xaxis.get_majorticklabels(), rotation=30, ha='right')
-    axes1.set_ylabel('Length along fiber [m]', fontsize=16)
+    axes3.xaxis_date()
+    axes3.xaxis.set_major_formatter(date_formatter)
+    plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
+    axes1.set_ylabel('Depth [m]', fontsize=16)
+    axes1b.set_ylabel('Depth [m]', fontsize=16)
+    axes1.set_title('Downgoing')
+    axes1b.set_title('Upgoing')
     if simfip:
-        axes2.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
+        axes2.set_ylabel(label, fontsize=16)
         axes3.xaxis_date()
         axes3.xaxis.set_major_formatter(date_formatter)
         plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
         plt.setp(axes1.get_xticklabels(), visible=False)
+        plt.setp(axes1b.get_xticklabels(), visible=False)
         plt.setp(axes2.get_xticklabels(), visible=False)
     elif inset_channels:
         axes2.xaxis_date()
@@ -152,21 +188,62 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
         axes1.xaxis.set_major_formatter(date_formatter)
         plt.setp(axes1.xaxis.get_majorticklabels(), rotation=30, ha='right')
     cbar = fig.colorbar(im, cax=cax, orientation='vertical')
-    cbar.ax.set_ylabel(r'$\mu\varepsilon$', fontsize=16, fontweight='bold')
+    cbar.ax.set_ylabel(label, fontsize=16)
     if not title:
-        axes1.set_title('DSS well {}: {}'.format(well, denoise_method))
+        fig.suptitle('DSS BFS-{}'.format(well), fontsize=20)
     plt.subplots_adjust(wspace=1., hspace=1.)
     # If plotting 1D channel traces, do this last
     if inset_channels:
+        # Plot reference time
+        # Take arbitrary reference ten hrs after plot start
+        reference_vect = data[:, 10]
+        ref_time = times[10]
+        # Plot pick locations on all axes
+        for i in range(4):
+            fig.axes[i].axvline(x=ref_time, color='k',
+                                linestyle=':', alpha=1.0,
+                                label=ref_time.date())
+        # Also reference vector
+        down_ref, up_ref = np.array_split(reference_vect, 2)
+        # Again account for unequal down and up arrays
+        if down_ref.shape[0] != up_ref.shape[0]:
+            up_ref = np.insert(up_ref, 0, down_ref[-1])
+        axes4.plot(down_ref, down_d, color='k',
+                   linestyle=':',
+                   label=ref_time.date())
+        axes5.plot(up_ref, up_d[-1] - up_d, color='k',
+                   linestyle=':')
         # Grid lines on axes 1
         axes2.grid(which='both', axis='y')
+        axes4.grid(which='both', axis='x')
+        axes5.grid(which='both', axis='x')
+        axes2.set_ylim([vrange[0], vrange[1]])
+        axes2.set_facecolor('lightgray')
+        axes5.set_facecolor('lightgray')
+        axes4.set_facecolor('lightgray')
+        axes4.set_xlim([vrange[0], vrange[1]])
+        axes4.set_ylim([down_d[-1], down_d[0]])
+        axes5.set_ylim([up_d[-1] - up_d[0], 0])
+        axes5.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+        axes5.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+        axes4.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+        axes4.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+        axes4.set_title('Downgoing')
+        axes4.set_ylabel('Depth [m]', fontsize=16)
+        axes4.set_xlabel(label, fontsize=16)
+        axes5.set_xlabel(label, fontsize=16)
+        axes5.set_title('Upgoing')
 
         # Define class for plotting new traces
         class TracePlotter():
-            def __init__(self, figure, data, depth, cmap):
+            def __init__(self, figure, data, depth, cmap, cat_cmap, up_d,
+                         down_d):
                 self.figure = figure
                 self.cmap = cmap
+                self.cat_cmap = cat_cmap
                 self.data = data
+                self.up_d = up_d
+                self.down_d = down_d
                 self.depth = depth - depth[0]
                 self.xlim = self.figure.axes[0].get_xlim()
                 self.times = np.linspace(self.xlim[0], self.xlim[1],
@@ -177,121 +254,131 @@ def plot_DSS(path, well='all', inset_channels=True, simfip=False,
             def __call__(self, event):
                 print('click', event.xdata, event.ydata)
                 global counter
-                if event.inaxes != self.figure.axes[0]:
+                if event.inaxes not in self.figure.axes[:2]:
                     return
+                pick_ax = event.inaxes
+                # Did we pick in the upgoing or downgoing fiber?
+                if pick_ax == self.figure.axes[0]:
+                    upgoing = False
+                elif pick_ax == self.figure.axes[1]:
+                    upgoing = True
+                pick_col = next(self.cat_cmap)
                 # Get channel corresponding to ydata (which was modified to
                 # units of meters during imshow...?
-                chan_dist = np.abs(self.depth - event.ydata)
+                # Separate depth vectors
+                if upgoing:
+                    chan_dist = np.abs(self.depth - (up_d[-1] - event.ydata))
+                else:
+                    chan_dist = np.abs(self.depth - event.ydata)
                 chan = np.argmin(chan_dist)
                 # Get column corresponding to xdata time
                 dts = np.abs(self.times - event.xdata)
                 time_int = np.argmin(dts)
                 trace = self.data[chan, :]
-                depth = self.depth[chan]
+                # depth = self.depth[chan]
+                depth = event.ydata
                 # Grab along-fiber vector
                 fiber_vect = self.data[:, time_int]
-                # Plot xdata on axes2
-                self.figure.axes[1].axvline(x=event.xdata, color='k',
-                                            linestyle='-.')
-                # Plot trace for this channel colored by strain as LineCollection
-                points = np.array([self.times, trace]).T.reshape(-1, 1, 2)
-                segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                lc = LineCollection(segments, cmap=self.cmap,
-                                    label='Depth {:0.2f}'.format(depth),
-                                    norm=plt.Normalize(vmin=vrange[0],
-                                                       vmax=vrange[1]))
+                # Arrow patches for picks
+                trans = pick_ax.get_yaxis_transform()
+                arrow = mpatches.FancyArrowPatch((1.05, event.ydata),
+                                                 (0.95, event.ydata),
+                                                 mutation_scale=20,
+                                                 transform=trans,
+                                                 facecolor=pick_col,
+                                                 clip_on=False,
+                                                 zorder=103)
+                pick_ax.add_patch(arrow)
+                self.figure.axes[2].axvline(x=event.xdata, color=pick_col,
+                                            linestyle='--', alpha=0.5)
+                self.figure.axes[3].axvline(x=event.xdata, color=pick_col,
+                                            linestyle='--', alpha=0.5)
+                self.figure.axes[2].plot(self.times, trace, color=pick_col,
+                                         label='Depth {:0.2f}'.format(depth))
+                # Silly
+                self.figure.axes[2].margins(x=0.)
                 # Plot two traces for downgoing and upgoing trace at user-
                 # picked time
-                down_d, up_d = np.array_split(self.depth, 2)
                 down_vect, up_vect = np.array_split(fiber_vect, 2)
-                down_pts = np.array([down_vect, down_d]).T.reshape(-1, 1, 2)
-                up_pts = np.array([up_vect, up_d]).T.reshape(-1, 1, 2)
-                down_segs = np.concatenate([down_pts[:-1], down_pts[1:]],
-                                           axis=1)
-                up_segs = np.concatenate([up_pts[:-1], up_pts[1:]], axis=1)
-                lc_down = LineCollection(down_segs, cmap=self.cmap,
-                                         norm=plt.Normalize(vmin=vrange[0],
-                                                            vmax=vrange[1]))
-                lc_up = LineCollection(up_segs, cmap=self.cmap,
-                                       norm=plt.Normalize(vmin=vrange[0],
-                                                          vmax=vrange[1]))
-                # Set the values used for colormapping
-                lc.set_array(trace)
-                lc.set_linewidth(1.5)
-                line = self.figure.axes[1].add_collection(lc)
-                lc_down.set_array(down_vect)
-                lc_down.set_linewidth(1.5)
-                line_down = self.figure.axes[-3].add_collection(lc_down)
-                lc_up.set_array(up_vect)
-                lc_up.set_linewidth(1.5)
-                line_down = self.figure.axes[-2].add_collection(lc_up)
+                # Again account for unequal down and up arrays
+                if down_vect.shape[0] != up_vect.shape[0]:
+                    up_vect = np.insert(up_vect, 0, down_vect[-1])
+                self.figure.axes[-3].plot(down_vect, down_d, color=pick_col,
+                                          label=num2date(event.xdata).date())
+                self.figure.axes[-2].plot(up_vect, up_d[-1] - up_d,
+                                          color=pick_col)
+                self.figure.axes[-3].legend(
+                    loc=2, fontsize=12, bbox_to_anchor=(-0.95, 1.0),
+                    framealpha=1.).set_zorder(103)
+                # Swap out fiber length tick labels for depth
                 # Plot ydata on axes4/5
-                if event.ydata > down_d[-1]:
+                if upgoing:
                     self.figure.axes[-2].fill_between(x=np.array([-500, 500]),
                                                       y1=event.ydata - 0.5,
                                                       y2=event.ydata + 0.5,
-                                                      alpha=0.5, color='gray')
+                                                      alpha=0.5, color=pick_col)
                 else:
                     self.figure.axes[-3].fill_between(x=np.array([-500, 500]),
                                                       y1=event.ydata - 0.5,
                                                       y2=event.ydata + 0.5,
-                                                      alpha=0.5, color='gray')
-                # Formatting
-                self.figure.axes[1].set_ylim([-100, 100]) # Need dynamic way
-                self.figure.axes[1].set_facecolor('lightgray')
-                self.figure.axes[-2].set_facecolor('lightgray')
-                self.figure.axes[-3].set_facecolor('lightgray')
-                self.figure.axes[-3].set_xlim([-100, 100])
-                self.figure.axes[-3].set_ylim([down_d[-1], down_d[0]])
-                self.figure.axes[-2].set_ylim([up_d[0], up_d[-1]])
-                self.figure.axes[-2].yaxis.set_major_locator(
-                    ticker.MultipleLocator(5.))
-                self.figure.axes[-2].yaxis.set_minor_locator(
-                    ticker.MultipleLocator(1.))
-                self.figure.axes[-3].yaxis.set_major_locator(
-                    ticker.MultipleLocator(5.))
-                self.figure.axes[-3].yaxis.set_minor_locator(
-                    ticker.MultipleLocator(1.))
-                self.figure.axes[-3].set_title('Downgoing')
-                self.figure.axes[-3].set_ylabel('Length along fiber (m)',
-                                                fontsize=16)
-                self.figure.axes[-3].set_xlabel(r'$\mu\varepsilon$',
-                                                fontsize=16, fontweight='bold')
-                self.figure.axes[-2].set_xlabel(r'$\mu\varepsilon$',
-                                                fontsize=16, fontweight='bold')
-                self.figure.axes[-2].set_title('Upgoing')
-                self.figure.axes[1].legend(loc=2)
+                                                      alpha=0.5, color=pick_col)
+                # TODO Need dynamic way of colorbar scaling
+                self.figure.axes[2].legend(loc=2, bbox_to_anchor=(-0.2, 1.15),
+                                           framealpha=1.).set_zorder(103)
+                self.figure.axes[2].yaxis.tick_right()
+                self.figure.axes[2].yaxis.set_label_position('right')
                 self.figure.canvas.draw()
                 counter += 1
 
         # Make a better cursor for picking channels
         class Cursor(object):
-            def __init__(self, ax, fig):
-                self.ax = ax
+            def __init__(self, axes, fig):
+                self.axes = axes
                 self.figure = fig
-                self.lx = ax.axhline(ax.get_ylim()[0], color='w')  # the horiz line
-                self.ly = ax.axvline(ax.get_xlim()[0], color='w')  # the vert line
+                self.lx1 = axes[0].axhline(axes[0].get_ylim()[0], color='k')
+                self.ly1 = axes[0].axvline(axes[0].get_xlim()[0], color='k')
+                self.lx1 = axes[1].axhline(axes[1].get_ylim()[0], color='k')
+                self.ly1 = axes[1].axvline(axes[1].get_xlim()[0], color='k')
 
             def mouse_move(self, event):
-                if event.inaxes != self.ax:
+                if event.inaxes in self.axes:
                     return
 
                 x, y = event.xdata, event.ydata
                 # update the line positions
-                self.lx.set_ydata(y)
-                self.ly.set_xdata(num2date(x))
+                if event.inaxes == self.axes[0]:
+                    self.lx1.set_ydata(y)
+                    self.ly1.set_xdata(num2date(x))
+                elif event.inaxes == self.axes[1]:
+                    self.lx2.set_ydata(y)
+                    self.ly2.set_xdata(num2date(x))
 
                 self.figure.canvas.draw()
 
         # Connect cursor to ax1
-        cursor = Cursor(axes1, fig)
+        cursor = Cursor([axes1, axes1b], fig)
         fig.canvas.mpl_connect('motion_notify_event', cursor.mouse_move)
 
         global counter
         counter = 0 # Click counter for trace spacing
-        plotter = TracePlotter(fig, data, depth, cmap_d)
+        # Set up categorical color palette
+        cat_cmap = cycle(sns.color_palette('dark'))
+        plotter = TracePlotter(fig, data, depth, cmap, cat_cmap, up_d, down_d)
         plt.show()
     return
+
+
+def madjdabadi_realign(data):
+    """
+    Spatial realignment based on Modjdabadi et al. 2016
+    https://doi.org/10.1016/j.measurement.2015.08.040
+    """
+    data_aligned = np.copy(data)
+    # Go shitty for now (slow as)
+    for i in range(1, data.shape[0]):
+        for j in range(1, data.shape[1]):
+            data_aligned[i, j] = np.min(data[i-1:i+2, j] - data[i, 0])
+    return data_aligned
 
 
 def denoise(data, method='detrend'):

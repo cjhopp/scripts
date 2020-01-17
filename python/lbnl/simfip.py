@@ -255,24 +255,24 @@ def plot_displacement_components(df, starttime=datetime(2018, 5, 22, 11, 24),
     if not new_axes:
         # Plot measurements first
         axes[0].plot(df[headers[0]] - df[headers[0]][0],
-                     label='{} measurement'.format(headers[0]),
+                     label='{}'.format(headers[0][0]),
                      color='steelblue', linewidth=1.5)
         axes[1].plot(df[headers[1]] - df[headers[1]][0],
-                     label='{} measurement'.format(headers[1]), color='orange',
+                     label='{}'.format(headers[1][0]), color='orange',
                      linewidth=1.5)
         axes[2].plot(df[headers[2]] - df[headers[2]][0],
-                     label='{} measurement'.format(headers[2]), color='green',
+                     label='{}'.format(headers[2][0]), color='green',
                      linewidth=1.5)
     else:
         # Plot measurements first
         new_axes.plot(df[headers[0]] - df[headers[0]][0],
-                      label='{} measurement'.format(headers[0]),
+                      label='{}'.format(headers[0][0]),
                       color='steelblue', linewidth=1.5)
         new_axes.plot(df[headers[1]] - df[headers[1]][0],
-                      label='{} measurement'.format(headers[1]), color='orange',
+                      label='{}'.format(headers[1][0]), color='orange',
                       linewidth=1.5)
         new_axes.plot(df[headers[2]] - df[headers[2]][0],
-                      label='{} measurement'.format(headers[2]), color='green',
+                      label='{}'.format(headers[2][0]), color='green',
                       linewidth=1.5)
     # If plotting possible clamp effects
     if plot_clamp_curves and not remove_clamps and not rotated:
