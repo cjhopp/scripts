@@ -13,6 +13,7 @@ import matplotlib.patches as mpatches
 from obspy import Stream, Trace
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch
+from scipy.stats import median_absolute_deviation
 from datetime import datetime
 from itertools import cycle
 from matplotlib.dates import num2date
@@ -70,7 +71,105 @@ def extract_well(path, well):
         channel_range = (np.argmin(start_chan), np.argmin(end_chan))
     data = data[channel_range[0]:channel_range[1], :]
     depth = depth[channel_range[0]:channel_range[1]]
-    return times, data, depth
+    # Get median absolute deviation averaged across all channels
+    noise = estimate_noise(data)
+    return times, data, depth, noise
+
+
+def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
+                         pick_dict=None):
+    """
+    Plot a time slice up and down each specified well
+
+    :param path: Path to raw data file
+    :param wells: List of well names to plot
+    :param date: datetime to plot lines for
+    :param vrange: Xlims for all axes
+    :param pick_dict: Dictionary {well name: [pick depths, ...]}
+
+    :return:
+    """
+    fig, axes = plt.subplots(nrows=1, ncols=len(wells) * 2, sharey=True,
+                             sharex=True, figsize=(len(wells) * 2, 8))
+    # Initialize counter
+    i = 0
+    cat_cmap = cycle(sns.color_palette('dark'))
+    pick_col = next(cat_cmap)
+    for well in wells:
+        ax1, ax2 = axes[i:i + 2]
+        times, data, depth, noise = extract_well(path, well)
+        down_d, up_d = np.array_split(depth - depth[0], 2)
+        if down_d.shape[0] != up_d.shape[0]:
+            # prepend last element of down to up if unequal lengths by 1
+            up_d = np.insert(up_d, 0, down_d[-1])
+        # Remove first
+        data = data - data[:, 0, np.newaxis]
+        reference_vect = data[:, 0]
+        ref_time = times[0]
+        # Also reference vector
+        down_ref, up_ref = np.array_split(reference_vect, 2)
+        # Again account for unequal down and up arrays
+        if down_ref.shape[0] != up_ref.shape[0]:
+            up_ref = np.insert(up_ref, 0, down_ref[-1])
+        up_d_flip = up_d[-1] - up_d
+        ax1.plot(down_ref, down_d, color='k', linestyle=':',
+                   label=ref_time.date())
+        ax2.plot(up_ref, up_d_flip, color='k', linestyle=':')
+        # Fill between noise bounds
+        ax1.fill_betweenx(y=down_d, x1=down_ref - noise, x2=down_ref + noise,
+                            alpha=0.2, color='k')
+        ax2.fill_betweenx(y=up_d_flip, x1=up_ref - noise, x2=up_ref + noise,
+                            alpha=0.2, color='k')
+        # Get column corresponding to xdata time
+        dts = np.abs(times - date)
+        time_int = np.argmin(dts)
+        # Grab along-fiber vector
+        fiber_vect = data[:, time_int]
+        # Plot two traces for downgoing and upgoing trace at user-
+        # picked time
+        down_vect, up_vect = np.array_split(fiber_vect, 2)
+        # Again account for unequal down and up arrays
+        if down_vect.shape[0] != up_vect.shape[0]:
+            up_vect = np.insert(up_vect, 0, down_vect[-1])
+        ax1.plot(down_vect, down_d, color=pick_col, label=date.date())
+        ax2.plot(up_vect, up_d_flip, color=pick_col)
+        # If picks provided, plot them
+        if pick_dict and well in pick_dict:
+            for pick in pick_dict[well]:
+                well_length = (chan_map_fsb[well][1] -
+                               chan_map_fsb[well][0]) / 2
+                if pick[0] < well_length:
+                    ax1.fill_between(x=np.array([-500, 500]), y1=pick[0] - 0.5,
+                                     y2=pick[0] + 0.5, alpha=0.5, color='gray')
+                else:
+                    ax2.fill_between(x=np.array([-500, 500]), y1=pick[0] - 0.5,
+                                     y2=pick[0] + 0.5, alpha=0.5, color='gray')
+        if i == (len(wells) * 2) - 2: # Legend only at last well
+            ax1.legend(fontsize=16, bbox_to_anchor=(0.15, 0.25),
+                       framealpha=1.).set_zorder(103)
+        elif i == 0:
+            ax1.set_ylabel('Depth [m]', fontsize=18)
+        # Formatting
+        # Common title for well subplots
+        ax1_x = ax1.get_window_extent().x1 / 1000.
+        ax2_x = ax2.get_window_extent().x0 / 1000.
+        fig.text(x=(ax1_x + ax2_x) / 2, y=0.92, s=well, ha='center',
+                 fontsize=22)
+        ax2.set_facecolor('lightgray')
+        ax1.set_facecolor('lightgray')
+        ax1.set_xlim([vrange[0], vrange[1]])
+        ax1.margins(y=0)
+        ax2.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+        ax2.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+        ax1.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+        ax1.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+        ax1.set_title('Down')
+        ax2.set_title('Up')
+        i += 2
+    label = r'$\mu\varepsilon$'
+    fig.text(0.5, 0.04, label, ha='center', fontsize=20)  # Commmon xlabel
+    ax1.invert_yaxis()
+    return
 
 
 def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
@@ -114,7 +213,7 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
         axes1 = fig.add_subplot(gs[:3, :-1])
         cax = fig.add_subplot(gs[:, -1])
     # Get just the channels from the well in question
-    times, data, depth = extract_well(path, well)
+    times, data, depth, noise = extract_well(path, well)
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
@@ -194,10 +293,9 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
     plt.subplots_adjust(wspace=1., hspace=1.)
     # If plotting 1D channel traces, do this last
     if inset_channels:
-        # Plot reference time
-        # Take arbitrary reference ten hrs after plot start
-        reference_vect = data[:, 10]
-        ref_time = times[10]
+        # Plot reference time (first point)
+        reference_vect = data[:, 0]
+        ref_time = times[0]
         # Plot pick locations on all axes
         for i in range(4):
             fig.axes[i].axvline(x=ref_time, color='k',
@@ -208,11 +306,15 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
         # Again account for unequal down and up arrays
         if down_ref.shape[0] != up_ref.shape[0]:
             up_ref = np.insert(up_ref, 0, down_ref[-1])
-        axes4.plot(down_ref, down_d, color='k',
-                   linestyle=':',
+        up_d_flip = up_d[-1] - up_d
+        axes4.plot(down_ref, down_d, color='k', linestyle=':',
                    label=ref_time.date())
-        axes5.plot(up_ref, up_d[-1] - up_d, color='k',
-                   linestyle=':')
+        axes5.plot(up_ref, up_d_flip, color='k', linestyle=':')
+        # Fill between noise bounds
+        axes4.fill_betweenx(y=down_d, x1=down_ref - noise, x2=down_ref + noise,
+                            alpha=0.2, color='k')
+        axes5.fill_betweenx(y=up_d_flip, x1=up_ref - noise, x2=up_ref + noise,
+                            alpha=0.2, color='k')
         # Grid lines on axes 1
         axes2.grid(which='both', axis='y')
         axes4.grid(which='both', axis='x')
@@ -236,7 +338,7 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
 
         # Define class for plotting new traces
         class TracePlotter():
-            def __init__(self, figure, data, depth, cmap, cat_cmap, up_d,
+            def __init__(self, figure, data, well, depth, cmap, cat_cmap, up_d,
                          down_d):
                 self.figure = figure
                 self.cmap = cmap
@@ -248,11 +350,12 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
                 self.xlim = self.figure.axes[0].get_xlim()
                 self.times = np.linspace(self.xlim[0], self.xlim[1],
                                          data.shape[1])
+                self.pick_dict = {well: []}
+                self.well = well
                 self.cid = self.figure.canvas.mpl_connect('button_press_event',
                                                           self)
 
             def __call__(self, event):
-                print('click', event.xdata, event.ydata)
                 global counter
                 if event.inaxes not in self.figure.axes[:2]:
                     return
@@ -263,6 +366,8 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
                 elif pick_ax == self.figure.axes[1]:
                     upgoing = True
                 pick_col = next(self.cat_cmap)
+                print('click', event.xdata, event.ydata)
+                self.pick_dict[self.well].append((event.ydata, pick_col))
                 # Get channel corresponding to ydata (which was modified to
                 # units of meters during imshow...?
                 # Separate depth vectors
@@ -363,9 +468,10 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
         counter = 0 # Click counter for trace spacing
         # Set up categorical color palette
         cat_cmap = cycle(sns.color_palette('dark'))
-        plotter = TracePlotter(fig, data, depth, cmap, cat_cmap, up_d, down_d)
+        plotter = TracePlotter(fig, data, well, depth, cmap,
+                               cat_cmap, up_d, down_d)
         plt.show()
-    return
+    return plotter.pick_dict
 
 
 def madjdabadi_realign(data):
@@ -373,12 +479,24 @@ def madjdabadi_realign(data):
     Spatial realignment based on Modjdabadi et al. 2016
     https://doi.org/10.1016/j.measurement.2015.08.040
     """
-    data_aligned = np.copy(data)
-    # Go shitty for now (slow as)
-    for i in range(1, data.shape[0]):
-        for j in range(1, data.shape[1]):
-            data_aligned[i, j] = np.min(data[i-1:i+2, j] - data[i, 0])
-    return data_aligned
+    # 'Up' shifted
+    next_j = np.append(data[1:, :], data[-1, :]).reshape(data.shape)
+    # 'Down' shifted
+    prev_j = np.insert(data[:-1, :], 0, data[0, :]).reshape(data.shape)
+    compare = np.stack([prev_j, data, next_j], axis=2)
+    return np.min(compare, axis=2)
+
+
+def estimate_noise(data):
+    """
+    Calculate the average MAD for all channels similar to Madjdabadi 2016,
+    but replacing std with MAD.
+
+    :param data: Numpy array of DSS data
+    :return:
+    """
+    # Take MAD of each channel time series, then average
+    return np.mean(median_absolute_deviation(data, axis=1))
 
 
 def denoise(data, method='detrend'):

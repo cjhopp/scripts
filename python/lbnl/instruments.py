@@ -61,6 +61,20 @@ def read_fsb_asbuilt(path):
             y = norths[np.argmin(dists)][0]
             z = zs[np.argmin(dists)][0]
             sens_dict[name] = (x, y, z)
+    # Do CASSMs
+    for i, sens in sensors['Sources'].iterrows():
+        try:
+            dep = float(sens[2])
+            bh = sens[4]
+            easts, norths, zs, deps = np.hsplit(well_dict[bh], 4)
+            name = sens[3]
+            dists = np.squeeze(np.abs(dep - deps))
+            x = easts[np.argmin(dists)][0]
+            y = norths[np.argmin(dists)][0]
+            z = zs[np.argmin(dists)][0]
+            sens_dict[name] = (x, y, z)
+        except KeyError:
+            continue
     return sens_dict
 
 
