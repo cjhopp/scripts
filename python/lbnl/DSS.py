@@ -50,12 +50,25 @@ def read_times(path, encoding='iso-8859-1'):
     return np.array([datetime_parse(t) for t in strings[1:-1]])[::-1]
 
 
+def read_metadata(path, encoding='iso-8859-1'):
+    with open(path, 'r', encoding=encoding) as f:
+        lines = f.read().split('\n')
+        for ln in lines:
+            line = ln.split()
+            if len(line) > 0:
+                if line[:2] == ['Measurement', 'Mode']:
+                    mode = line[-1]
+                elif line[:2] == ['Data', 'type']:
+                    type = ' '.join(line[2:])
+    return mode, type
+
 def extract_well(path, well):
     """
     Helper to extract only the channels in a specific well
     """
     data = read_ascii(path)
     times = read_times(path)
+    mode, type = read_metadata(path)
     # Take first column as the length along the fiber and remove it from data
     depth = data[:, -1]
     data = data[:, :-1]
@@ -73,7 +86,7 @@ def extract_well(path, well):
     depth = depth[channel_range[0]:channel_range[1]]
     # Get median absolute deviation averaged across all channels
     noise = estimate_noise(data)
-    return times, data, depth, noise
+    return times, data, depth, noise, mode, type
 
 
 def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
@@ -97,7 +110,7 @@ def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
     pick_col = next(cat_cmap)
     for well in wells:
         ax1, ax2 = axes[i:i + 2]
-        times, data, depth, noise = extract_well(path, well)
+        times, data, depth, noise, mode, type = extract_well(path, well)
         down_d, up_d = np.array_split(depth - depth[0], 2)
         if down_d.shape[0] != up_d.shape[0]:
             # prepend last element of down to up if unequal lengths by 1
@@ -192,7 +205,6 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
     """
     fig = plt.figure(constrained_layout=False, figsize=(12, 12))
     if inset_channels and simfip:
-        # fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(6, 12))
         gs = GridSpec(ncols=12, nrows=12, figure=fig)
         axes1 = fig.add_subplot(gs[:3, 5:-1])
         axes1b = fig.add_subplot(gs[3:6, 5:-1], sharex=axes1)
@@ -203,29 +215,25 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
         cax = fig.add_subplot(gs[:6, -1])
         df = read_excavation(simfip)
     elif inset_channels:
-        gs = GridSpec(ncols=5, nrows=6, figure=fig)
-        axes1 = fig.add_subplot(gs[:3, :-1])
-        axes2 = fig.add_subplot(gs[3:6, :-1])
-        cax = fig.add_subplot(gs[:, -1])
-        # fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(6, 8))
-    else:
-        gs = GridSpec(ncols=5, nrows=3, figure=fig)
-        axes1 = fig.add_subplot(gs[:3, :-1])
-        cax = fig.add_subplot(gs[:, -1])
+        gs = GridSpec(ncols=12, nrows=12, figure=fig)
+        axes1 = fig.add_subplot(gs[:4, 5:-1])
+        axes1b = fig.add_subplot(gs[4:8, 5:-1], sharex=axes1)
+        axes2 = fig.add_subplot(gs[8:, 5:-1], sharex=axes1)
+        axes4 = fig.add_subplot(gs[:, :2])
+        axes5 = fig.add_subplot(gs[:, 2:4], sharex=axes4)
+        cax = fig.add_subplot(gs[:8, -1])
     # Get just the channels from the well in question
-    times, data, depth, noise = extract_well(path, well)
+    times, data, depth, noise, mode, type = extract_well(path, well)
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
         data = data[:, indices]
         data = np.squeeze(data)
     mpl_times = mdates.date2num(times)
+    if mode == 'Absolute':
+        data = data - data[:, 0, np.newaxis]
     if denoise_method:
-        data = data - data[:, 0, np.newaxis]
         data = denoise(data, denoise_method)
-    else:
-        # Subtract the first column
-        data = data - data[:, 0, np.newaxis]
     if colorbar_type == 'dark':
         cmap = ListedColormap(sns.diverging_palette(
             240, 10, n=21, center='dark').as_hex())
@@ -237,8 +245,12 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
     elif derivative == 'length':
         data = np.gradient(data, axis=0)
         label = r'$m^{-1}$'
-    else:
+    elif type == 'Strain':
         label = r'$\mu\varepsilon$'
+    elif type == 'Brillouin Gain':
+        label = r'%'
+    elif type == 'Brillouin Frequency':
+        label = r'GHz'
     # Split the array in two and plot both separately
     down_data, up_data = np.array_split(data, 2, axis=0)
     down_d, up_d = np.array_split(depth - depth[0], 2)
@@ -254,6 +266,7 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
                         extent=[mpl_times[0], mpl_times[-1],
                                 up_d[-1] - up_d[0], 0],
                         aspect='auto', vmin=vrange[0], vmax=vrange[1])
+    date_formatter = mdates.DateFormatter('%b-%d %H')
     # If simfip, plot these data here
     if simfip:
         plot_displacement_components(df, starttime=date_range[0],
@@ -261,31 +274,26 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
                                      remove_clamps=False,
                                      rotated=True)
         axes3.set_ylabel(r'Displacement [$\mu$m]', fontsize=16)
-    date_formatter = mdates.DateFormatter('%b-%d %H')
-    axes3.xaxis_date()
-    axes3.xaxis.set_major_formatter(date_formatter)
-    plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
-    axes1.set_ylabel('Depth [m]', fontsize=16)
-    axes1b.set_ylabel('Depth [m]', fontsize=16)
-    axes1.set_title('Downgoing')
-    axes1b.set_title('Upgoing')
-    if simfip:
-        axes2.set_ylabel(label, fontsize=16)
         axes3.xaxis_date()
         axes3.xaxis.set_major_formatter(date_formatter)
         plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
         plt.setp(axes1.get_xticklabels(), visible=False)
         plt.setp(axes1b.get_xticklabels(), visible=False)
         plt.setp(axes2.get_xticklabels(), visible=False)
-    elif inset_channels:
+    else:
+        axes2.xaxis_date()
+        axes2.xaxis.set_major_formatter(date_formatter)
+        plt.setp(axes2.xaxis.get_majorticklabels(), rotation=30, ha='right')
         axes2.xaxis_date()
         axes2.xaxis.set_major_formatter(date_formatter)
         plt.setp(axes2.xaxis.get_majorticklabels(), rotation=30, ha='right')
         plt.setp(axes1.get_xticklabels(), visible=False)
-    else:
-        axes1.xaxis_date()
-        axes1.xaxis.set_major_formatter(date_formatter)
-        plt.setp(axes1.xaxis.get_majorticklabels(), rotation=30, ha='right')
+        plt.setp(axes1b.get_xticklabels(), visible=False)
+    axes1.set_ylabel('Depth [m]', fontsize=16)
+    axes1b.set_ylabel('Depth [m]', fontsize=16)
+    axes1.set_title('Downgoing')
+    axes1b.set_title('Upgoing')
+    axes2.set_ylabel(label, fontsize=16)
     cbar = fig.colorbar(im, cax=cax, orientation='vertical')
     cbar.ax.set_ylabel(label, fontsize=16)
     if not title:
@@ -296,11 +304,6 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
         # Plot reference time (first point)
         reference_vect = data[:, 0]
         ref_time = times[0]
-        # Plot pick locations on all axes
-        for i in range(4):
-            fig.axes[i].axvline(x=ref_time, color='k',
-                                linestyle=':', alpha=1.0,
-                                label=ref_time.date())
         # Also reference vector
         down_ref, up_ref = np.array_split(reference_vect, 2)
         # Again account for unequal down and up arrays
@@ -396,8 +399,9 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
                 pick_ax.add_patch(arrow)
                 self.figure.axes[2].axvline(x=event.xdata, color=pick_col,
                                             linestyle='--', alpha=0.5)
-                self.figure.axes[3].axvline(x=event.xdata, color=pick_col,
-                                            linestyle='--', alpha=0.5)
+                if len(self.figure.axes) == 7:
+                    self.figure.axes[3].axvline(x=event.xdata, color=pick_col,
+                                                linestyle='--', alpha=0.5)
                 self.figure.axes[2].plot(self.times, trace, color=pick_col,
                                          label='Depth {:0.2f}'.format(depth))
                 # Silly
