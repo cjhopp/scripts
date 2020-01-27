@@ -277,7 +277,8 @@ def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
                     new.write(' '.join(line) + '\n')
     return
 
-def obspyck_from_local(inv_path, wav_dir, catalog, cassm=False):
+def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
+                       cassm=False):
     """
     Function to take local catalog, inventory and waveforms for picking.
 
@@ -287,8 +288,9 @@ def obspyck_from_local(inv_path, wav_dir, catalog, cassm=False):
     :param inv: Station inventory
     :param wav_dir: Directory of mseeds named according to timestamp
         eid convention
-    :param catalog: catalog of events to pick
-    :param cassm: Bool for string parsing of cassm event filesxx
+    :param catalog: catalog of events to pick (optional)
+    :param wav_file: If not passing a directory, pass single waveform file path
+    :param cassm: Bool for string parsing of cassm event files
 
     :return:
     """
@@ -296,6 +298,16 @@ def obspyck_from_local(inv_path, wav_dir, catalog, cassm=False):
     # Grab all stationxml files
     inv_files = [inv_path]
     inv = read_inventory(inv_path)
+    # For the case of a single wav file with no catalog (probably a stack)
+    if not catalog and wav_file:
+        utcdto = read(wav_file)[0].stats.starttime
+        input_file = '/home/chet/obspyck/hoppch_surf.obspyckrc17'
+        root = ['obspyck -c {} -t {} -d 0.01 -s SV'.format(input_file,
+                                                           utcdto - 0.0002)]
+        cmd = ' '.join(root + [wav_file] + inv_files)
+        print(cmd)
+        call(cmd, shell=True)
+        return
     all_wavs = glob('{}/*'.format(wav_dir))
     # Sort events, although they should already be sorted and it doesnt matter
     catalog.events.sort(key=lambda x: x.origins[-1].time)
