@@ -40,12 +40,19 @@ three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
 borehole_dict = {'OB': [356., 62.5], 'OT': [359., 83.], 'PDB': [259., 67.],
                  'PDT': [263., 85.4], 'PSB': [260., 67.], 'PST': [265., 87.]}
 
-def read_raw_wavs(wav_dir):
+def read_raw_wavs(wav_dir, event_type='MEQ'):
     """Read all the waveforms in the given directory to a dict"""
     mseeds = glob('{}/*'.format(wav_dir))
     wav_dict = {}
     for ms in mseeds:
-        eid = ms.split('/')[-1].rstrip('_raw.mseed')
+        if event_type == 'MEQ':
+            eid = ms.split('/')[-1].rstrip('_raw.mseed')
+        elif event_type == 'CASSM':
+            eid = ms.split('/')[-1].rstrip('_raw.mseed')
+            eid = eid.lstrip('cassm_')
+        else:
+            print('Invalid event type')
+            return
         try:
             wav_dict[eid] = read(ms)
         except TypeError as e:
@@ -421,22 +428,28 @@ def extract_CASSM_wavs(catalog, vibbox_dir, outdir, pre_ot=0.01, post_ot=0.02):
     return print('boom')
 
 
-def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01):
+def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01,
+                         event_type='MEQ'):
     """
     Trim around pick times and filter waveforms
 
     :param wav_dir: Path to waveform files
     :param catalog: obspy.core.Catalog
-    :param seconds: Length to trim to
-    :param filt: Dictionary of filter parameters
+    :param prepick: How many seconds do we want before the pick?
+    :param duration: How long do we want the traces?
+    :param event_type: Nameing convention is different for CASSM/MEQ.
+        Which is being used here?
 
     :return:
     """
     streams = {}
-    wav_dict = read_raw_wavs(wav_dir)
+    wav_dict = read_raw_wavs(wav_dir, event_type=event_type)
     for ev in catalog:
         ot = ev.origins[-1].time
-        t_stamp = ot.strftime('%Y%m%d%H%M%S%f')
+        if event_type == 'MEQ':
+            t_stamp = ot.strftime('%Y%m%d%H%M%S%f')
+        elif event_type == 'CASSM':
+            t_stamp = ot.strftime('%Y%m%d%H%M%S')
         try:
             st = wav_dict[t_stamp]
         except KeyError as e:
