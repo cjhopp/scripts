@@ -444,7 +444,6 @@ def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01,
     """
     streams = {}
     wav_dict = read_raw_wavs(wav_dir, event_type=event_type)
-    print(wav_dict.keys())
     for ev in catalog:
         ot = ev.origins[-1].time
         if event_type == 'MEQ':
@@ -466,7 +465,7 @@ def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01,
             if len(st.select(station=sta, channel=chan)) == 0 or \
                     pk.phase_hint == 'S':
                 continue
-            st_sta = st.select(station=sta, channel=chan).copy()
+            st_sta = st.select(station=sta).copy()
             st_sta.trim(starttime=pk.time - prepick, endtime=pk.time + duration)
             new_st += st_sta
         if len(new_st) > 0:
