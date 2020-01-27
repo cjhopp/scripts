@@ -300,7 +300,9 @@ def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
     inv = read_inventory(inv_path)
     # For the case of a single wav file with no catalog (probably a stack)
     if not catalog and wav_file:
-        utcdto = read(wav_file)[0].stats.starttime
+        st = read(wav_file)
+        st.sort(key=lambda x: x.stats.starttime) # sort first
+        utcdto = st[0].stats.starttime
         input_file = '/home/chet/obspyck/hoppch_surf.obspyckrc17'
         root = ['obspyck -c {} -t {} -d 0.01 -s SV'.format(input_file,
                                                            utcdto - 0.0002)]
