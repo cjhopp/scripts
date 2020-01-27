@@ -48,7 +48,7 @@ def read_raw_wavs(wav_dir, event_type='MEQ'):
         if event_type == 'MEQ':
             eid = ms.split('/')[-1].rstrip('_raw.mseed')
         elif event_type == 'CASSM':
-            eid = ms.split('/')[-1].rstrip('_raw.mseed')[-4]
+            eid = ms.split('/')[-1].rstrip('_raw.mseed')[:-4]
             eid = eid.lstrip('cassm_')
         else:
             print('Invalid event type')
