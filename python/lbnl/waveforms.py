@@ -444,6 +444,7 @@ def extract_event_signal(wav_dir, catalog, prepick=0.0001, duration=0.01,
     """
     streams = {}
     wav_dict = read_raw_wavs(wav_dir, event_type=event_type)
+    print(wav_dict.keys())
     for ev in catalog:
         ot = ev.origins[-1].time
         if event_type == 'MEQ':
