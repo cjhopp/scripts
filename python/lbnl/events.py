@@ -278,7 +278,7 @@ def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
     return
 
 def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
-                       cassm=False):
+                       cassm=False, rotate=False):
     """
     Function to take local catalog, inventory and waveforms for picking.
 
@@ -291,6 +291,8 @@ def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
     :param catalog: catalog of events to pick (optional)
     :param wav_file: If not passing a directory, pass single waveform file path
     :param cassm: Bool for string parsing of cassm event files
+    :param rotate: If orientation information is saved in the inventory,
+        rotate the channels into ZNE. Defaults to False.
 
     :return:
     """
@@ -339,10 +341,13 @@ def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
                if tr.stats.station in ['CMon', 'CTrig', 'CEnc', 'PPS']]
         for rm in rms:
             st.traces.remove(rm)
-        # Rotate to ZNE not in obspyck so do it here.
-        rotated_st = rotate_channels(st, inv)
-        tmp_wav_file = ['tmp/tmp_wav.mseed']
-        rotated_st.write(tmp_wav_file[0], format="MSEED")
+        if rotate:
+            # Rotate to ZNE not in obspyck so do it here.
+            rotated_st = rotate_channels(st, inv)
+            tmp_wav_file = ['tmp/tmp_wav.mseed']
+            rotated_st.write(tmp_wav_file[0], format="MSEED")
+        else:
+            tmp_wav_file = wav_file
         # If not pick uncertainties, assign some arbitrary ones
         for pk in ev.picks:
             if not pk.time_errors:
