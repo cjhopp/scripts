@@ -435,6 +435,7 @@
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/setup.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/setup.cfg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EQcorrscan/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/setup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/realtime_vibbox_proc.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/modules.xml" afterDir="false" />
@@ -518,8 +519,9 @@
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165754031570" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165754031570" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -560,21 +562,24 @@
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../SURF_SEIS" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../SURF_SEIS/surf_seis/tests" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015" />
-      <recent name="$PROJECT_DIR$/python/old_scripts_4-1" />
-    </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/../SURF_SEIS/surf_seis/tests" />
       <recent name="$PROJECT_DIR$/../SURF_SEIS" />
       <recent name="$PROJECT_DIR$/../SURF_SEIS/surf_seis" />
       <recent name="$PROJECT_DIR$/../hypoDDpy" />
       <recent name="$PROJECT_DIR$/python/workflow/PAN_scripts" />
-      <recent name="$PROJECT_DIR$/python/workflow/util" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/../SURF_SEIS/surf_seis/plugins/hypoinverse" />
+      <recent name="$PROJECT_DIR$/../SURF_SEIS/surf_seis/plugins" />
+      <recent name="$PROJECT_DIR$/../SURF_SEIS/surf_seis/tests" />
+      <recent name="$PROJECT_DIR$/python/workflow/old_workflow_scripts_2015" />
+      <recent name="$PROJECT_DIR$/python/old_scripts_4-1" />
     </key>
   </component>
   <component name="RunManager" selected="Python tests.Doctests in plotting">
@@ -747,14 +752,22 @@
     </option>
   </component>
   <component name="WindowStateProjectService">
-    <state x="2660" y="498" width="1720" height="1002" key="DiffContextDialog" timestamp="1575595943935">
+    <state x="3220" y="804" width="604" height="390" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1580425257740">
       <screen x="2560" y="400" width="1920" height="1200" />
     </state>
-    <state x="2660" y="498" width="1720" height="1002" key="DiffContextDialog/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1575595943935" />
-    <state x="3009" y="634" key="SettingsEditor" timestamp="1575567866128">
+    <state x="3220" y="804" width="604" height="390" key="#com.intellij.fileTypes.FileTypeChooser/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1580425257740" />
+    <state x="352" y="373" width="1720" height="1002" key="DiffContextDialog" timestamp="1580521059916">
+      <screen x="67" y="27" width="2493" height="1573" />
+    </state>
+    <state x="352" y="373" width="1720" height="1002" key="DiffContextDialog/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1580521059916" />
+    <state x="2994" y="840" width="424" height="484" key="FileChooserDialogImpl" timestamp="1580407622145">
       <screen x="2560" y="400" width="1920" height="1200" />
     </state>
-    <state x="3009" y="634" key="SettingsEditor/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1575567866128" />
+    <state x="2994" y="840" width="424" height="484" key="FileChooserDialogImpl/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1580407622145" />
+    <state x="3009" y="634" key="SettingsEditor" timestamp="1580407696585">
+      <screen x="2560" y="400" width="1920" height="1200" />
+    </state>
+    <state x="3009" y="634" key="SettingsEditor/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1580407696585" />
     <state x="2724" y="688" width="707" height="804" key="find.popup" timestamp="1579129653028">
       <screen x="2560" y="400" width="1920" height="1200" />
     </state>

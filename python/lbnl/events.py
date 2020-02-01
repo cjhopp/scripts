@@ -341,13 +341,13 @@ def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
                if tr.stats.station in ['CMon', 'CTrig', 'CEnc', 'PPS']]
         for rm in rms:
             st.traces.remove(rm)
+        tmp_wav_file = ['tmp/tmp_wav.mseed']
         if rotate:
             # Rotate to ZNE not in obspyck so do it here.
             rotated_st = rotate_channels(st, inv)
-            tmp_wav_file = ['tmp/tmp_wav.mseed']
             rotated_st.write(tmp_wav_file[0], format="MSEED")
         else:
-            tmp_wav_file = wav_file
+            st.write(tmp_wav_file[0], format="MSEED")
         # If not pick uncertainties, assign some arbitrary ones
         for pk in ev.picks:
             if not pk.time_errors:
