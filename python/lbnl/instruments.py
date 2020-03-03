@@ -75,6 +75,25 @@ def read_fsb_asbuilt(path):
             sens_dict[name] = (x, y, z)
         except KeyError:
             continue
+    # Do AE's
+    for i, sens in sensors['AE sensors'].iterrows():
+        if sens[2] != ' -- ': # B8
+            dep = float(sens[2])
+            easts, norths, zs, deps = np.hsplit(well_dict['B8'], 4)
+            # Get closest depth point
+            dists = np.squeeze(np.abs(dep - deps))
+            name = 'B8{:02d}'.format(sens[4])
+        else: # B9
+            dep = float(sens[3])
+            easts, norths, zs, deps = np.hsplit(well_dict['B9'], 4)
+            # Get closest depth point
+            dists = np.squeeze(np.abs(dep - deps))
+            # Use convention that hydrophone string #s zero-padded
+            name = 'B9{:02d}'.format(sens[4])
+        x = easts[np.argmin(dists)][0]
+        y = norths[np.argmin(dists)][0]
+        z = zs[np.argmin(dists)][0]
+        sens_dict[name] = (x, y, z)
     return sens_dict
 
 

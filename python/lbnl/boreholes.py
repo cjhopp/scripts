@@ -10,11 +10,13 @@ import pandas as pd
 from itertools import cycle
 from pathlib import Path
 
-def create_FSB_boreholes(method='asbuilt'):
+def create_FSB_boreholes(method='asbuilt',
+                         asbuilt_dir='/media/chet/data/chet-FS-B/wells/'):
     """
     Return dictionary of FSB well coordinates
 
     :param method: From asbuilt or asplanned specs
+    :param asbuilt_dir: Directory holding the gamma logs for each well
     """
     well_dict = {
                  # As planned
@@ -34,16 +36,21 @@ def create_FSB_boreholes(method='asbuilt'):
                  'B7': [(2579335.555, 1247599.383, 513.70, 0),
                         (2579352.08, 1247578.44, 475.78, 0)],
                  # As planned
-                 'B8': [(2579334.00, 1247602.00, 513.78, 0),
+                 # 'B8': [(2579334.00, 1247602.00, 513.78, 0),
+                 #        (2579326.50, 1247563.50, 472.50, 0)],
+                 # 'B9': [(2579328.00, 1247609.00, 513.20, 0),
+                 #        (2579335.00, 1247570.00, 458.00, 0)],
+                 # As built tops: CJH 3-2-20
+                 'B8': [(2579331.9512, 1247600.6754, 513.7908, 0),
                         (2579326.50, 1247563.50, 472.50, 0)],
-                 'B9': [(2579328.00, 1247609.00, 513.20, 0),
+                 'B9': [(2579327.8493, 1247608.9225, 513.9813, 0),
                         (2579335.00, 1247570.00, 458.00, 0)]
-                 }
+    }
     if method == 'asplanned':
         return well_dict
     elif method == 'asbuilt':
         excel_asbuilts = []
-        for fname in Path('/media/chet/data/chet-FS-B/wells/').rglob(
+        for fname in Path(asbuilt_dir).rglob(
                 '*Gamma_Deviation.xlsx'):
             excel_asbuilts.append(fname)
         for excel_f in excel_asbuilts:
