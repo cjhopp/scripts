@@ -16,9 +16,16 @@
     <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="ignoredPackages">
         <value>
-          <list size="2">
+          <list size="9">
             <item index="0" class="java.lang.String" itemvalue="joblib" />
             <item index="1" class="java.lang.String" itemvalue="obspy" />
+            <item index="2" class="java.lang.String" itemvalue="coverage" />
+            <item index="3" class="java.lang.String" itemvalue="cartopy" />
+            <item index="4" class="java.lang.String" itemvalue="pytest" />
+            <item index="5" class="java.lang.String" itemvalue="pytest-cov" />
+            <item index="6" class="java.lang.String" itemvalue="geographiclib" />
+            <item index="7" class="java.lang.String" itemvalue="mpi4py" />
+            <item index="8" class="java.lang.String" itemvalue="codecov" />
           </list>
         </value>
       </option>

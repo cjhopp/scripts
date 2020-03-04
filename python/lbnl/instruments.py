@@ -76,7 +76,7 @@ def read_fsb_asbuilt(path):
         except KeyError:
             continue
     # Do AE's
-    for i, sens in sensors['AE sensors'].iterrows():
+    for i, sens in sensors['AEs'].iterrows():
         if sens[2] != ' -- ': # B8
             dep = float(sens[2])
             easts, norths, zs, deps = np.hsplit(well_dict['B8'], 4)

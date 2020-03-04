@@ -2,6 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$/../EQcorrscan" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PhasePApy" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/../SURF_SEIS" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/../hashpy" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/../hypoDDpy" vcs="Git" />

@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../DUG-Seis-master/.idea/DUG-Seis-master.iml" filepath="$PROJECT_DIR$/../DUG-Seis-master/.idea/DUG-Seis-master.iml" />
       <module fileurl="file://$PROJECT_DIR$/../EQcorrscan/.idea/EQcorrscan.iml" filepath="$PROJECT_DIR$/../EQcorrscan/.idea/EQcorrscan.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../PhasePApy/.idea/PhasePApy.iml" filepath="$PROJECT_DIR$/../PhasePApy/.idea/PhasePApy.iml" />
       <module fileurl="file://$PROJECT_DIR$/../SURF_SEIS/.idea/SURF_SEIS.iml" filepath="$PROJECT_DIR$/../SURF_SEIS/.idea/SURF_SEIS.iml" />
       <module fileurl="file://$PROJECT_DIR$/../obspyck/.idea/obspyck.iml" filepath="$PROJECT_DIR$/../obspyck/.idea/obspyck.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/scripts.iml" filepath="$PROJECT_DIR$/.idea/scripts.iml" />
