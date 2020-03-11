@@ -33,7 +33,7 @@ def read_fsb_asbuilt(path):
                     source='FSB')
     # Read excel spreadsheet of sensor wells and depths
     sensors = pd.read_excel(path, sheet_name=None, skiprows=np.arange(5),
-                            usecols = np.arange(1, 8), header = None)
+                            usecols=np.arange(1, 8), header=None)
     well_dict = create_FSB_boreholes()
     # Hydrophones first
     for i, sens in sensors['Hydrophones'].iterrows():
@@ -92,6 +92,7 @@ def read_fsb_asbuilt(path):
             # dists = np.squeeze(np.abs(dep - deps))
             # name = 'B8{:02d}'.format(sens[4])
         else: # B9
+            print(sens)
             dep = float(sens[3])
             easts, norths, zs, deps = np.hsplit(well_dict['B9'], 4)
             # Get closest depth point
