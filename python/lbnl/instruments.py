@@ -21,10 +21,17 @@ from obspy.core.inventory import Inventory, Network, Station, Channel, Response
 
 
 def read_fsb_asbuilt(path):
+    """
+    Read the as-built excel spreadsheet for FSB and return a dictionary of all
+    the stations and sources containing locations
+
+    :param path: Path to excel spreadsheet
+    :return:
+    """
     sens_dict = {}
     inv = Inventory(networks=[Network(stations=[], code='FS')],
                     source='FSB')
-    """Read excel spreadsheet of sensor wells and depths"""
+    # Read excel spreadsheet of sensor wells and depths
     sensors = pd.read_excel(path, sheet_name=None, skiprows=np.arange(5),
                             usecols = np.arange(1, 8), header = None)
     well_dict = create_FSB_boreholes()
@@ -78,11 +85,12 @@ def read_fsb_asbuilt(path):
     # Do AE's
     for i, sens in sensors['AEs'].iterrows():
         if sens[2] != ' -- ': # B8
-            dep = float(sens[2])
-            easts, norths, zs, deps = np.hsplit(well_dict['B8'], 4)
-            # Get closest depth point
-            dists = np.squeeze(np.abs(dep - deps))
-            name = 'B8{:02d}'.format(sens[4])
+            continue
+            # dep = float(sens[2])
+            # easts, norths, zs, deps = np.hsplit(well_dict['B8'], 4)
+            # # Get closest depth point
+            # dists = np.squeeze(np.abs(dep - deps))
+            # name = 'B8{:02d}'.format(sens[4])
         else: # B9
             dep = float(sens[3])
             easts, norths, zs, deps = np.hsplit(well_dict['B9'], 4)
