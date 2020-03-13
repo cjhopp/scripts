@@ -339,6 +339,56 @@ def az_toa_vect(station, origin):
     return unit_vect
 
 
+def coords2bazinc(station, origin):
+    """
+    Yoinked from Obspyck, per usual...CJH 3-12-20
+
+    Returns backazimuth and incidence angle from station coordinates
+    and event location specified in hmc cartesian coordinate system
+    """
+    n_diff = (float(station.extra.hmc_north.value) -
+              float(origin.extra.hmc_north.value))
+    e_diff = (float(station.extra.hmc_east.value) -
+              float(origin.extra.hmc_east.value))
+    dist = np.sqrt(n_diff**2 + e_diff**2)
+    baz = np.rad2deg(np.arctan2(e_diff, n_diff))
+    if baz < 0:
+        baz += 360.
+    elev_diff = (float(station.extra.hmc_elev.value) -
+                 float(origin.extra.hmc_elev.value))
+    inci = np.rad2deg(np.arctan2(dist, elev_diff))
+    return baz, inci
+
+
+def rotate_stream_to_LQT(st, inventory, origin):
+    """
+    Rotate stream into LQT orientation w respect to given origin.
+
+    :param invenory:
+    :param origin:
+    :return:
+    """
+    rot_st = Stream()
+    zne_st = Stream()
+    for sta in inventory[0]:
+        if sta.code not in three_comps:
+            rot_st += st.select(station=sta.code).copy()
+            continue
+        if len(st.select(station=sta.code)) == 0:
+            continue
+        baz, incidence = coords2bazinc(sta, origin)
+        # First to ZNE
+        sta_st_zne = st.copy().select(station=sta.code).rotate(
+            method='->ZNE', components='ZXY', inventory=inventory)
+        zne_st += sta_st_zne
+        # Then to LQT
+        sta_st_lqt = sta_st_zne.copy().rotate(
+            method='ZNE->LQT', back_azimuth=baz, inclination=incidence,
+            components='ZNE', inventory=inventory)
+        rot_st += sta_st_lqt
+    return rot_st, zne_st
+
+
 def which_server_vibbox(cat, file_list, outfile):
     """
     Output a list of files we need from the server

@@ -518,14 +518,8 @@
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165754031570" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165754031570" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/scripts.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/scripts.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/matlab/FS-B/boreholes/testWellGeomFSB_V3.m" beforeDir="false" afterPath="$PROJECT_DIR$/matlab/FS-B/boreholes/testWellGeomFSB_V3.m" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/instruments.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/instruments.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
