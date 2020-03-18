@@ -27,7 +27,7 @@ from shelly_mags import local_to_moment, local_to_moment_Majer
 
 def date_generator(start_date, end_date):
     # Generator for date looping
-    for n in range(int ((end_date - start_date).days)):
+    for n in range(int((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
 def avg_dto(dto_list):

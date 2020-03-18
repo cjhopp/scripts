@@ -356,6 +356,7 @@ def coords2bazinc(station, origin):
         baz += 360.
     elev_diff = (float(station.extra.hmc_elev.value) -
                  float(origin.extra.hmc_elev.value))
+    # Angle up from vertical down
     inci = np.rad2deg(np.arctan2(dist, elev_diff))
     return baz, inci
 
@@ -383,8 +384,7 @@ def rotate_stream_to_LQT(st, inventory, origin):
         zne_st += sta_st_zne
         # Then to LQT
         sta_st_lqt = sta_st_zne.copy().rotate(
-            method='ZNE->LQT', back_azimuth=baz, inclination=incidence,
-            components='ZNE', inventory=inventory)
+            method='ZNE->LQT', back_azimuth=baz, inclination=incidence)
         rot_st += sta_st_lqt
     return rot_st, zne_st
 

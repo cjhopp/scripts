@@ -14,7 +14,7 @@ from obspy import Stream, Trace
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch
 from scipy.stats import median_absolute_deviation
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import cycle
 from matplotlib.dates import num2date
 from matplotlib.colors import ListedColormap
@@ -62,9 +62,9 @@ def read_metadata(path, encoding='iso-8859-1'):
                     type = ' '.join(line[2:])
     return mode, type
 
-def extract_well(path, well):
+def extract_wells(path, wells):
     """
-    Helper to extract only the channels in a specific well
+    Helper to extract only the channels in specific wells
     """
     data = read_ascii(path)
     times = read_times(path)
@@ -75,26 +75,67 @@ def extract_well(path, well):
     # First realign this shiz....soooooo slow
     data = madjdabadi_realign(data)
     # Take selected channels
-    if well == 'all':
-        channel_range = (0, -1)
+    if wells == 'all':
+        channel_ranges = [('all', (0, -1))]
     else:
-        start_chan = np.abs(depth - chan_map_fsb[well][0])
-        end_chan = np.abs(depth - chan_map_fsb[well][1])
-        # Find the closest integer channel to meter mapping
-        channel_range = (np.argmin(start_chan), np.argmin(end_chan))
-    data = data[channel_range[0]:channel_range[1], :]
-    depth = depth[channel_range[0]:channel_range[1]]
-    # Get median absolute deviation averaged across all channels
-    noise = estimate_noise(data)
-    return times, data, depth, noise, mode, type
+        channel_ranges = []
+        for well in wells:
+            start_chan = np.abs(depth - chan_map_fsb[well][0])
+            end_chan = np.abs(depth - chan_map_fsb[well][1])
+            # Find the closest integer channel to meter mapping
+            channel_range = (np.argmin(start_chan), np.argmin(end_chan))
+            channel_ranges.append((well, channel_range))
+    well_data = {'times': times, 'mode': mode, 'type': type}
+    for rng in channel_ranges:
+        data_tmp = data[rng[1][0]:rng[1][1], :]
+        depth_tmp = depth[rng[1][0]:rng[1][1]]
+        # Get median absolute deviation averaged across all channels
+        noise = estimate_noise(data_tmp)
+        well_data[rng[0]] = {'data': data_tmp, 'depth': depth_tmp,
+                             'noise': noise}
+    return well_data
 
 
-def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
-                         pick_dict=None):
+def plot_wells_over_time(well_data, wells, date_range=(datetime(2019, 5, 19),
+                                                  datetime(2019, 6, 5)),
+                         vrange=(-40, 40), pick_dict=None, alpha=1.):
+    """
+    Plot wells side-by-side with each curve over a given time slice
+
+    :param path: Path to raw data file
+    :param wells: List of well names to plot
+    :param date_range: List of [start datetime, end datetime]
+    :param vrange: Xlims for all axes
+    :param pick_dict: Dictionary {well name: [pick depths, ...]}
+    :return:
+    """
+    # Read in data
+    # Make list of times within date range
+    times = well_data['times']
+    times = [t for t in times if date_range[0] < t < date_range[1]]
+    # Initialize the figure
+    fig, axes = plt.subplots(nrows=1, ncols=len(wells) * 2, sharey=True,
+                             sharex=True, figsize=(len(wells) * 2, 8))
+    # Cmap
+    cmap = sns.cubehelix_palette(as_cmap=True)
+    for i, t in enumerate(times):
+        pick_col = cmap(float(i) / len(times))
+        plot_well_timeslices(well_data, wells, date=t, vrange=vrange,
+                             pick_dict=pick_dict, fig=fig, pick_col=pick_col,
+                             alpha=alpha, plot_noise=False)
+    # Hack-tron 5000
+    if len(times) % 2 == 0:
+        axes[0].invert_yaxis()
+    return
+
+
+def plot_well_timeslices(well_data, wells, date, vrange=(-40, 40),
+                         pick_dict=None, fig=None, pick_col=None,
+                         alpha=None, plot_noise=False):
     """
     Plot a time slice up and down each specified well
 
-    :param path: Path to raw data file
+    :param path: Well_data dict from extract_wells
     :param wells: List of well names to plot
     :param date: datetime to plot lines for
     :param vrange: Xlims for all axes
@@ -102,15 +143,23 @@ def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
 
     :return:
     """
-    fig, axes = plt.subplots(nrows=1, ncols=len(wells) * 2, sharey=True,
-                             sharex=True, figsize=(len(wells) * 2, 8))
+    if not fig:
+        fig, axes = plt.subplots(nrows=1, ncols=len(wells) * 2, sharey=True,
+                                 sharex=True, figsize=(len(wells) * 2, 8))
+    else:
+        axes = fig.axes
     # Initialize counter
     i = 0
-    cat_cmap = cycle(sns.color_palette('dark'))
-    pick_col = next(cat_cmap)
+    if not pick_col and not alpha:
+        cat_cmap = cycle(sns.color_palette('dark'))
+        pick_col = next(cat_cmap)
+        alpha = 1.
+    times = well_data['times']
     for well in wells:
         ax1, ax2 = axes[i:i + 2]
-        times, data, depth, noise, mode, type = extract_well(path, well)
+        data = well_data[well]['data']
+        depth = well_data[well]['depth']
+        noise = well_data[well]['noise']
         down_d, up_d = np.array_split(depth - depth[0], 2)
         if down_d.shape[0] != up_d.shape[0]:
             # prepend last element of down to up if unequal lengths by 1
@@ -126,13 +175,14 @@ def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
             up_ref = np.insert(up_ref, 0, down_ref[-1])
         up_d_flip = up_d[-1] - up_d
         ax1.plot(down_ref, down_d, color='k', linestyle=':',
-                   label=ref_time.date())
-        ax2.plot(up_ref, up_d_flip, color='k', linestyle=':')
-        # Fill between noise bounds
-        ax1.fill_betweenx(y=down_d, x1=down_ref - noise, x2=down_ref + noise,
-                            alpha=0.2, color='k')
-        ax2.fill_betweenx(y=up_d_flip, x1=up_ref - noise, x2=up_ref + noise,
-                            alpha=0.2, color='k')
+                 label=ref_time.date(), lw=1.)
+        ax2.plot(up_ref, up_d_flip, color='k', linestyle=':', lw=1.)
+        if plot_noise:
+            # Fill between noise bounds
+            ax1.fill_betweenx(y=down_d, x1=down_ref - noise, x2=down_ref + noise,
+                              alpha=0.2, color='k')
+            ax2.fill_betweenx(y=up_d_flip, x1=up_ref - noise, x2=up_ref + noise,
+                              alpha=0.2, color='k')
         # Get column corresponding to xdata time
         dts = np.abs(times - date)
         time_int = np.argmin(dts)
@@ -144,8 +194,9 @@ def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
         # Again account for unequal down and up arrays
         if down_vect.shape[0] != up_vect.shape[0]:
             up_vect = np.insert(up_vect, 0, down_vect[-1])
-        ax1.plot(down_vect, down_d, color=pick_col, label=date.date())
-        ax2.plot(up_vect, up_d_flip, color=pick_col)
+        ax1.plot(down_vect, down_d, color=pick_col, label=date.date(),
+                 alpha=alpha, linewidth=0.5)
+        ax2.plot(up_vect, up_d_flip, color=pick_col, alpha=alpha, linewidth=0.5)
         # If picks provided, plot them
         if pick_dict and well in pick_dict:
             for pick in pick_dict[well]:
@@ -157,7 +208,8 @@ def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
                 else:
                     ax2.fill_between(x=np.array([-500, 500]), y1=pick[0] - 0.5,
                                      y2=pick[0] + 0.5, alpha=0.5, color='gray')
-        if i == (len(wells) * 2) - 2: # Legend only at last well
+        # Legend only at last well
+        if i == (len(wells) * 2) - 2 and len(times) < 4:
             ax1.legend(fontsize=16, bbox_to_anchor=(0.15, 0.25),
                        framealpha=1.).set_zorder(103)
         elif i == 0:
@@ -185,10 +237,10 @@ def plot_well_timeslices(path, wells, date, vrange=(-40, 40),
     return
 
 
-def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
+def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 5)),
-             denoise_method='demedian', vrange=(-60, 60), title=None):
+             denoise_method=None, vrange=(-60, 60), title=None):
     """
     Plot a colormap of DSS data
 
@@ -223,7 +275,12 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
         axes5 = fig.add_subplot(gs[:, 2:4], sharex=axes4)
         cax = fig.add_subplot(gs[:8, -1])
     # Get just the channels from the well in question
-    times, data, depth, noise, mode, type = extract_well(path, well)
+    times = well_data['times']
+    data = well_data[well]['data']
+    depth = well_data[well]['depth']
+    noise = well_data[well]['depth']
+    mode = well_data['mode']
+    type = well_data['type']
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
@@ -232,6 +289,7 @@ def plot_DSS(path, well='all', derivative=False, colorbar_type='light',
     mpl_times = mdates.date2num(times)
     if mode == 'Absolute':
         data = data - data[:, 0, np.newaxis]
+    # Denoise methods are not mature yet
     if denoise_method:
         data = denoise(data, denoise_method)
     if colorbar_type == 'dark':
