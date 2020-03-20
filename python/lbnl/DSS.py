@@ -17,8 +17,9 @@ from scipy.stats import median_absolute_deviation
 from datetime import datetime, timedelta
 from itertools import cycle
 from matplotlib.dates import num2date
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import ListedColormap, Normalize
 from matplotlib.gridspec import GridSpec
+from matplotlib.cm import ScalarMappable
 from matplotlib.collections import LineCollection
 
 # Local imports
@@ -62,7 +63,7 @@ def read_metadata(path, encoding='iso-8859-1'):
                     type = ' '.join(line[2:])
     return mode, type
 
-def extract_wells(path, wells):
+def extract_wells(path, wells, denoise_method='majdabadi'):
     """
     Helper to extract only the channels in specific wells
     """
@@ -90,56 +91,155 @@ def extract_wells(path, wells):
         data_tmp = data[rng[1][0]:rng[1][1], :]
         depth_tmp = depth[rng[1][0]:rng[1][1]]
         # Get median absolute deviation averaged across all channels
-        noise = estimate_noise(data_tmp)
+        noise = estimate_noise(data_tmp, method=denoise_method)
         well_data[rng[0]] = {'data': data_tmp, 'depth': depth_tmp,
                              'noise': noise}
     return well_data
 
 
-def plot_wells_over_time(well_data, wells, date_range=(datetime(2019, 5, 19),
-                                                  datetime(2019, 6, 5)),
-                         vrange=(-40, 40), pick_dict=None, alpha=1.):
+def madjdabadi_realign(data):
+    """
+    Spatial realignment based on Modjdabadi et al. 2016
+    https://doi.org/10.1016/j.measurement.2015.08.040
+    """
+    # 'Up' shifted
+    next_j = np.append(data[1:, :], data[-1, :]).reshape(data.shape)
+    # 'Down' shifted
+    prev_j = np.insert(data[:-1, :], 0, data[0, :]).reshape(data.shape)
+    compare = np.stack([prev_j, data, next_j], axis=2)
+    return np.min(compare, axis=2)
+
+
+def estimate_noise(data, method='majdabadi'):
+    """
+    Calculate the average MAD for all channels similar to Madjdabadi 2016,
+    but replacing std with MAD
+
+    Alternatively, don't take the average and return both the mean and MAD
+    as arrays
+
+    :param data: Numpy array of DSS data
+    :return:
+    """
+    if method == 'majdabadi':
+        # Take MAD of each channel time series, then average
+        return np.mean(median_absolute_deviation(data, axis=1)), None
+    elif method == 'by_channel':
+        return np.mean(data, axis=1), median_absolute_deviation(data, axis=1)
+    else:
+        print('Invalid method for denoise')
+        return
+
+
+def denoise(data, method='detrend'):
+    if method == 'demean':
+        mean = data.mean(axis=0)
+        data -= mean[np.newaxis, :]
+    elif method == 'demedian':
+        median = np.median(data, axis=0)
+        data -= median[np.newaxis, :]
+    elif method == 'detrend':
+        data = np.apply_along_axis(detrend, 0, data)
+    elif method == 'gaussian':
+        data = gaussian_filter(data, 2)
+    elif method == 'median':
+        data = median_filter(data, 2)
+    return data
+
+
+def DSS_spectrum(path, well='all', domain='time'):
+    times, data, depth = extract_wells(path, well)
+    if domain == 'time':
+        # Frequency in hours
+        freq, psd = welch(data, fs=1., axis=1)
+        avg_psd = psd.sum(axis=0)
+    elif domain == 'depth':
+        # Frequency in feet
+        freq, psd = welch(data, fs=0.255, axis=0)
+        avg_psd = psd.sum(axis=1)
+    else:
+        print('Invalid domain string')
+    # Plot
+    plt.semilogy(freq, avg_psd)
+    return
+
+
+def plot_wells_over_time(well_data, wells,
+                         date_range=(datetime(2019, 5, 19),
+                                     datetime(2019, 6, 5)),
+                         vrange=(-40, 40), pick_dict=None, alpha=1.,
+                         plot_noise=False, frames=False):
     """
     Plot wells side-by-side with each curve over a given time slice
 
-    :param path: Path to raw data file
+    :param well_data: Dict output of extract_wells
     :param wells: List of well names to plot
     :param date_range: List of [start datetime, end datetime]
     :param vrange: Xlims for all axes
     :param pick_dict: Dictionary {well name: [pick depths, ...]}
+    :param alpha: Alpha value for curves (1 is opaque)
+    :param frames: Save each time slice as a single frame, to be compiled into
+        an animation
     :return:
     """
     # Read in data
     # Make list of times within date range
     times = well_data['times']
     times = [t for t in times if date_range[0] < t < date_range[1]]
+    time_labs = [t.strftime('%m-%d') for t in times]
     # Initialize the figure
-    fig, axes = plt.subplots(nrows=1, ncols=len(wells) * 2, sharey=True,
-                             sharex=True, figsize=(len(wells) * 2, 8))
+    if frames:
+        fig = None
+    else:
+        fig, axes = plt.subplots(nrows=1, ncols=len(wells) * 2, sharey=True,
+                                 sharex=True, figsize=(len(wells) * 2, 8))
     # Cmap
-    cmap = sns.cubehelix_palette(as_cmap=True)
+    cmap = sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True)
     for i, t in enumerate(times):
-        pick_col = cmap(float(i) / len(times))
+        pick_col = cmap(float(i) / len(times[::2]))
+        if frames:
+            pick_col = 'k'
+        if i == 0:
+            formater = True
+        elif frames:
+            formater = True
+        else:
+            formater = False
         plot_well_timeslices(well_data, wells, date=t, vrange=vrange,
                              pick_dict=pick_dict, fig=fig, pick_col=pick_col,
-                             alpha=alpha, plot_noise=False)
-    # Hack-tron 5000
-    if len(times) % 2 == 0:
-        axes[0].invert_yaxis()
+                             alpha=alpha, plot_noise=plot_noise,
+                             ref_date=date_range[0], formater=formater,
+                             frame=frames)
+    if not frames:
+        tick_indices = np.linspace(0, len(times) - 1, 8).astype(int)
+        cbar = fig.colorbar(
+            ScalarMappable(norm=Normalize(0, len(times)), cmap=cmap),
+                            ax=axes, fraction=0.04, location='bottom',
+                            ticks=tick_indices)
+        cbar.ax.set_xticklabels(np.array(time_labs)[tick_indices])
+        cbar.ax.set_xlabel('{}'.format(times[-1].year), fontsize=16)
     return
 
 
-def plot_well_timeslices(well_data, wells, date, vrange=(-40, 40),
-                         pick_dict=None, fig=None, pick_col=None,
-                         alpha=None, plot_noise=False):
+def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
+                         vrange=(-40, 40), pick_dict=None, fig=None,
+                         pick_col=None, alpha=None, plot_noise=False,
+                         formater=True, frame=False):
     """
     Plot a time slice up and down each specified well
 
     :param path: Well_data dict from extract_wells
     :param wells: List of well names to plot
+    :param ref_date: Reference date to plot
     :param date: datetime to plot lines for
     :param vrange: Xlims for all axes
     :param pick_dict: Dictionary {well name: [pick depths, ...]}
+    :param fig: Figure to plot into
+    :param pick_col: Color of the curve
+    :param alpha: Alpha of curve
+    :param plot_noise: Plot noise estimate or not
+    :param formater: On the first pass, do the formatting, otherwise skip it
+    :param frame: Save as frame of animation?
 
     :return:
     """
@@ -164,10 +264,13 @@ def plot_well_timeslices(well_data, wells, date, vrange=(-40, 40),
         if down_d.shape[0] != up_d.shape[0]:
             # prepend last element of down to up if unequal lengths by 1
             up_d = np.insert(up_d, 0, down_d[-1])
-        # Remove first
-        data = data - data[:, 0, np.newaxis]
-        reference_vect = data[:, 0]
-        ref_time = times[0]
+        # Remove reference first
+        ref_ind = np.argmin(np.abs(times - ref_date))
+        # TODO Do we remove the reference time signal or not??
+        if remove_ref:
+            data = data - data[:, ref_ind, np.newaxis]
+        reference_vect = data[:, ref_ind]
+        ref_time = times[ref_ind]
         # Also reference vector
         down_ref, up_ref = np.array_split(reference_vect, 2)
         # Again account for unequal down and up arrays
@@ -175,30 +278,59 @@ def plot_well_timeslices(well_data, wells, date, vrange=(-40, 40),
             up_ref = np.insert(up_ref, 0, down_ref[-1])
         up_d_flip = up_d[-1] - up_d
         ax1.plot(down_ref, down_d, color='k', linestyle=':',
-                 label=ref_time.date(), lw=1.)
-        ax2.plot(up_ref, up_d_flip, color='k', linestyle=':', lw=1.)
-        if plot_noise:
+                 label=ref_time.date(), lw=.5)
+        ax2.plot(up_ref, up_d_flip, color='k', linestyle=':', lw=.5)
+        if plot_noise and formater:
+            # If single noise measure
+            if noise[1] is None:
+                noise_mean = reference_vect
+                noise_mad = np.zeros(noise_mean.shape[0]) + noise[0]
+            # If noise measured per channel along fiber
+            else:
+                noise_mean = noise[0]
+                noise_mad = noise[1]
+            down_noise, up_noise = np.array_split(noise_mean, 2)
+            down_noise_mad, up_noise_mad = np.array_split(noise_mad, 2)
+            # Again account for unequal down and up arrays
+            if down_noise.shape[0] != up_noise.shape[0]:
+                up_noise = np.insert(up_noise, 0, down_noise[-1])
+                up_noise_mad = np.insert(up_noise_mad, 0, down_noise_mad[-1])
             # Fill between noise bounds
-            ax1.fill_betweenx(y=down_d, x1=down_ref - noise, x2=down_ref + noise,
+            ax1.fill_betweenx(y=down_d, x1=down_noise - down_noise_mad,
+                              x2=down_noise + down_noise_mad,
                               alpha=0.2, color='k')
-            ax2.fill_betweenx(y=up_d_flip, x1=up_ref - noise, x2=up_ref + noise,
+            ax2.fill_betweenx(y=up_d_flip, x1=up_noise - up_noise_mad,
+                              x2=up_noise + up_noise_mad,
                               alpha=0.2, color='k')
         # Get column corresponding to xdata time
         dts = np.abs(times - date)
         time_int = np.argmin(dts)
         # Grab along-fiber vector
         fiber_vect = data[:, time_int]
+        # If frame for animation, keep last 10 time samples too
+        if frame:
+            old_vects = data[:, time_int - 20:time_int]
+            old_down, old_up = np.array_split(old_vects, 2)
+            if old_down.shape[0] != old_up.shape[0]:
+                old_up = np.append(old_up, old_down[-1]).reshape(old_down.shape)
+            ax1.plot(old_down, down_d[:, None], color='grey', alpha=alpha, linewidth=0.5)
+            ax2.plot(old_up, up_d_flip[:, None], color='grey', alpha=alpha,
+                     linewidth=0.5)
         # Plot two traces for downgoing and upgoing trace at user-
         # picked time
         down_vect, up_vect = np.array_split(fiber_vect, 2)
         # Again account for unequal down and up arrays
         if down_vect.shape[0] != up_vect.shape[0]:
             up_vect = np.insert(up_vect, 0, down_vect[-1])
+        if frame:
+            lw = 2.
+        else:
+            lw = 0.5
         ax1.plot(down_vect, down_d, color=pick_col, label=date.date(),
-                 alpha=alpha, linewidth=0.5)
-        ax2.plot(up_vect, up_d_flip, color=pick_col, alpha=alpha, linewidth=0.5)
+                 alpha=alpha, linewidth=lw)
+        ax2.plot(up_vect, up_d_flip, color=pick_col, alpha=alpha, linewidth=lw)
         # If picks provided, plot them
-        if pick_dict and well in pick_dict:
+        if pick_dict and well in pick_dict and formater:
             for pick in pick_dict[well]:
                 well_length = (chan_map_fsb[well][1] -
                                chan_map_fsb[well][0]) / 2
@@ -209,31 +341,45 @@ def plot_well_timeslices(well_data, wells, date, vrange=(-40, 40),
                     ax2.fill_between(x=np.array([-500, 500]), y1=pick[0] - 0.5,
                                      y2=pick[0] + 0.5, alpha=0.5, color='gray')
         # Legend only at last well
-        if i == (len(wells) * 2) - 2 and len(times) < 4:
-            ax1.legend(fontsize=16, bbox_to_anchor=(0.15, 0.25),
-                       framealpha=1.).set_zorder(103)
-        elif i == 0:
-            ax1.set_ylabel('Depth [m]', fontsize=18)
-        # Formatting
-        # Common title for well subplots
-        ax1_x = ax1.get_window_extent().x1 / 1000.
-        ax2_x = ax2.get_window_extent().x0 / 1000.
-        fig.text(x=(ax1_x + ax2_x) / 2, y=0.92, s=well, ha='center',
-                 fontsize=22)
-        ax2.set_facecolor('lightgray')
-        ax1.set_facecolor('lightgray')
-        ax1.set_xlim([vrange[0], vrange[1]])
-        ax1.margins(y=0)
-        ax2.yaxis.set_major_locator(ticker.MultipleLocator(5.))
-        ax2.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
-        ax1.yaxis.set_major_locator(ticker.MultipleLocator(5.))
-        ax1.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
-        ax1.set_title('Down')
-        ax2.set_title('Up')
+        if formater:
+            if i == (len(wells) * 2) - 2 and len(times) < 4:
+                ax1.legend(fontsize=16, bbox_to_anchor=(0.15, 0.25),
+                           framealpha=1.).set_zorder(103)
+            elif i == 0:
+                ax1.set_ylabel('Depth [m]', fontsize=18)
+            # Formatting
+            # Common title for well subplots
+            ax1_x = ax1.get_window_extent().x1 / 1000.
+            ax2_x = ax2.get_window_extent().x0 / 1000.
+            fig.text(x=(ax1_x + ax2_x) / 2, y=0.92, s=well, ha='center',
+                     fontsize=22)
+            ax2.set_facecolor('lightgray')
+            ax1.set_facecolor('lightgray')
+            ax1.set_xlim([vrange[0], vrange[1]])
+            ax1.margins(y=0)
+            ax2.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+            ax2.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+            ax1.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+            ax1.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+            ax1.set_title('Down')
+            ax2.set_title('Up')
+        # Always increment, obviously
         i += 2
-    label = r'$\mu\varepsilon$'
-    fig.text(0.5, 0.04, label, ha='center', fontsize=20)  # Commmon xlabel
-    ax1.invert_yaxis()
+    if formater:
+        if frame:
+            lab_y = 0.04
+        else:
+            lab_y = 0.19
+        label = r'$\mu\varepsilon$'
+        fig.text(0.5, lab_y, label, ha='center', fontsize=20)  # Commmon xlabel
+        ax1.invert_yaxis()
+    if frame:
+        # Put the date on the plot if animating
+        fig.text(0.7, 0.2, date, ha="center", va="center", fontsize=20,
+                 bbox=dict(boxstyle="round",
+                           ec='k', fc='white'))
+        fig.savefig('frame_{}.png'.format(date))
+        plt.close('all')
     return
 
 
@@ -534,60 +680,3 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                                cat_cmap, up_d, down_d)
         plt.show()
     return plotter.pick_dict
-
-
-def madjdabadi_realign(data):
-    """
-    Spatial realignment based on Modjdabadi et al. 2016
-    https://doi.org/10.1016/j.measurement.2015.08.040
-    """
-    # 'Up' shifted
-    next_j = np.append(data[1:, :], data[-1, :]).reshape(data.shape)
-    # 'Down' shifted
-    prev_j = np.insert(data[:-1, :], 0, data[0, :]).reshape(data.shape)
-    compare = np.stack([prev_j, data, next_j], axis=2)
-    return np.min(compare, axis=2)
-
-
-def estimate_noise(data):
-    """
-    Calculate the average MAD for all channels similar to Madjdabadi 2016,
-    but replacing std with MAD.
-
-    :param data: Numpy array of DSS data
-    :return:
-    """
-    # Take MAD of each channel time series, then average
-    return np.mean(median_absolute_deviation(data, axis=1))
-
-
-def denoise(data, method='detrend'):
-    if method == 'demean':
-        mean = data.mean(axis=0)
-        data -= mean[np.newaxis, :]
-    elif method == 'demedian':
-        median = np.median(data, axis=0)
-        data -= median[np.newaxis, :]
-    elif method == 'detrend':
-        data = np.apply_along_axis(detrend, 0, data)
-    elif method == 'gaussian':
-        data = gaussian_filter(data, 2)
-    elif method == 'median':
-        data = median_filter(data, 2)
-    return data
-
-def DSS_spectrum(path, well='all', domain='time'):
-    times, data, depth = extract_well(path, well)
-    if domain == 'time':
-        # Frequency in hours
-        freq, psd = welch(data, fs=1., axis=1)
-        avg_psd = psd.sum(axis=0)
-    elif domain == 'depth':
-        # Frequency in feet
-        freq, psd = welch(data, fs=0.255, axis=0)
-        avg_psd = psd.sum(axis=1)
-    else:
-        print('Invalid domain string')
-    # Plot
-    plt.semilogy(freq, avg_psd)
-    return
