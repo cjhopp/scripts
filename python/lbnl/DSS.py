@@ -12,7 +12,7 @@ import matplotlib.patches as mpatches
 
 from obspy import Stream, Trace
 from scipy.ndimage import gaussian_filter, median_filter
-from scipy.signal import detrend, welch
+from scipy.signal import detrend, welch, find_peaks
 from scipy.stats import median_absolute_deviation
 from datetime import datetime, timedelta
 from itertools import cycle
@@ -162,6 +162,23 @@ def DSS_spectrum(path, well='all', domain='time'):
     # Plot
     plt.semilogy(freq, avg_psd)
     return
+
+
+def pick_anomalies(data, noise_mean, noise_mad, thresh=1.):
+    """
+    Pick every point where the data exceeds the noise and return the width and
+    amplitude of the peak.
+
+    :param data: Strain data to pick
+    :param noise_mean: Mean value of the noise (integer or array)
+    :param noise_mad: MAD of the data, returned from extract_wells
+        Array or integer
+    :param thresh: MAD multiplier for threshold
+    :return:
+    """
+    return find_peaks(np.abs(data), height=np.abs(noise_mean) +
+                                           (np.abs(noise_mad) * thresh),
+                      width=(None, None))
 
 
 def plot_wells_over_time(well_data, wells,
@@ -384,7 +401,7 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
 
 
 def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
-             inset_channels=True, simfip=False,
+             inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 5)),
              denoise_method=None, vrange=(-60, 60), title=None):
     """
@@ -394,6 +411,9 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param well: Which well to plot
     :param inset_channels: Bool for picking channels to plot in separate axes
     :param simfip: Give path to data file if simfip data over same timespan
+    :param pick_mode: "manual" or "auto". User will still need to manually
+        pick the time of the signal on which the anomalies will be picked.
+    :param thresh: MAD multiplier that serves as the threshold for auto picking
     :param date_range: [start date, end date]
     :param denoise_method: String stipulating the method in denoise() to use
     :param vrange: Colorbar range (in microstrains)
@@ -423,8 +443,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     # Get just the channels from the well in question
     times = well_data['times']
     data = well_data[well]['data']
-    depth = well_data[well]['depth']
-    noise = well_data[well]['depth']
+    depth_vect = well_data[well]['depth']
+    if well_data[well]['noise'][1] is None:
+        noise = well_data[well]['noise'][0]
+    else:
+        noise = well_data[well]['noise']
     mode = well_data['mode']
     type = well_data['type']
     if date_range:
@@ -433,8 +456,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         data = data[:, indices]
         data = np.squeeze(data)
     mpl_times = mdates.date2num(times)
-    if mode == 'Absolute':
-        data = data - data[:, 0, np.newaxis]
+    # TODO still don't know the best way to deal with relative values?
+    # if mode == 'Absolute':
+    #     data = data - data[:, 0, np.newaxis]
+    data = data - data[:, 0, np.newaxis]
     # Denoise methods are not mature yet
     if denoise_method:
         data = denoise(data, denoise_method)
@@ -457,7 +482,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         label = r'GHz'
     # Split the array in two and plot both separately
     down_data, up_data = np.array_split(data, 2, axis=0)
-    down_d, up_d = np.array_split(depth - depth[0], 2)
+    down_d, up_d = np.array_split(depth_vect - depth_vect[0], 2)
     if down_d.shape[0] != up_d.shape[0]:
         # prepend last element of down to up if unequal lengths by 1
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
@@ -518,9 +543,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                    label=ref_time.date())
         axes5.plot(up_ref, up_d_flip, color='k', linestyle=':')
         # Fill between noise bounds
-        axes4.fill_betweenx(y=down_d, x1=down_ref - noise, x2=down_ref + noise,
+        axes4.fill_betweenx(y=down_d, x1=down_ref - (noise * thresh),
+                            x2=down_ref + (noise * thresh),
                             alpha=0.2, color='k')
-        axes5.fill_betweenx(y=up_d_flip, x1=up_ref - noise, x2=up_ref + noise,
+        axes5.fill_betweenx(y=up_d_flip, x1=up_ref - (noise * thresh),
+                            x2=up_ref + (noise * thresh),
                             alpha=0.2, color='k')
         # Grid lines on axes 1
         axes2.grid(which='both', axis='y')
@@ -546,10 +573,13 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         # Define class for plotting new traces
         class TracePlotter():
             def __init__(self, figure, data, well, depth, cmap, cat_cmap, up_d,
-                         down_d):
+                         down_d, pick_mode, noise, thresh):
                 self.figure = figure
                 self.cmap = cmap
                 self.cat_cmap = cat_cmap
+                self.pick_mode = pick_mode
+                self.thresh = thresh
+                self.noise = noise
                 self.data = data
                 self.up_d = up_d
                 self.down_d = down_d
@@ -572,9 +602,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                     upgoing = False
                 elif pick_ax == self.figure.axes[1]:
                     upgoing = True
+                else:
+                    return
                 pick_col = next(self.cat_cmap)
-                print('click', event.xdata, event.ydata)
-                self.pick_dict[self.well].append((event.ydata, pick_col))
+                print('click', mdates.num2date(event.xdata), event.ydata)
                 # Get channel corresponding to ydata (which was modified to
                 # units of meters during imshow...?
                 # Separate depth vectors
@@ -613,9 +644,12 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 # Plot two traces for downgoing and upgoing trace at user-
                 # picked time
                 down_vect, up_vect = np.array_split(fiber_vect, 2)
+                # Adjustment flag for pick plotting on upgoing vector
+                pick_adjust = 0
                 # Again account for unequal down and up arrays
                 if down_vect.shape[0] != up_vect.shape[0]:
                     up_vect = np.insert(up_vect, 0, down_vect[-1])
+                    pick_adjust = 1
                 self.figure.axes[-3].plot(down_vect, down_d, color=pick_col,
                                           label=num2date(event.xdata).date())
                 self.figure.axes[-2].plot(up_vect, up_d[-1] - up_d,
@@ -623,18 +657,57 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 self.figure.axes[-3].legend(
                     loc=2, fontsize=12, bbox_to_anchor=(-0.95, 1.0),
                     framealpha=1.).set_zorder(103)
-                # Swap out fiber length tick labels for depth
-                # Plot ydata on axes4/5
-                if upgoing:
-                    self.figure.axes[-2].fill_between(x=np.array([-500, 500]),
-                                                      y1=event.ydata - 0.5,
-                                                      y2=event.ydata + 0.5,
-                                                      alpha=0.5, color=pick_col)
+                if pick_mode == 'manual':
+                    # Populate pick_dict
+                    self.pick_dict[self.well].append((event.ydata, pick_col))
+                    # Plot ydata on axes4/5 if manual
+                    if upgoing:
+                        self.figure.axes[-2].fill_between(
+                            x=np.array([-500, 500]), y1=event.ydata - 0.5,
+                                       y2=event.ydata + 0.5,
+                                       alpha=0.5, color=pick_col)
+                    else:
+                        self.figure.axes[-3].fill_between(
+                            x=np.array([-500, 500]), y1=event.ydata - 0.5,
+                            y2=event.ydata + 0.5,
+                            alpha=0.5, color=pick_col)
                 else:
-                    self.figure.axes[-3].fill_between(x=np.array([-500, 500]),
-                                                      y1=event.ydata - 0.5,
-                                                      y2=event.ydata + 0.5,
-                                                      alpha=0.5, color=pick_col)
+                    if self.noise[1] is None:
+                        noise_mean = 0.
+                        noise_mad = self.noise[0]
+                    else:
+                        noise_mean = self.noise[0]
+                        noise_mad = self.noise[1]
+                    peak_inds, peak_dict = pick_anomalies(
+                        fiber_vect, noise_mean=noise_mean,
+                        noise_mad=noise_mad, thresh=self.thresh)
+                    # Populate pick_dict
+                    samp_int = self.depth[1] - self.depth[0]
+                    self.pick_dict = {}
+                    self.pick_dict['heights'] = peak_dict['peak_heights']
+                    self.pick_dict['widths'] = peak_dict['widths'] * samp_int
+                    self.pick_dict['depths'] = []
+                    # Now plot all picks at peak index with width calculated
+                    # from find_widths
+                    for pk in zip(peak_inds, peak_dict['widths']):
+                        half_width = (pk[1] * samp_int) / 2.
+                        if self.depth[pk[0]] > down_d[-1]: # Upgoing peak
+                            # Precalculate axes depth
+                            up_peak_dep = (self.depth[-1] -
+                                           self.depth[pk[0] + pick_adjust])
+                            self.pick_dict['depths'].append(up_peak_dep)
+                            self.figure.axes[-2].fill_between(
+                                x=np.array([-500, 500]),
+                                y1=up_peak_dep - half_width,
+                                y2=up_peak_dep + half_width,
+                                alpha=0.5, color=pick_col)
+                        else: # Downgoing
+                            self.pick_dict['depths'].append(self.depth[pk[0]])
+                            self.figure.axes[-3].fill_between(
+                                x=np.array([-500, 500]),
+                                y1=self.depth[pk[0]] - half_width,
+                                y2=self.depth[pk[0]] + half_width,
+                                alpha=0.5, color=pick_col)
                 # TODO Need dynamic way of colorbar scaling
                 self.figure.axes[2].legend(loc=2, bbox_to_anchor=(-0.2, 1.15),
                                            framealpha=1.).set_zorder(103)
@@ -676,7 +749,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         counter = 0 # Click counter for trace spacing
         # Set up categorical color palette
         cat_cmap = cycle(sns.color_palette('dark'))
-        plotter = TracePlotter(fig, data, well, depth, cmap,
-                               cat_cmap, up_d, down_d)
+        plotter = TracePlotter(fig, data, well, depth_vect, cmap,
+                               cat_cmap, up_d, down_d, pick_mode,
+                               noise=well_data[well]['noise'], thresh=thresh)
         plt.show()
     return plotter.pick_dict

@@ -85,12 +85,11 @@ def read_fsb_asbuilt(path):
     # Do AE's
     for i, sens in sensors['AEs'].iterrows():
         if sens[2] != ' -- ': # B8
-            continue
-            # dep = float(sens[2])
-            # easts, norths, zs, deps = np.hsplit(well_dict['B8'], 4)
-            # # Get closest depth point
-            # dists = np.squeeze(np.abs(dep - deps))
-            # name = sens[4]
+            dep = float(sens[2])
+            easts, norths, zs, deps = np.hsplit(well_dict['B8'], 4)
+            # Get closest depth point
+            dists = np.squeeze(np.abs(dep - deps))
+            name = sens[4]
         else: # B9
             dep = float(sens[3])
             easts, norths, zs, deps = np.hsplit(well_dict['B9'], 4)
