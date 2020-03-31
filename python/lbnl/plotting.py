@@ -21,7 +21,7 @@ from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 xlims=None, ylims=None, zlims=None, title=None, offline=False,
-                dd_only=False, surface='plane'):
+                dd_only=False, surface='plane', DSS_picks=None):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -42,6 +42,9 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param dd_only: Are we only plotting dd locations?
     :param surface: What type of surface to fit to points? Supports 'plane'
         and 'ellipsoid' for now.
+    :param DSS_picks: Dictionary {well name: {'heights': array,
+                                              'widths': array,
+                                              'depths': list}}
     :return:
     """
     pt_lists = []
@@ -55,6 +58,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     if location == 'surf':
         wells = parse_surf_boreholes(well_file)
     elif location == 'fsb':
+        # Too many points in asbuilt file to upload to plotly
         wells = create_FSB_boreholes(method='asplanned')
     for i, (key, pts) in enumerate(wells.items()):
         try:
@@ -73,9 +77,16 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         else:
             # Do the same for the inventory
             for sta in inventory[0]: # Assume single network for now
-                sx = float(sta.extra.hmc_east.value)
-                sy = float(sta.extra.hmc_north.value)
-                sz = float(sta.extra.hmc_elev.value)
+                if location == 'surf':
+                    loc_key = 'hmc'
+                elif location == 'fsb':
+                    loc_key = 'ch1903'
+                else:
+                    print('Location {} not supported'.format(location))
+                    raise KeyError
+                sx = float(sta.extra['{}_east'.format(loc_key)].value)
+                sy = float(sta.extra['{}_north'.format(loc_key)].value)
+                sz = float(sta.extra['{}_elev'.format(loc_key)].value)
                 name = sta.code
                 sta_list.append((sx, sy, sz, name))
         stax, stay, staz, nms = zip(*sta_list)
@@ -88,6 +99,33 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                   marker=dict(color='black',
                                     size=3.,
                                     symbol='diamond',
+                                    line=dict(color='gray',
+                                              width=1),
+                                    opacity=0.9)))
+    if DSS_picks:
+        # Over each well
+        frac_list = []
+        for well, pick_dict in DSS_picks.items():
+            well_dict = create_FSB_boreholes()  # Use asbuilt for accuracy here
+            easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
+            # Over each picked feature
+            for dep in pick_dict['depths']:
+                dists = np.squeeze(np.abs(dep - deps))
+                x = easts[np.argmin(dists)][0]
+                y = norths[np.argmin(dists)][0]
+                z = zs[np.argmin(dists)][0]
+                frac_list.append((x, y, z))
+        fracx, fracy, fracz = zip(*frac_list)
+        # Add to plot
+        datas.append(go.Scatter3d(x=np.array(fracx), y=np.array(fracy),
+                                  z=np.array(fracz),
+                                  mode='markers',
+                                  name='DSS picks',
+                                  hoverinfo='text',
+                                  text='DSS feature',
+                                  marker=dict(color='red',
+                                    size=6.,
+                                    symbol='cross',
                                     line=dict(color='gray',
                                               width=1),
                                     opacity=0.9)))

@@ -587,7 +587,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 self.xlim = self.figure.axes[0].get_xlim()
                 self.times = np.linspace(self.xlim[0], self.xlim[1],
                                          data.shape[1])
-                self.pick_dict = {well: []}
+                if self.pick_mode == 'manual':
+                    self.pick_dict = {well: []}
+                elif self.pick_mode == 'auto':
+                    self.pick_dict = {well: {}}
                 self.well = well
                 self.cid = self.figure.canvas.mpl_connect('button_press_event',
                                                           self)
@@ -683,10 +686,9 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                         noise_mad=noise_mad, thresh=self.thresh)
                     # Populate pick_dict
                     samp_int = self.depth[1] - self.depth[0]
-                    self.pick_dict = {}
-                    self.pick_dict['heights'] = peak_dict['peak_heights']
-                    self.pick_dict['widths'] = peak_dict['widths'] * samp_int
-                    self.pick_dict['depths'] = []
+                    self.pick_dict[self.well]['heights'] = peak_dict['peak_heights']
+                    self.pick_dict[self.well]['widths'] = peak_dict['widths'] * samp_int
+                    self.pick_dict[self.well]['depths'] = []
                     # Now plot all picks at peak index with width calculated
                     # from find_widths
                     for pk in zip(peak_inds, peak_dict['widths']):
@@ -695,14 +697,14 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                             # Precalculate axes depth
                             up_peak_dep = (self.depth[-1] -
                                            self.depth[pk[0] + pick_adjust])
-                            self.pick_dict['depths'].append(up_peak_dep)
+                            self.pick_dict[self.well]['depths'].append(up_peak_dep)
                             self.figure.axes[-2].fill_between(
                                 x=np.array([-500, 500]),
                                 y1=up_peak_dep - half_width,
                                 y2=up_peak_dep + half_width,
                                 alpha=0.5, color=pick_col)
                         else: # Downgoing
-                            self.pick_dict['depths'].append(self.depth[pk[0]])
+                            self.pick_dict[self.well]['depths'].append(self.depth[pk[0]])
                             self.figure.axes[-3].fill_between(
                                 x=np.array([-500, 500]),
                                 y1=self.depth[pk[0]] - half_width,

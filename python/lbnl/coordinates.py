@@ -32,3 +32,28 @@ class SURF_converter:
         """
         east, north = self.utm(point[0], point[1])
         return (east - self.orig_utm[0], north - self.orig_utm[1], point[2])
+
+
+class FSB_converter:
+    def __init__(self):
+        self.utm = Proj(init='EPSG:2056')
+
+    def to_lonlat(self, point):
+        """
+        Take y, x, z point on the ch1903+ grid and return lon lat
+
+        :param point: (easting, northing, elevation)
+        :return: (lon, lat, elevation)
+        """
+        lon, lat = self.utm(point[0], point[1], inverse=True)
+        return (lon, lat, point[2])
+
+    def to_ch1903(self, point):
+        """
+        Inverse of above. We don't touch elevations in either operation
+
+        :param point: (lon, lat, elevation)
+        :return: (easting, northing, elevation)
+        """
+        east, north = self.utm(point[0], point[1])
+        return (east, north, point[2])

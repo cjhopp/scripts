@@ -3,6 +3,8 @@
 """
 Utilities for handling various formats of borehole trajectory/orientation files
 """
+import os
+
 import numpy as np
 import seaborn as sns
 import pandas as pd
@@ -49,6 +51,8 @@ def create_FSB_boreholes(method='asbuilt',
     if method == 'asplanned':
         return well_dict
     elif method == 'asbuilt':
+        if not os.path.isdir(asbuilt_dir):
+            asbuilt_dir = '/media/chet/hdd/seismic/chet_FS-B/wells/'
         excel_asbuilts = []
         for fname in Path(asbuilt_dir).rglob(
                 '*Gamma_Deviation.xlsx'):
