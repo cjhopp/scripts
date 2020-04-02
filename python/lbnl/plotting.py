@@ -6,22 +6,27 @@ Plotting functions for the lbnl module
 
 import numpy as np
 import colorlover as cl
+import seaborn as sns
 import plotly
 import chart_studio.plotly as py
 import plotly.graph_objs as go
 
 from itertools import cycle
+from glob import glob
 from datetime import datetime
 from scipy.linalg import lstsq
+from matplotlib.colors import ListedColormap
 from scipy.signal import resample
 
 # Local imports (assumed to be in python path)
-from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes
+from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
+                            structures_to_planes)
 
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 xlims=None, ylims=None, zlims=None, title=None, offline=False,
-                dd_only=False, surface='plane', DSS_picks=None):
+                dd_only=False, surface='plane', DSS_picks=None,
+                structures=None):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -45,9 +50,13 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param DSS_picks: Dictionary {well name: {'heights': array,
                                               'widths': array,
                                               'depths': list}}
+    :param structures: None or path to root well_info directory
+
     :return:
     """
     pt_lists = []
+    # Do this only once
+    well_dict = create_FSB_boreholes()  # Use asbuilt for accuracy here
     # Establish color scales from colorlover (import colorlover as cl)
     colors = cycle(cl.scales['11']['qual']['Paired'])
     well_colors = cl.scales['9']['seq']['BuPu']
@@ -106,29 +115,62 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         # Over each well
         frac_list = []
         for well, pick_dict in DSS_picks.items():
-            well_dict = create_FSB_boreholes()  # Use asbuilt for accuracy here
             easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
             # Over each picked feature
-            for dep in pick_dict['depths']:
+            for i, dep in enumerate(pick_dict['depths']):
                 dists = np.squeeze(np.abs(dep - deps))
                 x = easts[np.argmin(dists)][0]
                 y = norths[np.argmin(dists)][0]
                 z = zs[np.argmin(dists)][0]
-                frac_list.append((x, y, z))
-        fracx, fracy, fracz = zip(*frac_list)
+                strain = pick_dict['strains'][i]
+                width = pick_dict['widths'][i]
+                frac_list.append((x, y, z, strain, width))
+        fracx, fracy, fracz, strains, fracw = zip(*frac_list)
+        ticks = np.arange(-60, 61, 20)
+        tick_labs = [str(t) for t in ticks]
         # Add to plot
         datas.append(go.Scatter3d(x=np.array(fracx), y=np.array(fracy),
                                   z=np.array(fracz),
                                   mode='markers',
                                   name='DSS picks',
                                   hoverinfo='text',
-                                  text='DSS feature',
-                                  marker=dict(color='red',
-                                    size=6.,
-                                    symbol='cross',
-                                    line=dict(color='gray',
-                                              width=1),
-                                    opacity=0.9)))
+                                  marker=dict(
+                                      color=strains, cmin=-60., cmax=60.,
+                                      size=np.abs(np.array(strains))**1/1.7,
+                                      symbol='circle',
+                                      line=dict(color=strains, width=1,
+                                                colorscale='RdBu'),
+                                      colorbar=dict(
+                                          title=dict(text=r'microstrain',
+                                                     font=dict(size=18),
+                                                     side='right'),
+                                          ticks='inside', y=0.25, len=0.5,
+                                          ticktext=tick_labs, tickvals=ticks),
+                                      colorscale='RdBu', reversescale=True,
+                                      opacity=0.9)))
+    if structures:
+        struct_files = glob('{}/**/BFS_*_structures.xlsx'.format(structures))
+        used_ftype = []
+        for struct_file in struct_files:
+            frac_planes = structures_to_planes(struct_file, well_dict)
+            for X, Y, Z, ftype, color in frac_planes:
+                if (Z > 550).any():  # One strange foliation?
+                    continue
+                if ftype in used_ftype:
+                    datas.append(go.Mesh3d(
+                        x=X, y=Y, z=Z, name=ftype,
+                        color=color, opacity=0.3,
+                        delaunayaxis='z', text=ftype,
+                        legendgroup=ftype,
+                        showlegend=False))
+                else:
+                    datas.append(go.Mesh3d(
+                        x=X, y=Y, z=Z, name=ftype,
+                        color=color, opacity=0.3,
+                        delaunayaxis='z', text=ftype,
+                        legendgroup=ftype,
+                        showlegend=True))
+                    used_ftype.append(ftype)
     # If no limits specified, take them from boreholes
     if not xlims:
         xs = [pt[0] for bh, pts in wells.items() for pt in pts]

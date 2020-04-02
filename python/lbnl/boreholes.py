@@ -12,6 +12,80 @@ import pandas as pd
 from itertools import cycle
 from pathlib import Path
 
+
+def depth_to_xyz(well_dict, well, depth):
+    """
+    Return xyz coords for depth in a given borehole
+
+    :param well: Well string
+    :param depth: Depth float
+    :return:
+    """
+    easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
+    # Get closest depth point
+    dists = np.squeeze(np.abs(depth - deps))
+    x = easts[np.argmin(dists)][0]
+    y = norths[np.argmin(dists)][0]
+    z = zs[np.argmin(dists)][0]
+    return (x, y, z)
+
+
+def make_frac_mesh(center, strike, dip):
+    # Helper to return X, Y, Z arrays to be plotted
+    # 2m square grid around point
+    x = np.linspace(center[0] - 0.5, center[0] + 0.5, 3)
+    y = np.linspace(center[1] - 0.5, center[1] + 0.5, 3)
+    # Mesh x and y arrays
+    X, Y = np.meshgrid(x, y)
+    dip_rad = np.deg2rad(dip)
+    strike_rad = np.deg2rad(strike)
+    # Normal to plane
+    a = -np.sin(dip_rad) * np.sin(strike_rad)
+    b = np.sin(dip_rad) * np.cos(strike_rad)
+    c = -np.cos(dip_rad)
+    # Evaluate d at borehole xyz
+    d = np.dot(np.array([a, b, c]), center)
+    Z = (d - a * X - b * Y) / c
+    return X.flatten(), Y.flatten(), Z.flatten()
+
+
+def structures_to_planes(path, well_dict):
+    """
+    Take the Optical TV picked structures for a well (strike-dip) and return
+    lists of X, Y, Z arrays defining a plane for plotting.
+
+    :param path: Path to Terratek excel
+    :return: list of (X, Y, Z)
+    """
+    # Custom color palette similar to wellcad convention
+    cols = {'open/undif. fracture': 'blue',
+            'sealed fracture / vein': 'lightblue',
+            'foliation / bedding': 'red',
+            'induced fracture': 'magenta',
+            'sedimentary structures/color changes undif.': 'green',
+            'uncertain type': 'orange',
+            'lithology change': 'yellow'}
+    # Read excel sheet
+    well = path.split('_')[-2]
+    fracs = pd.read_excel(path, skiprows=np.arange(9),
+                          usecols=np.arange(1, 9), header=None)
+    frac_planes = []
+    for i, frac in fracs.iterrows():
+        dep = frac[1]
+        strike = frac[4]
+        dip = frac[5]
+        frac_type = frac[7]
+        # Get borehole xyz of feature
+        try:
+            bh_point = depth_to_xyz(well_dict, well, dep)
+        except KeyError:
+            print('No borehole info yet for {}'.format(well))
+            return []
+        X, Y, Z = make_frac_mesh(center=bh_point, strike=strike, dip=dip)
+        frac_planes.append((X, Y, Z, frac_type, cols[frac_type]))
+    return frac_planes
+
+
 def create_FSB_boreholes(method='asbuilt',
                          asbuilt_dir='/media/chet/data/chet-FS-B/wells/'):
     """

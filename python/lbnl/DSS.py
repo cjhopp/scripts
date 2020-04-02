@@ -686,6 +686,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                         noise_mad=noise_mad, thresh=self.thresh)
                     # Populate pick_dict
                     samp_int = self.depth[1] - self.depth[0]
+                    self.pick_dict[self.well]['strains'] = fiber_vect[peak_inds]
                     self.pick_dict[self.well]['heights'] = peak_dict['peak_heights']
                     self.pick_dict[self.well]['widths'] = peak_dict['widths'] * samp_int
                     self.pick_dict[self.well]['depths'] = []
