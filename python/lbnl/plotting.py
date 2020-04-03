@@ -7,6 +7,7 @@ Plotting functions for the lbnl module
 import numpy as np
 import colorlover as cl
 import seaborn as sns
+import pandas as pd
 import plotly
 import chart_studio.plotly as py
 import plotly.graph_objs as go
@@ -26,7 +27,7 @@ from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 xlims=None, ylims=None, zlims=None, title=None, offline=False,
                 dd_only=False, surface='plane', DSS_picks=None,
-                structures=None):
+                structures=None, meshes=None):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -51,12 +52,12 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                               'widths': array,
                                               'depths': list}}
     :param structures: None or path to root well_info directory
+    :param meshes: list of files containing xyz vertices for mesh (only used
+        for FSB Gallery at the moment; can be expanded)
 
     :return:
     """
     pt_lists = []
-    # Do this only once
-    well_dict = create_FSB_boreholes()  # Use asbuilt for accuracy here
     # Establish color scales from colorlover (import colorlover as cl)
     colors = cycle(cl.scales['11']['qual']['Paired'])
     well_colors = cl.scales['9']['seq']['BuPu']
@@ -65,18 +66,28 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     # Make well point lists and add to Figure
     datas = []
     if location == 'surf':
-        wells = parse_surf_boreholes(well_file)
+        well_dict = parse_surf_boreholes(well_file)
     elif location == 'fsb':
         # Too many points in asbuilt file to upload to plotly
-        wells = create_FSB_boreholes(method='asplanned')
-    for i, (key, pts) in enumerate(wells.items()):
+        well_dict = create_FSB_boreholes()
+    else:
+        print('Location {} not supported'.format(location))
+        return
+    for i, (key, pts) in enumerate(well_dict.items()):
         try:
             x, y, z = zip(*pts)
         except ValueError:
             x, y, z, d = zip(*pts)
-        datas.append(go.Scatter3d(x=x, y=y, z=z, mode='lines',
+        if structures:
+            col = 'gray'
+        else:
+            col = next(colors)
+        datas.append(go.Scatter3d(x=[x[0], x[-1]],
+                                  y=[y[0], y[-1]],
+                                  z=[z[0], z[-1]],
+                                  mode='lines',
                                   name='Borehole: {}'.format(key),
-                                  line=dict(color=next(colors), width=7)))
+                                  line=dict(color=col, width=7)))
     if inventory:
         sta_list = []
         if isinstance(inventory, dict):
@@ -171,10 +182,27 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                         legendgroup=ftype,
                         showlegend=True))
                     used_ftype.append(ftype)
+    if meshes:
+        for mesh_file in meshes:
+            mesh = pd.read_csv(mesh_file, header=None, delimiter=' ')
+            vertices = mesh[mesh.iloc[:, 0] == 'VRTX']
+            triangles = mesh[mesh.iloc[:, 0] == 'TRGL']
+            X = vertices.iloc[:, 1].values
+            Y = vertices.iloc[:, 2].values
+            Z = vertices.iloc[:, 3].values
+            I = triangles.iloc[:, 1].values - 1
+            J = triangles.iloc[:, 2].values - 1
+            K = triangles.iloc[:, 3].values - 1
+            datas.append(go.Mesh3d(
+                x=X, y=Y, z=Z, i=I, j=J, k=K,
+                name='Galleries',
+                color='pink', opacity=0.5,
+                alphahull=-1,
+                showlegend=True))
     # If no limits specified, take them from boreholes
     if not xlims:
-        xs = [pt[0] for bh, pts in wells.items() for pt in pts]
-        ys = [pt[1] for bh, pts in wells.items() for pt in pts]
+        xs = [pt[0] for bh, pts in well_dict.items() for pt in pts]
+        ys = [pt[1] for bh, pts in well_dict.items() for pt in pts]
         xlims = [min(xs), max(xs)]
         ylims = [min(ys), max(ys)]
         zlims = [60, 130]
@@ -263,27 +291,26 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 print('No surfaces fitted')
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Easting (m)',
-                                autorange=True, range=xlims)
+                                zerolinewidth=2, title='Easting (m)')
     yax = go.layout.scene.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Northing (m)',
-                                autorange=True, range=ylims)
+                                zerolinewidth=2, title='Northing (m)')
     zax = go.layout.scene.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Elevation (m)',
-                                autorange=True, range=zlims)
+                                zerolinewidth=2, title='Elevation (m)')
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
+                                  aspectmode='manual',
+                                  aspectratio=dict(x=3.5, y=3.5, z=1),
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
                        title=title)
     # Start figure
     fig = go.Figure(data=datas, layout=layout)
     if offline:
-        plotly.offline.iplot(fig, filename=outfile)
+        plotly.offline.iplot(fig, filename='{}.html'.format(outfile))
     else:
         py.plot(fig, filename=outfile)
-    return
+    return fig
 
 def pts_to_plane(x, y, z, method='lstsq'):
     # Create a grid over the desired area

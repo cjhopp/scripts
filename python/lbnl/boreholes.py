@@ -10,6 +10,7 @@ import seaborn as sns
 import pandas as pd
 
 from itertools import cycle
+from glob import glob
 from pathlib import Path
 
 
@@ -86,60 +87,59 @@ def structures_to_planes(path, well_dict):
     return frac_planes
 
 
-def create_FSB_boreholes(method='asbuilt',
+def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/',
                          asbuilt_dir='/media/chet/data/chet-FS-B/wells/'):
     """
     Return dictionary of FSB well coordinates
 
-    :param method: From asbuilt or asplanned specs
     :param asbuilt_dir: Directory holding the gamma logs for each well
     """
-    well_dict = {
-                 # As planned
-                 'B1': [(2579345.22, 1247580.39, 513.20, 0),
-                        (2579345.22, 1247580.39, 450.00, 0)],
-                 'B2': [(2579334.48, 1247570.98, 513.20, 0),
-                        (2579329.36, 1247577.86, 460.41, 0)],
-                 # Changed to as built B3-7 1-14-20 CJH
-                 'B3': [(2579324.915, 1247611.678, 514.13, 0),
-                        (2579324.01, 1247557.61, 450.05, 0)],
-                 'B4': [(2579325.497, 1247612.048, 514.07, 0),
-                         (2579337.15, 1247569.67, 448.33, 0)],
-                 'B5': [(2579332.571, 1247597.289, 513.78, 0),
-                        (2579319.59, 1247557.19, 472.50, 0)],
-                 'B6': [(2579333.568, 1247598.048, 513.70, 0),
-                        (2579337.52, 1247568.85, 474.53, 0)],
-                 'B7': [(2579335.555, 1247599.383, 513.70, 0),
-                        (2579352.08, 1247578.44, 475.78, 0)],
-                 # As planned
-                 # 'B8': [(2579334.00, 1247602.00, 513.78, 0),
-                 #        (2579326.50, 1247563.50, 472.50, 0)],
-                 # 'B9': [(2579328.00, 1247609.00, 513.20, 0),
-                 #        (2579335.00, 1247570.00, 458.00, 0)],
-                 # As built tops: CJH 3-2-20
-                 'B8': [(2579331.9512, 1247600.6754, 513.7908, 0),
-                        (2579326.50, 1247563.50, 472.50, 0)],
-                 'B9': [(2579327.8493, 1247608.9225, 513.9813, 0),
-                        (2579335.00, 1247570.00, 458.00, 0)]
-    }
-    if method == 'asplanned':
-        return well_dict
-    elif method == 'asbuilt':
-        if not os.path.isdir(asbuilt_dir):
-            asbuilt_dir = '/media/chet/hdd/seismic/chet_FS-B/wells/'
-        excel_asbuilts = []
-        for fname in Path(asbuilt_dir).rglob(
-                '*Gamma_Deviation.xlsx'):
-            excel_asbuilts.append(fname)
-        for excel_f in excel_asbuilts:
-            name = str(excel_f).split('-')[-1][:2]
-            top = well_dict[name][0]
+    if not os.path.isdir(asbuilt_dir):
+        asbuilt_dir = '/media/chet/hdd/seismic/chet_FS-B/wells/'
+    excel_asbuilts = glob('{}/**/*Gamma_Deviation.xlsx'.format(asbuilt_dir))
+    well_dict = {}
+    if not os.path.isdir(gocad_dir):
+        gocad_dir = '/media/chet/hdd/seismic/chet_FS-B/Mont_Terri_model'
+    gocad_asbuilts =  glob('{}/*.wl'.format(gocad_dir))
+    for gocad_f in gocad_asbuilts:
+        name = str(gocad_f).split('-')[-1].split('.')[0]
+        well_dict[name] = []
+        # Multispace delimiter
+        top = pd.read_csv(gocad_f, header=None, skiprows=np.arange(13),
+                          delimiter='\s+', index_col=False, engine='python',
+                          nrows=1)
+        rows = pd.read_csv(gocad_f, header=None, skiprows=np.arange(14),
+                           delimiter='\s+', index_col=False, engine='python',
+                           skipfooter=1)
+        lab, x_top, y_top, z_top = top.values.flatten()
+        well_dict[name] = np.stack(((x_top + rows.iloc[:, 3]).values,
+                                    (y_top + rows.iloc[:, 4]).values,
+                                    rows.iloc[:, 2].values,
+                                    rows.iloc[:, 1].values)).T
+        if well_dict[name].shape[0] < 1000:  # Read in gamma instead
+            try:
+                excel_f = [f for f in excel_asbuilts
+                           if f.split('-')[-1][:2] == name][0]
+            except IndexError:
+                print('No gamma file for {}'.format(name))
+                # If so, make a more highly-sampled interpolation
+                x, y, z, d = zip(*well_dict[name])
+                td = d[-1]
+                if td == 'Top':
+                    td = float(d[-3])
+                print(name, td)
+                well_dict[name] = np.stack((np.linspace(x_top, x[-1], 1000),
+                                            np.linspace(y_top, y[-1], 1000),
+                                            np.linspace(z_top, z[-1], 1000),
+                                            np.linspace(0, td, 1000))).T
+                continue
             df = pd.read_excel(excel_f, header=6, skiprows=[7])
-            well_dict[name] = np.stack(((top[0] + df['Easting']).values,
-                                        (top[1] + df['Northing']).values,
-                                        (top[2] - df['TVD']).values,
+            well_dict[name] = np.stack(((x_top + df['Easting']).values,
+                                        (y_top + df['Northing']).values,
+                                        (z_top - df['TVD']).values,
                                         df['Depth'].values)).T
-        return well_dict
+    return well_dict
+
 
 def parse_surf_boreholes(file_path):
     """
