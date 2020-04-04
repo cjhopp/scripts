@@ -117,27 +117,15 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
                                     rows.iloc[:, 2].values,
                                     rows.iloc[:, 1].values)).T
         if well_dict[name].shape[0] < 1000:  # Read in gamma instead
-            try:
-                excel_f = [f for f in excel_asbuilts
-                           if f.split('-')[-1][:2] == name][0]
-            except IndexError:
-                print('No gamma file for {}'.format(name))
-                # If so, make a more highly-sampled interpolation
-                x, y, z, d = zip(*well_dict[name])
-                td = d[-1]
-                if td == 'Top':
-                    td = float(d[-3])
-                print(name, td)
-                well_dict[name] = np.stack((np.linspace(x_top, x[-1], 1000),
-                                            np.linspace(y_top, y[-1], 1000),
-                                            np.linspace(z_top, z[-1], 1000),
-                                            np.linspace(0, td, 1000))).T
-                continue
-            df = pd.read_excel(excel_f, header=6, skiprows=[7])
-            well_dict[name] = np.stack(((x_top + df['Easting']).values,
-                                        (y_top + df['Northing']).values,
-                                        (z_top - df['TVD']).values,
-                                        df['Depth'].values)).T
+            # If so, make a more highly-sampled interpolation
+            x, y, z, d = zip(*well_dict[name])
+            td = d[-1]
+            if td == 'Top':
+                td = float(d[-3])
+            well_dict[name] = np.stack((np.linspace(x_top, x[-1], 1000),
+                                        np.linspace(y_top, y[-1], 1000),
+                                        np.linspace(z_top, z[-1], 1000),
+                                        np.linspace(0, td, 1000))).T
     return well_dict
 
 

@@ -82,12 +82,19 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
             col = 'gray'
         else:
             col = next(colors)
+        if key.startswith('D'):
+            group = 'CSD'
+        elif key.startswith('B'):
+            group = 'FS-B'
+        else:
+            group = 'Other projects'
         datas.append(go.Scatter3d(x=[x[0], x[-1]],
                                   y=[y[0], y[-1]],
                                   z=[z[0], z[-1]],
                                   mode='lines',
-                                  name='Borehole: {}'.format(key),
-                                  line=dict(color=col, width=7)))
+                                  legendgroup=group,
+                                  name='{}: {}'.format(group, key),
+                                  line=dict(color=col, width=4)))
     if inventory:
         sta_list = []
         if isinstance(inventory, dict):
@@ -127,6 +134,12 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         frac_list = []
         for well, pick_dict in DSS_picks.items():
             easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
+            if well.startswith('D'):  # Scale CSD signal way down visually
+                loc = 1
+                scale = 3
+            elif well.startswith('B'):
+                loc = 2
+                scale = 1.1
             # Over each picked feature
             for i, dep in enumerate(pick_dict['depths']):
                 dists = np.squeeze(np.abs(dep - deps))
@@ -135,30 +148,34 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 z = zs[np.argmin(dists)][0]
                 strain = pick_dict['strains'][i]
                 width = pick_dict['widths'][i]
-                frac_list.append((x, y, z, strain, width))
-        fracx, fracy, fracz, strains, fracw = zip(*frac_list)
+                frac_list.append((x, y, z, strain, width, loc, scale))
+        fracx, fracy, fracz, strains, fracw, locs, scales = zip(*frac_list)
+        scales = 1 / np.array(scales)
         ticks = np.arange(-60, 61, 20)
         tick_labs = [str(t) for t in ticks]
         # Add to plot
-        datas.append(go.Scatter3d(x=np.array(fracx), y=np.array(fracy),
-                                  z=np.array(fracz),
-                                  mode='markers',
-                                  name='DSS picks',
-                                  hoverinfo='text',
-                                  marker=dict(
-                                      color=strains, cmin=-60., cmax=60.,
-                                      size=np.abs(np.array(strains))**1/1.7,
-                                      symbol='circle',
-                                      line=dict(color=strains, width=1,
-                                                colorscale='RdBu'),
-                                      colorbar=dict(
-                                          title=dict(text=r'microstrain',
-                                                     font=dict(size=18),
-                                                     side='right'),
-                                          ticks='inside', y=0.25, len=0.5,
-                                          ticktext=tick_labs, tickvals=ticks),
-                                      colorscale='RdBu', reversescale=True,
-                                      opacity=0.9)))
+        datas.append(go.Scatter3d(
+            x=np.array(fracx), y=np.array(fracy),
+            z=np.array(fracz),
+            mode='markers',
+            legendgroup='DSS',
+            name='DSS picks',
+            hoverinfo='text',
+            text=strains,
+            marker=dict(
+                color=strains, cmin=-60., cmax=60.,
+                size=np.abs(np.array(strains))**scales,
+                symbol='circle',
+                line=dict(color=strains, width=1,
+                          colorscale='RdBu'),
+                colorbar=dict(
+                    title=dict(text=r'microstrain',
+                               font=dict(size=18),
+                               side='top'),
+                    ticks='outside', x=0.05, y=0.5, len=0.5,
+                    ticktext=tick_labs, tickvals=ticks),
+                colorscale='RdBu', reversescale=True,
+                opacity=0.9)))
     if structures:
         struct_files = glob('{}/**/BFS_*_structures.xlsx'.format(structures))
         used_ftype = []
@@ -183,7 +200,8 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                         showlegend=True))
                     used_ftype.append(ftype)
     if meshes:
-        for mesh_file in meshes:
+        for mesh_name, mesh_file in meshes:
+            col = next(colors)
             mesh = pd.read_csv(mesh_file, header=None, delimiter=' ')
             vertices = mesh[mesh.iloc[:, 0] == 'VRTX']
             triangles = mesh[mesh.iloc[:, 0] == 'TRGL']
@@ -195,9 +213,9 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
             K = triangles.iloc[:, 3].values - 1
             datas.append(go.Mesh3d(
                 x=X, y=Y, z=Z, i=I, j=J, k=K,
-                name='Galleries',
-                color='pink', opacity=0.5,
-                alphahull=-1,
+                name=mesh_name,
+                color=col, opacity=0.3,
+                alphahull=0,
                 showlegend=True))
     # If no limits specified, take them from boreholes
     if not xlims:
@@ -289,23 +307,37 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                        showlegend=True))
             else:
                 print('No surfaces fitted')
+    # Start figure
+    fig = go.Figure(data=datas)
+    # Manually find the data limits, and scale appropriately
+    all_x = np.ma.masked_invalid(np.concatenate([d['x'] for d in fig.data]))
+    all_y = np.ma.masked_invalid(np.concatenate([d['y'] for d in fig.data]))
+    all_z = np.ma.masked_invalid(np.concatenate([d['z'] for d in fig.data]))
+    xrange = np.abs(np.max(all_x) - np.min(all_x))
+    yrange = np.abs(np.max(all_y) - np.min(all_y))
+    zrange = np.abs(np.max(all_z) - np.min(all_z))
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Easting (m)')
+                                zerolinewidth=2, title='Easting (m)',
+                                range=(np.min(all_x), np.max(all_x)))
     yax = go.layout.scene.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Northing (m)')
+                                zerolinewidth=2, title='Northing (m)',
+                                range=(np.min(all_y), np.max(all_y)))
     zax = go.layout.scene.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Elevation (m)')
+                                zerolinewidth=2, title='Elevation (m)',
+                                range=(np.min(all_z), np.max(all_z)))
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
                                   aspectmode='manual',
-                                  aspectratio=dict(x=3.5, y=3.5, z=1),
+                                  aspectratio=dict(x=1, y=yrange / xrange,
+                                                   z=zrange / xrange),
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
-                       title=title)
-    # Start figure
-    fig = go.Figure(data=datas, layout=layout)
+                       title=title,
+                       legend=dict(title=dict(text='Mont Terri Rock Lab',
+                                              font=dict(size=22))))
+    fig.update_layout(layout)
     if offline:
         plotly.offline.iplot(fig, filename='{}.html'.format(outfile))
     else:

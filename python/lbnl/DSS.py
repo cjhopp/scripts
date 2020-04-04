@@ -10,6 +10,7 @@ import seaborn as sns
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 
+from glob import glob
 from obspy import Stream, Trace
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks
@@ -25,13 +26,22 @@ from matplotlib.collections import LineCollection
 # Local imports
 from lbnl.simfip import read_excavation, plot_displacement_components
 
+# FS-B boreholes
 chan_map_fsb = {'B3': (237.7, 404.07), 'B4': (413.52, 571.90),
                 'B5': (80.97, 199.63), 'B6': (594.76, 694.32),
                 'B7': (700.43, 793.47)}
+# CSD boreholes
+chan_map_csd_1256 = {# Loop 1, 2, 5, 6
+                     'D1': (336.56, 379.08), 'D2': (259.99, 294.19),
+                     'D5': (68.61, 131.40), 'D6': (154.62, 227.21)}
+chan_map_csd_34 = {# Loop 3, 4
+                   'D3': (48.60, 111.44), 'D4': (134.82, 206.84)}
 
 chan_map_maria = {'B3': (232.21, 401.37), 'B4': (406.56, 566.58),
                   'B5': (76.46, 194.11), 'B6': (588.22, 688.19),
                   'B7': (693.37, 789.86)}
+
+chan_map_surf = {}
 
 
 def read_ascii(path, header=42, encoding='iso-8859-1'):
@@ -63,37 +73,65 @@ def read_metadata(path, encoding='iso-8859-1'):
                     type = ' '.join(line[2:])
     return mode, type
 
-def extract_wells(path, wells, denoise_method='majdabadi'):
+
+def extract_wells(root, measure, wells, noise_method='majdabadi'):
     """
     Helper to extract only the channels in specific wells
+
+    :param root: Root directory for all measurement text files
+    :param measure: Which measure to read:
+        Absolute_Strain
+        Absolute_Freq
+        Absolute_Gain
+        Relative_Freq
+        Relative_Strain
+    :param wells: List of well name strings to return
+    :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
+        'majdabadi' returns scalar, 'by_channel' an array
+
+    :returns: dict {well name: {'data':, 'depth':, 'noise':}
     """
-    data = read_ascii(path)
-    times = read_times(path)
-    mode, type = read_metadata(path)
-    # Take first column as the length along the fiber and remove it from data
-    depth = data[:, -1]
-    data = data[:, :-1]
-    # First realign this shiz....soooooo slow
-    data = madjdabadi_realign(data)
-    # Take selected channels
-    if wells == 'all':
-        channel_ranges = [('all', (0, -1))]
-    else:
-        channel_ranges = []
-        for well in wells:
-            start_chan = np.abs(depth - chan_map_fsb[well][0])
-            end_chan = np.abs(depth - chan_map_fsb[well][1])
-            # Find the closest integer channel to meter mapping
-            channel_range = (np.argmin(start_chan), np.argmin(end_chan))
-            channel_ranges.append((well, channel_range))
-    well_data = {'times': times, 'mode': mode, 'type': type}
-    for rng in channel_ranges:
-        data_tmp = data[rng[1][0]:rng[1][1], :]
-        depth_tmp = depth[rng[1][0]:rng[1][1]]
-        # Get median absolute deviation averaged across all channels
-        noise = estimate_noise(data_tmp, method=denoise_method)
-        well_data[rng[0]] = {'data': data_tmp, 'depth': depth_tmp,
-                             'noise': noise}
+    data_files = glob('{}/*{}.txt'.format(root, measure))
+    well_data = {}
+    for f in data_files:
+        if f.split('/')[-1].startswith('FSB-SMF-1'):
+            # Skip fiber 1
+            continue
+        if f.split('/')[-1].startswith('FSB'):
+            chan_map = chan_map_fsb
+        elif f.split('/')[-1].startswith('CSD3'):
+            chan_map = chan_map_csd_34
+        elif f.split('/')[-1].startswith('CSD5'):
+            chan_map = chan_map_csd_1256
+        data = read_ascii(f)
+        times = read_times(f)
+        mode, type = read_metadata(f)
+        # Take first column as the length along the fiber and remove from data
+        depth = data[:, -1]
+        data = data[:, :-1]
+        # First realign
+        data = madjdabadi_realign(data)
+        # Take selected channels
+        if wells == 'all':
+            channel_ranges = [('all', (0, -1))]
+        else:
+            channel_ranges = []
+            for well in wells:
+                if well not in chan_map:
+                    continue
+                start_chan = np.abs(depth - chan_map[well][0])
+                end_chan = np.abs(depth - chan_map[well][1])
+                # Find the closest integer channel to meter mapping
+                channel_range = (np.argmin(start_chan), np.argmin(end_chan))
+                channel_ranges.append((well, channel_range))
+                well_data[well] = {'times': times, 'mode': mode, 'type': type}
+        for rng in channel_ranges:
+            data_tmp = data[rng[1][0]:rng[1][1], :]
+            depth_tmp = depth[rng[1][0]:rng[1][1]]
+            # Get median absolute deviation averaged across all channels
+            noise = estimate_noise(data_tmp, method=noise_method)
+            well_data[rng[0]].update({'data': data_tmp, 'depth': depth_tmp,
+                                      'noise': noise})
     return well_data
 
 
@@ -201,7 +239,10 @@ def plot_wells_over_time(well_data, wells,
     """
     # Read in data
     # Make list of times within date range
-    times = well_data['times']
+    times = []
+    for well, well_dict in well_data.items():
+        times.extend(list(well_dict['times']))
+    times = list(set(times))
     times = [t for t in times if date_range[0] < t < date_range[1]]
     time_labs = [t.strftime('%m-%d') for t in times]
     # Initialize the figure
@@ -271,8 +312,8 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
         cat_cmap = cycle(sns.color_palette('dark'))
         pick_col = next(cat_cmap)
         alpha = 1.
-    times = well_data['times']
     for well in wells:
+        times = well_data[well]['times']
         ax1, ax2 = axes[i:i + 2]
         data = well_data[well]['data']
         depth = well_data[well]['depth']
@@ -441,15 +482,15 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes5 = fig.add_subplot(gs[:, 2:4], sharex=axes4)
         cax = fig.add_subplot(gs[:8, -1])
     # Get just the channels from the well in question
-    times = well_data['times']
+    times = well_data[well]['times']
     data = well_data[well]['data']
     depth_vect = well_data[well]['depth']
     if well_data[well]['noise'][1] is None:
         noise = well_data[well]['noise'][0]
     else:
         noise = well_data[well]['noise']
-    mode = well_data['mode']
-    type = well_data['type']
+    mode = well_data[well]['mode']
+    type = well_data[well]['type']
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
