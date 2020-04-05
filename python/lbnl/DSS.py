@@ -315,6 +315,7 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
     for well in wells:
         times = well_data[well]['times']
         ax1, ax2 = axes[i:i + 2]
+        print(ax1.get_window_extent().x1, ax2.get_window_extent().x0)
         data = well_data[well]['data']
         depth = well_data[well]['depth']
         noise = well_data[well]['noise']
@@ -405,22 +406,22 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
                            framealpha=1.).set_zorder(103)
             elif i == 0:
                 ax1.set_ylabel('Depth [m]', fontsize=18)
-            # Formatting
-            # Common title for well subplots
-            ax1_x = ax1.get_window_extent().x1 / 1000.
-            ax2_x = ax2.get_window_extent().x0 / 1000.
-            fig.text(x=(ax1_x + ax2_x) / 2, y=0.92, s=well, ha='center',
-                     fontsize=22)
-            ax2.set_facecolor('lightgray')
-            ax1.set_facecolor('lightgray')
-            ax1.set_xlim([vrange[0], vrange[1]])
-            ax1.margins(y=0)
-            ax2.yaxis.set_major_locator(ticker.MultipleLocator(5.))
-            ax2.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
-            ax1.yaxis.set_major_locator(ticker.MultipleLocator(5.))
-            ax1.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
-            ax1.set_title('Down')
-            ax2.set_title('Up')
+                # Formatting
+                # Common title for well subplots
+                ax1_x = ax1.get_window_extent().x1 / 1000.
+                ax2_x = ax2.get_window_extent().x0 / 1000.
+                fig.text(x=(ax1_x + ax2_x) / 2, y=0.92, s=well, ha='center',
+                         fontsize=22)
+                ax2.set_facecolor('lightgray')
+                ax1.set_facecolor('lightgray')
+                ax1.set_xlim([vrange[0], vrange[1]])
+                ax1.margins(y=0)
+                ax2.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+                ax2.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+                ax1.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+                ax1.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+                ax1.set_title('Down')
+                ax2.set_title('Up')
         # Always increment, obviously
         i += 2
     if formater:

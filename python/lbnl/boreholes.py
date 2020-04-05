@@ -31,7 +31,36 @@ def depth_to_xyz(well_dict, well, depth):
     return (x, y, z)
 
 
-def make_frac_mesh(center, strike, dip):
+def calc_mesh_area(X, Y, Z):
+    """Assume rotated mesh is rhombus and calculate area"""
+    v1 = (X[0, 0], Y[0, 0], Z[0, 0])
+    v2 = (X[0, 2], Y[0, 2], Z[0, 2])
+    v3 = (X[2, 0], Y[2, 0], Z[2, 0])
+    v4 = (X[2, 2], Y[2, 2], Z[2, 2])
+    p = np.sqrt((v1[0] - v4[0])**2 +
+                (v1[1] - v4[1])**2 +
+                (v1[2] - v4[2])**2)
+    q = np.sqrt((v2[0] - v3[0])**2 +
+                (v2[1] - v3[1])**2 +
+                (v2[2] - v3[2])**2)
+    return p * q / 2
+
+
+def scale_mesh(X, Y, Z, center):
+    """Scale points of mesh to area of 1"""
+    A = calc_mesh_area(X, Y, Z)
+    scale = 1. / A
+    Xs = ((X - center[0]) * scale) + center[0]
+    Ys = ((Y - center[1]) * scale) + center[1]
+    Zs = ((Z - center[2]) * scale) + center[2]
+    return Xs.flatten(), Ys.flatten(), Zs.flatten()
+
+
+def make_frac_mesh(center, dip_direction, dip):
+    # Dip direction to strike
+    strike = dip_direction - 90.
+    if strike < 0.:
+        strike += 360.
     # Helper to return X, Y, Z arrays to be plotted
     # 2m square grid around point
     x = np.linspace(center[0] - 0.5, center[0] + 0.5, 3)
@@ -41,19 +70,19 @@ def make_frac_mesh(center, strike, dip):
     dip_rad = np.deg2rad(dip)
     strike_rad = np.deg2rad(strike)
     # Normal to plane
-    a = -np.sin(dip_rad) * np.sin(strike_rad)
-    b = np.sin(dip_rad) * np.cos(strike_rad)
-    c = -np.cos(dip_rad)
+    a = np.sin(dip_rad) * np.cos(strike_rad)  # East
+    b = -np.sin(dip_rad) * np.sin(strike_rad)  # North
+    c = np.cos(dip_rad)
     # Evaluate d at borehole xyz
     d = np.dot(np.array([a, b, c]), center)
     Z = (d - a * X - b * Y) / c
-    return X.flatten(), Y.flatten(), Z.flatten()
+    return X, Y, Z
 
 
 def structures_to_planes(path, well_dict):
     """
-    Take the Optical TV picked structures for a well (strike-dip) and return
-    lists of X, Y, Z arrays defining a plane for plotting.
+    Take the Optical TV picked structures for a well (dip direction-dip)
+    and return lists of X, Y, Z arrays defining a plane for plotting.
 
     :param path: Path to Terratek excel
     :return: list of (X, Y, Z)
@@ -73,7 +102,7 @@ def structures_to_planes(path, well_dict):
     frac_planes = []
     for i, frac in fracs.iterrows():
         dep = frac[1]
-        strike = frac[4]
+        dd = frac[4]
         dip = frac[5]
         frac_type = frac[7]
         # Get borehole xyz of feature
@@ -82,8 +111,9 @@ def structures_to_planes(path, well_dict):
         except KeyError:
             print('No borehole info yet for {}'.format(well))
             return []
-        X, Y, Z = make_frac_mesh(center=bh_point, strike=strike, dip=dip)
-        frac_planes.append((X, Y, Z, frac_type, cols[frac_type]))
+        X, Y, Z = make_frac_mesh(center=bh_point, dip_direction=dd, dip=dip)
+        Xs, Ys, Zs = scale_mesh(X, Y, Z, bh_point)
+        frac_planes.append((Xs, Ys, Zs, frac_type, cols[frac_type]))
     return frac_planes
 
 
