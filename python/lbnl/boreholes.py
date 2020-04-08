@@ -117,6 +117,26 @@ def structures_to_planes(path, well_dict):
     return frac_planes
 
 
+def calculate_frac_density(path, well_dict):
+    """
+    Return dict of {well: fracture density array}
+
+    :param path:
+    :param well_dict:
+    :return:
+    """
+    well = path.split('_')[-2]
+    fracs = pd.read_excel(path, skiprows=np.arange(9),
+                          usecols=np.arange(1, 9), header=None)
+    deps = fracs[1].values
+    # 0.5 step and 0.5 overlap
+    dep_bins = np.arange(0, well_dict[well][-1, -1], 0.5)
+    density = np.array([deps[np.where(np.logical_and(a - 1 <= deps,
+                                            deps < a + 1))].shape[0]
+               for a in dep_bins])
+    return np.stack((dep_bins, density)).T
+
+
 def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/',
                          asbuilt_dir='/media/chet/data/chet-FS-B/wells/'):
     """

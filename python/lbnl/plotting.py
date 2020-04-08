@@ -136,12 +136,15 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
             easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
             if well.startswith('D'):  # Scale CSD signal way down visually
                 loc = 1
-                scale = 3
+                scale = 1.1
             elif well.startswith('B'):
                 loc = 2
                 scale = 1.1
             # Over each picked feature
             for i, dep in enumerate(pick_dict['depths']):
+                if dep < 5.:
+                    # Crude skip of shallow anomalies that overrun everything
+                    continue
                 dists = np.squeeze(np.abs(dep - deps))
                 x = easts[np.argmin(dists)][0]
                 y = norths[np.argmin(dists)][0]
@@ -151,7 +154,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 frac_list.append((x, y, z, strain, width, loc, scale))
         fracx, fracy, fracz, strains, fracw, locs, scales = zip(*frac_list)
         scales = 1 / np.array(scales)
-        ticks = np.arange(-60, 61, 20)
+        ticks = np.arange(-200, 200, 20)
         tick_labs = [str(t) for t in ticks]
         # Add to plot
         datas.append(go.Scatter3d(
@@ -163,7 +166,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
             hoverinfo='text',
             text=strains,
             marker=dict(
-                color=strains, cmin=-60., cmax=60.,
+                color=strains, cmin=-200., cmax=200.,
                 size=np.abs(np.array(strains))**scales,
                 symbol='circle',
                 line=dict(color=strains, width=1,

@@ -24,6 +24,8 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.collections import LineCollection
 
 # Local imports
+from lbnl.coordinates import cartesian_distance
+from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes, calculate_frac_density
 from lbnl.simfip import read_excavation, plot_displacement_components
 
 # FS-B boreholes
@@ -33,9 +35,9 @@ chan_map_fsb = {'B3': (237.7, 404.07), 'B4': (413.52, 571.90),
 # CSD boreholes
 chan_map_csd_1256 = {# Loop 1, 2, 5, 6
                      'D1': (336.56, 379.08), 'D2': (259.99, 294.19),
-                     'D5': (68.61, 131.40), 'D6': (154.62, 227.21)}
+                     'D5': (67.16, 126.04), 'D6': (157.42, 219.57)}
 chan_map_csd_34 = {# Loop 3, 4
-                   'D3': (48.60, 111.44), 'D4': (134.82, 206.84)}
+                   'D3': (47.26, 106.66), 'D4': (132.34, 201.49)}
 
 chan_map_maria = {'B3': (232.21, 401.37), 'B4': (406.56, 566.58),
                   'B5': (76.46, 194.11), 'B6': (588.22, 688.19),
@@ -219,9 +221,56 @@ def pick_anomalies(data, noise_mean, noise_mad, thresh=1.):
                       width=(None, None))
 
 
+################  Plotting  Funcs  ############################################
+def plot_strains_w_dist(location, DSS_picks, point):
+    """
+    Plot DSS strain values with distance from a point (e.g. excavation front)
+
+    :param location: 'fsb' or 'surf'
+    :param DSS_picks: Dictionary {well name: [pick depths, ...]}
+    :param point: (x, y, z) point to calculate distances from
+    :return:
+    """
+
+    if location == 'surf':
+        well_dict = parse_surf_boreholes(well_file)
+    elif location == 'fsb':
+        # Too many points in asbuilt file to upload to plotly
+        well_dict = create_FSB_boreholes()
+    else:
+        print('Location {} not supported'.format(location))
+        return
+    dist_list = []
+    for well, pick_dict in DSS_picks.items():
+        easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
+        if well.startswith('D'):  # Scale CSD signal way down visually
+            loc = 1
+            scale = 1.1
+        elif well.startswith('B'):
+            loc = 2
+            scale = 1.1
+        # Over each picked feature
+        for i, dep in enumerate(pick_dict['depths']):
+            if dep < 5.:
+                # Crude skip of shallow anomalies that overrun everything
+                continue
+            dists = np.squeeze(np.abs(dep - deps))
+            x = easts[np.argmin(dists)][0]
+            y = norths[np.argmin(dists)][0]
+            z = zs[np.argmin(dists)][0]
+            strain = pick_dict['strains'][i]
+            width = pick_dict['widths'][i]
+            dist_list.append((strain, cartesian_distance(pt1=(x, y, z),
+                                                         pt2=point)))
+    # Unpack and plot
+    strains, dists = zip(*dist_list)
+    plt.scatter(dists, strains, color='blue', alpha=0.7, label='DSS picks')
+    return
+
+
 def plot_wells_over_time(well_data, wells,
                          date_range=(datetime(2019, 5, 19),
-                                     datetime(2019, 6, 5)),
+                                     datetime(2019, 6, 4)),
                          vrange=(-40, 40), pick_dict=None, alpha=1.,
                          plot_noise=False, frames=False):
     """
@@ -276,7 +325,7 @@ def plot_wells_over_time(well_data, wells,
                             ticks=tick_indices)
         cbar.ax.set_xticklabels(np.array(time_labs)[tick_indices])
         cbar.ax.set_xlabel('{}'.format(times[-1].year), fontsize=16)
-    return
+    return fig
 
 
 def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
@@ -290,6 +339,7 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
     :param wells: List of well names to plot
     :param ref_date: Reference date to plot
     :param date: datetime to plot lines for
+    :param remove_ref: Subtract first time sample from whole array?
     :param vrange: Xlims for all axes
     :param pick_dict: Dictionary {well name: [pick depths, ...]}
     :param fig: Figure to plot into
@@ -315,7 +365,6 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
     for well in wells:
         times = well_data[well]['times']
         ax1, ax2 = axes[i:i + 2]
-        print(ax1.get_window_extent().x1, ax2.get_window_extent().x0)
         data = well_data[well]['data']
         depth = well_data[well]['depth']
         noise = well_data[well]['noise']
@@ -372,7 +421,8 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
             old_down, old_up = np.array_split(old_vects, 2)
             if old_down.shape[0] != old_up.shape[0]:
                 old_up = np.append(old_up, old_down[-1]).reshape(old_down.shape)
-            ax1.plot(old_down, down_d[:, None], color='grey', alpha=alpha, linewidth=0.5)
+            ax1.plot(old_down, down_d[:, None], color='grey', alpha=alpha,
+                     linewidth=0.5)
             ax2.plot(old_up, up_d_flip[:, None], color='grey', alpha=alpha,
                      linewidth=0.5)
         # Plot two traces for downgoing and upgoing trace at user-
@@ -406,22 +456,17 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
                            framealpha=1.).set_zorder(103)
             elif i == 0:
                 ax1.set_ylabel('Depth [m]', fontsize=18)
-                # Formatting
-                # Common title for well subplots
-                ax1_x = ax1.get_window_extent().x1 / 1000.
-                ax2_x = ax2.get_window_extent().x0 / 1000.
-                fig.text(x=(ax1_x + ax2_x) / 2, y=0.92, s=well, ha='center',
-                         fontsize=22)
-                ax2.set_facecolor('lightgray')
-                ax1.set_facecolor('lightgray')
-                ax1.set_xlim([vrange[0], vrange[1]])
-                ax1.margins(y=0)
-                ax2.yaxis.set_major_locator(ticker.MultipleLocator(5.))
-                ax2.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
-                ax1.yaxis.set_major_locator(ticker.MultipleLocator(5.))
-                ax1.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
-                ax1.set_title('Down')
-                ax2.set_title('Up')
+            # Formatting
+            ax2.set_facecolor('lightgray')
+            ax1.set_facecolor('lightgray')
+            ax1.set_xlim([vrange[0], vrange[1]])
+            ax1.margins(y=0)
+            ax2.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+            ax2.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+            ax1.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+            ax1.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+            ax1.set_title('Down')
+            ax2.set_title('Up')
         # Always increment, obviously
         i += 2
     if formater:
@@ -432,6 +477,16 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
         label = r'$\mu\varepsilon$'
         fig.text(0.5, lab_y, label, ha='center', fontsize=20)  # Commmon xlabel
         ax1.invert_yaxis()
+        # Now loop axes and place well titles
+        # Crappy calculation for title spacing
+        start = 1 / len(wells)
+        title_xs = np.linspace(1 / len(wells), 1 - (1 / len(wells)),
+                               len(wells))
+        title_ys = np.ones(len(wells)) * 0.92
+        # Common title for well subplots
+        for i, pax in enumerate(axes[::2]):
+            fig.text(x=title_xs[i], y=title_ys[i], s=wells[i], ha='center',
+                     fontsize=22)
     if frame:
         # Put the date on the plot if animating
         fig.text(0.7, 0.2, date, ha="center", va="center", fontsize=20,
@@ -439,13 +494,14 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
                            ec='k', fc='white'))
         fig.savefig('frame_{}.png'.format(date))
         plt.close('all')
-    return
+    return fig
 
 
 def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
-             date_range=(datetime(2019, 5, 19), datetime(2019, 6, 5)),
-             denoise_method=None, vrange=(-60, 60), title=None):
+             date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
+             denoise_method=None, vrange=(-60, 60), title=None,
+             tv_picks=None):
     """
     Plot a colormap of DSS data
 
@@ -460,27 +516,30 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param denoise_method: String stipulating the method in denoise() to use
     :param vrange: Colorbar range (in microstrains)
     :param title: Title of plot
+    :param tv_picks: Path to excel file with optical televiewer picks
 
     :return:
     """
-    fig = plt.figure(constrained_layout=False, figsize=(12, 12))
+    fig = plt.figure(constrained_layout=False, figsize=(14, 12))
     if inset_channels and simfip:
-        gs = GridSpec(ncols=12, nrows=12, figure=fig)
-        axes1 = fig.add_subplot(gs[:3, 5:-1])
-        axes1b = fig.add_subplot(gs[3:6, 5:-1], sharex=axes1)
-        axes2 = fig.add_subplot(gs[6:9, 5:-1], sharex=axes1)
-        axes3 = fig.add_subplot(gs[9:, 5:-1], sharex=axes1)
-        axes4 = fig.add_subplot(gs[:, :2])
-        axes5 = fig.add_subplot(gs[:, 2:4], sharex=axes4)
+        gs = GridSpec(ncols=14, nrows=12, figure=fig)
+        axes1 = fig.add_subplot(gs[:3, 7:-1])
+        axes1b = fig.add_subplot(gs[3:6, 7:-1], sharex=axes1)
+        axes2 = fig.add_subplot(gs[6:9, 7:-1], sharex=axes1)
+        axes3 = fig.add_subplot(gs[9:, 7:-1], sharex=axes1)
+        axes4 = fig.add_subplot(gs[:, 2:4])
+        axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
+        log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
         cax = fig.add_subplot(gs[:6, -1])
         df = read_excavation(simfip)
     elif inset_channels:
         gs = GridSpec(ncols=12, nrows=12, figure=fig)
-        axes1 = fig.add_subplot(gs[:4, 5:-1])
-        axes1b = fig.add_subplot(gs[4:8, 5:-1], sharex=axes1)
-        axes2 = fig.add_subplot(gs[8:, 5:-1], sharex=axes1)
-        axes4 = fig.add_subplot(gs[:, :2])
-        axes5 = fig.add_subplot(gs[:, 2:4], sharex=axes4)
+        axes1 = fig.add_subplot(gs[:4, 7:-1])
+        axes1b = fig.add_subplot(gs[4:8, 7:-1], sharex=axes1)
+        axes2 = fig.add_subplot(gs[8:, 7:-1], sharex=axes1)
+        axes4 = fig.add_subplot(gs[:, 2:4])
+        axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
+        log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
         cax = fig.add_subplot(gs[:8, -1])
     # Get just the channels from the well in question
     times = well_data[well]['times']
@@ -568,7 +627,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     cbar = fig.colorbar(im, cax=cax, orientation='vertical')
     cbar.ax.set_ylabel(label, fontsize=16)
     if not title:
-        fig.suptitle('DSS BFS-{}'.format(well), fontsize=20)
+        if well.startswith('D'):
+            exp = 'BCS'
+        elif well.startswith('B'):
+            exp = 'BFS'
+        fig.suptitle('DSS {}-{}'.format(exp, well), fontsize=20)
     plt.subplots_adjust(wspace=1., hspace=1.)
     # If plotting 1D channel traces, do this last
     if inset_channels:
@@ -591,6 +654,12 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes5.fill_betweenx(y=up_d_flip, x1=up_ref - (noise * thresh),
                             x2=up_ref + (noise * thresh),
                             alpha=0.2, color='k')
+        # Plot fracture density too TODO Enable other logs here too
+        try:
+            dens = calculate_frac_density(tv_picks, create_FSB_boreholes())
+            log_ax.plot(dens[:, 1], dens[:, 0], color='r')
+        except Exception as e:
+            print(e)
         # Grid lines on axes 1
         axes2.grid(which='both', axis='y')
         axes4.grid(which='both', axis='x')
@@ -599,6 +668,9 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes2.set_facecolor('lightgray')
         axes5.set_facecolor('lightgray')
         axes4.set_facecolor('lightgray')
+        log_ax.set_facecolor('lightgray')
+        log_ax.set_title('Televiewer picks')
+        log_ax.set_xlabel('Count / m', fontsize=12)
         axes4.set_xlim([vrange[0], vrange[1]])
         axes4.set_ylim([down_d[-1], down_d[0]])
         axes5.set_ylim([up_d[-1] - up_d[0], 0])
@@ -607,7 +679,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes4.yaxis.set_major_locator(ticker.MultipleLocator(5.))
         axes4.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
         axes4.set_title('Downgoing')
-        axes4.set_ylabel('Depth [m]', fontsize=16)
+        log_ax.set_ylabel('Depth [m]', fontsize=16)
         axes4.set_xlabel(label, fontsize=16)
         axes5.set_xlabel(label, fontsize=16)
         axes5.set_title('Upgoing')
@@ -695,24 +767,24 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 if down_vect.shape[0] != up_vect.shape[0]:
                     up_vect = np.insert(up_vect, 0, down_vect[-1])
                     pick_adjust = 1
-                self.figure.axes[-3].plot(down_vect, down_d, color=pick_col,
+                self.figure.axes[-4].plot(down_vect, down_d, color=pick_col,
                                           label=num2date(event.xdata).date())
-                self.figure.axes[-2].plot(up_vect, up_d[-1] - up_d,
+                self.figure.axes[-3].plot(up_vect, up_d[-1] - up_d,
                                           color=pick_col)
-                self.figure.axes[-3].legend(
-                    loc=2, fontsize=12, bbox_to_anchor=(-0.95, 1.0),
-                    framealpha=1.).set_zorder(103)
+                self.figure.axes[-4].legend(
+                    loc=2, fontsize=12, bbox_to_anchor=(0.8, 1.0),
+                    framealpha=1.).set_zorder(110)
                 if pick_mode == 'manual':
                     # Populate pick_dict
                     self.pick_dict[self.well].append((event.ydata, pick_col))
                     # Plot ydata on axes4/5 if manual
                     if upgoing:
-                        self.figure.axes[-2].fill_between(
+                        self.figure.axes[-3].fill_between(
                             x=np.array([-500, 500]), y1=event.ydata - 0.5,
                                        y2=event.ydata + 0.5,
                                        alpha=0.5, color=pick_col)
                     else:
-                        self.figure.axes[-3].fill_between(
+                        self.figure.axes[-4].fill_between(
                             x=np.array([-500, 500]), y1=event.ydata - 0.5,
                             y2=event.ydata + 0.5,
                             alpha=0.5, color=pick_col)
@@ -741,14 +813,14 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                             up_peak_dep = (self.depth[-1] -
                                            self.depth[pk[0] + pick_adjust])
                             self.pick_dict[self.well]['depths'].append(up_peak_dep)
-                            self.figure.axes[-2].fill_between(
+                            self.figure.axes[-3].fill_between(
                                 x=np.array([-500, 500]),
                                 y1=up_peak_dep - half_width,
                                 y2=up_peak_dep + half_width,
                                 alpha=0.5, color=pick_col)
                         else: # Downgoing
                             self.pick_dict[self.well]['depths'].append(self.depth[pk[0]])
-                            self.figure.axes[-3].fill_between(
+                            self.figure.axes[-4].fill_between(
                                 x=np.array([-500, 500]),
                                 y1=self.depth[pk[0]] - half_width,
                                 y2=self.depth[pk[0]] + half_width,
@@ -759,6 +831,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 self.figure.axes[2].yaxis.tick_right()
                 self.figure.axes[2].yaxis.set_label_position('right')
                 self.figure.canvas.draw()
+                self.figure.axes[-1].set_zorder(
+                    self.figure.axes[-2].get_zorder() - 1)
                 counter += 1
 
         # Make a better cursor for picking channels

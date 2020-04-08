@@ -3,7 +3,18 @@
 Utilities for coordinate convertions at FS-B and SURF
 """
 
+import numpy as np
+
 from pyproj import Proj
+
+
+def cartesian_distance(pt1, pt2):
+    """Helper distance calculation between two pts (x, y, z) in meters"""
+    dx = pt1[0] - pt2[0]
+    dy = pt1[1] - pt2[1]
+    dz = pt1[2] - pt2[2]
+    return np.sqrt(dx**2 + dy**2 + dz**2)
+
 
 class SURF_converter:
     def __init__(self):
