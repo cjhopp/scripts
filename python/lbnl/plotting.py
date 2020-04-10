@@ -4,6 +4,8 @@
 Plotting functions for the lbnl module
 """
 
+import dxfgrabber
+
 import numpy as np
 import colorlover as cl
 import seaborn as sns
@@ -16,12 +18,14 @@ from itertools import cycle
 from glob import glob
 from datetime import datetime
 from scipy.linalg import lstsq
+from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib.colors import ListedColormap
 from scipy.signal import resample
 
 # Local imports (assumed to be in python path)
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             structures_to_planes)
+from lbnl.coordinates import SURF_converter
 
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
@@ -180,9 +184,11 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 colorscale='RdBu', reversescale=True,
                 opacity=0.9)))
     if structures:
-        struct_files = glob('{}/**/BFS_*_structures.xlsx'.format(structures))
+        struct_files = glob('{}/**/B*_structures.xlsx'.format(structures),
+                            recursive='True')
         used_ftype = []
         for struct_file in struct_files:
+            print(struct_file)
             frac_planes = structures_to_planes(struct_file, well_dict)
             for X, Y, Z, ftype, color in frac_planes:
                 if (Z > 550).any():  # One strange foliation?
@@ -205,21 +211,25 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     if meshes:
         for mesh_name, mesh_file in meshes:
             col = next(colors)
-            mesh = pd.read_csv(mesh_file, header=None, delimiter=' ')
-            vertices = mesh[mesh.iloc[:, 0] == 'VRTX']
-            triangles = mesh[mesh.iloc[:, 0] == 'TRGL']
-            X = vertices.iloc[:, 1].values
-            Y = vertices.iloc[:, 2].values
-            Z = vertices.iloc[:, 3].values
-            I = triangles.iloc[:, 1].values - 1
-            J = triangles.iloc[:, 2].values - 1
-            K = triangles.iloc[:, 3].values - 1
-            datas.append(go.Mesh3d(
-                x=X, y=Y, z=Z, i=I, j=J, k=K,
-                name=mesh_name,
-                color=col, opacity=0.3,
-                alphahull=0,
-                showlegend=True))
+            # SURF vtk courtesy of Pengcheng
+            if mesh_file.endswith(".dxf"):
+                dxf_to_xyz(mesh_file, mesh_name, datas)
+            else:
+                mesh = pd.read_csv(mesh_file, header=None, delimiter=' ')
+                vertices = mesh[mesh.iloc[:, 0] == 'VRTX']
+                triangles = mesh[mesh.iloc[:, 0] == 'TRGL']
+                X = vertices.iloc[:, 1].values
+                Y = vertices.iloc[:, 2].values
+                Z = vertices.iloc[:, 3].values
+                I = triangles.iloc[:, 1].values - 1
+                J = triangles.iloc[:, 2].values - 1
+                K = triangles.iloc[:, 3].values - 1
+                datas.append(go.Mesh3d(
+                    x=X, y=Y, z=Z, i=I, j=J, k=K,
+                    name=mesh_name,
+                    color=col, opacity=0.3,
+                    alphahull=0,
+                    showlegend=True))
     # If no limits specified, take them from boreholes
     if not xlims:
         xs = [pt[0] for bh, pts in well_dict.items() for pt in pts]
@@ -346,6 +356,45 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     else:
         py.plot(fig, filename=outfile)
     return fig
+
+def dxf_to_xyz(mesh_file, mesh_name, datas):
+    """Helper for reading dxf files of surf levels to xyz"""
+    # SURF CAD files
+    dxf = dxfgrabber.readfile(mesh_file)
+    for obj in dxf.entities:
+        xs = []
+        ys = []
+        zs = []
+        if obj.dxftype == 'POLYLINE':
+            for pt in obj.points:
+                x, y, z = pt[:3]
+                xs.append(x)
+                ys.append(y)
+                zs.append(z)
+            datas.append(go.Scatter3d(
+                x=np.array(xs) / 3.28084, y=np.array(ys) / 3.28084,
+                z=np.array(zs) / 3.28084,
+                name=mesh_name,
+                mode='lines',
+                opacity=0.3,
+                showlegend=False))
+        elif obj.dxftype == 'LINE':
+            sx, sy, sz = obj.start[:3]
+            ex, ey, ez = obj.end[:3]
+            xs.append(sx)
+            ys.append(sy)
+            zs.append(sz)
+            xs.append(ex)
+            ys.append(ey)
+            zs.append(ez)
+            datas.append(go.Scatter3d(
+                x=np.array(xs) / 3.28084, y=np.array(ys) / 3.28084,
+                z=np.array(zs) / 3.28084,
+                name=mesh_name,
+                mode='lines',
+                opacity=0.3,
+                showlegend=False))
+    return datas
 
 def pts_to_plane(x, y, z, method='lstsq'):
     # Create a grid over the desired area
