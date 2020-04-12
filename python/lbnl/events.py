@@ -9,6 +9,7 @@ Arbitrary zero depth point is elev = 130 m
 ***********************************************
 """
 
+import io
 import os
 import shutil
 
@@ -16,11 +17,15 @@ import numpy as np
 
 from glob import glob
 from subprocess import call
-from obspy import UTCDateTime, Catalog, read, read_inventory, Stream, Trace
+from libcomcat.search import get_event_by_id
+from libcomcat.dataframes import get_phase_dataframe, get_detail_dataframe
+from obspy import UTCDateTime, Catalog, read, read_inventory, Stream, Trace,\
+    read_events
 from obspy.core.util import AttribDict
 from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
     WaveformStreamID, ResourceIdentifier, OriginQuality, OriginUncertainty,\
     QuantityError
+from obspy.clients.fdsn import Client
 from lbnl.coordinates import SURF_converter
 from lbnl.waveforms import rotate_channels
 
@@ -363,4 +368,50 @@ def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
         cmd = ' '.join(root + tmp_wav_file + inv_files)
         print(cmd)
         call(cmd, shell=True)
+    return
+
+
+def retrieve_usgs_catalog(**kwargs):
+    """
+    Wrapper on obspy.clients.fdsn.Client and libcomcat (usgs) to retrieve a full
+    catalog, including phase picks (that otherwise are not supported by the usgs
+    fdsn implementation)
+
+    :param kwargs: Will be passed to the Client (e.g. minlongitude, maxmagnitude
+        etc...)
+    :return: obspy.core.events.Catalog
+    """
+    cli = Client('https://earthquake.usgs.gov')
+    cat = cli.get_events(**kwargs)
+    # Now loop over each event and grab the phase dataframe using libcomcat
+    for ev in cat:
+        eid = ev.resource_id.id.split('=')[-2].split('&')[0]
+        detail = get_event_by_id(eid, includesuperseded=True)
+        phase_df = get_phase_dataframe(detail)
+        for i, phase_info in phase_df.iterrows():
+            seed_id = phase_info['Channel'].split('.')
+            loc = seed_id[-1]
+            if loc == '--':
+                loc = ''
+            wf_id = WaveformStreamID(network_code=seed_id[0],
+                                     station_code=seed_id[1],
+                                     location_code=loc,
+                                     channel_code=seed_id[2])
+            pk = Pick(time=UTCDateTime(phase_info['Arrival Time']),
+                      method=phase_info['Status'], waveform_id=wf_id,
+                      phase_hint=phase_info['Phase'])
+            ev.picks.append(pk)
+            # TODO Create an arrival linked to this pick and add to origin
+            arr = Arrival()
+        # Try to read focal mechanisms/moment tensors
+        # TODO check that this always includes both??
+        try:
+            mt_xml = detail.getProducts(
+                'moment-tensor')[0].getContentBytes('quakeml.xml')[0]
+            mt_ev = read_events(io.TextIOWrapper(io.BytesIO(mt_xml),
+                                                 encoding='utf-8'))
+            ev.focal_mechanisms = mt_ev[0].focal_mechanisms
+        except ProductNotFoundError as e:
+            print(e)
+            continue
     return
