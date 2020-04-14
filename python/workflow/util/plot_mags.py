@@ -21,8 +21,11 @@ from obspy.core.event import Comment
 from eqcorrscan.utils.mag_calc import calc_max_curv, calc_b_value, dist_calc
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-# local files dependent upon paths set in ipython rc
-from shelly_mags import local_to_moment, local_to_moment_Majer
+try:
+    # local files dependent upon paths set in ipython rc
+    from shelly_mags import local_to_moment, local_to_moment_Majer
+except ModuleNotFoundError:
+    print('shelly_mags not in path. Fix or dont do relative mags')
 
 
 def date_generator(start_date, end_date):
@@ -448,7 +451,7 @@ def bval_calc(cat, bin_size, MC, weight=False):
         Mc = MC
     # Establish bin limits and spacing
     # bin_vals = np.arange(min(mags), max(mags), bin_size)
-    bin_vals = np.arange(-1., 4., bin_size)
+    bin_vals = np.arange(-1., 8., bin_size)
     non_cum_bins = []
     cum_bins = []
     bval_vals = []
@@ -513,7 +516,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
 
     :return:
     """
-    if colors == False:
+    if not colors:
         colors = cycle(sns.color_palette('muted').as_hex())
     else:
         colors = cycle(colors)
@@ -538,6 +541,7 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
         # b = bcalc[-1][1]
         Mc = bcalc[-1][0]
         comp_mags = [m for m in mags if m > Mc]
+        print(max(comp_mags))
         mean_mag = np.mean(comp_mags)
         min_mag = min(comp_mags)
         neq = len(comp_mags)

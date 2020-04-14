@@ -19,6 +19,8 @@ from obspy import read, Stream, Catalog, UTCDateTime, Trace
 from obspy.geodetics.base import gps2dist_azimuth
 from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
+from obspy.clients.fdsn import Client
+from obspy.clients.fdsn.header import FDSNNoDataException
 from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
@@ -40,6 +42,14 @@ three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
 borehole_dict = {'OB': [356., 62.5], 'OT': [359., 83.], 'PDB': [259., 67.],
                  'PDT': [263., 85.4], 'PSB': [260., 67.], 'PST': [265., 87.]}
 
+
+def date_generator(start_date, end_date):
+    # Generator for date looping
+    from datetime import timedelta
+    for n in range(int((end_date - start_date).days) + 1):
+        yield start_date + timedelta(n)
+
+
 def read_raw_wavs(wav_dir, event_type='MEQ'):
     """Read all the waveforms in the given directory to a dict"""
     mseeds = glob('{}/*'.format(wav_dir))
@@ -59,6 +69,60 @@ def read_raw_wavs(wav_dir, event_type='MEQ'):
             print(e)
     return wav_dict
 
+
+def _check_dir(path):
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    return
+
+
+def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
+    """
+    Iterate over date range, pull IRIS waveforms pertaining to the obspy
+    inventory provided, and output into a directory structure
+
+    :param start_date: datetime.datetime start of data
+    :param end_date: datetime.datetime end of data
+    :param inventory: Obspy.core.Inventory for desired stations
+    :param output_root: Root output directory
+    :return:
+    """
+    client = Client('IRIS')
+    for date in date_generator(start_date, end_date):
+        print('Retrieving: {}'.format(date))
+        jday = UTCDateTime(date).julday
+        # If no directory
+        t2 = UTCDateTime(date) + 86400.
+        bulk = [(net.code, sta.code, '*', '*', UTCDateTime(date), t2)
+                for net in inventory for sta in net]
+        try:
+            print('Making request for {}'.format(bulk))
+            st = client.get_waveforms_bulk(bulk)
+            print(st)
+        except FDSNNoDataException as e:
+            print(e)
+            continue
+        for net in inventory:
+            _check_dir(os.path.join(output_root, net.code))
+            for sta in net.stations:
+                _check_dir(os.path.join(output_root, net.code, sta.code))
+                for chan in sta.channels:
+                    loc = chan.location_code
+                    _check_dir(os.path.join(output_root, net.code, sta.code,
+                                            loc))
+                    _check_dir(os.path.join(output_root, net.code, sta.code,
+                                            loc, chan.code))
+                    fname = '{}.{}.{}.{}.{}.ms'.format(net.code, sta.code,
+                                                       loc, chan.code,
+                                                       jday)
+                    out_path = os.path.join(output_root, net.code, sta.code,
+                                            loc, chan.code, fname)
+                    print('Writing {}'.format(out_path))
+                    st.select(location=loc,
+                              channel=chan.code).write(out_path, format="MSEED")
+    return
+
+
 def SNR(signal, noise):
     """
     Simple SNR calculation (in decibels)
@@ -67,6 +131,7 @@ def SNR(signal, noise):
     sig_pow = np.sqrt(np.mean(signal ** 2))
     noise_pow = np.sqrt(np.mean(noise ** 2))
     return 20 * np.log10(sig_pow / noise_pow)
+
 
 def rotate_catalog_streams(catalog, wav_dir, inv, ncores=8, **kwargs):
     """

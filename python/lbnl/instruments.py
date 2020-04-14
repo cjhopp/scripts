@@ -313,3 +313,26 @@ def surf_stations_to_inv(excel_file, debug=0):
     inventory = Inventory(networks=[Network(code='SV', stations=stas)],
                           source='SURF')
     return inventory
+
+
+def consolidate_inv_channels(inventory):
+    """
+    Check for same channels with contiguous times and merge into same chan
+
+    :param inventory: Inventory object
+    :return:
+    """
+    # Unique chans
+    new_chans = []
+    loc_chans = list(set(['{}.{}'.format(chan.location_code, chan.code)
+                          for sta in inventory[0] for chan in sta]))
+    for lc in loc_chans:
+        lc_inv = inventory.select(location=lc.split('.')[0],
+                                  channel=lc.split('.')[-1])
+        start = min([c.start_date for c in lc_inv[0][0]])
+        nc = lc_inv[0][0][0]
+        nc.start_date = start
+        nc.end_date = None
+        new_chans.append(nc)
+    inventory[0][0].channels = new_chans
+    return inventory

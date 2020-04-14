@@ -18,7 +18,8 @@ import numpy as np
 from glob import glob
 from subprocess import call
 from libcomcat.search import get_event_by_id
-from libcomcat.dataframes import get_phase_dataframe, get_detail_dataframe
+from libcomcat.dataframes import get_phase_dataframe, get_detail_data_frame
+from libcomcat.exceptions import ProductNotFoundError
 from obspy import UTCDateTime, Catalog, read, read_inventory, Stream, Trace,\
     read_events
 from obspy.core.util import AttribDict
@@ -27,7 +28,10 @@ from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
     QuantityError
 from obspy.clients.fdsn import Client
 from lbnl.coordinates import SURF_converter
-from lbnl.waveforms import rotate_channels
+try:
+    from lbnl.waveforms import rotate_channels
+except ImportError as e:
+    print('Not dependencies for rotate_channels. Youre in the wrong env')
 
 three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
                'PSB7', 'PSB9', 'PST10', 'PST12']
@@ -388,6 +392,7 @@ def retrieve_usgs_catalog(**kwargs):
         eid = ev.resource_id.id.split('=')[-2].split('&')[0]
         detail = get_event_by_id(eid, includesuperseded=True)
         phase_df = get_phase_dataframe(detail)
+        o = ev.preferred_origin()
         for i, phase_info in phase_df.iterrows():
             seed_id = phase_info['Channel'].split('.')
             loc = seed_id[-1]
@@ -401,17 +406,25 @@ def retrieve_usgs_catalog(**kwargs):
                       method=phase_info['Status'], waveform_id=wf_id,
                       phase_hint=phase_info['Phase'])
             ev.picks.append(pk)
-            # TODO Create an arrival linked to this pick and add to origin
-            arr = Arrival()
+            arr = Arrival(pick_id=pk.resource_id.id, phase=pk.phase_hint,
+                          azimuth=phase_info['Azimuth'],
+                          distance=phase_info['Distance'],
+                          time_residual=phase_info['Residual'],
+                          time_weight=phase_info['Weight'])
+            o.arrivals.append(arr)
         # Try to read focal mechanisms/moment tensors
-        # TODO check that this always includes both??
-        try:
+        if 'moment-tensor' in detail.products:
+            # Always take MT where available
             mt_xml = detail.getProducts(
                 'moment-tensor')[0].getContentBytes('quakeml.xml')[0]
-            mt_ev = read_events(io.TextIOWrapper(io.BytesIO(mt_xml),
-                                                 encoding='utf-8'))
-            ev.focal_mechanisms = mt_ev[0].focal_mechanisms
-        except ProductNotFoundError as e:
-            print(e)
+        elif 'focal-mechanism' in detail.products:
+            mt_xml = detail.getProducts(
+                'focal-mechanism')[0].getContentBytes('quakeml.xml')[0]
+        else:
             continue
-    return
+        mt_ev = read_events(io.TextIOWrapper(io.BytesIO(mt_xml),
+                                             encoding='utf-8'))
+        FM = mt_ev[0].focal_mechanisms[0]
+        FM.triggering_origin_id = ev.preferred_origin().resource_id.id
+        ev.focal_mechanisms = [FM]
+    return cat
