@@ -15,7 +15,7 @@ import seaborn as sns
 from glob import glob
 from datetime import timedelta
 from joblib import Parallel, delayed
-from obspy import read, Stream, Catalog, UTCDateTime, Trace
+from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
 from obspy.geodetics.base import gps2dist_azimuth
 from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
