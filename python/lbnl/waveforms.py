@@ -117,9 +117,14 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                                                        jday)
                     out_path = os.path.join(output_root, net.code, sta.code,
                                             loc, chan.code, fname)
-                    print('Writing {}'.format(out_path))
-                    st.select(location=loc,
-                              channel=chan.code).write(out_path, format="MSEED")
+                    try:
+                        print('Writing {}'.format(out_path))
+                        st.select(location=loc,
+                                  channel=chan.code).write(out_path,
+                                                           format="MSEED")
+                    except ObsPyException as e:
+                        print(e)
+                        continue
     return
 
 
