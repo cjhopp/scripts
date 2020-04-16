@@ -109,16 +109,16 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                 for chan in sta.channels:
                     loc = chan.location_code
                     if loc == '':  # If empty, directory wont get written
-                        loc = '00'
+                        loc_string = '00'
                     _check_dir(os.path.join(output_root, net.code, sta.code,
-                                            loc))
+                                            loc_string))
                     _check_dir(os.path.join(output_root, net.code, sta.code,
-                                            loc, chan.code))
+                                            loc_string, chan.code))
                     fname = '{}.{}.{}.{}.{}.ms'.format(net.code, sta.code,
                                                        loc, chan.code,
                                                        jday)
                     out_path = os.path.join(output_root, net.code, sta.code,
-                                            loc, chan.code, fname)
+                                            loc_string, chan.code, fname)
                     try:
                         print('Writing {}'.format(out_path))
                         st.select(location=loc,
