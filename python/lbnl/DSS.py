@@ -39,11 +39,28 @@ chan_map_csd_1256 = {# Loop 1, 2, 5, 6
 chan_map_csd_34 = {# Loop 3, 4
                    'D3': (47.26, 106.66), 'D4': (132.34, 201.49)}
 
+# CSD boreholes
+chan_map_solexp_1256 = {# Loop 1, 2, 5, 6
+                        'D1': (336.56, 379.08), 'D2': (259.99, 294.19),
+                        'D5': (68.61, 131.40), 'D6': (154.62, 227.21)}
+chan_map_solexp_34 = {# Loop 3, 4
+                      'D3': (48.60, 111.44), 'D4': (134.82, 206.84)}
+
 chan_map_maria = {'B3': (232.21, 401.37), 'B4': (406.56, 566.58),
                   'B5': (76.46, 194.11), 'B6': (588.22, 688.19),
                   'B7': (693.37, 789.86)}
 
 chan_map_surf = {}
+
+# Custom color palette similar to wellcad convention
+frac_cols = {'All fractures': 'black',
+             'open/undif. fracture': 'blue',
+             'sealed fracture / vein': 'lightblue',
+             'foliation / bedding': 'red',
+             'induced fracture': 'magenta',
+             'sedimentary structures/color changes undif.': 'green',
+             'uncertain type': 'orange',
+             'lithology change': 'yellow'}
 
 
 def read_ascii(path, header=42, encoding='iso-8859-1'):
@@ -76,7 +93,8 @@ def read_metadata(path, encoding='iso-8859-1'):
     return mode, type
 
 
-def extract_wells(root, measure, wells, noise_method='majdabadi'):
+def extract_wells(root, measure, wells, noise_method='majdabadi',
+                  mapping='antonio'):
     """
     Helper to extract only the channels in specific wells
 
@@ -90,6 +108,8 @@ def extract_wells(root, measure, wells, noise_method='majdabadi'):
     :param wells: List of well name strings to return
     :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
         'majdabadi' returns scalar, 'by_channel' an array
+    :param mapping: For Mont Terri, specifically, who's channel mapping do
+        we use?? Dafaults to AP Rinaldi's mapping from the OMNISENS viewer.
 
     :returns: dict {well name: {'data':, 'depth':, 'noise':}
     """
@@ -101,9 +121,13 @@ def extract_wells(root, measure, wells, noise_method='majdabadi'):
             continue
         if f.split('/')[-1].startswith('FSB'):
             chan_map = chan_map_fsb
-        elif f.split('/')[-1].startswith('CSD3'):
+        elif f.split('/')[-1].startswith('CSD3') and mapping == 'solexperts':
+            chan_map = chan_map_solexp_34
+        elif f.split('/')[-1].startswith('CSD5') and mapping == 'solexperts':
+            chan_map = chan_map_solexp_1256
+        elif f.split('/')[-1].startswith('CSD3') and mapping == 'antonio':
             chan_map = chan_map_csd_34
-        elif f.split('/')[-1].startswith('CSD5'):
+        elif f.split('/')[-1].startswith('CSD5') and mapping == 'antonio':
             chan_map = chan_map_csd_1256
         data = read_ascii(f)
         times = read_times(f)
@@ -164,6 +188,8 @@ def estimate_noise(data, method='majdabadi'):
     if method == 'majdabadi':
         # Take MAD of each channel time series, then average
         return np.mean(median_absolute_deviation(data, axis=1)), None
+    elif method == 'Krietsch':
+        return np.mean(np.percentile(data, q=[10, 90], axis=1), axis=1)
     elif method == 'by_channel':
         return np.mean(data, axis=1), median_absolute_deviation(data, axis=1)
     else:
@@ -656,8 +682,14 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                             alpha=0.2, color='k')
         # Plot fracture density too TODO Enable other logs here too
         try:
-            dens = calculate_frac_density(tv_picks, create_FSB_boreholes())
-            log_ax.plot(dens[:, 1], dens[:, 0], color='r')
+            frac_dict = calculate_frac_density(tv_picks, create_FSB_boreholes())
+            for frac_type, dens in frac_dict.items():
+                log_ax.plot(dens[:, 1], dens[:, 0],
+                            color=frac_cols[frac_type],
+                            label=frac_type)
+            log_ax.legend(
+                loc=2, fontsize=12, bbox_to_anchor=(-1.2, 1.13),
+                framealpha=1.).set_zorder(110)
         except Exception as e:
             print(e)
         # Grid lines on axes 1
@@ -669,7 +701,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes5.set_facecolor('lightgray')
         axes4.set_facecolor('lightgray')
         log_ax.set_facecolor('lightgray')
-        log_ax.set_title('Televiewer picks')
+        # log_ax.set_title('Televiewer picks')
         log_ax.set_xlabel('Count / m', fontsize=12)
         axes4.set_xlim([vrange[0], vrange[1]])
         axes4.set_ylim([down_d[-1], down_d[0]])
@@ -686,8 +718,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
 
         # Define class for plotting new traces
         class TracePlotter():
-            def __init__(self, figure, data, well, depth, cmap, cat_cmap, up_d,
-                         down_d, pick_mode, noise, thresh):
+            def __init__(self, figure, data, times, well, depth, cmap, cat_cmap,
+                         up_d, down_d, pick_mode, noise, thresh):
                 self.figure = figure
                 self.cmap = cmap
                 self.cat_cmap = cat_cmap
@@ -699,8 +731,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 self.down_d = down_d
                 self.depth = depth - depth[0]
                 self.xlim = self.figure.axes[0].get_xlim()
-                self.times = np.linspace(self.xlim[0], self.xlim[1],
-                                         data.shape[1])
+                self.times = times
                 if self.pick_mode == 'manual':
                     self.pick_dict = {well: []}
                 elif self.pick_mode == 'auto':
@@ -772,7 +803,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 self.figure.axes[-3].plot(up_vect, up_d[-1] - up_d,
                                           color=pick_col)
                 self.figure.axes[-4].legend(
-                    loc=2, fontsize=12, bbox_to_anchor=(0.8, 1.0),
+                    loc=2, fontsize=12, bbox_to_anchor=(0.5, 1.13),
                     framealpha=1.).set_zorder(110)
                 if pick_mode == 'manual':
                     # Populate pick_dict
@@ -830,6 +861,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                                            framealpha=1.).set_zorder(103)
                 self.figure.axes[2].yaxis.tick_right()
                 self.figure.axes[2].yaxis.set_label_position('right')
+                # Ensure xlims don't modify from original date range
+                self.figure.axes[0].set_xlim(self.xlim)
                 self.figure.canvas.draw()
                 self.figure.axes[-1].set_zorder(
                     self.figure.axes[-2].get_zorder() - 1)
@@ -868,8 +901,20 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         counter = 0 # Click counter for trace spacing
         # Set up categorical color palette
         cat_cmap = cycle(sns.color_palette('dark'))
-        plotter = TracePlotter(fig, data, well, depth_vect, cmap,
+        plotter = TracePlotter(fig, data, mpl_times, well, depth_vect, cmap,
                                cat_cmap, up_d, down_d, pick_mode,
                                noise=well_data[well]['noise'], thresh=thresh)
         plt.show()
     return plotter.pick_dict
+
+
+def DSS_symmetry(data, range):
+    """
+    Find the optimum shift in signal position that maximuzes correlation
+    between the upgoing and downgoing fibers.
+
+    :param data:
+    :param range:
+    :return:
+    """
+    return

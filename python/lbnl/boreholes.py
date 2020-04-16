@@ -119,7 +119,7 @@ def structures_to_planes(path, well_dict):
 
 def calculate_frac_density(path, well_dict):
     """
-    Return dict of {well: fracture density array}
+    Return dict of {well: {'fracture type': fracture density array}}??TODO
 
     :param path:
     :param well_dict:
@@ -129,12 +129,23 @@ def calculate_frac_density(path, well_dict):
     fracs = pd.read_excel(path, skiprows=np.arange(9),
                           usecols=np.arange(1, 9), header=None)
     deps = fracs[1].values
+    types = fracs[7].values
+    unique_types = list(set(types))
     # 0.5 step and 0.5 overlap
     dep_bins = np.arange(0, well_dict[well][-1, -1], 0.5)
-    density = np.array([deps[np.where(np.logical_and(a - 1 <= deps,
-                                            deps < a + 1))].shape[0]
-               for a in dep_bins])
-    return np.stack((dep_bins, density)).T
+    frac_dict = {}
+    # All fractures first
+    total_density = np.array(
+        [deps[np.where(np.logical_and(a - 1 <= deps, deps < a + 1))].shape[0]
+         for a in dep_bins])
+    frac_dict['All fractures'] = np.stack((dep_bins, total_density)).T
+    for t in unique_types:
+        ds = fracs[fracs[7] == t][1].values
+        t_dens = np.array(
+            [deps[np.where(np.logical_and(a - 1 <= ds, ds < a + 1))].shape[0]
+             for a in dep_bins])
+        frac_dict[t] = np.stack((dep_bins, t_dens)).T
+    return frac_dict
 
 
 def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/',
