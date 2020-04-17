@@ -130,6 +130,51 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
     return
 
 
+def write_event_mseeds(wav_root, catalog, outdir, pre_origin=10.,
+                       post_origin=50.):
+    """
+    Cut event waveforms from daylong mseed for catalog. Will cut the same
+    time window for all available channels. Saved waveforms will be used for
+    obspycking.
+
+    :param wav_root: Waveform root directory
+    :param catalog: Catalog of events
+    :param outdir: Output directory for cut waveforms
+    :param pre_origin: Seconds before the origin time to clip
+    :param post_origin: Seconds after the origin time to clip
+
+    :return:
+    """
+    # Ensure catalog sorted (should be by default?)
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    # Define catalog start and end dates
+    cat_start = catalog[0].preferred_origin().time.date
+    cat_end = catalog[-1].preferred_origin().time.date
+    for date in date_generator(cat_start, cat_end):
+        dto = UTCDateTime(date)
+        print('Processing events on {}'.format(dto))
+        # Establish which events are in this day
+        sch_str_start = 'time >= {}'.format(dto)
+        sch_str_end = 'time <= {}'.format((dto + 86400))
+        tmp_cat = catalog.filter(sch_str_start, sch_str_end)
+        if len(tmp_cat) == 0:
+            print('No events on: %s' % str(dto))
+            continue
+        # Read all available channels for this julian day
+        print('Reading wavs')
+        st = read(glob('{}/**/*{}.ms'.format(wav_root, dto.julday),
+                       recursive=True))
+        print('Merging')
+        st.merge(fill_value='interpolate')
+        for ev in tmp_cat:
+            fname = ev.resource_id.id.split('&')[-2].split('=')[-1]
+            print('Slicing ev {}'.format(fname))
+            ot = ev.preferred_origin().time
+            st_slice = st.slice(starttime=ot - pre_origin,
+                                endtime=ot + post_origin)
+            st_slice.write('{}/{}.ms'.format(outdir, fname), format='MSEED')
+    return
+
 def SNR(signal, noise):
     """
     Simple SNR calculation (in decibels)

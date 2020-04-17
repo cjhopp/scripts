@@ -25,32 +25,64 @@ from matplotlib.collections import LineCollection
 
 # Local imports
 from lbnl.coordinates import cartesian_distance
-from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes, calculate_frac_density
+from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
+    calculate_frac_density
 from lbnl.simfip import read_excavation, plot_displacement_components
 
-# FS-B boreholes
+
+######### SURF CHANNEL MAPPING ############
+chan_map_surf = {}
+
+########## FSB DSS CHANNEL MAPPINGS ###########
+# Michelle DataViewer mapping (tug test)
 chan_map_fsb = {'B3': (237.7, 404.07), 'B4': (413.52, 571.90),
                 'B5': (80.97, 199.63), 'B6': (594.76, 694.32),
                 'B7': (700.43, 793.47)}
-# CSD boreholes
+# Maria mapping (via ft markings on cable and scaling)
+chan_map_maria = {'B3': (232.21, 401.37), 'B4': (406.56, 566.58),
+                  'B5': (76.46, 194.11), 'B6': (588.22, 688.19),
+                  'B7': (693.37, 789.86)}
+
+########## CSD CHANNEL MAPPINGS ###########
+# Antonio Dataviewer channel mapping
 chan_map_csd_1256 = {# Loop 1, 2, 5, 6
                      'D1': (336.56, 379.08), 'D2': (259.99, 294.19),
                      'D5': (67.16, 126.04), 'D6': (157.42, 219.57)}
 chan_map_csd_34 = {# Loop 3, 4
                    'D3': (47.26, 106.66), 'D4': (132.34, 201.49)}
 
-# CSD boreholes
+# Solexperts channel mapping
 chan_map_solexp_1256 = {# Loop 1, 2, 5, 6
                         'D1': (336.56, 379.08), 'D2': (259.99, 294.19),
                         'D5': (68.61, 131.40), 'D6': (154.62, 227.21)}
 chan_map_solexp_34 = {# Loop 3, 4
                       'D3': (48.60, 111.44), 'D4': (134.82, 206.84)}
 
-chan_map_maria = {'B3': (232.21, 401.37), 'B4': (406.56, 566.58),
-                  'B5': (76.46, 194.11), 'B6': (588.22, 688.19),
-                  'B7': (693.37, 789.86)}
+# Bottom hole mapping (by me from DataViewer)
+chan_map_bottom_1256 = {# Loop 1, 2, 5, 6
+                        'D1': None, 'D2': None,
+                        'D5': 97.03, 'D6': 187.65}
 
-chan_map_surf = {}
+chan_map_bottom_34 = {# Loop 3, 4
+                      'D3': 76.65, 'D4': 167.24}
+
+######### DRILLING FAULT DEPTH ############
+# Dict of drilled depths
+drilled_depths = {'D1': 25.2, 'D2': 18.55, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
+                  'D6': 36.65, 'D7': 29.7}
+
+fault_depths = {'D1': (), 'D2': (13.25, 16.45), 'D3': (17.98, 20.58), 'D4': (),
+                'D5': (19.65, 22.65), 'D6': (28.5, 31.36), 'D7': (22.3, 25.45)}
+
+mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
+                               'CSD5': chan_map_solexp_1256,
+                               'FSB': chan_map_fsb},
+                'antonio': {'CSD3': chan_map_csd_34,
+                            'CSD5': chan_map_csd_1256,
+                            'FSB': chan_map_fsb},
+                'bottom': {'CSD3': chan_map_bottom_34,
+                           'CSD5': chan_map_bottom_1256,
+                           'FSB': chan_map_fsb}}
 
 # Custom color palette similar to wellcad convention
 frac_cols = {'All fractures': 'black',
@@ -86,7 +118,13 @@ def read_times(path, encoding='iso-8859-1', header=10,
     """Read timestamps from ascii header"""
     strings = np.genfromtxt(path, skip_header=header, max_rows=1,
                             encoding=encoding, dtype=None, delimiter='\t')
-    return np.array([datetime_parse(t, time_fmt) for t in strings[:-1]])[::-1]
+    if header == 1:  # Potentiometer file
+        return np.array([datetime_parse(t, time_fmt)
+                         for t in strings[:-1]])[::-1]
+    elif header == 10:  # Omnisens output
+        return np.array([datetime_parse(t, time_fmt)
+                         for t in strings[1:-1]])[::-1]
+
 
 
 def read_metadata(path, encoding='iso-8859-1'):
@@ -103,7 +141,7 @@ def read_metadata(path, encoding='iso-8859-1'):
 
 
 def extract_wells(root, measure, wells, noise_method='majdabadi',
-                  mapping='antonio'):
+                  mapping='bottom'):
     """
     Helper to extract only the channels in specific wells
 
@@ -128,18 +166,10 @@ def extract_wells(root, measure, wells, noise_method='majdabadi',
         if f.split('/')[-1].startswith('FSB-SMF-1'):
             # Skip fiber 1
             continue
-        if f.split('/')[-1].startswith('FSB'):
-            chan_map = chan_map_fsb
-        elif f.split('/')[-1].startswith('CSD3') and mapping == 'solexperts':
-            chan_map = chan_map_solexp_34
-        elif f.split('/')[-1].startswith('CSD5') and mapping == 'solexperts':
-            chan_map = chan_map_solexp_1256
-        elif f.split('/')[-1].startswith('CSD3') and mapping == 'antonio':
-            chan_map = chan_map_csd_34
-        elif f.split('/')[-1].startswith('CSD5') and mapping == 'antonio':
-            chan_map = chan_map_csd_1256
+        file_root = f.split('/')[-1].split('-')[0]
+        chan_map = mapping_dict[mapping][file_root]
         data = read_ascii(f)
-        times = read_times(f)[1:]
+        times = read_times(f)
         mode, type = read_metadata(f)
         # Take first column as the length along the fiber and remove from data
         depth = data[:, -1]
@@ -154,8 +184,14 @@ def extract_wells(root, measure, wells, noise_method='majdabadi',
             for well in wells:
                 if well not in chan_map:
                     continue
-                start_chan = np.abs(depth - chan_map[well][0])
-                end_chan = np.abs(depth - chan_map[well][1])
+                if mapping == 'bottom' and well.startswith('D'):
+                    start_chan = np.abs(depth - (chan_map[well] -
+                                                 drilled_depths[well]))
+                    end_chan = np.abs(depth - (chan_map[well] +
+                                               drilled_depths[well]))
+                else:
+                    start_chan = np.abs(depth - chan_map[well][0])
+                    end_chan = np.abs(depth - chan_map[well][1])
                 # Find the closest integer channel to meter mapping
                 channel_range = (np.argmin(start_chan), np.argmin(end_chan))
                 channel_ranges.append((well, channel_range))
@@ -631,6 +667,21 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                         extent=[mpl_times[0], mpl_times[-1],
                                 up_d[-1] - up_d[0], 0],
                         aspect='auto', vmin=vrange[0], vmax=vrange[1])
+    # Plot fault bounds on images
+    if well in fault_depths:
+        try:
+            axes1.axhline(fault_depths[well][0], linestyle='--', linewidth=1.,
+                          color='k')
+            axes1.axhline(fault_depths[well][1], linestyle='--', linewidth=1.,
+                          color='k', label='Main Fault Zone')
+            axes1b.axhline(fault_depths[well][0], linestyle='--', linewidth=1.,
+                          color='k')
+            axes1b.axhline(fault_depths[well][1], linestyle='--', linewidth=1.,
+                          color='k')
+            axes1.legend(loc=2, fontsize=12, bbox_to_anchor=(0.65, 1.3),
+                         framealpha=1.).set_zorder(110)
+        except IndexError as e:
+            print(e)
     date_formatter = mdates.DateFormatter('%b-%d %H')
     # If simfip, plot these data here
     if simfip:
@@ -761,7 +812,6 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                     upgoing = True
                 else:
                     return
-                pick_col = next(self.cat_cmap)
                 print('click', mdates.num2date(event.xdata), event.ydata)
                 # Get channel corresponding to ydata (which was modified to
                 # units of meters during imshow...?
@@ -779,23 +829,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 depth = event.ydata
                 # Grab along-fiber vector
                 fiber_vect = self.data[:, time_int]
-                # Arrow patches for picks
-                trans = pick_ax.get_yaxis_transform()
-                arrow = mpatches.FancyArrowPatch((1.05, event.ydata),
-                                                 (0.95, event.ydata),
-                                                 mutation_scale=20,
-                                                 transform=trans,
-                                                 facecolor=pick_col,
-                                                 clip_on=False,
-                                                 zorder=103)
-                pick_ax.add_patch(arrow)
-                self.figure.axes[2].axvline(x=event.xdata, color=pick_col,
+                self.figure.axes[2].axvline(x=event.xdata, color='k',
                                             linestyle='--', alpha=0.5)
-                if len(self.figure.axes) == 7:
-                    self.figure.axes[3].axvline(x=event.xdata, color=pick_col,
+                if simfip:
+                    self.figure.axes[3].axvline(x=event.xdata, color='k',
                                                 linestyle='--', alpha=0.5)
-                self.figure.axes[2].plot(self.times, trace, color=pick_col,
-                                         label='Depth {:0.2f}'.format(depth))
                 # Silly
                 self.figure.axes[2].margins(x=0.)
                 # Plot two traces for downgoing and upgoing trace at user-
@@ -807,14 +845,31 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 if down_vect.shape[0] != up_vect.shape[0]:
                     up_vect = np.insert(up_vect, 0, down_vect[-1])
                     pick_adjust = 1
-                self.figure.axes[-4].plot(down_vect, down_d, color=pick_col,
+                self.figure.axes[-4].plot(down_vect, down_d, color='b',
                                           label=num2date(event.xdata).date())
                 self.figure.axes[-3].plot(up_vect, up_d[-1] - up_d,
-                                          color=pick_col)
+                                          color='b')
+                if well in fault_depths:
+                    try:
+                        self.figure.axes[-3].axhline(fault_depths[well][0],
+                                                     linestyle='--',
+                                                     linewidth=1., color='k')
+                        self.figure.axes[-3].axhline(fault_depths[well][1],
+                                                     linestyle='--',
+                                                     linewidth=1., color='k')
+                        self.figure.axes[-4].axhline(fault_depths[well][0],
+                                                     linestyle='--',
+                                                     linewidth=1., color='k')
+                        self.figure.axes[-4].axhline(fault_depths[well][1],
+                                                     linestyle='--',
+                                                     linewidth=1., color='k')
+                    except IndexError as e:
+                        print(e)
                 self.figure.axes[-4].legend(
                     loc=2, fontsize=12, bbox_to_anchor=(0.5, 1.13),
                     framealpha=1.).set_zorder(110)
                 if pick_mode == 'manual':
+                    pick_col = next(self.cat_cmap)
                     # Populate pick_dict
                     self.pick_dict[self.well].append((event.ydata, pick_col))
                     # Plot ydata on axes4/5 if manual
@@ -828,6 +883,19 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                             x=np.array([-500, 500]), y1=event.ydata - 0.5,
                             y2=event.ydata + 0.5,
                             alpha=0.5, color=pick_col)
+                    # Arrow patches for picks
+                    trans = pick_ax.get_yaxis_transform()
+                    arrow = mpatches.FancyArrowPatch((1.05, event.ydata),
+                                                     (0.95, event.ydata),
+                                                     mutation_scale=20,
+                                                     transform=trans,
+                                                     facecolor=pick_col,
+                                                     clip_on=False,
+                                                     zorder=103)
+                    pick_ax.add_patch(arrow)
+                    self.figure.axes[2].plot(
+                        self.times, trace, color=pick_col,
+                        label='Depth {:0.2f}'.format(depth))
                 else:
                     if self.noise[1] is None:
                         noise_mean = 0.
@@ -847,25 +915,47 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                     # Now plot all picks at peak index with width calculated
                     # from find_widths
                     for pk in zip(peak_inds, peak_dict['widths']):
+                        pick_col = next(self.cat_cmap)
                         half_width = (pk[1] * samp_int) / 2.
+                        trace = self.data[pk[0], :]
                         if self.depth[pk[0]] > down_d[-1]: # Upgoing peak
                             # Precalculate axes depth
-                            up_peak_dep = (self.depth[-1] -
-                                           self.depth[pk[0] + pick_adjust])
-                            self.pick_dict[self.well]['depths'].append(up_peak_dep)
+                            rel_dep = (self.depth[-1] -
+                                       self.depth[pk[0] + pick_adjust])
+                            if rel_dep < 5:  # Ignore shallow picks for now
+                                continue
+                            self.pick_dict[self.well]['depths'].append(rel_dep)
                             self.figure.axes[-3].fill_between(
                                 x=np.array([-500, 500]),
-                                y1=up_peak_dep - half_width,
-                                y2=up_peak_dep + half_width,
+                                y1=rel_dep - half_width,
+                                y2=rel_dep + half_width,
                                 alpha=0.5, color=pick_col)
+                            arr_ax = self.figure.axes[1]
+                            trans = arr_ax.get_yaxis_transform()
                         else: # Downgoing
-                            self.pick_dict[self.well]['depths'].append(self.depth[pk[0]])
+                            rel_dep = self.depth[pk[0]]
+                            if rel_dep < 5:  # Ignore shallow picks for now
+                                continue
+                            self.pick_dict[self.well]['depths'].append(rel_dep)
                             self.figure.axes[-4].fill_between(
                                 x=np.array([-500, 500]),
-                                y1=self.depth[pk[0]] - half_width,
-                                y2=self.depth[pk[0]] + half_width,
+                                y1=rel_dep - half_width,
+                                y2=rel_dep + half_width,
                                 alpha=0.5, color=pick_col)
-                # TODO Need dynamic way of colorbar scaling
+                            arr_ax = self.figure.axes[0]
+                            trans = arr_ax.get_yaxis_transform()
+                        # Arrow patches for picks
+                        arrow = mpatches.FancyArrowPatch((1.05, rel_dep),
+                                                         (0.95, rel_dep),
+                                                         mutation_scale=20,
+                                                         transform=trans,
+                                                         facecolor=pick_col,
+                                                         clip_on=False,
+                                                         zorder=103)
+                        arr_ax.add_patch(arrow)
+                        self.figure.axes[2].plot(
+                            self.times, trace, color=pick_col,
+                            label='Depth {:0.2f}'.format(rel_dep))
                 self.figure.axes[2].legend(loc=2, bbox_to_anchor=(-0.2, 1.15),
                                            framealpha=1.).set_zorder(103)
                 self.figure.axes[2].yaxis.tick_right()
