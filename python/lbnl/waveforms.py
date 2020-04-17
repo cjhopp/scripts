@@ -130,8 +130,8 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
     return
 
 
-def write_event_mseeds(wav_root, catalog, outdir, pre_pick=10.,
-                       post_pick=110.):
+def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
+                       post_pick=120.):
     """
     Cut event waveforms from daylong mseed for catalog. Will cut the same
     time window for all available channels. Saved waveforms will be used for
