@@ -131,7 +131,7 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
 
 
 def write_event_mseeds(wav_root, catalog, outdir, pre_pick=10.,
-                       post_pick=50.):
+                       post_pick=110.):
     """
     Cut event waveforms from daylong mseed for catalog. Will cut the same
     time window for all available channels. Saved waveforms will be used for
@@ -168,7 +168,12 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=10.,
         for chan_f in chan_files:
             st += read(chan_f)
         print('Merging')
-        st.merge(fill_value='interpolate')
+        try:
+            st.merge(fill_value='interpolate')
+        except Exception as e:
+            print(e)
+            print('Skipping {}'.format(date))
+            continue
         for ev in tmp_cat:
             fname = ev.resource_id.id.split('&')[-2].split('=')[-1]
             print('Slicing ev {}'.format(fname))
