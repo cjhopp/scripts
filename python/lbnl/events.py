@@ -17,17 +17,19 @@ import numpy as np
 
 from glob import glob
 from subprocess import call
-from libcomcat.search import get_event_by_id
-from libcomcat.dataframes import get_phase_dataframe, get_detail_data_frame
-from libcomcat.exceptions import ProductNotFoundError
 from obspy import UTCDateTime, Catalog, read, read_inventory, Stream, Trace,\
-    read_events
+    read_events, Inventory
 from obspy.core.util import AttribDict
 from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
     WaveformStreamID, ResourceIdentifier, OriginQuality, OriginUncertainty,\
     QuantityError
 from obspy.clients.fdsn import Client
 from lbnl.coordinates import SURF_converter
+try:
+    from libcomcat.search import get_event_by_id
+    from libcomcat.dataframes import get_phase_dataframe, get_detail_data_frame
+except ModuleNotFoundError:
+    print('No libcomcat. Dont import from usgs')
 try:
     from lbnl.waveforms import rotate_channels
 except ImportError as e:
@@ -286,15 +288,16 @@ def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
                     new.write(' '.join(line) + '\n')
     return
 
-def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
-                       cassm=False, rotate=False, length=0.02):
+def obspyck_from_local(inv_paths, wav_dir=None, catalog=None, wav_file=None,
+                       cassm=False, rotate=False, length=0.02,
+                       prepick=0.0002):
     """
     Function to take local catalog, inventory and waveforms for picking.
 
     This has been gutted from scripts.python.workflow.obspyck_util for use
     with SURF/FS-B networks.
 
-    :param inv: Station inventory
+    :param inv: list of paths to StationXML files
     :param wav_dir: Directory of mseeds named according to timestamp
         eid convention
     :param catalog: catalog of events to pick (optional)
@@ -307,8 +310,9 @@ def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
     """
 
     # Grab all stationxml files
-    inv_files = [inv_path]
-    inv = read_inventory(inv_path)
+    inv = Inventory()
+    for inv_f in inv_paths:
+        inv += read_inventory(inv_f)
     # For the case of a single wav file with no catalog (probably a stack)
     if not catalog and wav_file:
         st = read(wav_file)
@@ -316,9 +320,9 @@ def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
         utcdto = st[0].stats.starttime
         input_file = '/home/chet/obspyck/hoppch_surf.obspyckrc17'
         root = ['obspyck -c {} -t {} -d {} -s SV'.format(input_file,
-                                                         utcdto - 0.0002,
+                                                         utcdto - prepick,
                                                          length)]
-        cmd = ' '.join(root + [wav_file] + inv_files)
+        cmd = ' '.join(root + [wav_file] + inv_paths)
         print(cmd)
         call(cmd, shell=True)
         return
@@ -369,7 +373,7 @@ def obspyck_from_local(inv_path, wav_dir=None, catalog=None, wav_file=None,
         input_file = '/home/chet/obspyck/hoppch_surf.obspyckrc17'
         root = ['obspyck -c {} -t {} -d 0.01 -s SV --event {}'.format(
             input_file, str(pk1 - 0.0002), tmp_name)]
-        cmd = ' '.join(root + tmp_wav_file + inv_files)
+        cmd = ' '.join(root + tmp_wav_file + inv_paths)
         print(cmd)
         call(cmd, shell=True)
     return
