@@ -130,8 +130,8 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
     return
 
 
-def write_event_mseeds(wav_root, catalog, outdir, pre_origin=10.,
-                       post_origin=50.):
+def write_event_mseeds(wav_root, catalog, outdir, pre_pick=10.,
+                       post_pick=50.):
     """
     Cut event waveforms from daylong mseed for catalog. Will cut the same
     time window for all available channels. Saved waveforms will be used for
@@ -172,9 +172,9 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_origin=10.,
         for ev in tmp_cat:
             fname = ev.resource_id.id.split('&')[-2].split('=')[-1]
             print('Slicing ev {}'.format(fname))
-            ot = ev.preferred_origin().time
-            st_slice = st.slice(starttime=ot - pre_origin,
-                                endtime=ot + post_origin)
+            pt = min([pk.time for pk in ev.picks])
+            st_slice = st.slice(starttime=pt - pre_pick,
+                                endtime=pt + post_pick)
             st_slice.write('{}/{}.ms'.format(outdir, fname), format='MSEED')
     return
 
