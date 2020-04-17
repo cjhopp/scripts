@@ -162,8 +162,11 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_origin=10.,
             continue
         # Read all available channels for this julian day
         print('Reading wavs')
-        st = read(glob('{}/**/*{}.ms'.format(wav_root, dto.julday),
-                       recursive=True))
+        chan_files = glob('{}/**/*{}.ms'.format(wav_root, dto.julday),
+                          recursive=True)
+        st = Stream()
+        for chan_f in chan_files:
+            st += read(chan_f)
         print('Merging')
         st.merge(fill_value='interpolate')
         for ev in tmp_cat:
