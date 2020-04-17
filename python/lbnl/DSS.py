@@ -68,16 +68,25 @@ def read_ascii(path, header=42, encoding='iso-8859-1'):
     return np.flip(np.loadtxt(path, skiprows=header, encoding=encoding), 1)
 
 
-def datetime_parse(t):
+def read_potentiometer(path):
+    """Read Antonio's potentiometer data file"""
+    data = np.loadtxt(path, skiprows=7, encoding='iso-8859-1').T
+    depths = np.genfromtxt(path, skip_header=4, max_rows=1, encoding='iso-8859-1')
+    times = read_times(path, header=1, time_fmt='%d/%m/%Y %H:%M:%S')[::-1]
+    return data, depths, times
+
+
+def datetime_parse(t, fmt):
     # Parse the date format of the DSS headers
-    return datetime.strptime(t, '%Y/%m/%d %H:%M:%S')
+    return datetime.strptime(t, fmt)
 
 
-def read_times(path, encoding='iso-8859-1'):
+def read_times(path, encoding='iso-8859-1', header=10,
+               time_fmt='%Y/%m/%d %H:%M:%S'):
     """Read timestamps from ascii header"""
-    strings = np.genfromtxt(path, skip_header=10, max_rows=1, encoding=encoding,
-                            dtype=None, delimiter='\t')
-    return np.array([datetime_parse(t) for t in strings[1:-1]])[::-1]
+    strings = np.genfromtxt(path, skip_header=header, max_rows=1,
+                            encoding=encoding, dtype=None, delimiter='\t')
+    return np.array([datetime_parse(t, time_fmt) for t in strings[:-1]])[::-1]
 
 
 def read_metadata(path, encoding='iso-8859-1'):
@@ -130,7 +139,7 @@ def extract_wells(root, measure, wells, noise_method='majdabadi',
         elif f.split('/')[-1].startswith('CSD5') and mapping == 'antonio':
             chan_map = chan_map_csd_1256
         data = read_ascii(f)
-        times = read_times(f)
+        times = read_times(f)[1:]
         mode, type = read_metadata(f)
         # Take first column as the length along the fiber and remove from data
         depth = data[:, -1]
@@ -908,13 +917,71 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     return plotter.pick_dict
 
 
-def DSS_symmetry(data, range):
+def plot_potentiometer(times, depths, data,
+                       date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
+                       vrange=(-400, 400), simfip=False):
     """
-    Find the optimum shift in signal position that maximuzes correlation
-    between the upgoing and downgoing fibers.
+    Plot CSD potentiometer string as contoured image and individual traces
 
-    :param data:
-    :param range:
-    :return:
+    :param data: data output from read_potentiometer
+    :param depths: Depths of each row of data
+    :param times: Times of each column of data
+
+    :return: matplotlib.Figure
     """
-    return
+    # Cut data to daterange
+    indices = np.where((date_range[0] < times) & (times < date_range[1]))
+    times = times[indices]
+    data = data[indices, :]
+    data = np.squeeze(data)
+    if simfip:
+        fig = plt.figure(constrained_layout=False, figsize=(10, 12))
+        gs = GridSpec(ncols=8, nrows=10, figure=fig)
+        axes1 = fig.add_subplot(gs[:4, :-1])
+        axes2 = fig.add_subplot(gs[4:7, :-1], sharex=axes1)
+        axes3 = fig.add_subplot(gs[7:, :-1], sharex=axes1)
+        cax = fig.add_subplot(gs[:7, -1])
+        df = read_excavation(simfip)
+    else:
+        fig = plt.figure(constrained_layout=False, figsize=(10, 12))
+        gs = GridSpec(ncols=8, nrows=8, figure=fig)
+        axes1 = fig.add_subplot(gs[:4, :-1])
+        axes2 = fig.add_subplot(gs[4:8, :-1], sharex=axes1)
+        cax = fig.add_subplot(gs[:4, -1])
+    cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
+    # Flip sign of data to conform to extension == positive strain
+    im = axes1.contourf(times, depths, data.T * -1., cmap=cmap,
+                        vmin=vrange[0], vmax=vrange[1])
+    axes1.invert_yaxis()
+    cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+    cbar.ax.set_ylabel('Microstrain', fontsize=16)
+    for i, depth in enumerate(depths):
+        # Only plot the lower instruments
+        if depth > 18.:
+            # Again flip data so + strain is extensional
+            axes2.plot(times, data[:, i] * -1, label=depth)
+            axes2.invert_yaxis()  # Negative strain convention
+            axes2.legend(title='Depth')
+    # Formatting
+    date_formatter = mdates.DateFormatter('%b-%d %H')
+    axes1.set_ylabel('Depth [m]', fontsize=16)
+    axes2.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
+    if simfip:
+        plot_displacement_components(df, starttime=date_range[0],
+                                     endtime=date_range[1], new_axes=axes3,
+                                     remove_clamps=False,
+                                     rotated=True)
+        axes3.set_ylabel(r'Displacement [$\mu$m]', fontsize=16)
+        axes3.xaxis_date()
+        axes3.xaxis.set_major_formatter(date_formatter)
+        plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
+        plt.setp(axes1.get_xticklabels(), visible=False)
+        plt.setp(axes2.get_xticklabels(), visible=False)
+    else:
+        axes2.set_ylabel(r'Displacement [$\mu$m]', fontsize=16)
+        axes2.xaxis_date()
+        axes2.xaxis.set_major_formatter(date_formatter)
+        plt.setp(axes2.xaxis.get_majorticklabels(), rotation=30, ha='right')
+        plt.setp(axes1.get_xticklabels(), visible=False)
+    plt.tight_layout()
+    return fig
