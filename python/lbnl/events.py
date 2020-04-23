@@ -38,6 +38,27 @@ except ImportError as e:
 three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
                'PSB7', 'PSB9', 'PST10', 'PST12']
 
+
+def parse_filenames_to_eid(path, method='SURF', cassm=False):
+    if method == 'cascadia':
+        name = path.split('/')[-1].rstrip('.ms')
+    else:
+        if cassm:
+            str_int = 1
+        else:
+            str_int = 0
+        name = path.split('/')[-1].split('_')[str_int]
+    return name
+
+
+def parse_resource_id_to_eid(ev, method='SURF'):
+    if method == 'cascadia':
+        name = ev.resource_id.id.split('=')[-2].split('&')[0]
+    else:
+        name = ev.resource_id.id.split('/')[-1]
+    return name
+
+
 def surf_events_to_cat(loc_file, pick_file):
     """
     Take location files (hypoinverse formatted) and picks (format TBD)
@@ -108,6 +129,7 @@ def surf_events_to_cat(loc_file, pick_file):
             surf_cat.append(ev)
     return surf_cat
 
+
 def parse_picks(pick_file):
     """
     Helper for parsing file with pick information
@@ -146,6 +168,7 @@ def parse_picks(pick_file):
             else:
                 pick_dict[eid].append(pk)
     return pick_dict
+
 
 def martin_cassm_to_loc_hyp(cassm_dir):
     """
@@ -197,6 +220,7 @@ def martin_cassm_to_loc_hyp(cassm_dir):
         for out_line in new_pick_lines:
             of.write(','.join(out_line) + '\n')
     return
+
 
 def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
     """
@@ -288,9 +312,10 @@ def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
                     new.write(' '.join(line) + '\n')
     return
 
-def obspyck_from_local(inv_paths, wav_dir=None, catalog=None, wav_file=None,
-                       cassm=False, rotate=False, length=0.02,
-                       prepick=0.0002):
+
+def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
+                       catalog=None, wav_file=None, cassm=False, rotate=False,
+                       length=0.02, prepick=0.0002, pick_error=0.0001):
     """
     Function to take local catalog, inventory and waveforms for picking.
 
@@ -305,10 +330,18 @@ def obspyck_from_local(inv_paths, wav_dir=None, catalog=None, wav_file=None,
     :param cassm: Bool for string parsing of cassm event files
     :param rotate: If orientation information is saved in the inventory,
         rotate the channels into ZNE. Defaults to False.
+    :param length: Length (seconds) of wave to plot
+    :param prepick: Seconds before pick of wav to plot
+    :param pick_error: Default pick error to assign if none exists
 
     :return:
     """
 
+    # Sort network name
+    if location == 'cascadia':
+        net = 'UW'
+    else:
+        net = 'SV'
     # Grab all stationxml files
     inv = Inventory()
     for inv_f in inv_paths:
@@ -318,10 +351,9 @@ def obspyck_from_local(inv_paths, wav_dir=None, catalog=None, wav_file=None,
         st = read(wav_file)
         st.traces.sort(key=lambda x: x.stats.starttime) # sort first
         utcdto = st[0].stats.starttime
-        input_file = '/home/chet/obspyck/hoppch_surf.obspyckrc17'
-        root = ['obspyck -c {} -t {} -d {} -s SV'.format(input_file,
+        root = ['obspyck -c {} -t {} -d {} -s {}'.format(config_file,
                                                          utcdto - prepick,
-                                                         length)]
+                                                         length, net)]
         cmd = ' '.join(root + [wav_file] + inv_paths)
         print(cmd)
         call(cmd, shell=True)
@@ -332,25 +364,25 @@ def obspyck_from_local(inv_paths, wav_dir=None, catalog=None, wav_file=None,
     if len(catalog) == 0:
         print('No events in catalog')
         return
-    eids = [ev.resource_id.id.split('/')[-1] for ev in catalog]
-    if cassm: str_int = 1
-    else: str_int = 0
-    wav_files = [p for p in all_wavs
-                 if p.split('/')[-1].split('_')[str_int] in eids]
+    eids = [parse_resource_id_to_eid(ev, method=location) for ev in catalog]
+    wav_files = [
+        p for p in all_wavs
+        if parse_filenames_to_eid(p, method=location, cassm=cassm) in eids]
     if not os.path.isdir('tmp'):
         os.mkdir('tmp')
     for ev in catalog:
-        o = ev.origins[0]
         pk1 = min([pk.time for pk in ev.picks])
-        eid = ev.resource_id.id.split('/')[-1]
-        wav_file = [f for f in wav_files if f.split('/')[-1].split('_')[str_int]
-                    == eid]
+        eid = parse_resource_id_to_eid(ev, method=location)
+        wav_file = [
+            f for f in wav_files if parse_filenames_to_eid(f, method=location,
+                                                           cassm=cassm) == eid]
         # Create temporary mseed without the superfluous non-seis traces
         try:
             st = read(wav_file[0])
         except IndexError as e:
             print('No waveform for this event')
             continue
+        # Vibbox specific channels, not for picking
         rms = [tr for tr in st
                if tr.stats.station in ['CMon', 'CTrig', 'CEnc', 'PPS']]
         for rm in rms:
@@ -365,14 +397,14 @@ def obspyck_from_local(inv_paths, wav_dir=None, catalog=None, wav_file=None,
         # If not pick uncertainties, assign some arbitrary ones
         for pk in ev.picks:
             if not pk.time_errors:
-                pk.time_errors.uncertainty = 0.0001
-        tmp_name = 'tmp/%s' % str(ev.resource_id).split('/')[-1]
+                pk.time_errors.uncertainty = pick_error
+        tmp_name = 'tmp/{}.xml'.format(
+            parse_resource_id_to_eid(ev, method=location))
         ev.write(tmp_name, format='QUAKEML')
         print('Launching obspyck for ev: {}' .format(
               str(ev.resource_id).split('/')[-1]))
-        input_file = '/home/chet/obspyck/hoppch_surf.obspyckrc17'
-        root = ['obspyck -c {} -t {} -d 0.01 -s SV --event {}'.format(
-            input_file, str(pk1 - 0.0002), tmp_name)]
+        root = ['obspyck -c {} -t {} -d {} -s {} --event {}'.format(
+            config_file, pk1 - prepick, length, net, tmp_name)]
         cmd = ' '.join(root + tmp_wav_file + inv_paths)
         print(cmd)
         call(cmd, shell=True)

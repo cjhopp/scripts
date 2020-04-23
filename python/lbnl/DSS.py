@@ -12,6 +12,7 @@ import matplotlib.patches as mpatches
 
 from glob import glob
 from obspy import Stream, Trace
+from eqcorrscan.core.match_filter import normxcorr2
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks
 from scipy.stats import median_absolute_deviation
@@ -59,12 +60,23 @@ chan_map_solexp_34 = {# Loop 3, 4
                       'D3': (48.60, 111.44), 'D4': (134.82, 206.84)}
 
 # Bottom hole mapping (by me from DataViewer)
+# chan_map_bottom_1256 = {# Loop 1, 2, 5, 6
+#                         'D1': None, 'D2': None,
+#                         'D5': 97.03, 'D6': 187.65}
+# Swapped mapping
 chan_map_bottom_1256 = {# Loop 1, 2, 5, 6
                         'D1': None, 'D2': None,
-                        'D5': 97.03, 'D6': 187.65}
+                        'D5': 187.65, 'D6': 97.03}
 
 chan_map_bottom_34 = {# Loop 3, 4
                       'D3': 76.65, 'D4': 167.24}
+
+# Excavation correlation mapping
+chan_map_excav_56 = {# Loop 1, 2, 5, 6
+                     'D5': (68.61 + 32.83, 131.40 + 32.83),
+                     'D6': (154.62 + 32.83, 227.21 + 32.83)}
+chan_map_excav_34 = {# Loop 3, 4
+                     'D3': (48.60, 111.44), 'D4': (134.82, 206.84)}
 
 ######### DRILLING FAULT DEPTH ############
 # Dict of drilled depths
@@ -82,7 +94,10 @@ mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                             'FSB': chan_map_fsb},
                 'bottom': {'CSD3': chan_map_bottom_34,
                            'CSD5': chan_map_bottom_1256,
-                           'FSB': chan_map_fsb}}
+                           'FSB': chan_map_fsb},
+                'correlation': {'CSD3': chan_map_excav_34,
+                                'CSD5': chan_map_excav_56,
+                                'FSB': chan_map_fsb}}
 
 # Custom color palette similar to wellcad convention
 frac_cols = {'All fractures': 'black',
@@ -100,10 +115,29 @@ def read_ascii(path, header=42, encoding='iso-8859-1'):
     return np.flip(np.loadtxt(path, skiprows=header, encoding=encoding), 1)
 
 
+def read_neubrex(path, header=105, encoding='iso-8859-1'):
+    """Read in raw Neubrex (SolExperts) measurement"""
+    # Flip time axis back as only single measurements
+    try:
+        data = np.flip(read_ascii(path, header, encoding), 1)
+    except ValueError:
+        data = np.flip(read_ascii(path, header=122, encoding=encoding))
+    depths = data[:, 1]
+    data = data[:, -1]
+    try:
+        times = read_times(path, header=67, encoding=encoding,
+                           time_fmt='%Y/%m/%d %H:%M:%S.%f')
+    except ValueError:
+        times = read_times(path, header=75, encoding=encoding,
+                           time_fmt='%Y/%m/%d %H:%M:%S.%f')
+    return data, depths, times
+
+
 def read_potentiometer(path):
     """Read Antonio's potentiometer data file"""
     data = np.loadtxt(path, skiprows=7, encoding='iso-8859-1').T
-    depths = np.genfromtxt(path, skip_header=4, max_rows=1, encoding='iso-8859-1')
+    depths = np.genfromtxt(path, skip_header=4, max_rows=1,
+                           encoding='iso-8859-1')
     times = read_times(path, header=1, time_fmt='%d/%m/%Y %H:%M:%S')[::-1]
     return data, depths, times
 
@@ -124,7 +158,10 @@ def read_times(path, encoding='iso-8859-1', header=10,
     elif header == 10:  # Omnisens output
         return np.array([datetime_parse(t, time_fmt)
                          for t in strings[1:-1]])[::-1]
-
+    elif header == 67:  # Neubrex output file
+        row_str = str(strings).split()
+        time_str = ' '.join([row_str[-2], row_str[-1]])
+        return np.array([datetime_parse(time_str, time_fmt)])
 
 
 def read_metadata(path, encoding='iso-8859-1'):
@@ -140,7 +177,7 @@ def read_metadata(path, encoding='iso-8859-1'):
     return mode, type
 
 
-def extract_wells(root, measure, wells, noise_method='majdabadi',
+def extract_wells(root, measure, wells=None, fibers=None, noise_method='majdabadi',
                   mapping='bottom'):
     """
     Helper to extract only the channels in specific wells
@@ -153,6 +190,7 @@ def extract_wells(root, measure, wells, noise_method='majdabadi',
         Relative_Freq
         Relative_Strain
     :param wells: List of well name strings to return
+    :param fibers: Optionaly specify individual fiber loops (FSB, CSD3 or CSD5)
     :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
         'majdabadi' returns scalar, 'by_channel' an array
     :param mapping: For Mont Terri, specifically, who's channel mapping do
@@ -160,6 +198,9 @@ def extract_wells(root, measure, wells, noise_method='majdabadi',
 
     :returns: dict {well name: {'data':, 'depth':, 'noise':}
     """
+    if not fibers and not wells:
+        print('Must specify either fibers or wells')
+        return
     data_files = glob('{}/*{}.txt'.format(root, measure))
     well_data = {}
     for f in data_files:
@@ -167,6 +208,9 @@ def extract_wells(root, measure, wells, noise_method='majdabadi',
             # Skip fiber 1
             continue
         file_root = f.split('/')[-1].split('-')[0]
+        if fibers:
+            if file_root not in fibers:
+                continue
         chan_map = mapping_dict[mapping][file_root]
         data = read_ascii(f)
         times = read_times(f)
@@ -177,10 +221,10 @@ def extract_wells(root, measure, wells, noise_method='majdabadi',
         # First realign
         data = madjdabadi_realign(data)
         # Take selected channels
-        if wells == 'all':
-            channel_ranges = [('all', (0, -1))]
-        else:
-            channel_ranges = []
+        if wells == 'all' or fibers:
+            channel_range = (0, -1)
+        channel_ranges = []
+        if wells:
             for well in wells:
                 if well not in chan_map:
                     continue
@@ -195,7 +239,13 @@ def extract_wells(root, measure, wells, noise_method='majdabadi',
                 # Find the closest integer channel to meter mapping
                 channel_range = (np.argmin(start_chan), np.argmin(end_chan))
                 channel_ranges.append((well, channel_range))
-                well_data[well] = {'times': times, 'mode': mode, 'type': type}
+                well_data[well] = {'times': times, 'mode': mode,
+                                   'type': type}
+        elif fibers:
+            for fiber in fibers:
+                well_data[fiber] = {'times': times, 'mode': mode,
+                                    'type': type}
+                channel_ranges.append((fiber, channel_range))
         for rng in channel_ranges:
             data_tmp = data[rng[1][0]:rng[1][1], :]
             depth_tmp = depth[rng[1][0]:rng[1][1]]
@@ -292,7 +342,87 @@ def pick_anomalies(data, noise_mean, noise_mad, thresh=1.):
                       width=(None, None))
 
 
+def correlate_fibers(template, template_lengths, image, image_lengths,
+                     plot=False, title='Fiber Cross Correlation'):
+    """
+    Correlate one fiber with another (probably for channel mapping purposes)
+
+    Just a thin wrapper on eqcorrscan normxcorr2 to handle the mapping
+    to/from fiber length
+
+    :param template: "Template" waveform, as in Matched Filtering
+    :param template_lengths: Array of same shape as template, with values
+        representing actual fiber length for each element of template
+    :param image: Image waveform to scan over
+    :param image: Array of same shape as image, with values
+        representing actual fiber length for each element of image
+    :param plot: Plot flag to output shifted template, image and ccc
+
+    :return: Array of correlation coefficients, shift for temp in length unit
+    """
+
+    # Check sampling intervals for consistency
+    if not np.isclose(np.diff(template_lengths)[0], np.diff(image_lengths)[0]):
+        print('Sampling intervals not equal. Fix this first')
+        return
+    ccc = normxcorr2(template, image)[0]
+    samp_int = np.diff(template_lengths)[0]  # Make sure this is stable
+    shift = (samp_int * np.argmax(ccc)) - template_lengths[0]
+    if plot:
+        # Make length array for ccc
+        ccc_length = (np.arange(ccc.size) * samp_int) + template_lengths[0]
+        plot_fiber_correlation(template, template_lengths, image, image_lengths,
+                               ccc, ccc_length, shift, title)
+    return ccc, shift
+
+
 ################  Plotting  Funcs  ############################################
+
+def plot_fiber_correlation(template, template_lengths, image, image_lengths,
+                           ccc, ccc_length, shift, title):
+    """
+    Two-axes plot of template, image and cross correlation coefficient
+    for two lengths of fiber
+
+    :param template: Template waveform
+    :param template_lengths: Array of lengths for each sample in template
+    :param image: Image waveform
+    :param image_lengths: Array of lengths for each sample in image
+    :param ccc: CCC array
+    :param ccc_length: Array of lengths corresponding to ccc elements
+    :param shift: Shift (in length units) to achieve maximum ccc
+    :return:
+    """
+
+    fig, axes = plt.subplots(nrows=2, figsize=(10, 10), sharex=True)
+    axes[0].plot(template_lengths, template, label='Template', linewidth=1.,
+                 color='r', alpha=0.7)
+    axes[0].plot(image_lengths, image, label='Image', linewidth=1., color='k')
+    axes[0].plot(template_lengths + shift, template, label='Shifted Template',
+                 linewidth=1., color='b', alpha=0.7)
+    axes[1].plot(ccc_length, ccc, label='CCC')
+    max_ccc_line = ccc_length[ccc.argmax()]
+    axes[1].axvline(max_ccc_line, linestyle='--', color='k')
+    axes[1].annotate(xy=(max_ccc_line, ccc.max()),
+                     xytext=(max_ccc_line + (120 * np.diff(image_lengths)[0]),
+                             ccc.max() - 0.2),
+                     s='CCC: {:0.3f}\nShift: {:0.2f} m'.format(ccc.max(),
+                                                               shift),
+                     arrowprops={'arrowstyle': '->'},
+                     fontsize=14, bbox={'facecolor': 'w', 'edgecolor': 'k'})
+    # Format
+    axes[0].set_ylabel('Brillouin Frequency [GHz]', fontsize=16)
+    axes[1].set_ylabel('Cross correlation coefficient', fontsize=16)
+    axes[1].set_xlabel('Length [m]', fontsize=16)
+    axes[0].legend()
+    axes[1].legend()
+    if not title:
+        title = 'Fiber cross correlation'
+    fig.suptitle(title, fontsize=20)
+    plt.show()
+    return
+
+
 def plot_strains_w_dist(location, DSS_picks, point):
     """
     Plot DSS strain values with distance from a point (e.g. excavation front)
@@ -585,7 +715,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param thresh: MAD multiplier that serves as the threshold for auto picking
     :param date_range: [start date, end date]
     :param denoise_method: String stipulating the method in denoise() to use
-    :param vrange: Colorbar range (in microstrains)
+    :param vrange: Colorbar range (in measurand unit)
     :param title: Title of plot
     :param tv_picks: Path to excel file with optical televiewer picks
 
@@ -629,9 +759,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         data = np.squeeze(data)
     mpl_times = mdates.date2num(times)
     # TODO still don't know the best way to deal with relative values?
-    # if mode == 'Absolute':
-    #     data = data - data[:, 0, np.newaxis]
-    data = data - data[:, 0, np.newaxis]
+    if mode == 'Absolute':
+        data = data - data[:, 0, np.newaxis]
     # Denoise methods are not mature yet
     if denoise_method:
         data = denoise(data, denoise_method)
