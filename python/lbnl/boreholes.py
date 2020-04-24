@@ -117,9 +117,27 @@ def structures_to_planes(path, well_dict):
     return frac_planes
 
 
+def read_frac_cores(path, well):
+    """
+    Return dictionary of {well: {'fracture type': fracture density array}}
+
+    :param path: Path to core fracture density excel file
+    :return: dict
+    """
+    well_dict = {'All fractures': {}}
+    fracs = pd.read_excel(path, sheet_name=None, skiprows=[2], header=1)
+    for full_name, items in fracs.items():
+        if 'BCS-{}'.format(well) == full_name:
+            bin_centers = ((items['TopDepth'] +
+                            items['BottomDepth']) / 2).values
+            well_dict['All fractures'] = np.stack(
+                (bin_centers, items['Total Counts Core 1m'])).T
+    return well_dict
+
+
 def calculate_frac_density(path, well_dict):
     """
-    Return dict of {well: {'fracture type': fracture density array}}??TODO
+    Return dict of {well: {'fracture type': fracture density array}}
 
     :param path:
     :param well_dict:

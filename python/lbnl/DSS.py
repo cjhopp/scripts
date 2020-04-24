@@ -27,7 +27,7 @@ from matplotlib.collections import LineCollection
 # Local imports
 from lbnl.coordinates import cartesian_distance
 from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
-    calculate_frac_density
+    calculate_frac_density, read_frac_cores
 from lbnl.simfip import read_excavation, plot_displacement_components
 
 
@@ -72,19 +72,29 @@ chan_map_bottom_34 = {# Loop 3, 4
                       'D3': 76.65, 'D4': 167.24}
 
 # Excavation correlation mapping
-chan_map_excav_56 = {# Loop 1, 2, 5, 6
-                     'D5': (68.61 + 32.83, 131.40 + 32.83),
-                     'D6': (154.62 + 32.83, 227.21 + 32.83)}
+chan_map_excav_56 = {# Loop 5, 6
+                     'D5': 187.535,
+                     'D6': 97.145}
 chan_map_excav_34 = {# Loop 3, 4
-                     'D3': (48.60, 111.44), 'D4': (134.82, 206.84)}
+                     'D3': 76.61,
+                     'D4': 167.22}
+chan_map_co2_5612 = {# Loop 5, 6
+                     'D5': 95.92,
+                     'D6': 186.74,
+                     'D1': 353.64,
+                     'D2': 272.91}
+chan_map_co2_34 = {# Loop 3, 4
+                   'D3': 76.12,
+                   'D4': 166.93}
 
 ######### DRILLING FAULT DEPTH ############
 # Dict of drilled depths
 drilled_depths = {'D1': 25.2, 'D2': 18.55, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
                   'D6': 36.65, 'D7': 29.7}
 
-fault_depths = {'D1': (), 'D2': (13.25, 16.45), 'D3': (17.98, 20.58), 'D4': (),
-                'D5': (19.65, 22.65), 'D6': (28.5, 31.36), 'D7': (22.3, 25.45)}
+fault_depths = {'D1': (), 'D2': (13.25, 16.45), 'D3': (17.98, 20.58),
+                'D4': (27., 30.), 'D5': (19.65, 22.65), 'D6': (28.5, 31.36),
+                'D7': (22.3, 25.45)}
 
 mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                                'CSD5': chan_map_solexp_1256,
@@ -95,9 +105,12 @@ mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                 'bottom': {'CSD3': chan_map_bottom_34,
                            'CSD5': chan_map_bottom_1256,
                            'FSB': chan_map_fsb},
-                'correlation': {'CSD3': chan_map_excav_34,
-                                'CSD5': chan_map_excav_56,
-                                'FSB': chan_map_fsb}}
+                'excavation': {'CSD3': chan_map_excav_34,
+                               'CSD5': chan_map_excav_56,
+                               'FSB': chan_map_fsb},
+                'co2_injection': {'CSD3': chan_map_co2_34,
+                                  'CSD5': chan_map_co2_5612,
+                                  'FSB': chan_map_fsb}}
 
 # Custom color palette similar to wellcad convention
 frac_cols = {'All fractures': 'black',
@@ -121,7 +134,7 @@ def read_neubrex(path, header=105, encoding='iso-8859-1'):
     try:
         data = np.flip(read_ascii(path, header, encoding), 1)
     except ValueError:
-        data = np.flip(read_ascii(path, header=122, encoding=encoding))
+        data = np.flip(read_ascii(path, header=122, encoding=encoding), 1)
     depths = data[:, 1]
     data = data[:, -1]
     try:
@@ -177,8 +190,8 @@ def read_metadata(path, encoding='iso-8859-1'):
     return mode, type
 
 
-def extract_wells(root, measure, wells=None, fibers=None, noise_method='majdabadi',
-                  mapping='bottom'):
+def extract_wells(root, measure, mapping, wells=None, fibers=None,
+                  noise_method='majdabadi'):
     """
     Helper to extract only the channels in specific wells
 
@@ -189,12 +202,12 @@ def extract_wells(root, measure, wells=None, fibers=None, noise_method='majdabad
         Absolute_Gain
         Relative_Freq
         Relative_Strain
+    :param mapping: For Mont Terri, specifically, who's channel mapping do
+        we use? The preferred mappings are now 'excavation' or 'co2_injection'
     :param wells: List of well name strings to return
     :param fibers: Optionaly specify individual fiber loops (FSB, CSD3 or CSD5)
     :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
         'majdabadi' returns scalar, 'by_channel' an array
-    :param mapping: For Mont Terri, specifically, who's channel mapping do
-        we use?? Dafaults to AP Rinaldi's mapping from the OMNISENS viewer.
 
     :returns: dict {well name: {'data':, 'depth':, 'noise':}
     """
@@ -228,7 +241,8 @@ def extract_wells(root, measure, wells=None, fibers=None, noise_method='majdabad
             for well in wells:
                 if well not in chan_map:
                     continue
-                if mapping == 'bottom' and well.startswith('D'):
+                if (mapping in ['bottom', 'excavation', 'co2_injection'] and
+                    well.startswith('D')):
                     start_chan = np.abs(depth - (chan_map[well] -
                                                  drilled_depths[well]))
                     end_chan = np.abs(depth - (chan_map[well] +
@@ -243,9 +257,10 @@ def extract_wells(root, measure, wells=None, fibers=None, noise_method='majdabad
                                    'type': type}
         elif fibers:
             for fiber in fibers:
-                well_data[fiber] = {'times': times, 'mode': mode,
-                                    'type': type}
-                channel_ranges.append((fiber, channel_range))
+                if fiber == file_root:
+                    well_data[fiber] = {'times': times, 'mode': mode,
+                                        'type': type}
+                    channel_ranges.append((fiber, channel_range))
         for rng in channel_ranges:
             data_tmp = data[rng[1][0]:rng[1][1], :]
             depth_tmp = depth[rng[1][0]:rng[1][1]]
@@ -338,8 +353,8 @@ def pick_anomalies(data, noise_mean, noise_mad, thresh=1.):
     :return:
     """
     return find_peaks(np.abs(data), height=np.abs(noise_mean) +
-                                           (np.abs(noise_mad) * thresh),
-                      width=(None, None))
+                      (np.abs(noise_mad) * thresh),
+                      width=(None, None), prominence=30.)
 
 
 def correlate_fibers(template, template_lengths, image, image_lengths,
@@ -416,6 +431,8 @@ def plot_fiber_correlation(template, template_lengths, image, image_lengths,
     axes[1].set_xlabel('Length [m]', fontsize=16)
     axes[0].legend()
     axes[1].legend()
+    axes[0].set_ylim(10.5, 11.1)
+    axes[1].set_ylim(-1, 1)
     if not title:
         title = 'Fiber cross correlation'
     fig.suptitle(title, fontsize=20)
@@ -870,8 +887,12 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                             x2=up_ref + (noise * thresh),
                             alpha=0.2, color='k')
         # Plot fracture density too TODO Enable other logs here too
-        try:
-            frac_dict = calculate_frac_density(tv_picks, create_FSB_boreholes())
+        if tv_picks:
+            try:
+                frac_dict = calculate_frac_density(tv_picks, create_FSB_boreholes())
+            except KeyError:
+                # Try core fracture counts instead
+                frac_dict = read_frac_cores(tv_picks, well)
             for frac_type, dens in frac_dict.items():
                 log_ax.plot(dens[:, 1], dens[:, 0],
                             color=frac_cols[frac_type],
@@ -879,8 +900,6 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             log_ax.legend(
                 loc=2, fontsize=12, bbox_to_anchor=(-1.2, 1.13),
                 framealpha=1.).set_zorder(110)
-        except Exception as e:
-            print(e)
         # Grid lines on axes 1
         axes2.grid(which='both', axis='y')
         axes4.grid(which='both', axis='x')
