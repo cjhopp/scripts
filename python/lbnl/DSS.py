@@ -72,25 +72,35 @@ chan_map_bottom_34 = {# Loop 3, 4
                       'D3': 76.65, 'D4': 167.24}
 
 # Excavation correlation mapping
-chan_map_excav_56 = {# Loop 5, 6
-                     'D5': 187.535,
+# Loop 5, 6
+chan_map_excav_56 = {'D5': 187.535,
                      'D6': 97.145}
-chan_map_excav_34 = {# Loop 3, 4
-                     'D3': 76.61,
+# Loop 3, 4
+chan_map_excav_34 = {'D3': 76.61,
                      'D4': 167.22}
-chan_map_co2_5612 = {# Loop 5, 6
-                     'D5': 95.92,
+# Loop 5, 6
+chan_map_co2_5612 = {'D5': 95.92,
                      'D6': 186.74,
                      'D1': 353.64,
                      'D2': 272.91}
-chan_map_co2_34 = {# Loop 3, 4
-                   'D3': 76.12,
+# Loop 3, 4
+chan_map_co2_34 = {'D3': 76.12,
                    'D4': 166.93}
-
+# Anchor point mapping TODO HAVE NOT BEEN SHIFTED!!
+D1_anchor_map = {'seg3': (349.63, 352.05),
+                 'seg2': (352.05, 353.86),
+                 'seg1': (353.86, 356.08),
+                 }
+D2_anchor_map = {'seg5': (271.74, 270.33),
+                 'seg4': (272.80, 271.74),
+                 'seg3': (273.61, 272.80),
+                 'seg2': (274.41, 273.61),
+                 'seg1': (275.37, 274.41),
+                 }
 ######### DRILLING FAULT DEPTH ############
 # Dict of drilled depths
-drilled_depths = {'D1': 25.2, 'D2': 18.55, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
-                  'D6': 36.65, 'D7': 29.7}
+fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
+                'D6': 36.65, 'D7': 29.7}
 
 fault_depths = {'D1': (), 'D2': (13.25, 16.45), 'D3': (17.98, 20.58),
                 'D4': (27., 30.), 'D5': (19.65, 22.65), 'D6': (28.5, 31.36),
@@ -227,7 +237,7 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
         chan_map = mapping_dict[mapping][file_root]
         data = read_ascii(f)
         times = read_times(f)
-        mode, type = read_metadata(f)
+        mode, type_m = read_metadata(f)
         # Take first column as the length along the fiber and remove from data
         depth = data[:, -1]
         data = data[:, :-1]
@@ -241,12 +251,13 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
             for well in wells:
                 if well not in chan_map:
                     continue
-                if (mapping in ['bottom', 'excavation', 'co2_injection'] and
-                    well.startswith('D')):
+                # if (mapping in ['bottom', 'excavation', 'co2_injection'] and
+                #     well.startswith('D')):
+                if type(chan_map[well]) == float:
                     start_chan = np.abs(depth - (chan_map[well] -
-                                                 drilled_depths[well]))
+                                                 fiber_depths[well]))
                     end_chan = np.abs(depth - (chan_map[well] +
-                                               drilled_depths[well]))
+                                               fiber_depths[well]))
                 else:
                     start_chan = np.abs(depth - chan_map[well][0])
                     end_chan = np.abs(depth - chan_map[well][1])
@@ -254,7 +265,7 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
                 channel_range = (np.argmin(start_chan), np.argmin(end_chan))
                 channel_ranges.append((well, channel_range))
                 well_data[well] = {'times': times, 'mode': mode,
-                                   'type': type}
+                                   'type': type_m}
         elif fibers:
             for fiber in fibers:
                 if fiber == file_root:
@@ -340,7 +351,7 @@ def DSS_spectrum(path, well='all', domain='time'):
     return
 
 
-def pick_anomalies(data, noise_mean, noise_mad, thresh=1.):
+def pick_anomalies(data, noise_mean, noise_mad, thresh=1., prominence=30.):
     """
     Pick every point where the data exceeds the noise and return the width and
     amplitude of the peak.
@@ -354,7 +365,7 @@ def pick_anomalies(data, noise_mean, noise_mad, thresh=1.):
     """
     return find_peaks(np.abs(data), height=np.abs(noise_mean) +
                       (np.abs(noise_mad) * thresh),
-                      width=(None, None), prominence=30.)
+                      width=(None, None), prominence=prominence)
 
 
 def correlate_fibers(template, template_lengths, image, image_lengths,
@@ -719,7 +730,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
              denoise_method=None, vrange=(-60, 60), title=None,
-             tv_picks=None):
+             tv_picks=None, prominence=30.):
     """
     Plot a colormap of DSS data
 
@@ -735,6 +746,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param vrange: Colorbar range (in measurand unit)
     :param title: Title of plot
     :param tv_picks: Path to excel file with optical televiewer picks
+    :param prominence: Prominence (in measurand units) fed to
+        scipy.signal.find_peaks
 
     :return:
     """
@@ -776,7 +789,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         data = np.squeeze(data)
     mpl_times = mdates.date2num(times)
     # TODO still don't know the best way to deal with relative values?
-    if mode == 'Absolute':
+    if mode == 'Relative':
         data = data - data[:, 0, np.newaxis]
     # Denoise methods are not mature yet
     if denoise_method:
@@ -894,9 +907,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 # Try core fracture counts instead
                 frac_dict = read_frac_cores(tv_picks, well)
             for frac_type, dens in frac_dict.items():
-                log_ax.plot(dens[:, 1], dens[:, 0],
-                            color=frac_cols[frac_type],
-                            label=frac_type)
+                if not frac_type.startswith('sed'):
+                    log_ax.plot(dens[:, 1], dens[:, 0],
+                                color=frac_cols[frac_type],
+                                label=frac_type)
             log_ax.legend(
                 loc=2, fontsize=12, bbox_to_anchor=(-1.2, 1.13),
                 framealpha=1.).set_zorder(110)
@@ -927,12 +941,13 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         # Define class for plotting new traces
         class TracePlotter():
             def __init__(self, figure, data, times, well, depth, cmap, cat_cmap,
-                         up_d, down_d, pick_mode, noise, thresh):
+                         up_d, down_d, pick_mode, noise, thresh, prominence):
                 self.figure = figure
                 self.cmap = cmap
                 self.cat_cmap = cat_cmap
                 self.pick_mode = pick_mode
                 self.thresh = thresh
+                self.prominence = prominence
                 self.noise = noise
                 self.data = data
                 self.up_d = up_d
@@ -1053,7 +1068,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                         noise_mad = self.noise[1]
                     peak_inds, peak_dict = pick_anomalies(
                         fiber_vect, noise_mean=noise_mean,
-                        noise_mad=noise_mad, thresh=self.thresh)
+                        noise_mad=noise_mad, thresh=self.thresh,
+                        prominence=self.prominence)
                     # Populate pick_dict
                     samp_int = self.depth[1] - self.depth[0]
                     self.pick_dict[self.well]['strains'] = fiber_vect[peak_inds]
@@ -1150,7 +1166,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         cat_cmap = cycle(sns.color_palette('dark'))
         plotter = TracePlotter(fig, data, mpl_times, well, depth_vect, cmap,
                                cat_cmap, up_d, down_d, pick_mode,
-                               noise=well_data[well]['noise'], thresh=thresh)
+                               noise=well_data[well]['noise'], thresh=thresh,
+                               prominence=prominence)
         plt.show()
     return plotter.pick_dict
 
