@@ -22,6 +22,7 @@ from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException
 from surf_seis.vibbox import vibbox_preprocess
+from eqcorrscan.core.match_filter import Tribe
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
@@ -182,6 +183,51 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
                                 endtime=pt + post_pick)
             st_slice.write('{}/{}.ms'.format(outdir, fname), format='MSEED')
     return
+
+
+def tribe_from_catalog(catalog, wav_dir, param_dict):
+    """
+    Loop over a catalog and return a tribe of templates for each. Assumes we're
+    looking in a directory with day-long miniSEED files with filenames formatted
+    as: net.sta.loc.chan.julday.ms
+
+    :param catalog: Catalog of events with picks
+    :param wav_dir: Root directory that will globbed recursively (/**/) for the
+        format specified above
+    :param param_dict: Dictionary containing all necessary parameters for
+        template creation e.g. {'highcut': , 'lowcut': , 'corners': ,
+                                'sampling_rate': , 'prepick': , 'length': }
+    :param plotdir: None or the root directory to put output plots in
+    :return:
+    """
+    # Ensure catalog sorted (should be by default?)
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    # Define catalog start and end dates
+    cat_start = catalog[0].preferred_origin().time.date
+    cat_end = catalog[-1].preferred_origin().time.date
+    tribe = Tribe()
+    for date in date_generator(cat_start, cat_end):
+        dto = UTCDateTime(date)
+        # Establish which events are in this day
+        sch_str_start = 'time >= {}'.format(dto)
+        sch_str_end = 'time <= {}'.format((dto + 86400))
+        tmp_cat = catalog.filter(sch_str_start, sch_str_end)
+        jday = dto.julday
+        net_sta_loc_chans = [(pk.waveform_id.network_code,
+                              pk.waveform_id.station_code,
+                              pk.waveform_id.location_code,
+                              pk.waveform_id.channel_code)
+                             for ev in tmp_cat for pk in ev.picks]
+        wav_files = [glob('{}/**/{}.{}.{}.{}.{}.ms'.format(wav_dir, nslc[0],
+                                                           nslc[1], nslc[2],
+                                                           nslc[3], jday,),
+                          recursive=True)[0]
+                     for nslc in net_sta_loc_chans]
+        daylong = read(wav_files)
+        tribe += Tribe().construct(method='from_meta_file', st=daylong,
+                                   meta_file=tmp_cat, **param_dict)
+    return tribe
+
 
 def SNR(signal, noise):
     """
