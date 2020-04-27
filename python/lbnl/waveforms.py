@@ -223,7 +223,9 @@ def tribe_from_catalog(catalog, wav_dir, param_dict):
                                                            nslc[3], jday,),
                           recursive=True)[0]
                      for nslc in net_sta_loc_chans]
-        daylong = read(wav_files)
+        daylong = Stream()
+        for wav_file in wav_files:
+            daylong += read(wav_file)
         tribe += Tribe().construct(method='from_meta_file', st=daylong,
                                    meta_file=tmp_cat, **param_dict)
     return tribe
