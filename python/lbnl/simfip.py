@@ -310,7 +310,9 @@ def plot_displacement_components(df, starttime=datetime(2018, 5, 22, 11, 24),
     # Format it up
     if new_axes:
         new_axes.set_ylabel('Displacement (microns)', fontsize=16)
-        new_axes.set_title('SIMFIP', fontsize=20)
+        new_axes.text(0.05, 0.1, horizontalalignment='left', s='SIMFIP',
+                      verticalalignment='center', transform=new_axes.transAxes,
+                      fontsize=16)
         new_axes.legend()
         new_axes.margins(x=0)
     else:

@@ -102,9 +102,16 @@ D2_anchor_map = {'seg5': (271.74, 270.33),
 fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
                 'D6': 36.65, 'D7': 29.7}
 
-fault_depths = {'D1': (), 'D2': (13.25, 16.45), 'D3': (17.98, 20.58),
-                'D4': (27., 30.), 'D5': (19.65, 22.65), 'D6': (28.5, 31.36),
-                'D7': (22.3, 25.45)}
+fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
+                'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
+                'D7': (22.46, 25.54)}
+
+potentiometer_depths = {'1': (2., 6.5, 11.), '2': (11., 15., 19.),
+                        '3': (19., 19.25, 19.5), '4': (19.5, 19.75, 20.),
+                        '5': (20., 20.25, 20.5), '6': (20.5, 20.75, 21.),
+                        '7': (21., 21.25, 21.5), '8': (21.5, 21.75, 22.),
+                        '9': (22., 22.25, 22.5), '10': (22.5, 22.75, 23.),
+                        '11': (23., 23.25, 23.5), '12': (23.5, 23.75, 24.)}
 
 mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                                'CSD5': chan_map_solexp_1256,
@@ -730,7 +737,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
              denoise_method=None, vrange=(-60, 60), title=None,
-             tv_picks=None, prominence=30.):
+             tv_picks=None, prominence=30., pot_data=None):
     """
     Plot a colormap of DSS data
 
@@ -751,8 +758,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
 
     :return:
     """
-    fig = plt.figure(constrained_layout=False, figsize=(14, 12))
-    if inset_channels and simfip:
+    if inset_channels and simfip and well != 'D5':
+        fig = plt.figure(constrained_layout=False, figsize=(14, 14))
         gs = GridSpec(ncols=14, nrows=12, figure=fig)
         axes1 = fig.add_subplot(gs[:3, 7:-1])
         axes1b = fig.add_subplot(gs[3:6, 7:-1], sharex=axes1)
@@ -763,7 +770,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
         cax = fig.add_subplot(gs[:6, -1])
         df = read_excavation(simfip)
-    elif inset_channels:
+    elif inset_channels and well != 'D5':
+        fig = plt.figure(constrained_layout=False, figsize=(14, 14))
         gs = GridSpec(ncols=12, nrows=12, figure=fig)
         axes1 = fig.add_subplot(gs[:4, 7:-1])
         axes1b = fig.add_subplot(gs[4:8, 7:-1], sharex=axes1)
@@ -771,6 +779,19 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes4 = fig.add_subplot(gs[:, 2:4])
         axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
         log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
+        cax = fig.add_subplot(gs[:8, -1])
+    elif inset_channels and simfip and well == 'D5':
+        fig = plt.figure(constrained_layout=False, figsize=(15, 16))
+        gs = GridSpec(ncols=14, nrows=20, figure=fig)
+        axes1 = fig.add_subplot(gs[:4, 7:-1])
+        axes1b = fig.add_subplot(gs[4:8, 7:-1], sharex=axes1)
+        axes2 = fig.add_subplot(gs[8:12, 7:-1], sharex=axes1)
+        axes3 = fig.add_subplot(gs[12:16, 7:-1], sharex=axes1)
+        pot_ax = fig.add_subplot(gs[16:, 7:-1], sharex=axes1)
+        axes4 = fig.add_subplot(gs[:, 2:4])
+        axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
+        log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
+        df = read_excavation(simfip)
         cax = fig.add_subplot(gs[:8, -1])
     # Get just the channels from the well in question
     times = well_data[well]['times']
@@ -848,10 +869,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                                      endtime=date_range[1], new_axes=axes3,
                                      remove_clamps=False,
                                      rotated=True)
-        axes3.set_ylabel(r'Displacement [$\mu$m]', fontsize=16)
-        axes3.xaxis_date()
-        axes3.xaxis.set_major_formatter(date_formatter)
-        plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
+        axes3.set_ylabel(r'$\mu$m', fontsize=16)
         plt.setp(axes1.get_xticklabels(), visible=False)
         plt.setp(axes1b.get_xticklabels(), visible=False)
         plt.setp(axes2.get_xticklabels(), visible=False)
@@ -869,6 +887,15 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     axes1.set_title('Downgoing')
     axes1b.set_title('Upgoing')
     axes2.set_ylabel(label, fontsize=16)
+    if not pot_data:
+        axes3.xaxis_date()
+        axes3.xaxis.set_major_formatter(date_formatter)
+        plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
+    else:
+        pot_ax.xaxis_date()
+        pot_ax.xaxis.set_major_formatter(date_formatter)
+        plt.setp(pot_ax.xaxis.get_majorticklabels(), rotation=30, ha='right')
+        plt.setp(axes3.get_xticklabels(), visible=False)
     cbar = fig.colorbar(im, cax=cax, orientation='vertical')
     cbar.ax.set_ylabel(label, fontsize=16)
     if not title:
@@ -914,6 +941,24 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             log_ax.legend(
                 loc=2, fontsize=12, bbox_to_anchor=(-1.2, 1.13),
                 framealpha=1.).set_zorder(110)
+            if well == 'D5':  # Potentiometer elements
+                pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
+                max_x = log_ax.get_xlim()[-1]
+                ymin = []
+                ymax = []
+                cs = []
+                pot_cols = cycle(sns.color_palette("Paired"))
+                for i, dep in enumerate(pot_depths):
+                    deps = potentiometer_depths[str(12 - i)]
+                    if dep > 18.:
+                        ymin.append(deps[0])
+                        ymax.append(deps[-1])
+                        cs.append(next(pot_cols))
+                log_ax.vlines(x=np.ones(len(ymin)) * max_x,
+                              ymax=ymax, ymin=ymin,
+                              linewidth=8., color=cs)
+                plot_potentiometer(pot_d, pot_depths, pot_times, axes=pot_ax,
+                                   colors='Paired')
         # Grid lines on axes 1
         axes2.grid(which='both', axis='y')
         axes4.grid(which='both', axis='x')
@@ -997,6 +1042,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 if simfip:
                     self.figure.axes[3].axvline(x=event.xdata, color='k',
                                                 linestyle='--', alpha=0.5)
+                if pot_data:
+                    self.figure.axes[4].axvline(x=event.xdata, color='k',
+                                                linestyle='--', alpha=0.5)
+
                 # Silly
                 self.figure.axes[2].margins(x=0.)
                 # Plot two traces for downgoing and upgoing trace at user-
@@ -1014,18 +1063,13 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                                           color='b')
                 if well in fault_depths:
                     try:
-                        self.figure.axes[-3].axhline(fault_depths[well][0],
-                                                     linestyle='--',
-                                                     linewidth=1., color='k')
-                        self.figure.axes[-3].axhline(fault_depths[well][1],
-                                                     linestyle='--',
-                                                     linewidth=1., color='k')
-                        self.figure.axes[-4].axhline(fault_depths[well][0],
-                                                     linestyle='--',
-                                                     linewidth=1., color='k')
-                        self.figure.axes[-4].axhline(fault_depths[well][1],
-                                                     linestyle='--',
-                                                     linewidth=1., color='k')
+                        for i in range(-4, -1):
+                            self.figure.axes[i].axhline(fault_depths[well][0],
+                                                        linestyle='--',
+                                                        linewidth=1., color='k')
+                            self.figure.axes[i].axhline(fault_depths[well][1],
+                                                        linestyle='--',
+                                                        linewidth=1., color='k')
                     except IndexError as e:
                         print(e)
                 self.figure.axes[-4].legend(
@@ -1172,7 +1216,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     return plotter.pick_dict
 
 
-def plot_potentiometer(times, depths, data,
+def plot_potentiometer(data, depths, times, colors=None, axes=None,
                        date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
                        vrange=(-400, 400), simfip=False):
     """
@@ -1187,9 +1231,18 @@ def plot_potentiometer(times, depths, data,
     # Cut data to daterange
     indices = np.where((date_range[0] < times) & (times < date_range[1]))
     times = times[indices]
-    data = data[indices, :]
+    data = data.T[indices, :]
     data = np.squeeze(data)
-    if simfip:
+    # Divide by two for microns
+    data *= 0.5
+    if colors:
+        cols = cycle(sns.color_palette(colors))
+    else:
+        cols = cycle(sns.color_palette())
+    if axes:
+        xlims = axes.get_xlim()
+        axes2 = axes
+    elif simfip:
         fig = plt.figure(constrained_layout=False, figsize=(10, 12))
         gs = GridSpec(ncols=8, nrows=10, figure=fig)
         axes1 = fig.add_subplot(gs[:4, :-1])
@@ -1203,24 +1256,34 @@ def plot_potentiometer(times, depths, data,
         axes1 = fig.add_subplot(gs[:4, :-1])
         axes2 = fig.add_subplot(gs[4:8, :-1], sharex=axes1)
         cax = fig.add_subplot(gs[:4, -1])
-    cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
-    # Flip sign of data to conform to extension == positive strain
-    im = axes1.contourf(times, depths, data.T * -1., cmap=cmap,
-                        vmin=vrange[0], vmax=vrange[1])
-    axes1.invert_yaxis()
-    cbar = fig.colorbar(im, cax=cax, orientation='vertical')
-    cbar.ax.set_ylabel('Microstrain', fontsize=16)
+    if not axes:
+        cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
+        # Flip sign of data to conform to extension == positive strain
+        im = axes1.contourf(times, depths, data.T * -1., cmap=cmap,
+                            vmin=vrange[0], vmax=vrange[1])
+        axes1.invert_yaxis()
+        cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+        cbar.ax.set_ylabel(r'$\mu$m', fontsize=16)
     for i, depth in enumerate(depths):
         # Only plot the lower instruments
         if depth > 18.:
             # Again flip data so + strain is extensional
-            axes2.plot(times, data[:, i] * -1, label=depth)
+            axes2.plot(times, data[:, i] * -1, label=depth, color=next(cols),
+                       linewidth=1.5)
             axes2.invert_yaxis()  # Negative strain convention
-            axes2.legend(title='Depth')
-    # Formatting
-    date_formatter = mdates.DateFormatter('%b-%d %H')
-    axes1.set_ylabel('Depth [m]', fontsize=16)
-    axes2.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
+    if axes:
+        axes2.set_ylabel(r'$\mu$m', fontsize=16)
+        axes2.set_xlim(xlims)
+        axes2.text(0.05, 0.9, horizontalalignment='left', s='Potentiometer',
+                   verticalalignment='center', transform=axes2.transAxes,
+                   fontsize=16)
+        return
+    else:
+        # Formatting
+        axes2.legend(title='Depth')
+        date_formatter = mdates.DateFormatter('%b-%d %H')
+        axes1.set_ylabel('Depth [m]', fontsize=16)
+        axes2.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
     if simfip:
         plot_displacement_components(df, starttime=date_range[0],
                                      endtime=date_range[1], new_axes=axes3,

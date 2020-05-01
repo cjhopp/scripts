@@ -26,7 +26,7 @@ from eqcorrscan.core.match_filter import Tribe
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
-from scipy.stats import special_ortho_group
+from scipy.stats import special_ortho_group, median_absolute_deviation
 from scipy.signal import find_peaks
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
@@ -229,6 +229,62 @@ def tribe_from_catalog(catalog, wav_dir, param_dict):
         tribe += Tribe().construct(method='from_meta_file', st=daylong,
                                    meta_file=tmp_cat, **param_dict)
     return tribe
+
+
+def stack_CASSM_directory(path, length, plotdir=None):
+    """
+    Wrapper on stack_CASSM_shots to loop over all mseeds in directory
+    :param path: Path to directory of 16-shot records from Todd
+    :param plotdir: Path to optional plotting directory
+    :return:
+    """
+    # Get all miniseeds
+    vibbox_files = glob('{}/**/vbox_*.mseed'.format(path), recursive=True)
+    for vbox in vibbox_files:
+        dir_name = os.path.dirname(vbox)
+        fname = 'CASSM_stack_{}.mseed'.format(
+            vbox.split('/')[-1].split('.')[0][6:])
+        shot = stack_CASSM_shots(read(vbox), length=length)
+        shot.write(os.path.join(dir_name, fname), format='MSEED')
+        if plotdir:
+            shot.plot(equal_scale=False, show=False,
+                      outfile=os.path.join(plotdir,
+                                           fname.replace('mseed', 'png')),
+                      dpi=200, size=(1600, 2400))
+    return
+
+
+def stack_CASSM_shots(st, length):
+    """
+    Stack all shots in a 16 shot sequence
+    :param st: Stream containing all 16 shots and a trigger trace
+    :param length: Length of the stacked signals in seconds
+
+    :return: Stream object with all Traces
+    """
+    start = st[0].stats.starttime
+    # Use derivative of PPS signal to find pulse start
+    dt = np.diff(st.select(station='CTrg')[0].data)
+    # Use 70 * MAD threshold
+    trig_samps = np.where(
+        dt > np.mean(dt) + 70 * median_absolute_deviation(dt))[0]
+    t_samps = []
+    # Select only first sample of pulse
+    for i, t in enumerate(trig_samps):
+        if i == 0:
+            t_samps.append(t)
+        elif trig_samps[i - 1] != t - 1:
+            t_samps.append(t)
+    # Remove CASSM and timing info
+    st_sensors = st.select(station='B*')
+    # Loop trigger onsets, slice, add to list
+    shots = Stream()
+    for samp in t_samps:
+        samp_time = samp / st[0].stats.sampling_rate
+        shots += st_sensors.slice(starttime=start + samp_time,
+                                  endtime=start + samp_time + length)
+    shots.stack(group_by='id', stack_type='linear')
+    return shots
 
 
 def SNR(signal, noise):
@@ -739,6 +795,7 @@ def rotate_channels(st, inv):
         rot_st = Stream(traces=[new_trZ, new_trN, new_trE])
         rotated_st += rot_st
     return rotated_st
+
 
 def find_largest_SURF(wav_dir, catalog, method='avg', sig=2):
     """
