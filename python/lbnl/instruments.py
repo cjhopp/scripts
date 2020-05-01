@@ -55,7 +55,6 @@ def read_fsb_asbuilt(path):
         z = zs[np.argmin(dists)][0]
         sens_dict[name] = (x, y, z)
     for i, sens in sensors['Accelerometers'].iterrows():
-        print(sens[1])
         if sens[4] == 'Z': # All info in Z chan row
             bh = sens[7]
             dep = float(sens[9])
@@ -64,7 +63,6 @@ def read_fsb_asbuilt(path):
             # namespace clean for hydro strings)
             no = sens[6].split('_')[1].lstrip('0')
             name = '{}{}'.format(bh, no)
-            print(name)
             dists = np.squeeze(np.abs(dep - deps))
             x = easts[np.argmin(dists)][0]
             y = norths[np.argmin(dists)][0]
@@ -76,7 +74,7 @@ def read_fsb_asbuilt(path):
             dep = float(sens[2])
             bh = sens[4]
             easts, norths, zs, deps = np.hsplit(well_dict[bh], 4)
-            name = sens[3]
+            name = 'S{}'.format(sens[1])
             dists = np.squeeze(np.abs(dep - deps))
             x = easts[np.argmin(dists)][0]
             y = norths[np.argmin(dists)][0]
@@ -186,7 +184,6 @@ def fsb_to_inv(path, orientations=False, debug=0):
                                   longitude=lon, elevation=elev, depth=depth,
                                   response=Response())
         except TypeError as e:
-            print('Orientations not provided')
             sta_name = sta
             if sta in fsb_accelerometers:
                 channels = []
@@ -210,7 +207,7 @@ def fsb_to_inv(path, orientations=False, debug=0):
                           channels=chans)
         station.extra = extra_dict[nm]
         stas.append(station)
-    inventory = Inventory(networks=[Network(code='SV', stations=stas)],
+    inventory = Inventory(networks=[Network(code='FS', stations=stas)],
                           source='FSB')
     return inventory
 

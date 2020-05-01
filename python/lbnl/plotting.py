@@ -29,9 +29,8 @@ from lbnl.coordinates import SURF_converter
 
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
-                xlims=None, ylims=None, zlims=None, title=None, offline=False,
-                dd_only=False, surface='plane', DSS_picks=None,
-                structures=None, meshes=None):
+                title=None, offline=True, dd_only=False, surface='plane',
+                DSS_picks=None, structures=None, meshes=None):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -40,9 +39,6 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param catalog: Optional catalog of seismicity
     :param inventory: Optional inventory for monitoring network
     :param well_file: If field == 'surf', must provide well (x, y, z) file
-    :param xlims: List of [min, max] longitude to plot
-    :param ylims: List of [max, min] latitude to plot
-    :param zlims: List of [max neg., max pos.] depths to plot
     :param wells: Boolean for whether to plot the wells
     :param video: Deprecated because it's impossible to deal with
     :param animation: (See above)
@@ -56,15 +52,12 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                               'widths': array,
                                               'depths': list}}
     :param structures: None or path to root well_info directory
-    :param meshes: list of files containing xyz vertices for mesh (only used
-        for FSB Gallery at the moment; can be expanded)
+    :param meshes: list of tup (Layer name, path) for files containing xyz
+        vertices for mesh (only used for FSB Gallery at the moment; can be
+        expanded)
 
     :return:
     """
-    pt_lists = []
-    # Establish color scales from colorlover (import colorlover as cl)
-    colors = cycle(cl.scales['11']['qual']['Paired'])
-    well_colors = cl.scales['9']['seq']['BuPu']
     if not title:
         title = '3D Plot'
     # Make well point lists and add to Figure
@@ -77,249 +70,20 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     else:
         print('Location {} not supported'.format(location))
         return
-    for i, (key, pts) in enumerate(well_dict.items()):
-        try:
-            x, y, z = zip(*pts)
-        except ValueError:
-            x, y, z, d = zip(*pts)
-        if structures:
-            col = 'gray'
-        else:
-            col = next(colors)
-        if key.startswith('D'):
-            group = 'CSD'
-        elif key.startswith('B'):
-            group = 'FS-B'
-        else:
-            group = 'Other projects'
-        datas.append(go.Scatter3d(x=[x[0], x[-1]],
-                                  y=[y[0], y[-1]],
-                                  z=[z[0], z[-1]],
-                                  mode='lines',
-                                  legendgroup=group,
-                                  name='{}: {}'.format(group, key),
-                                  line=dict(color=col, width=4)))
+    datas = add_wells(well_dict, objects=datas, structures=structures)
     if inventory:
-        sta_list = []
-        if isinstance(inventory, dict):
-            for sta, pt in inventory.items():
-                (sx, sy, sz) = pt
-                sta_list.append((sx, sy, sz, sta))
-        else:
-            # Do the same for the inventory
-            for sta in inventory[0]: # Assume single network for now
-                if location == 'surf':
-                    loc_key = 'hmc'
-                elif location == 'fsb':
-                    loc_key = 'ch1903'
-                else:
-                    print('Location {} not supported'.format(location))
-                    raise KeyError
-                sx = float(sta.extra['{}_east'.format(loc_key)].value)
-                sy = float(sta.extra['{}_north'.format(loc_key)].value)
-                sz = float(sta.extra['{}_elev'.format(loc_key)].value)
-                name = sta.code
-                sta_list.append((sx, sy, sz, name))
-        stax, stay, staz, nms = zip(*sta_list)
-        datas.append(go.Scatter3d(x=np.array(stax), y=np.array(stay),
-                                  z=np.array(staz),
-                                  mode='markers',
-                                  name='Station',
-                                  hoverinfo='text',
-                                  text=nms,
-                                  marker=dict(color='black',
-                                    size=3.,
-                                    symbol='diamond',
-                                    line=dict(color='gray',
-                                              width=1),
-                                    opacity=0.9)))
+        datas = add_inventory(inventory=inventory, location=location,
+                              objects=datas)
     if DSS_picks:
-        # Over each well
-        frac_list = []
-        for well, pick_dict in DSS_picks.items():
-            easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
-            if well.startswith('D'):  # Scale CSD signal way down visually
-                loc = 1
-                scale = 1.1
-            elif well.startswith('B'):
-                loc = 2
-                scale = 1.1
-            # Over each picked feature
-            for i, dep in enumerate(pick_dict['depths']):
-                if dep < 5.:
-                    # Crude skip of shallow anomalies that overrun everything
-                    continue
-                dists = np.squeeze(np.abs(dep - deps))
-                x = easts[np.argmin(dists)][0]
-                y = norths[np.argmin(dists)][0]
-                z = zs[np.argmin(dists)][0]
-                strain = pick_dict['strains'][i]
-                width = pick_dict['widths'][i]
-                frac_list.append((x, y, z, strain, width, loc, scale))
-        fracx, fracy, fracz, strains, fracw, locs, scales = zip(*frac_list)
-        scales = 1 / np.array(scales)
-        ticks = np.arange(-200, 200, 20)
-        tick_labs = [str(t) for t in ticks]
-        # Add to plot
-        datas.append(go.Scatter3d(
-            x=np.array(fracx), y=np.array(fracy),
-            z=np.array(fracz),
-            mode='markers',
-            legendgroup='DSS',
-            name='DSS picks',
-            hoverinfo='text',
-            text=strains,
-            marker=dict(
-                color=strains, cmin=-200., cmax=200.,
-                size=np.abs(np.array(strains))**scales,
-                symbol='circle',
-                line=dict(color=strains, width=1,
-                          colorscale='RdBu'),
-                colorbar=dict(
-                    title=dict(text=r'microstrain',
-                               font=dict(size=18),
-                               side='top'),
-                    ticks='outside', x=0.05, y=0.5, len=0.5,
-                    ticktext=tick_labs, tickvals=ticks),
-                colorscale='RdBu', reversescale=True,
-                opacity=0.9)))
-    if structures:
-        struct_files = glob('{}/**/B*_structures.xlsx'.format(structures),
-                            recursive='True')
-        used_ftype = []
-        for struct_file in struct_files:
-            print(struct_file)
-            frac_planes = structures_to_planes(struct_file, well_dict)
-            for X, Y, Z, ftype, color in frac_planes:
-                if (Z > 550).any():  # One strange foliation?
-                    continue
-                if ftype in used_ftype:
-                    datas.append(go.Mesh3d(
-                        x=X, y=Y, z=Z, name=ftype,
-                        color=color, opacity=0.3,
-                        delaunayaxis='z', text=ftype,
-                        legendgroup=ftype,
-                        showlegend=False))
-                else:
-                    datas.append(go.Mesh3d(
-                        x=X, y=Y, z=Z, name=ftype,
-                        color=color, opacity=0.3,
-                        delaunayaxis='z', text=ftype,
-                        legendgroup=ftype,
-                        showlegend=True))
-                    used_ftype.append(ftype)
+        datas = add_DSS(DSS_picks=DSS_picks, objects=datas, well_dict=well_dict)
     if meshes:
-        for mesh_name, mesh_file in meshes:
-            col = next(colors)
-            # SURF vtk courtesy of Pengcheng
-            if mesh_file.endswith(".dxf"):
-                dxf_to_xyz(mesh_file, mesh_name, datas)
-            else:
-                mesh = pd.read_csv(mesh_file, header=None, delimiter=' ')
-                vertices = mesh[mesh.iloc[:, 0] == 'VRTX']
-                triangles = mesh[mesh.iloc[:, 0] == 'TRGL']
-                X = vertices.iloc[:, 1].values
-                Y = vertices.iloc[:, 2].values
-                Z = vertices.iloc[:, 3].values
-                I = triangles.iloc[:, 1].values - 1
-                J = triangles.iloc[:, 2].values - 1
-                K = triangles.iloc[:, 3].values - 1
-                datas.append(go.Mesh3d(
-                    x=X, y=Y, z=Z, i=I, j=J, k=K,
-                    name=mesh_name,
-                    color=col, opacity=0.3,
-                    alphahull=0,
-                    showlegend=True))
-    # If no limits specified, take them from boreholes
-    if not xlims:
-        xs = [pt[0] for bh, pts in well_dict.items() for pt in pts]
-        ys = [pt[1] for bh, pts in well_dict.items() for pt in pts]
-        xlims = [min(xs), max(xs)]
-        ylims = [min(ys), max(ys)]
-        zlims = [60, 130]
+        datas = add_meshes(meshes=meshes, objects=datas)
+    if structures:
+        datas = add_structures(structures=structures, objects=datas,
+                               well_dict=well_dict)
     if catalog:
-        pt_list = []
-        for ev in catalog:
-            o = ev.origins[-1]
-            ex = float(o.extra.hmc_east.value)
-            ey = float(o.extra.hmc_north.value)
-            ez = float(o.extra.hmc_elev.value)
-            if dd_only and not o.method_id:
-                print('Not accepting non-dd locations')
-                continue
-            elif dd_only and not o.method_id.id.endswith('GrowClust'):
-                print('Not accepting non-GrowClust locations')
-                continue
-            try:
-                m = ev.magnitudes[-1].mag
-            except IndexError:
-                print('No magnitude. Wont plot.')
-                continue
-            t = o.time.datetime.timestamp()
-            if (xlims[0] < ex < xlims[1]
-                and ylims[0] < ey < ylims[1]
-                and zlims[0] < ez < zlims[1]):
-                pt_list.append((ex, ey, ez, m, t,
-                                ev.resource_id.id.split('/')[-1]))
-        # if len(pt_list) > 0:
-        pt_lists.append(pt_list)
-        # Add arrays to the plotly objects
-        for i, lst in enumerate(pt_lists):
-            if len(lst) == 0:
-                continue
-            x, y, z, m, t, id = zip(*lst)
-            # z = -np.array(z)
-            clust_col = next(colors)
-            tickvals = np.linspace(min(t), max(t), 10)
-            ticktext = [datetime.fromtimestamp(t) for t in tickvals]
-            scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
-                                    mode='markers',
-                                    name='Seismic event',
-                                    hoverinfo='text',
-                                    text=id,
-                                    marker=dict(color=t,
-                                      cmin=min(tickvals),
-                                      cmax=max(tickvals),
-                                      size=(1.5 * np.array(m)) ** 2,
-                                      symbol='circle',
-                                      line=dict(color=t,
-                                                width=1,
-                                                colorscale='Cividis'),
-                                      colorbar=dict(
-                                          title=dict(text='Timestamp',
-                                                     font=dict(size=18)),
-                                                    x=-0.2,
-                                                    ticktext=ticktext,
-                                                    tickvals=tickvals),
-                                      colorscale='Cividis',
-                                      opacity=0.5))
-            datas.append(scat_obj)
-            if surface == 'plane':
-                if len(x) <= 2:
-                    continue # Cluster just 1-2 events
-                # Fit plane to this cluster
-                X, Y, Z, stk, dip = pts_to_plane(np.array(x), np.array(y),
-                                                 np.array(z))
-                # Add mesh3d object to plotly
-                datas.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
-                                       opacity=0.3, delaunayaxis='z',
-                                       text='Strike: {}, Dip {}'.format(stk, dip),
-                                       showlegend=True))
-            elif surface == 'ellipsoid':
-                if len(x) <= 2:
-                    continue # Cluster just 1-2 events
-                # Fit plane to this cluster
-                center, radii, evecs, v = pts_to_ellipsoid(np.array(x),
-                                                           np.array(y),
-                                                           np.array(z))
-                X, Y, Z = ellipsoid_to_pts(center, radii, evecs)
-                # Add mesh3d object to plotly
-                datas.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
-                                       opacity=0.3, delaunayaxis='z',
-                                       # text='A-axis Trend: {}, Plunge {}'.format(stk, dip),
-                                       showlegend=True))
-            else:
-                print('No surfaces fitted')
+        datas = add_catalog(catalog=catalog, location=location,
+                            dd_only=dd_only, objects=datas, surface=surface)
     # Start figure
     fig = go.Figure(data=datas)
     # Manually find the data limits, and scale appropriately
@@ -328,7 +92,11 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     all_z = np.ma.masked_invalid(np.concatenate([d['z'] for d in fig.data]))
     xrange = np.abs(np.max(all_x) - np.min(all_x))
     yrange = np.abs(np.max(all_y) - np.min(all_y))
-    zrange = np.abs(np.max(all_z) - np.min(all_z))
+    if location == 'fsb':
+        zmin = 300.
+    else:
+        zmin = np.min(all_z)
+    zrange = np.abs(np.max(all_z) - zmin)
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
                                 zerolinewidth=2, title='Easting (m)',
@@ -340,22 +108,334 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     zax = go.layout.scene.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
                                 zerolinewidth=2, title='Elevation (m)',
-                                range=(np.min(all_z), np.max(all_z)))
+                                range=(zmin, np.max(all_z)))
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
+                                  xaxis_showspikes=False,
+                                  yaxis_showspikes=False,
                                   aspectmode='manual',
                                   aspectratio=dict(x=1, y=yrange / xrange,
                                                    z=zrange / xrange),
                                   bgcolor="rgb(244, 244, 248)"),
                        autosize=True,
                        title=title,
-                       legend=dict(title=dict(text='Mont Terri Rock Lab',
-                                              font=dict(size=22))))
+                       legend=dict(title=dict(text='Legend',
+                                              font=dict(size=18)),
+                                   traceorder='normal',
+                                   itemsizing='constant',
+                                   font=dict(
+                                       family="sans-serif",
+                                       size=14,
+                                       color="black"),
+                                   bgcolor='whitesmoke',
+                                   bordercolor='gray',
+                                   borderwidth=1,
+                                   tracegroupgap=3))
     fig.update_layout(layout)
     if offline:
         plotly.offline.iplot(fig, filename='{}.html'.format(outfile))
     else:
         py.plot(fig, filename=outfile)
     return fig
+
+
+def add_wells(well_dict, objects, structures):
+    well_colors = cl.scales['9']['seq']['BuPu']
+    for i, (key, pts) in enumerate(well_dict.items()):
+        try:
+            x, y, z = zip(*pts)
+        except ValueError:
+            x, y, z, d = zip(*pts)
+        if structures:
+            col = 'gray'
+        else:
+            col = next(well_colors)
+        if key.startswith('D'):
+            group = 'CSD'
+            viz = True
+        elif key.startswith('B'):
+            group = 'FS-B'
+            viz = True
+        else:
+            group = 'Other projects'
+            viz = False
+        objects.append(go.Scatter3d(x=[x[0], x[-1]],
+                                    y=[y[0], y[-1]],
+                                    z=[z[0], z[-1]],
+                                    mode='lines',
+                                    visible=viz,
+                                    name='{}: {}'.format(group, key),
+                                    line=dict(color=col, width=4),
+                                    hoverinfo='skip'))
+    return objects
+
+
+def add_DSS(DSS_picks, objects, well_dict):
+    # Over each well
+    frac_list = []
+    for well, pick_dict in DSS_picks.items():
+        easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
+        if well.startswith('D'):  # Scale CSD signal way down visually
+            loc = 1
+            scale = 2.
+        elif well.startswith('B'):
+            loc = 2
+            scale = 1.1
+        # Over each picked feature
+        for i, dep in enumerate(pick_dict['depths']):
+            if dep < 5.:
+                # Crude skip of shallow anomalies that overrun everything
+                continue
+            dists = np.squeeze(np.abs(dep - deps))
+            x = easts[np.argmin(dists)][0]
+            y = norths[np.argmin(dists)][0]
+            z = zs[np.argmin(dists)][0]
+            strain = pick_dict['strains'][i]
+            width = pick_dict['widths'][i]
+            frac_list.append((x, y, z, strain, width, loc, scale))
+    fracx, fracy, fracz, strains, fracw, locs, scales = zip(*frac_list)
+    scales = 1 / np.array(scales)
+    ticks = np.arange(-200, 200, 20)
+    tick_labs = [str(t) for t in ticks]
+    # Add to plot
+    objects.append(go.Scatter3d(
+        x=np.array(fracx), y=np.array(fracy),
+        z=np.array(fracz),
+        mode='markers',
+        legendgroup='DSS',
+        name='DSS picks',
+        hoverinfo='text',
+        text=strains,
+        visible='legendonly',
+        marker=dict(
+            color=strains, cmin=-200., cmax=200.,
+            size=np.abs(np.array(strains))**scales,
+            symbol='circle',
+            line=dict(color=strains, width=1,
+                      colorscale='RdBu'),
+            colorbar=dict(
+                title=dict(text=r'microstrain',
+                           font=dict(size=18),
+                           side='top'),
+                ticks='outside', x=0.05, y=0.5, len=0.5,
+                ticktext=tick_labs, tickvals=ticks),
+            colorscale='RdBu', reversescale=True,
+            opacity=0.9)))
+    return objects
+
+
+def add_meshes(meshes, objects):
+    fault_colors = cycle(sns.xkcd_palette(['tan', 'light brown']).as_hex())
+    other_colors = cycle(sns.xkcd_palette(['pale purple']).as_hex())
+    for mesh_name, mesh_file in meshes:
+        if 'FAULT' in mesh_name.upper():
+            col = next(fault_colors)
+        else:
+            col = next(other_colors)
+        # SURF vtk courtesy of Pengcheng
+        if mesh_file.endswith(".dxf"):
+            dxf_to_xyz(mesh_file, mesh_name, objects)
+        else:
+            mesh = pd.read_csv(mesh_file, header=None, delimiter=' ')
+            vertices = mesh[mesh.iloc[:, 0] == 'VRTX']
+            triangles = mesh[mesh.iloc[:, 0] == 'TRGL']
+            X = vertices.iloc[:, 1].values
+            Y = vertices.iloc[:, 2].values
+            Z = vertices.iloc[:, 3].values
+            I = triangles.iloc[:, 1].values - 1
+            J = triangles.iloc[:, 2].values - 1
+            K = triangles.iloc[:, 3].values - 1
+            objects.append(go.Mesh3d(
+                x=X, y=Y, z=Z, i=I, j=J, k=K,
+                name=mesh_name,
+                color=col, opacity=0.3,
+                alphahull=0,
+                showlegend=True,
+                hoverinfo='skip'))
+    return objects
+
+
+def add_structures(structures, objects, well_dict):
+    struct_files = glob('{}/**/B*_structures.xlsx'.format(structures),
+                        recursive='True')
+    used_ftype = []
+    for struct_file in struct_files:
+        frac_planes = structures_to_planes(struct_file, well_dict)
+        for X, Y, Z, ftype, color in frac_planes:
+            if (Z > 550).any():  # One strange foliation?
+                continue
+            if ftype in used_ftype:
+                objects.append(go.Mesh3d(
+                    x=X, y=Y, z=Z, name=ftype,
+                    color=color, opacity=0.3,
+                    visible='legendonly',
+                    delaunayaxis='z', text=ftype,
+                    legendgroup='frac_logs',
+                    showlegend=False,
+                    hoverinfo='skip'))
+            else:
+                objects.append(go.Mesh3d(
+                    x=X, y=Y, z=Z, name=ftype,
+                    color=color, opacity=0.3,
+                    visible='legendonly',
+                    delaunayaxis='z', text=ftype,
+                    legendgroup='frac_logs',
+                    showlegend=True,
+                    hoverinfo='skip'))
+                used_ftype.append(ftype)
+    return objects
+
+
+def add_inventory(inventory, location, objects):
+    """
+    Handle adding of inventory scatter object to 3D viz
+
+    :param inventory: obspy Inventory
+    :param location: 'surf' or 'fsb'
+    :param objects: list of plotly objects
+    :return:
+    """
+    fsb_accel = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647', 'B659',
+                 'B748', 'B75']
+    sta_list = []
+    if isinstance(inventory, dict):
+        for sta, pt in inventory.items():
+            (sx, sy, sz) = pt
+            sta_list.append((sx, sy, sz, sta))
+    else:
+        # Do the same for the inventory
+        for sta in inventory[0]:  # Assume single network for now
+            if location == 'surf':
+                loc_key = 'hmc'
+            elif location == 'fsb':
+                loc_key = 'ch1903'
+            else:
+                print('Location {} not supported'.format(location))
+                raise KeyError
+            if sta.code.startswith('S'):
+                legend = 'CASSM Source'
+                color = 'blue'
+                symbol = 'circle'
+            elif sta.code in fsb_accel:
+                legend = 'Accelerometer'
+                color = 'magenta'
+                symbol = 'square'
+            elif len(sta.code) == 3:
+                legend = 'AE sensor'
+                color = 'red'
+                symbol = 'diamond'
+            else:
+                legend = 'Hydrophone'
+                color = 'green'
+                symbol = 'square'
+            sx = float(sta.extra['{}_east'.format(loc_key)].value)
+            sy = float(sta.extra['{}_north'.format(loc_key)].value)
+            sz = float(sta.extra['{}_elev'.format(loc_key)].value)
+            name = sta.code
+            sta_list.append((sx, sy, sz, name, legend, color, symbol))
+    _, _, _, _, leg, _, _ = zip(*sta_list)
+    for sensor_type in list(set(leg)):
+        stax, stay, staz, nms, leg, col, sym = zip(*[sta for sta in sta_list if
+                                                     sta[4] == sensor_type])
+        objects.append(go.Scatter3d(x=np.array(stax), y=np.array(stay),
+                                    z=np.array(staz),
+                                    mode='markers',
+                                    name=sensor_type,
+                                    legendgroup='Seismic network',
+                                    hoverinfo='text',
+                                    text=nms,
+                                    marker=dict(color=col,
+                                                size=2.,
+                                                symbol=sym,
+                                                line=dict(color=col,
+                                                        width=1),
+                                                opacity=0.9)))
+    return objects
+
+
+def add_catalog(catalog, dd_only, objects, surface):
+    # Establish color scales from colorlover (import colorlover as cl)
+    colors = cycle(cl.scales['11']['qual']['Paired'])
+    pt_lists = []
+    pt_list = []
+    for ev in catalog:
+        o = ev.origins[-1]
+        ex = float(o.extra.hmc_east.value)
+        ey = float(o.extra.hmc_north.value)
+        ez = float(o.extra.hmc_elev.value)
+        if dd_only and not o.method_id:
+            print('Not accepting non-dd locations')
+            continue
+        elif dd_only and not o.method_id.id.endswith('GrowClust'):
+            print('Not accepting non-GrowClust locations')
+            continue
+        try:
+            m = ev.magnitudes[-1].mag
+        except IndexError:
+            print('No magnitude. Wont plot.')
+            continue
+        t = o.time.datetime.timestamp()
+        pt_list.append((ex, ey, ez, m, t,
+                        ev.resource_id.id.split('/')[-1]))
+    # if len(pt_list) > 0:
+    pt_lists.append(pt_list)
+    # Add arrays to the plotly objects
+    for i, lst in enumerate(pt_lists):
+        if len(lst) == 0:
+            continue
+        x, y, z, m, t, id = zip(*lst)
+        # z = -np.array(z)
+        clust_col = next(colors)
+        tickvals = np.linspace(min(t), max(t), 10)
+        ticktext = [datetime.fromtimestamp(t) for t in tickvals]
+        scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
+                                mode='markers',
+                                name='Seismic event',
+                                hoverinfo='text',
+                                text=id,
+                                marker=dict(color=t,
+                                            cmin=min(tickvals),
+                                            cmax=max(tickvals),
+                                            size=(1.5 * np.array(m)) ** 2,
+                                            symbol='circle',
+                                            line=dict(color=t,
+                                                      width=1,
+                                                      colorscale='Cividis'),
+                                            colorbar=dict(
+                                                title=dict(text='Timestamp',
+                                                           font=dict(size=18)),
+                                                x=-0.2,
+                                                ticktext=ticktext,
+                                                tickvals=tickvals),
+                                            colorscale='Cividis',
+                                            opacity=0.5))
+        objects.append(scat_obj)
+        if surface == 'plane':
+            if len(x) <= 2:
+                continue  # Cluster just 1-2 events
+            # Fit plane to this cluster
+            X, Y, Z, stk, dip = pts_to_plane(np.array(x), np.array(y),
+                                             np.array(z))
+            # Add mesh3d object to plotly
+            objects.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
+                                     opacity=0.3, delaunayaxis='z',
+                                     text='Strike: {}, Dip {}'.format(stk, dip),
+                                     showlegend=True))
+        elif surface == 'ellipsoid':
+            if len(x) <= 2:
+                continue  # Cluster just 1-2 events
+            # Fit plane to this cluster
+            center, radii, evecs, v = pts_to_ellipsoid(np.array(x),
+                                                       np.array(y),
+                                                       np.array(z))
+            X, Y, Z = ellipsoid_to_pts(center, radii, evecs)
+            # Add mesh3d object to plotly
+            objects.append(go.Mesh3d(x=X, y=Y, z=Z, color=clust_col,
+                                     opacity=0.3, delaunayaxis='z',
+                                     showlegend=True))
+        else:
+            print('No surfaces fitted')
+    return objects
+
 
 def dxf_to_xyz(mesh_file, mesh_name, datas):
     """Helper for reading dxf files of surf levels to xyz"""
