@@ -32,7 +32,10 @@ from lbnl.simfip import read_excavation, plot_displacement_components
 
 
 ######### SURF CHANNEL MAPPING ############
-chan_map_surf = {}
+# Jonathan mapping from scripts (Source ??)
+chan_map_surf = {'OT': (226., 291., 356.), 'OB': (411., 470.5, 530.),
+                 'PST': (695., 737.5, 780.), 'PSB': (827., 886.5, 946.),
+                 'PDT': (1179., 1238., 1297.), 'PDB': (995., 1054.5, 1114.)}
 
 ########## FSB DSS CHANNEL MAPPINGS ###########
 # Michelle DataViewer mapping (tug test)
@@ -127,7 +130,8 @@ mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                                'FSB': chan_map_fsb},
                 'co2_injection': {'CSD3': chan_map_co2_34,
                                   'CSD5': chan_map_co2_5612,
-                                  'FSB': chan_map_fsb}}
+                                  'FSB': chan_map_fsb},
+                'surf': chan_map_surf}
 
 # Custom color palette similar to wellcad convention
 frac_cols = {'All fractures': 'black',
@@ -143,6 +147,22 @@ frac_cols = {'All fractures': 'black',
 def read_ascii(path, header=42, encoding='iso-8859-1'):
     """Read in a raw DSS file (flipped about axis 1 for left-to-right time"""
     return np.flip(np.loadtxt(path, skiprows=header, encoding=encoding), 1)
+
+
+def read_ascii_directory(root_path, header, location):
+    """Read single-measurement files into one data matrix"""
+    asciis = glob('{}/**/*.txt'.format(root_path), recursive=True)
+    asciis.sort()
+    for i, ascii in enumerate(asciis):
+        if i == 0:
+            dd = read_ascii(ascii, header=header)
+            times = read_times(ascii, location=location)
+            depths = dd[:, -1]
+            data = dd[:, 0]
+        else:
+            data = np.vstack([data, read_ascii(ascii, header=header)[:, 0]])
+            times = np.vstack([times, read_times(ascii, location=location)])
+    return data.T, depths, times.squeeze()
 
 
 def read_neubrex(path, header=105, encoding='iso-8859-1'):
@@ -178,16 +198,19 @@ def datetime_parse(t, fmt):
 
 
 def read_times(path, encoding='iso-8859-1', header=10,
-               time_fmt='%Y/%m/%d %H:%M:%S'):
+               time_fmt='%Y/%m/%d %H:%M:%S', location='fsb'):
     """Read timestamps from ascii header"""
     strings = np.genfromtxt(path, skip_header=header, max_rows=1,
                             encoding=encoding, dtype=None, delimiter='\t')
     if header == 1:  # Potentiometer file
         return np.array([datetime_parse(t, time_fmt)
                          for t in strings[:-1]])[::-1]
-    elif header == 10:  # Omnisens output
+    elif header == 10 and location == 'fsb':  # Omnisens output
         return np.array([datetime_parse(t, time_fmt)
                          for t in strings[1:-1]])[::-1]
+    elif header == 10 and location == 'surf':
+        return np.array([datetime_parse(t, time_fmt)
+                         for t in strings[1:]])[::-1]
     elif header == 67:  # Neubrex output file
         row_str = str(strings).split()
         time_str = ' '.join([row_str[-2], row_str[-1]])
@@ -204,11 +227,14 @@ def read_metadata(path, encoding='iso-8859-1'):
                     mode = line[-1]
                 elif line[:2] == ['Data', 'type']:
                     type = ' '.join(line[2:])
-    return mode, type
+    try:
+        return mode, type
+    except UnboundLocalError:
+        return 'Absolute', 'Brillouin Frequency'
 
 
 def extract_wells(root, measure, mapping, wells=None, fibers=None,
-                  noise_method='majdabadi'):
+                  location=None, noise_method='majdabadi', convert_freq=False):
     """
     Helper to extract only the channels in specific wells
 
@@ -231,61 +257,93 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
     if not fibers and not wells:
         print('Must specify either fibers or wells')
         return
+    if not location:
+        print('Specify location: surf or fsb')
+        return
     data_files = glob('{}/*{}.txt'.format(root, measure))
     well_data = {}
-    for f in data_files:
-        if f.split('/')[-1].startswith('FSB-SMF-1'):
-            # Skip fiber 1
-            continue
-        file_root = f.split('/')[-1].split('-')[0]
-        if fibers:
-            if file_root not in fibers:
+    print('Reading data')
+    if location == 'fsb':
+        for f in data_files:
+            if f.split('/')[-1].startswith('FSB-SMF-1'):
+                # Skip fiber 1
                 continue
-        chan_map = mapping_dict[mapping][file_root]
-        data = read_ascii(f)
-        times = read_times(f)
-        mode, type_m = read_metadata(f)
-        # Take first column as the length along the fiber and remove from data
-        depth = data[:, -1]
-        data = data[:, :-1]
-        # First realign
-        data = madjdabadi_realign(data)
-        # Take selected channels
-        if wells == 'all' or fibers:
-            channel_range = (0, -1)
-        channel_ranges = []
-        if wells:
-            for well in wells:
-                if well not in chan_map:
+            file_root = f.split('/')[-1].split('-')[0]
+            if fibers:
+                if file_root not in fibers:
                     continue
-                # if (mapping in ['bottom', 'excavation', 'co2_injection'] and
-                #     well.startswith('D')):
-                if type(chan_map[well]) == float:
-                    start_chan = np.abs(depth - (chan_map[well] -
-                                                 fiber_depths[well]))
-                    end_chan = np.abs(depth - (chan_map[well] +
-                                               fiber_depths[well]))
-                else:
-                    start_chan = np.abs(depth - chan_map[well][0])
-                    end_chan = np.abs(depth - chan_map[well][1])
-                # Find the closest integer channel to meter mapping
-                channel_range = (np.argmin(start_chan), np.argmin(end_chan))
-                channel_ranges.append((well, channel_range))
-                well_data[well] = {'times': times, 'mode': mode,
-                                   'type': type_m}
-        elif fibers:
-            for fiber in fibers:
+            data = read_ascii(f)
+            times = read_times(f)
+            # Take first column as the length along the fiber and remove from data
+            depth = data[:, -1]
+            data = data[:, :-1]
+            chan_map = mapping_dict[mapping][file_root]
+            mode, type_m = read_metadata(f)
+    elif location == 'surf':
+        data, depth, times = read_ascii_directory(root, header=34,
+                                                  location=location)
+        chan_map = mapping_dict[location]
+        mode, type_m = read_metadata(glob('{}/**/*bpr.txt'.format(root),
+                                          recursive=True)[0])
+    else:
+        print('Provide valide location')
+        return
+    print('Realigning')
+    # First realign
+    data = madjdabadi_realign(data)
+    if convert_freq and type_m.endswith('Frequency'):
+        print('Converting from freq to strain')
+        if mode == 'Absolute':
+            # First convert to delta Freq
+            data = data - data[:, 0, np.newaxis]
+            mode = 'Relative'  # overwrite mode
+            type_m = 'Strain'
+        # Use conversion factor 0.579 GHz shift per 1% strain
+        # For microstrain, factor is 5790
+        data *= 5790.
+    # Take selected channels
+    if fibers:
+        channel_range = (0, -1)
+    channel_ranges = []
+    print('Calculating channel mapping')
+    if wells:
+        for well in wells:
+            if well not in chan_map:
+                continue
+            # if (mapping in ['bottom', 'excavation', 'co2_injection'] and
+            #     well.startswith('D')):
+            if type(chan_map[well]) == float:
+                start_chan = np.abs(depth - (chan_map[well] -
+                                             fiber_depths[well]))
+                end_chan = np.abs(depth - (chan_map[well] +
+                                           fiber_depths[well]))
+            else:
+                start_chan = np.abs(depth - chan_map[well][0])
+                end_chan = np.abs(depth - chan_map[well][-1])
+            # Find the closest integer channel to meter mapping
+            channel_range = (np.argmin(start_chan), np.argmin(end_chan))
+            channel_ranges.append((well, channel_range))
+            well_data[well] = {'times': times, 'mode': mode,
+                               'type': type_m}
+    elif fibers:
+        for fiber in fibers:
+            try:
                 if fiber == file_root:
                     well_data[fiber] = {'times': times, 'mode': mode,
                                         'type': type}
                     channel_ranges.append((fiber, channel_range))
-        for rng in channel_ranges:
-            data_tmp = data[rng[1][0]:rng[1][1], :]
-            depth_tmp = depth[rng[1][0]:rng[1][1]]
-            # Get median absolute deviation averaged across all channels
-            noise = estimate_noise(data_tmp, method=noise_method)
-            well_data[rng[0]].update({'data': data_tmp, 'depth': depth_tmp,
-                                      'noise': noise})
+            except UnboundLocalError as e:  # Case of surf
+                well_data[fiber] = {'times': times, 'mode': mode,
+                                    'type': type}
+                channel_ranges.append((fiber, channel_range))
+    print('Slicing into arrays')
+    for rng in channel_ranges:
+        data_tmp = data[rng[1][0]:rng[1][1], :]
+        depth_tmp = depth[rng[1][0]:rng[1][1]]
+        # Get median absolute deviation averaged across all channels
+        noise = estimate_noise(data_tmp, method=noise_method)
+        well_data[rng[0]].update({'data': data_tmp, 'depth': depth_tmp,
+                                  'noise': noise})
     return well_data
 
 
@@ -887,11 +945,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     axes1.set_title('Downgoing')
     axes1b.set_title('Upgoing')
     axes2.set_ylabel(label, fontsize=16)
-    if not pot_data:
+    if not pot_data and simfip:
         axes3.xaxis_date()
         axes3.xaxis.set_major_formatter(date_formatter)
         plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
-    else:
+    elif pot_data:
         pot_ax.xaxis_date()
         pot_ax.xaxis.set_major_formatter(date_formatter)
         plt.setp(pot_ax.xaxis.get_majorticklabels(), rotation=30, ha='right')
@@ -903,6 +961,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             exp = 'BCS'
         elif well.startswith('B'):
             exp = 'BFS'
+        else:
+            exp = 'Collab'
         fig.suptitle('DSS {}-{}'.format(exp, well), fontsize=20)
     plt.subplots_adjust(wspace=1., hspace=1.)
     # If plotting 1D channel traces, do this last
