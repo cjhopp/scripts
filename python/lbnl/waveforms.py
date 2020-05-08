@@ -233,9 +233,30 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
         # ...Template.construct() instead of Tribe.construct()
         for ev in tmp_cat:
             name = ev.resource_id.id.split('&')[-2].split('=')[-1]
-            tribe.templates.extend(template_gen(
-                method='from_meta_file', name=name, st=daylong, event=ev,
-                **param_dict))
+            if not single_station:
+                trb = Tribe().construct(method='from_meta_file', st=daylong,
+                                        meta_file=Catalog(events=[ev]),
+                                        **param_dict)
+                trb.templates[0].name = name
+                tribe.templates.append(trb)
+            else:
+                # Otherwise, make a stand-alone template for each station
+                netstalocs = [(pk.waveform_id.network_code,
+                               pk.waveform_id.station_code,
+                               pk.waveform_id.location_code)
+                              for pk in ev.picks]
+                for nsl in netstalocs:
+                    tmp_ev = ev.copy()
+                    name += '_{}'.format('.'.join(nsl))
+                    tmp_ev.picks = [pk for pk in tmp_ev.picks
+                                    if pk.waveform_id.network_code == nsl[0]
+                                    and pk.waveform_id.station_code == nsl[1]
+                                    and pk.waveform_id.location_code == nsl[2]]
+                    tmp_ev.resource_id.id = name
+                    tmp_ev = Catalog(events=[tmp_ev])
+                    trb = Tribe().construct(method='from_meta_file', st=daylong,
+                                            meta_file=tmp_ev, **param_dict)
+                    trb.templates[0].name = name
     return tribe
 
 
