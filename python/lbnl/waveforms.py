@@ -199,7 +199,7 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
                                 'sampling_rate': , 'prepick': , 'length': }
     :param single_station: Flag to tell function to make a Template for each
         single station for each event.
-        
+
     :return:
     """
     # Ensure catalog sorted (should be by default?)
@@ -233,7 +233,8 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
         for ev in tmp_cat:
             name = ev.resource_id.id.split('&')[-2].split('=')[-1]
             tribe.templates.append(Template().construct(
-                name=name, st=daylong, event=ev, **param_dict))
+                method='from_meta_file', name=name, st=daylong, event=ev,
+                **param_dict))
     return tribe
 
 
