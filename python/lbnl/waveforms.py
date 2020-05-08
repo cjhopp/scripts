@@ -22,7 +22,7 @@ from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException
 from surf_seis.vibbox import vibbox_preprocess
-from eqcorrscan.core.match_filter import Tribe
+from eqcorrscan.core.match_filter import Tribe, Template
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
@@ -185,7 +185,7 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
     return
 
 
-def tribe_from_catalog(catalog, wav_dir, param_dict):
+def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
     """
     Loop over a catalog and return a tribe of templates for each. Assumes we're
     looking in a directory with day-long miniSEED files with filenames formatted
@@ -197,7 +197,9 @@ def tribe_from_catalog(catalog, wav_dir, param_dict):
     :param param_dict: Dictionary containing all necessary parameters for
         template creation e.g. {'highcut': , 'lowcut': , 'corners': ,
                                 'sampling_rate': , 'prepick': , 'length': }
-    :param plotdir: None or the root directory to put output plots in
+    :param single_station: Flag to tell function to make a Template for each
+        single station for each event.
+        
     :return:
     """
     # Ensure catalog sorted (should be by default?)
@@ -226,8 +228,12 @@ def tribe_from_catalog(catalog, wav_dir, param_dict):
         daylong = Stream()
         for wav_file in wav_files:
             daylong += read(wav_file)
-        tribe += Tribe().construct(method='from_meta_file', st=daylong,
-                                   meta_file=tmp_cat, **param_dict)
+        # Gain control over template names by looping events and calling
+        # ...Template.construct() instead of Tribe.construct()
+        for ev in tmp_cat:
+            name = ev.resource_id.id.split('&')[-2].split('=')[-1]
+            tribe.templates.append(Template().construct(
+                name=name, st=daylong, event=ev, **param_dict))
     return tribe
 
 

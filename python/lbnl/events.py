@@ -59,6 +59,62 @@ def parse_resource_id_to_eid(ev, method='SURF'):
     return name
 
 
+def clean_cat_picks(cat, PS_one_chan=True):
+    """
+    Clean irregularities in a catalog before it is used for tribe creation
+
+    Works in-place on catalog
+
+    :param cat: obspy.core.Catalog
+    :param PS_one_chan: Allow P and S picks on same channel?
+
+    :return:
+    """
+    for ev in cat:
+        # Remove non-obspyck picks
+        ev.picks = [pk for pk in ev.picks if pk.creation_info]
+        # Allow P and S on same channel?
+        if not PS_one_chan:
+            used_seeds = []
+            pks = []
+            for pk in ev.picks:
+                if '{}.{}.{}.{}'.format(
+                        pk.waveform_id.network_code,
+                        pk.waveform_id.station_code,
+                        pk.waveform_id.location_code,
+                        pk.waveform_id.channel_code) in used_seeds:
+                    continue
+                else:
+                    used_seeds.append('{}.{}.{}.{}'.format(
+                        pk.waveform_id.network_code,
+                        pk.waveform_id.station_code,
+                        pk.waveform_id.location_code,
+                        pk.waveform_id.channel_code))
+                    pks.append(pk)
+            ev.picks = pks
+        # Now remove same phases on single channel
+        used_seeds = []
+        pks = []
+        for pk in ev.picks:
+            if '{}.{}.{}.{}.{}'.format(
+                    pk.waveform_id.network_code,
+                    pk.waveform_id.station_code,
+                    pk.waveform_id.location_code,
+                    pk.waveform_id.channel_code,
+                    pk.phase_hint) in used_seeds:
+                continue
+            else:
+                used_seeds.append('{}.{}.{}.{}.{}'.format(
+                    pk.waveform_id.network_code,
+                    pk.waveform_id.station_code,
+                    pk.waveform_id.location_code,
+                    pk.waveform_id.channel_code,
+                    pk.phase_hint))
+                pks.append(pk)
+        ev.picks = pks
+    return cat
+
+
 def surf_events_to_cat(loc_file, pick_file):
     """
     Take location files (hypoinverse formatted) and picks (format TBD)

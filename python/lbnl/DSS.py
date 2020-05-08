@@ -4,6 +4,7 @@ Functions for processing and plotting DSS data
 """
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
@@ -32,6 +33,13 @@ from lbnl.simfip import read_excavation, plot_displacement_components
 
 
 ######### SURF CHANNEL MAPPING ############
+# Foot markings (actual feet...)
+omnisens = 5360.36
+# Jonathan mapping from scripts (Source ??)
+chan_map_feet = {'OT': (6287., 291., 356.), 'OB': (411., 470.5, 530.),
+                 'PST': (695., 737.5, 780.), 'PSB': (827., 886.5, 946.),
+                 'PDT': (1179., 1238., 1297.), 'PDB': (995., 1054.5, 1114.)}
+
 # Jonathan mapping from scripts (Source ??)
 chan_map_surf = {'OT': (226., 291., 356.), 'OB': (411., 470.5, 530.),
                  'PST': (695., 737.5, 780.), 'PSB': (827., 886.5, 946.),
@@ -383,7 +391,25 @@ def estimate_noise(data, method='majdabadi'):
         return
 
 
-def denoise(data, method='detrend'):
+def rolling_mean(data, times, depth, window='2h'):
+    """
+    Run a rolling mean on a data matrix with pandas rolling framework
+
+    :param data: values from DSS reading functions
+    :param times: Time array (will be used as index)
+    :param depth: Depth (column indices)
+    :param window: Time window to use in rolling calcs, default 2h
+
+    :return:
+    """
+
+    df = pd.DataFrame(data=data.T, index=times, columns=depth)
+    df = df.sort_index()
+    roll_mean = df.rolling(window).mean()
+    return roll_mean.values.T
+
+
+def denoise(data, method='detrend', depth=None, times=None, window='2h'):
     if method == 'demean':
         mean = data.mean(axis=0)
         data -= mean[np.newaxis, :]
@@ -396,6 +422,8 @@ def denoise(data, method='detrend'):
         data = gaussian_filter(data, 2)
     elif method == 'median':
         data = median_filter(data, 2)
+    elif method == 'rolling_mean':
+        data = rolling_mean(data, times, depth, window)
     return data
 
 
@@ -794,7 +822,7 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
 def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
-             denoise_method=None, vrange=(-60, 60), title=None,
+             denoise_method=None, window='2h', vrange=(-60, 60), title=None,
              tv_picks=None, prominence=30., pot_data=None):
     """
     Plot a colormap of DSS data
@@ -808,6 +836,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param thresh: MAD multiplier that serves as the threshold for auto picking
     :param date_range: [start date, end date]
     :param denoise_method: String stipulating the method in denoise() to use
+    :param window: Window for pandas rolling funcs (only rolling_mean denoise
+        at the moment.
     :param vrange: Colorbar range (in measurand unit)
     :param title: Title of plot
     :param tv_picks: Path to excel file with optical televiewer picks
@@ -872,7 +902,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         data = data - data[:, 0, np.newaxis]
     # Denoise methods are not mature yet
     if denoise_method:
-        data = denoise(data, denoise_method)
+        data = denoise(data, denoise_method, times=times, depth=depth_vect,
+                       window=window)
     if colorbar_type == 'dark':
         cmap = ListedColormap(sns.diverging_palette(
             240, 10, n=21, center='dark').as_hex())
