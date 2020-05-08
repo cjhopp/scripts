@@ -22,7 +22,7 @@ from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException
 from surf_seis.vibbox import vibbox_preprocess
-from eqcorrscan.core.match_filter import Tribe, Template
+from eqcorrscan.core.match_filter import Tribe, Party
 from eqcorrscan.core.template_gen import template_gen
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
@@ -238,7 +238,7 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
                                         meta_file=Catalog(events=[ev]),
                                         **param_dict)
                 trb.templates[0].name = name
-                tribe.templates.append(trb)
+                tribe += trb
             else:
                 # Otherwise, make a stand-alone template for each station
                 netstalocs = [(pk.waveform_id.network_code,
@@ -257,7 +257,42 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
                     trb = Tribe().construct(method='from_meta_file', st=daylong,
                                             meta_file=tmp_ev, **param_dict)
                     trb.templates[0].name = name
+                    tribe += trb
     return tribe
+
+
+def detect_tribe(tribe, wav_dir, start, end, param_dict):
+    """
+    Run matched filter detection on a tribe of Templates over waveforms in
+    a waveform directory (formatted as in above Tribe construction func)
+
+    :param tribe: Tribe of Templates
+    :param wav_dir: Root directory that will globbed recursively (/**/) for the
+        format specified above
+    :param start_date: Start datetime object
+    :param end_date: End datetime object
+    :param param_dict: Dict of parameters to pass to Tribe.detect()
+    :return:
+    """
+    party = Party()
+    net_sta_loc_chans = [(pk.waveform_id.network_code,
+                          pk.waveform_id.station_code,
+                          pk.waveform_id.location_code,
+                          pk.waveform_id.channel_code)
+                         for temp in tribe for pk in temp.event.picks]
+    for date in date_generator(start.date, end.date):
+        dto = UTCDateTime(date)
+        jday = dto.julday
+        wav_files = [glob('{}/**/{}.{}.{}.{}.{}.ms'.format(wav_dir, nslc[0],
+                                                           nslc[1], nslc[2],
+                                                           nslc[3], jday,),
+                          recursive=True)[0]
+                     for nslc in net_sta_loc_chans]
+        daylong = Stream()
+        for wav_file in wav_files:
+            daylong += read(wav_file)
+        party += tribe.detect(stream=daylong, **param_dict)
+    return party
 
 
 def stack_CASSM_directory(path, length, plotdir=None):
