@@ -23,6 +23,7 @@ from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException
 from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.core.match_filter import Tribe, Template
+from eqcorrscan.core.template_gen import template_gen
 from eqcorrscan.utils.pre_processing import shortproc
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
@@ -232,7 +233,7 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
         # ...Template.construct() instead of Tribe.construct()
         for ev in tmp_cat:
             name = ev.resource_id.id.split('&')[-2].split('=')[-1]
-            tribe.templates.append(Template().construct(
+            tribe.templates.extend(template_gen(
                 method='from_meta_file', name=name, st=daylong, event=ev,
                 **param_dict))
     return tribe
