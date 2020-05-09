@@ -16,6 +16,7 @@ from glob import glob
 from datetime import timedelta
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
+from obspy.core.event import ResourceIdentifier
 from obspy.geodetics.base import gps2dist_azimuth
 from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
@@ -247,16 +248,16 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
                               for pk in ev.picks]
                 for nsl in netstalocs:
                     tmp_ev = ev.copy()
-                    name += '_{}'.format('.'.join(nsl))
+                    t_nm = name + '_{}'.format('.'.join(nsl))
                     tmp_ev.picks = [pk for pk in tmp_ev.picks
                                     if pk.waveform_id.network_code == nsl[0]
                                     and pk.waveform_id.station_code == nsl[1]
                                     and pk.waveform_id.location_code == nsl[2]]
-                    tmp_ev.resource_id.id = name
+                    tmp_ev.resource_id = ResourceIdentifier(id=t_nm)
                     tmp_ev = Catalog(events=[tmp_ev])
                     trb = Tribe().construct(method='from_meta_file', st=daylong,
                                             meta_file=tmp_ev, **param_dict)
-                    trb.templates[0].name = name
+                    trb.templates[0].name = t_nm
                     tribe += trb
     return tribe
 
