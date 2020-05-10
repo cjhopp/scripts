@@ -270,8 +270,8 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
     :param tribe: Tribe of Templates
     :param wav_dir: Root directory that will globbed recursively (/**/) for the
         format specified above
-    :param start_date: Start datetime object
-    :param end_date: End datetime object
+    :param start_date: Start UTCDateTime object
+    :param end_date: End UTCDateTime object
     :param param_dict: Dict of parameters to pass to Tribe.detect()
     :return:
     """
@@ -281,7 +281,7 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                           pk.waveform_id.location_code,
                           pk.waveform_id.channel_code)
                          for temp in tribe for pk in temp.event.picks]
-    for date in date_generator(start.date(), end.date()):
+    for date in date_generator(start.date, end.date):
         dto = UTCDateTime(date)
         jday = dto.julday
         wav_files = [glob('{}/**/{}.{}.{}.{}.{}.ms'.format(wav_dir, nslc[0],
