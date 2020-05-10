@@ -276,11 +276,12 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
     :return:
     """
     party = Party()
-    net_sta_loc_chans = [(pk.waveform_id.network_code,
-                          pk.waveform_id.station_code,
-                          pk.waveform_id.location_code,
-                          pk.waveform_id.channel_code)
-                         for temp in tribe for pk in temp.event.picks]
+    net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
+                                   pk.waveform_id.station_code,
+                                   pk.waveform_id.location_code,
+                                   pk.waveform_id.channel_code)
+                                  for temp in tribe
+                                  for pk in temp.event.picks]))
     print(net_sta_loc_chans)
     for date in date_generator(start.date, end.date):
         dto = UTCDateTime(date)
