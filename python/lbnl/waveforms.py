@@ -25,7 +25,7 @@ from obspy.clients.fdsn.header import FDSNNoDataException
 from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.core.match_filter import Tribe, Party
 from eqcorrscan.core.template_gen import template_gen
-from eqcorrscan.utils.pre_processing import shortproc
+from eqcorrscan.utils.pre_processing import shortproc, _check_daylong
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
 from scipy.stats import special_ortho_group, median_absolute_deviation
@@ -292,7 +292,9 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                 recursive=True))
         daylong = Stream()
         for wav_file in wav_files:
-            daylong += read(wav_file)
+            st = read(wav_file)
+            if _check_daylong(st[0]):
+                daylong += st
         party += tribe.detect(stream=daylong.merge(), **param_dict)
     return party
 
