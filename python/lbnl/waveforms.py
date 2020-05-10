@@ -282,10 +282,10 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                                    pk.waveform_id.channel_code)
                                   for temp in tribe
                                   for pk in temp.event.picks]))
-    print(net_sta_loc_chans)
-    for date in date_generator(start.date, end.date):
+    for date in date_generator(start.datetime, end.datetime):
         dto = UTCDateTime(date)
         jday = dto.julday
+        print(jday)
         wav_files = [glob('{}/**/{}.{}.{}.{}.{}.ms'.format(wav_dir, nslc[0],
                                                            nslc[1], nslc[2],
                                                            nslc[3], jday),
