@@ -292,11 +292,8 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                 recursive=True))
         daylong = Stream()
         for wav_file in wav_files:
-            try:
-                daylong += read(wav_file)
-            except Exception:
-                continue
-        party += tribe.detect(stream=daylong, **param_dict)
+            daylong += read(wav_file)
+        party += tribe.detect(stream=daylong.merge(), **param_dict)
     return party
 
 
