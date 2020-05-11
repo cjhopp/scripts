@@ -187,7 +187,8 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
     return
 
 
-def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
+def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
+                       stations='all'):
     """
     Loop over a catalog and return a tribe of templates for each. Assumes we're
     looking in a directory with day-long miniSEED files with filenames formatted
@@ -201,6 +202,8 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
                                 'sampling_rate': , 'prepick': , 'length': }
     :param single_station: Flag to tell function to make a Template for each
         single station for each event.
+    :param stations: 'all' or a list of station names to include in templates.
+        Valid for both single_station=T and F
 
     :return:
     """
@@ -230,11 +233,13 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
         daylong = Stream()
         for wav_file in wav_files:
             daylong += read(wav_file)
-        # Gain control over template names by looping events and calling
-        # ...Template.construct() instead of Tribe.construct()
         for ev in tmp_cat:
             name = ev.resource_id.id.split('&')[-2].split('=')[-1]
             if not single_station:
+                # Eliminate unwanted picks
+                if type(stations) == list:
+                    ev.picks = [pk for pk in ev.picks
+                                if pk.waveform_id.station_code in stations]
                 trb = Tribe().construct(method='from_meta_file', st=daylong,
                                         meta_file=Catalog(events=[ev]),
                                         **param_dict)
@@ -247,6 +252,8 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False):
                                pk.waveform_id.location_code)
                               for pk in ev.picks]
                 for nsl in netstalocs:
+                    if type(stations) == list and nsl[1] not in stations:
+                        continue
                     tmp_ev = ev.copy()
                     t_nm = name + '_{}'.format('.'.join(nsl))
                     tmp_ev.picks = [pk for pk in tmp_ev.picks
