@@ -293,7 +293,9 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
         daylong = Stream()
         for wav_file in wav_files:
             st = read(wav_file)
-            if _check_daylong(st[0]):
+            # Ensure not simply zeros or less than 0.8 * day length
+            if (_check_daylong(st[0]) and
+                    st[0].stats.endtime - st[0].stats.starttime >= 69120.):
                 daylong += st
         party += tribe.detect(stream=daylong.merge(), **param_dict)
     return party
