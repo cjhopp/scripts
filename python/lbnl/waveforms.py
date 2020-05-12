@@ -427,6 +427,7 @@ def uniform_rotate_stream(st, ev, inv, rotation='rand', n=1000,
 
     :param st: Stream to rotate
     :param ev: Event with picks used to define the P arrival window
+    :param inv: Obspy Inventory object
     :param rotation: Defaults to a random set of rotations but can be given any
         axis which will entail a regular grid of rotations around that axis.
     :param n: Number of samples to draw

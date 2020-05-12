@@ -495,6 +495,10 @@ def correlate_fibers(template, template_lengths, image, image_lengths,
     return ccc, shift
 
 
+def interpolate_picks(pick_dict):
+
+    return grid
+
 ################  Plotting  Funcs  ############################################
 
 def plot_fiber_correlation(template, template_lengths, image, image_lengths,
