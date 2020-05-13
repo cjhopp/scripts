@@ -1408,9 +1408,9 @@ def plot_station_rot_stats(sta_dict, title='Station orientaton stats'):
     for sta, d in sta_dict.items():
         az, dip = zip(*d['orientation'])
         sns.distplot(d['bh angle'], label=sta, ax=axes[2],
-                     kde=False)
-        sns.distplot(az, label=sta, ax=axes[0], kde=False)
-        sns.distplot(dip, label=sta, ax=axes[1], kde=False)
+                     hist=False, rug=True)
+        sns.distplot(az, label=sta, ax=axes[0], hist=False, rug=True)
+        sns.distplot(dip, label=sta, ax=axes[1], hist=False, rug=True)
         axes[0].legend()
         axes[0].set_title('Channel azimuth')
         # axes[0].set_theta_zero_location('N')
