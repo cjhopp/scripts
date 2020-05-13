@@ -247,10 +247,11 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                 tribe += trb
             else:
                 # Otherwise, make a stand-alone template for each station
+                # with P pick (S will get included as well)
                 netstalocs = [(pk.waveform_id.network_code,
                                pk.waveform_id.station_code,
                                pk.waveform_id.location_code)
-                              for pk in ev.picks]
+                              for pk in ev.picks if pk.phase_hint == 'P']
                 for nsl in netstalocs:
                     if type(stations) == list and nsl[1] not in stations:
                         continue
