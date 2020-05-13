@@ -163,9 +163,9 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
         dto = UTCDateTime(date)
         print('Processing events on {}'.format(dto))
         # Establish which events are in this day
-        sch_str_start = 'time >= {}'.format(dto)
-        sch_str_end = 'time <= {}'.format((dto + 86400))
-        tmp_cat = catalog.filter(sch_str_start, sch_str_end)
+        tmp_cat = Catalog(
+            events=[ev for ev in catalog
+                    if dto <= ev.picks[0].time < dto + 86400])
         if len(tmp_cat) == 0:
             print('No events on: %s' % str(dto))
             continue
