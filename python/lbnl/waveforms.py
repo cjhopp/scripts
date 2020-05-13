@@ -149,10 +149,16 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
     :return:
     """
     # Ensure catalog sorted (should be by default?)
-    catalog.events.sort(key=lambda x: x.preferred_origin().time)
-    # Define catalog start and end dates
-    cat_start = catalog[0].preferred_origin().time.date
-    cat_end = catalog[-1].preferred_origin().time.date
+    try:
+        catalog.events.sort(key=lambda x: x.preferred_origin().time)
+        # Define catalog start and end dates
+        cat_start = catalog[0].preferred_origin().time.date
+        cat_end = catalog[-1].preferred_origin().time.date
+    except AttributeError as e:  # In case this is a catalog of detections
+        catalog.events.sort(key=lambda x: x.picks[0].time)
+        # Define catalog start and end dates
+        cat_start = catalog[0].picks[0].time.date
+        cat_end = catalog[-1].picks[0].time.date
     for date in date_generator(cat_start, cat_end):
         dto = UTCDateTime(date)
         print('Processing events on {}'.format(dto))
