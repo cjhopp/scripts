@@ -496,7 +496,7 @@ def correlate_fibers(template, template_lengths, image, image_lengths,
 
 
 def interpolate_picks(pick_dict):
-
+    grid = np.array()
     return grid
 
 ################  Plotting  Funcs  ############################################
