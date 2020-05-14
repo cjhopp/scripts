@@ -106,6 +106,7 @@ def calculate_ppsds(netstalocchans, wav_dir, inventory, outdir):
             print('Adding {}'.format(f))
             root_name = os.path.basename(f).rstrip('.ms')
             st = read(f)
+            print(st)
             lil_ppsd = PPSD(st[0].stats, inventory)
             lil_ppsd.add(st)
             big_ppsd.add(st)
