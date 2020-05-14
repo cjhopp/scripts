@@ -275,7 +275,7 @@ def surf_stations_to_inv(excel_file, debug=0):
             chan = 'XN{}'.format(row['Sensor'][-1])
             # Geophones
             if row['Sensor'].startswith('G'):
-                no = row['Sensor'][-3]
+                continue
             # Accelerometers
             else:
                 no = row['Sensor'].split('_')[1]
