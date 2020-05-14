@@ -18,6 +18,7 @@ from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
 from obspy.core.event import ResourceIdentifier
 from obspy.geodetics.base import gps2dist_azimuth
+from obspy.signal import PPSD
 from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
@@ -79,21 +80,40 @@ def _check_dir(path):
     return
 
 
-def calculate_ppsds(netstalocs, wav_dir, inventory, outdir):
+def calculate_ppsds(netstalocchans, wav_dir, inventory, outdir):
     """
-    Crawl a waveform directory structure and calculate ppsds for each file
+    Crawl a waveform directory structure and calculate ppsds for each file.
+
+    In this case, the files are daylong. We'll make a PPSD for each and also
+    compile a full-dataset PPSD (if memory allows)
 
     :param netstalocs: List of net.sta.loc for
-    :param wav_dir:
-    :param inventory:
-    :param outir:
+    :param wav_dir: Path to root waveform directory
+    :param inventory: Obspy Inventory object for stations of interest
+    :param outdir: Output directory for both numpy arrays of PPSD and plots
+
     :return:
     """
-    for nsl in netstalocs:
+    for nsl in netstalocchans:
+        print('Running station {}'.format(nsl))
         nsl_split = nsl.split('.')
-        wav_files = glob('{}/**/{}.{}.{}.*.ms'.format(
-            wav_dir, nsl_split[0], nsl_split[1], nsl_split[2]), recursive=True)
-
+        wav_files = glob('{}/**/{}.{}.{}.{}*.ms'.format(
+            wav_dir, nsl_split[0], nsl_split[1], nsl_split[2], nsl_split[3]),
+            recursive=True)
+        wav_files.sort()
+        big_ppsd = PPSD(read(wav_files[0])[0].stats, inventory)
+        for f in wav_files:
+            print('Adding {}'.format(f))
+            root_name = os.path.basename(f).rstrip('.ms')
+            st = read(f)
+            lil_ppsd = PPSD(st[0].stats, inventory)
+            lil_ppsd.add(st)
+            big_ppsd.add(st)
+            lil_ppsd.save_npz('{}/ppsds/{}.npz'.format(outdir, root_name))
+            lil_ppsd.plot(filename='{}/plots/{}.png'.format(outdir, root_name))
+        big_root = '.'.join(root_name.split('.')[:-2])
+        big_ppsd.save_npz('{}/ppsds/{}_all.npz'.format(outdir, big_root))
+        big_ppsd.plot(filename='{}/plots/{}_all.png'.format(outdir, big_root))
     return
 
 
