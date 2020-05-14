@@ -1,0 +1,16 @@
+# Trigger/picking parameter file for cascadia borehole project
+
+Trigger:
+  start_time: 2017-7-28
+  end_time: 2017-12-20
+  sta: 1.0
+  lta: 10.0
+  min_freq: 1.0
+  max_freq: 20.
+  corners: 3
+  sampling_rate: 50.
+  threshold_on: 3.5
+  threshold_off: 1.0
+
+Picker:
+  

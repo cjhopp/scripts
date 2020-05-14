@@ -1,0 +1,42 @@
+#!/usr/bin/python
+
+"""
+Set of functions wrapping obspy triggering and phasepapy picking/association
+"""
+
+import yaml
+
+from glob import glob
+from obspy import UTCDateTime, read
+from obspy.signal.trigger import coincidence_trigger
+
+
+def date_generator(start_date, end_date):
+    # Generator for date looping
+    from datetime import timedelta
+    for n in range(int((end_date - start_date).days) + 1):
+        yield start_date + timedelta(n)
+
+
+def trigger(param_file):
+    """
+    Wrapper on obspy coincidence trigger for a directory of waveforms
+
+    :param param_file: Path to a yaml with the necessary parameters
+
+    :return:
+    """
+    with open(param_file, 'r') as f:
+        paramz = yaml.load(f)
+    trigs = []
+    for date in date_generator(paramz['trigger']['start_time'],
+                               paramz['trigger']['end_time']):
+        jday = UTCDateTime(date).jday
+        day_wavs = glob('{}/**/*{}.ms'.format(
+            paramz['Trigger']['raw_wav_dir'], jday))
+        st = Stream()
+        for w in day_wavs:
+            # TODO Do some checks for continuity, gaps, etc...
+            st += read(w)
+        trigs += coincidence_trigger(stream=st, )
+    return trigs
