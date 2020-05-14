@@ -184,7 +184,10 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
             print('Skipping {}'.format(date))
             continue
         for ev in tmp_cat:
-            fname = ev.resource_id.id.split('&')[-2].split('=')[-1]
+            try:
+                fname = ev.resource_id.id.split('&')[-2].split('=')[-1]
+            except IndexError:  # Case of non-usgs catalog, try Detection name
+                fname = ev.resource_id.id
             print('Slicing ev {}'.format(fname))
             pt = min([pk.time for pk in ev.picks])
             st_slice = st.slice(starttime=pt - pre_pick,
