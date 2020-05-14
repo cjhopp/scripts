@@ -109,6 +109,7 @@ def calculate_ppsds(netstalocchans, wav_dir, inventory, outdir):
             lil_ppsd = PPSD(st[0].stats, inventory)
             flag = lil_ppsd.add(st)
             if not flag:
+                print('Failed to add {}'.format(f))
                 continue
             big_ppsd.add(st)
             lil_ppsd.save_npz('{}/ppsds/{}.npz'.format(outdir, root_name))
