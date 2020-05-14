@@ -79,6 +79,24 @@ def _check_dir(path):
     return
 
 
+def calculate_ppsds(netstalocs, wav_dir, inventory, outdir):
+    """
+    Crawl a waveform directory structure and calculate ppsds for each file
+
+    :param netstalocs: List of net.sta.loc for
+    :param wav_dir:
+    :param inventory:
+    :param outir:
+    :return:
+    """
+    for nsl in netstalocs:
+        nsl_split = nsl.split('.')
+        wav_files = glob('{}/**/{}.{}.{}.*.ms'.format(
+            wav_dir, nsl_split[0], nsl_split[1], nsl_split[2]), recursive=True)
+
+    return
+
+
 def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
     """
     Iterate over date range, pull IRIS waveforms pertaining to the obspy

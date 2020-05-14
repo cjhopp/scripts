@@ -280,6 +280,9 @@ def surf_stations_to_inv(excel_file, debug=0):
             else:
                 no = row['Sensor'].split('_')[1]
             sta_name = '{}{}'.format(row['Desc'], no)
+            if sta_name in ['OB14', 'OT17', 'PDT2', 'PDT5', 'PSB8', 'PST11']:
+                # These are geode stations only, skip
+                continue
             channel = Channel(code=chan, location_code='', latitude=lat,
                               longitude=lon, elevation=elev, depth=depth,
                               azimuth=az, dip=dip, response=Response())
