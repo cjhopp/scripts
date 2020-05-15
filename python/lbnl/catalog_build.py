@@ -7,7 +7,7 @@ Set of functions wrapping obspy triggering and phasepapy picking/association
 import yaml
 
 from glob import glob
-from obspy import UTCDateTime, read
+from obspy import UTCDateTime, read, Stream
 from obspy.signal.trigger import coincidence_trigger
 
 
@@ -28,6 +28,8 @@ def trigger(param_file):
     """
     with open(param_file, 'r') as f:
         paramz = yaml.load(f)
+    trig_p = paramz['Trigger']
+    pick_p = paramz['Picker']
     trigs = []
     for date in date_generator(paramz['trigger']['start_time'],
                                paramz['trigger']['end_time']):
@@ -38,5 +40,10 @@ def trigger(param_file):
         for w in day_wavs:
             # TODO Do some checks for continuity, gaps, etc...
             st += read(w)
-        trigs += coincidence_trigger(stream=st, )
+        trigs += coincidence_trigger(
+            trigger_type='recstalta',
+            stream=st, thr_on=trig_p['threshold_on'],
+            thr_off=trig_p['threshold_off'],
+            thr_coincidence_sum=trig_p['coincidence_sum'],
+            sta=trig_p['sta'], lta=trig_p['lta'], details=True)
     return trigs
