@@ -31,8 +31,9 @@ def trigger(param_file):
     trig_p = paramz['Trigger']
     pick_p = paramz['Picker']
     trigs = []
-    for date in date_generator(paramz['trigger']['start_time'],
-                               paramz['trigger']['end_time']):
+    start = UTCDateTime(trig_p['start_time']).datetime
+    end = UTCDateTime(trig_p['end_time']).datetime
+    for date in date_generator(start, end):
         jday = UTCDateTime(date).jday
         day_wavs = glob('{}/**/*{}.ms'.format(
             paramz['Trigger']['raw_wav_dir'], jday))

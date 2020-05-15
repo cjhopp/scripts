@@ -1,5 +1,7 @@
 # Trigger/picking parameter file for cascadia borehole project
 
+General:
+  wav_directory: /bear0-data/GMF_1/Cascadia/Chet/mseed
 Trigger:
   start_time: 2017-9-1
   end_time: 2017-9-1
