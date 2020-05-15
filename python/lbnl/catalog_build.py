@@ -35,10 +35,8 @@ def trigger(param_file):
     end = UTCDateTime(trig_p['end_time']).datetime
     for date in date_generator(start.date(), end.date()):
         jday = UTCDateTime(date).julday
-        print(jday)
         day_wavs = glob('{}/**/*{}.ms'.format(
             paramz['General']['wav_directory'], jday), recursive=True)
-        print(day_wavs)
         st = Stream()
         for w in day_wavs:
             # TODO Do some checks for continuity, gaps, etc...
