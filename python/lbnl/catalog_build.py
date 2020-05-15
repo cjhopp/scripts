@@ -33,7 +33,7 @@ def trigger(param_file):
     trigs = []
     start = UTCDateTime(trig_p['start_time']).datetime
     end = UTCDateTime(trig_p['end_time']).datetime
-    for date in date_generator(start.date, end.date):
+    for date in date_generator(start.date(), end.date()):
         jday = UTCDateTime(date).julday
         print(jday)
         day_wavs = glob('{}/**/*{}.ms'.format(
