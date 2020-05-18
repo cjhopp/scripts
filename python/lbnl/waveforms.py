@@ -133,7 +133,8 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
     """
     client = Client('IRIS')
     for date in date_generator(start_date, end_date):
-        _check_dir(os.path.join(output_root, date.year))
+        year = str(date.year)
+        _check_dir(os.path.join(output_root, year))
         print('Retrieving: {}'.format(date))
         jday = UTCDateTime(date).julday
         # If no directory
@@ -148,21 +149,21 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
             print(e)
             continue
         for net in inventory:
-            _check_dir(os.path.join(output_root, date.year, net.code))
+            _check_dir(os.path.join(output_root, year, net.code))
             for sta in net.stations:
-                _check_dir(os.path.join(output_root, date.year, net.code,
+                _check_dir(os.path.join(output_root, year, net.code,
                                         sta.code))
                 for chan in sta.channels:
                     loc = chan.location_code
                     if loc == '':  # If empty, directory wont get written
                         loc = '00'
-                    _check_dir(os.path.join(output_root, date.year, net.code,
+                    _check_dir(os.path.join(output_root, year, net.code,
                                             sta.code, loc))
-                    _check_dir(os.path.join(output_root, date.year, net.code,
+                    _check_dir(os.path.join(output_root, year, net.code,
                                             sta.code, loc, chan.code))
                     fname = '{}.{}.{}.{}.{}.{}.ms'.format(net.code, sta.code,
                                                           loc, chan.code,
-                                                          date.year, jday)
+                                                          year, jday)
                     out_path = os.path.join(output_root, net.code, sta.code,
                                             loc, chan.code, fname)
                     if os.path.isfile(out_path):
