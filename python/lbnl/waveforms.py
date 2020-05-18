@@ -146,17 +146,13 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                                         sta.code))
                 for chan in sta.channels:
                     loc = chan.location_code
-                    if loc == '':  # If empty, directory wont get written
-                        loc = '00'
                     _check_dir(os.path.join(output_root, year, net.code,
-                                            sta.code, loc))
-                    _check_dir(os.path.join(output_root, year, net.code,
-                                            sta.code, loc, chan.code))
+                                            sta.code, chan.code))
                     fname = '{}.{}.{}.{}.{}.{}.ms'.format(net.code, sta.code,
                                                           loc, chan.code,
                                                           year, jday)
                     out_path = os.path.join(output_root, net.code, sta.code,
-                                            loc, chan.code, fname)
+                                            chan.code, fname)
                     if os.path.isfile(out_path):
                         print('{} already exists'.format(out_path))
                         continue
