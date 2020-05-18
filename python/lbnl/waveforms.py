@@ -139,15 +139,6 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
         jday = UTCDateTime(date).julday
         # If no directory
         t2 = UTCDateTime(date) + 86400.
-        bulk = [(net.code, sta.code, '*', '*', UTCDateTime(date), t2)
-                for net in inventory for sta in net]
-        try:
-            print('Making request for {}'.format(bulk))
-            st = client.get_waveforms_bulk(bulk)
-            print(st)
-        except FDSNNoDataException as e:
-            print(e)
-            continue
         for net in inventory:
             _check_dir(os.path.join(output_root, year, net.code))
             for sta in net.stations:
@@ -168,6 +159,15 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                                             loc, chan.code, fname)
                     if os.path.isfile(out_path):
                         print('{} already exists'.format(out_path))
+                        continue
+                    bulk = [(net.code, sta.code, '*', chan.code,
+                             UTCDateTime(date), t2)]
+                    try:
+                        print('Making request for {}'.format(bulk))
+                        st = client.get_waveforms_bulk(bulk)
+                        print(st)
+                    except FDSNNoDataException as e:
+                        print(e)
                         continue
                     try:
                         print('Writing {}'.format(out_path))
