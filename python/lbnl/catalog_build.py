@@ -9,6 +9,7 @@ import yaml
 from glob import glob
 from obspy import UTCDateTime, read, Stream
 from obspy.signal.trigger import coincidence_trigger
+from eqcorrscan.utils.pre_processing import dayproc
 
 
 def date_generator(start_date, end_date):
@@ -34,13 +35,24 @@ def trigger(param_file):
     start = UTCDateTime(trig_p['start_time']).datetime
     end = UTCDateTime(trig_p['end_time']).datetime
     for date in date_generator(start.date(), end.date()):
-        jday = UTCDateTime(date).julday
+        print('Triggering on {}'.format(date))
+        utcdto = UTCDateTime(date)
+        jday = utcdto.julday
         day_wavs = glob('{}/**/*{}.ms'.format(
             paramz['General']['wav_directory'], jday), recursive=True)
         st = Stream()
         for w in day_wavs:
             # TODO Do some checks for continuity, gaps, etc...
             st += read(w)
+        st = st.merge(fill_value='interpolate')
+        # Filter and downsample the wavs
+        st = dayproc(st, lowcut=trig_p['lowcut'],
+                     highcut=trig_p['highcut'], filt_order=trig_p['filt_order'],
+                     samp_rate=trig_p['sampling_rate'], starttime=utcdto)
+        # Precompute characteristic functions for each station as tuned manually
+        sta_lta_params = trig_p['channel_specific_params']
+        for tr in st:
+
         trigs += coincidence_trigger(
             trigger_type='recstalta',
             stream=st, thr_on=trig_p['threshold_on'],
@@ -48,3 +60,7 @@ def trigger(param_file):
             thr_coincidence_sum=trig_p['coincidence_sum'],
             sta=trig_p['sta'], lta=trig_p['lta'], details=True)
     return trigs
+
+
+def plot_triggers():
+    return
