@@ -151,8 +151,8 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                     fname = '{}.{}.{}.{}.{}.{}.ms'.format(net.code, sta.code,
                                                           loc, chan.code,
                                                           year, jday)
-                    out_path = os.path.join(output_root, net.code, sta.code,
-                                            chan.code, fname)
+                    out_path = os.path.join(output_root, year, net.code,
+                                            sta.code, chan.code, fname)
                     if os.path.isfile(out_path):
                         print('{} already exists'.format(out_path))
                         continue
