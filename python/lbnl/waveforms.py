@@ -22,7 +22,7 @@ from obspy.signal import PPSD
 from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
-from obspy.clients.fdsn.header import FDSNNoDataException
+from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
 from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.core.match_filter import Tribe, Party
 from eqcorrscan.core.template_gen import template_gen
@@ -161,7 +161,8 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                         print('Making request for {}'.format(bulk))
                         st = client.get_waveforms_bulk(bulk)
                         print(st)
-                    except (FDSNNoDataException, ConnectionResetError) as e:
+                    except (FDSNNoDataException, ConnectionResetError,
+                            FDSNException) as e:
                         print(e)
                         continue
                     try:
