@@ -161,7 +161,7 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                         print('Making request for {}'.format(bulk))
                         st = client.get_waveforms_bulk(bulk)
                         print(st)
-                    except FDSNNoDataException as e:
+                    except (FDSNNoDataException, ConnectionResetError) as e:
                         print(e)
                         continue
                     try:
