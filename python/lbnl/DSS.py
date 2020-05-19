@@ -14,6 +14,7 @@ import matplotlib.patches as mpatches
 from glob import glob
 from obspy import Stream, Trace
 from eqcorrscan.core.match_filter import normxcorr2
+from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks
 from scipy.stats import median_absolute_deviation
@@ -28,7 +29,7 @@ from matplotlib.collections import LineCollection
 # Local imports
 from lbnl.coordinates import cartesian_distance
 from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
-    calculate_frac_density, read_frac_cores
+    calculate_frac_density, read_frac_cores, depth_to_xyz
 from lbnl.simfip import read_excavation, plot_displacement_components
 
 
@@ -140,6 +141,10 @@ mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                                   'CSD5': chan_map_co2_5612,
                                   'FSB': chan_map_fsb},
                 'surf': chan_map_surf}
+
+well_fiber_map = {'D1': 'CSD5', 'D2': 'CSD5', 'D3': 'CSD3', 'D4': 'CSD3',
+                  'D5': 'CSD5', 'D6': 'CSD5', 'B3': 'FSB', 'B4': 'FSB',
+                  'B5': 'FSB', 'B6': 'FSB', 'B7': 'FSB'}
 
 # Custom color palette similar to wellcad convention
 frac_cols = {'All fractures': 'black',
@@ -270,13 +275,17 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
         return
     data_files = glob('{}/*{}.txt'.format(root, measure))
     well_data = {}
+    fiber_data = {}
     print('Reading data')
     if location == 'fsb':
+        chan_map = {}
         for f in data_files:
             if f.split('/')[-1].startswith('FSB-SMF-1'):
                 # Skip fiber 1
                 continue
             file_root = f.split('/')[-1].split('-')[0]
+            print(file_root)
+            fiber_data[file_root] = {}
             if fibers:
                 if file_root not in fibers:
                     continue
@@ -285,7 +294,10 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
             # Take first column as the length along the fiber and remove from data
             depth = data[:, -1]
             data = data[:, :-1]
-            chan_map = mapping_dict[mapping][file_root]
+            fiber_data[file_root]['data'] = data
+            fiber_data[file_root]['depth'] = depth
+            fiber_data[file_root]['times'] = times
+            chan_map.update(mapping_dict[mapping][file_root])
             mode, type_m = read_metadata(f)
     elif location == 'surf':
         data, depth, times = read_ascii_directory(root, header=34,
@@ -293,33 +305,37 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
         chan_map = mapping_dict[location]
         mode, type_m = read_metadata(glob('{}/**/*bpr.txt'.format(root),
                                           recursive=True)[0])
+        fiber_data['surf']['data'] = data
+        fiber_data['surf']['depth'] = depth
+        fiber_data['surf']['times'] = times
     else:
         print('Provide valide location')
         return
     print('Realigning')
     # First realign
-    data = madjdabadi_realign(data)
+    for fib, f_dict in fiber_data.items():
+        f_dict['data'] = madjdabadi_realign(f_dict['data'])
     if convert_freq and type_m.endswith('Frequency'):
         print('Converting from freq to strain')
         if mode == 'Absolute':
             # First convert to delta Freq
-            data = data - data[:, 0, np.newaxis]
+            for fib, f_dict in fiber_data.items():
+                f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
             mode = 'Relative'  # overwrite mode
             type_m = 'Strain'
         # Use conversion factor 0.579 GHz shift per 1% strain
         # For microstrain, factor is 5790
-        data *= 5790.
-    # Take selected channels
-    if fibers:
-        channel_range = (0, -1)
-    channel_ranges = []
+        for fib, f_dict in fiber_data.items():
+            f_dict['data'] *= 5790.
     print('Calculating channel mapping')
     if wells:
         for well in wells:
             if well not in chan_map:
+                print('{} not in mapping'.format(well))
                 continue
-            # if (mapping in ['bottom', 'excavation', 'co2_injection'] and
-            #     well.startswith('D')):
+            depth = fiber_data[well_fiber_map[well]]['depth']
+            data = fiber_data[well_fiber_map[well]]['data']
+            times = fiber_data[well_fiber_map[well]]['times']
             if type(chan_map[well]) == float:
                 start_chan = np.abs(depth - (chan_map[well] -
                                              fiber_depths[well]))
@@ -329,29 +345,42 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
                 start_chan = np.abs(depth - chan_map[well][0])
                 end_chan = np.abs(depth - chan_map[well][-1])
             # Find the closest integer channel to meter mapping
-            channel_range = (np.argmin(start_chan), np.argmin(end_chan))
-            channel_ranges.append((well, channel_range))
+            data_tmp = data[np.argmin(start_chan):np.argmin(end_chan), :]
+            depth_tmp = depth[np.argmin(start_chan):np.argmin(end_chan)]
+            noise = estimate_noise(data_tmp, method=noise_method)
             well_data[well] = {'times': times, 'mode': mode,
                                'type': type_m}
+            well_data[well].update({'data': data_tmp, 'depth': depth_tmp,
+                                    'noise': noise})
     elif fibers:
         for fiber in fibers:
-            try:
-                if fiber == file_root:
-                    well_data[fiber] = {'times': times, 'mode': mode,
-                                        'type': type}
-                    channel_ranges.append((fiber, channel_range))
-            except UnboundLocalError as e:  # Case of surf
+            if location != 'surf':
+                for fib, f_dict in fiber_data.items():
+                    if fiber == fib:
+                        depth = fiber_data[fiber]['depth']
+                        data = fiber_data[fiber]['data']
+                        times = fiber_data[fiber]['times']
+                        well_data[fiber] = {'times': times, 'mode': mode,
+                                            'type': type}
+                        data_tmp = data[0:-1, :]
+                        depth_tmp = depth[0:-1]
+                        # Get median absolute deviation averaged across all channels
+                        noise = estimate_noise(data_tmp, method=noise_method)
+                        well_data[fiber].update({'data': data_tmp,
+                                                 'depth': depth_tmp,
+                                                'noise': noise})
+            else:  # Case of surf
+                data = fiber_data['surf']['data']
+                depth = fiber_data['surf']['depth']
+                times = fiber_data['surf']['times']
                 well_data[fiber] = {'times': times, 'mode': mode,
                                     'type': type}
-                channel_ranges.append((fiber, channel_range))
-    print('Slicing into arrays')
-    for rng in channel_ranges:
-        data_tmp = data[rng[1][0]:rng[1][1], :]
-        depth_tmp = depth[rng[1][0]:rng[1][1]]
-        # Get median absolute deviation averaged across all channels
-        noise = estimate_noise(data_tmp, method=noise_method)
-        well_data[rng[0]].update({'data': data_tmp, 'depth': depth_tmp,
-                                  'noise': noise})
+                data_tmp = data[0:-1, :]
+                depth_tmp = depth[0:-1]
+                # Get median absolute deviation averaged across all channels
+                noise = estimate_noise(data_tmp, method=noise_method)
+                well_data[fiber].update({'data': data_tmp, 'depth': depth_tmp,
+                                         'noise': noise})
     return well_data
 
 
@@ -495,9 +524,20 @@ def correlate_fibers(template, template_lengths, image, image_lengths,
     return ccc, shift
 
 
-def interpolate_picks(pick_dict):
-    grid = np.array()
-    return grid
+def interpolate_picks(pick_dict, xrange=(2579250, 2579400),
+                      yrange=(1247500, 1247650), zrange=(400, 550),
+                      sampling=0.5, method='cubic'):
+    pts = []
+    strains = []
+    for well, w_dict in pick_dict.items():
+        pts.extend(depth_to_xyz(create_FSB_boreholes(), well, w_dict['depths']))
+        strains.extend(w_dict['strains'])
+    gridx, gridy, gridz = np.mgrid[xrange[0]:xrange[1]:sampling,
+                                   yrange[0]:yrange[1]:sampling,
+                                   zrange[0]:zrange[1]:sampling]
+    interp = griddata(np.array(pts), np.array(strains), (gridx, gridy, gridz),
+                      method=method)
+    return interp
 
 ################  Plotting  Funcs  ############################################
 
