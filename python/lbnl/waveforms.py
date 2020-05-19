@@ -148,15 +148,14 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                     loc = chan.location_code
                     _check_dir(os.path.join(output_root, year, net.code,
                                             sta.code, chan.code))
-                    fname = '{}.{}.{}.{}.{}.{}.ms'.format(net.code, sta.code,
-                                                          loc, chan.code,
-                                                          year, jday)
+                    fname = '{}.{}.{}.{}.{}.{:03d}.ms'.format(
+                        net.code, sta.code, loc, chan.code, year, jday)
                     out_path = os.path.join(output_root, year, net.code,
                                             sta.code, chan.code, fname)
                     if os.path.isfile(out_path):
                         print('{} already exists'.format(out_path))
                         continue
-                    bulk = [(net.code, sta.code, '*', chan.code,
+                    bulk = [(net.code, sta.code, loc, chan.code,
                              UTCDateTime(date), t2)]
                     try:
                         print('Making request for {}'.format(bulk))
