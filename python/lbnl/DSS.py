@@ -526,17 +526,26 @@ def correlate_fibers(template, template_lengths, image, image_lengths,
 
 def interpolate_picks(pick_dict, xrange=(2579250, 2579400),
                       yrange=(1247500, 1247650), zrange=(400, 550),
-                      sampling=0.5, method='cubic'):
+                      sampling=0.5, method='linear', debug=0):
     pts = []
     strains = []
     for well, w_dict in pick_dict.items():
-        pts.extend(depth_to_xyz(create_FSB_boreholes(), well, w_dict['depths']))
+        for feature_dep in w_dict['depths']:
+            pts.append(depth_to_xyz(create_FSB_boreholes(), well,
+                                    feature_dep))
         strains.extend(w_dict['strains'])
     gridx, gridy, gridz = np.mgrid[xrange[0]:xrange[1]:sampling,
                                    yrange[0]:yrange[1]:sampling,
                                    zrange[0]:zrange[1]:sampling]
     interp = griddata(np.array(pts), np.array(strains), (gridx, gridy, gridz),
                       method=method)
+    # Test plotting
+    if debug > 0:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        scat = ax.scatter(gridx, gridy, gridz, c=interp.flatten(), alpha=0.5)
+        fig.colorbar(scat)
+        plt.show()
     return interp
 
 ################  Plotting  Funcs  ############################################
@@ -1265,9 +1274,9 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                             # Precalculate axes depth
                             rel_dep = (self.depth[-1] -
                                        self.depth[pk[0] + pick_adjust])
+                            self.pick_dict[self.well]['depths'].append(rel_dep)
                             if rel_dep < 5:  # Ignore shallow picks for now
                                 continue
-                            self.pick_dict[self.well]['depths'].append(rel_dep)
                             self.figure.axes[-3].fill_between(
                                 x=np.array([-500, 500]),
                                 y1=rel_dep - half_width,
@@ -1277,9 +1286,9 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                             trans = arr_ax.get_yaxis_transform()
                         else: # Downgoing
                             rel_dep = self.depth[pk[0]]
+                            self.pick_dict[self.well]['depths'].append(rel_dep)
                             if rel_dep < 5:  # Ignore shallow picks for now
                                 continue
-                            self.pick_dict[self.well]['depths'].append(rel_dep)
                             self.figure.axes[-4].fill_between(
                                 x=np.array([-500, 500]),
                                 y1=rel_dep - half_width,

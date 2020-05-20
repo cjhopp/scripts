@@ -26,11 +26,14 @@ from scipy.signal import resample
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             structures_to_planes)
 from lbnl.coordinates import SURF_converter
+from lbnl.DSS import interpolate_picks
 
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 title=None, offline=True, dd_only=False, surface='plane',
-                DSS_picks=None, structures=None, meshes=None):
+                DSS_picks=None, structures=None, meshes=None,
+                xrange=(2579250, 2579400), yrange=(1247500, 1247650),
+                zrange=(400, 550), sampling=0.5):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -55,6 +58,10 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param meshes: list of tup (Layer name, path) for files containing xyz
         vertices for mesh (only used for FSB Gallery at the moment; can be
         expanded)
+    :param xrange: List of min and max x of volume to interpolate DSS over
+    :param yrange: List of min and max y of volume to interpolate DSS over
+    :param zrange: List of min and max z of volume to interpolate DSS over
+    :param sampling: Sampling interval for ranges above (meters)
 
     :return:
     """
@@ -76,6 +83,9 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                               objects=datas)
     if DSS_picks:
         datas = add_DSS(DSS_picks=DSS_picks, objects=datas, well_dict=well_dict)
+        datas = add_DSS_volume_slices(objects=datas, pick_dict=DSS_picks,
+                                      xrange=xrange, yrange=yrange,
+                                      zrange=zrange, sampling=sampling)
     if meshes:
         datas = add_meshes(meshes=meshes, objects=datas)
     if structures:
@@ -136,6 +146,97 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     else:
         py.plot(fig, filename=outfile)
     return fig
+
+###### Adding various objects to the plotly figure #######
+
+def get_MT_fault(X, Y, which='top'):
+    """
+    Get Z values of Mont Terri Main Fault (top or bottom surface) from given
+    X, Y grid
+
+    :param X: X values
+    :param Y: Y values
+    :param which: top or bottom surface
+    :return: Z values
+    """
+    if which == 'top':
+        x0, y0, z0 = (2579436.53670393, 1247544.87027284, 341.30681888)
+        a, b, c = (np.sin(np.deg2rad(66.)), np.cos(np.deg2rad(66)),
+                   np.sin(np.deg2rad(45)))
+    elif which == 'bottom':
+        x0, y0, z0 = (2579354.68501021, 1247553.89247301, 425.23804918)
+        a, b, c = (np.sin(np.deg2rad(75.)), np.cos(np.deg2rad(75)),
+                   np.sin(np.deg2rad(40)))
+    else:
+        print('Only top or bottom of Main Fault supported')
+        return
+    Z = ((a * (X - x0)) + (b * (Y - y0)) / -1. * c) + z0
+    return Z
+
+
+"""
+Following functions from notebook here:
+https://nbviewer.jupyter.org/github/empet/Plotly-plots/blob/master/Plotly-Slice-in-volumetric-data.ipynb
+"""
+
+def get_the_slice(x, y, z, surfacecolor, colorscale='pl_BrBG',
+                  name='', showscale=False):
+    return go.Surface(x=x, y=y, z=z,
+                      surfacecolor=surfacecolor,
+                      colorscale=colorscale,
+                      showscale=showscale,
+                      name=name,
+                      colorbar=dict(thickness=20, ticklen=4))
+
+
+def get_lims_colors(surfacecolor): # color limits for a slice
+    return np.min(surfacecolor), np.max(surfacecolor)
+
+
+def get_strain(volume, planeX, planeY, planeZ):
+    # TODO How do we extract the closest Z value from grid for each Z value
+    # TODO in plane??
+    # TODO Min absolute value of Plane Z values - grid Z values?q
+    pts = zip(planeX, planeY, planeZ)
+    color = volume[np.argmin(volume - planeZ)]
+    return color
+
+
+def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling):
+    """
+    Interpolate onto a volume between DSS measurements, then plot the top
+    and bottom of the Main Fault where it intersects this volume.
+
+    :param pick_dict:
+    :param xrange:
+    :param yrange:
+    :param zrange:
+    :param sampling:
+    :param which:
+    :return:
+    """
+    volume = interpolate_picks(pick_dict, xrange, yrange, zrange, sampling,
+                               method='linear')
+    Xs = np.arange(xrange[0], xrange[1], sampling)
+    Ys = np.arange(yrange[0], yrange[1], sampling)
+    faultZ_top = get_MT_fault(Xs, Ys, which='top')
+    faultZ_bot = get_MT_fault(Xs, Ys, which='bottom')
+    color_top = get_strain(volume=volume, planeX=Xs, planeY=Ys,
+                           planeZ=faultZ_top)
+    color_bot = get_strain(volume=volume, planeX=Xs, planeY=Ys,
+                           planeZ=faultZ_bot)
+    cmin_t, cmax_t = get_lims_colors(color_top)
+    cmin_b, cmax_b = get_lims_colors(color_bot)
+    slice_top = get_the_slice(Xs, Ys, faultZ_top, color_top,
+                              name='Main Fault Strain: Top')
+    slice_bot = get_the_slice(Xs, Ys, faultZ_bot, color_bot,
+                              name='Main Fault Strain: Bottom')
+    slice_top.update(cmin=np.min([cmin_t, cmin_b]),
+                     cmax=np.max([cmax_t, cmax_b]))
+    slice_bot.update(cmin=np.min([cmin_t, cmin_b]),
+                     cmax=np.max([cmax_t, cmax_b]))
+    objects.extend([slice_top, slice_bot])
+    return objects
 
 
 def add_wells(well_dict, objects, structures):
