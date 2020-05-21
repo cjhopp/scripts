@@ -524,9 +524,7 @@ def correlate_fibers(template, template_lengths, image, image_lengths,
     return ccc, shift
 
 
-def interpolate_picks(pick_dict, xrange=(2579250, 2579400),
-                      yrange=(1247500, 1247650), zrange=(400, 550),
-                      sampling=0.5, method='linear', debug=0):
+def interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear', debug=0):
     pts = []
     strains = []
     for well, w_dict in pick_dict.items():
@@ -534,9 +532,6 @@ def interpolate_picks(pick_dict, xrange=(2579250, 2579400),
             pts.append(depth_to_xyz(create_FSB_boreholes(), well,
                                     feature_dep))
         strains.extend(w_dict['strains'])
-    gridx, gridy, gridz = np.mgrid[xrange[0]:xrange[1]:sampling,
-                                   yrange[0]:yrange[1]:sampling,
-                                   zrange[0]:zrange[1]:sampling]
     interp = griddata(np.array(pts), np.array(strains), (gridx, gridy, gridz),
                       method=method)
     # Test plotting
