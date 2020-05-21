@@ -188,14 +188,20 @@ Following functions from notebook here:
 https://nbviewer.jupyter.org/github/empet/Plotly-plots/blob/master/Plotly-Slice-in-volumetric-data.ipynb
 """
 
-def get_the_slice(x, y, z, surfacecolor, colorscale='RdBu',
-                  name='', showscale=False):
+def get_the_slice(x, y, z, surfacecolor, name='', showscale=True):
+    ticks = np.arange(-200, 200, 20)
+    tick_labs = [str(t) for t in ticks]
     return go.Surface(x=x, y=y, z=z,
                       surfacecolor=surfacecolor,
-                      colorscale=colorscale,
+                      colorbar=dict(
+                          title=dict(text=r'microstrain',
+                                     font=dict(size=18),
+                                     side='top'),
+                          ticks='outside', x=0.05, y=0.5, len=0.5,
+                          ticktext=tick_labs, tickvals=ticks),
+                      colorscale='RdBu', reversescale=True,
                       showscale=showscale,
-                      name=name, showlegend=True,
-                      colorbar=dict(thickness=20, ticklen=4))
+                      name=name, showlegend=True)
 
 
 def get_lims_colors(surfacecolor): # color limits for a slice
@@ -209,8 +215,6 @@ def get_strain(volume, gridz, planez):
     # Index the 3D strain array with this index array
     strains = volume[np.arange(inds.shape[0])[:, None],
                      np.arange(inds.shape[1]), inds]
-    # Copy along z-axis, but should be possible using broadcasting...
-    # return np.repeat(strains[:, :, np.newaxis], inds.shape[0], axis=2)
     return strains
 
 def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling):
@@ -229,23 +233,22 @@ def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling):
     Xs = np.arange(xrange[0], xrange[1], sampling)
     Ys = np.arange(yrange[0], yrange[1], sampling)
     Zs = np.arange(zrange[0], zrange[1], sampling)
-    gridx, gridy, gridz = np.meshgrid(Xs, Ys, Zs, indexing='ij', sparse=False)
+    gridx, gridy, gridz = np.meshgrid(Xs, Ys, Zs, indexing='xy', sparse=False)
     volume = interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear')
-    faultZ_top = get_MT_fault(gridx[:, :, 0], gridy[:, :, 0], which='top')
-    faultZ_bot = get_MT_fault(gridx[:, :, 0], gridy[:, :, 0], which='bottom')
+    faultZ_top = get_MT_fault(gridx, gridy, which='top')
+    faultZ_bot = get_MT_fault(gridx, gridy, which='bottom')
     color_top = get_strain(volume=volume, gridz=gridz, planez=faultZ_top)
     color_bot = get_strain(volume=volume, gridz=gridz, planez=faultZ_bot)
+    # Use strains to mask x, y, z values
+    slicez_t = faultZ_top[:, :, 0]
+    slicez_t[np.where(np.isnan(color_top))] = np.nan
+    slicez_b = faultZ_bot[:, :, 0]
+    slicez_b[np.where(np.isnan(color_bot))] = np.nan
     cmin_t, cmax_t = get_lims_colors(color_top)
     cmin_b, cmax_b = get_lims_colors(color_bot)
-    print(gridx[:, :, 0])
-    print(gridy[:, :, 0])
-    print(faultZ_top)
-    print(faultZ_bot)
-    slice_top = get_the_slice(gridx[:, :, 0], gridy[:, :, 0],
-                              faultZ_top, color_top,
+    slice_top = get_the_slice(Xs, Ys, slicez_t, color_top,
                               name='Main Fault Strain: Top')
-    slice_bot = get_the_slice(gridx[:, :, 0], gridy[:, :, 0],
-                              faultZ_bot, color_bot,
+    slice_bot = get_the_slice(Xs, Ys, slicez_b, color_bot,
                               name='Main Fault Strain: Bottom')
     slice_top.update(cmin=np.min([cmin_t, cmin_b]),
                      cmax=np.max([cmax_t, cmax_b]))
