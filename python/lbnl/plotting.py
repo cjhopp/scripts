@@ -163,21 +163,23 @@ def get_MT_fault(X, Y, which='top'):
     :return: Z values
     """
     if which == 'top':
-        x0, y0, z0 = (2579436.53670393, 1247544.87027284, 341.30681888)
-        strike = np.deg2rad(66.)
-        dip = np.deg2rad(90.)
+        x0, y0, z0 = (2579327.55063806, 1247523.80743839, 419.14869573)
+        # x0, y0, z0 = (2579436.53670393, 1247544.87027284, 341.30681888)
+        strike = np.deg2rad(52.)
+        dip = np.deg2rad(57.)
         a, b, c = (np.sin(dip) * np.cos(strike), -np.sin(dip) * np.sin(strike),
                    np.cos(dip))
     elif which == 'bottom':
-        x0, y0, z0 = (2579354.68501021, 1247553.89247301, 425.23804918)
-        strike = np.deg2rad(75.)
-        dip = np.deg2rad(40.)
+        x0, y0, z0 = (2579394.34498769, 1247583.94281201, 425.28368236)
+        strike = np.deg2rad(52.)
+        dip = np.deg2rad(57.)
         a, b, c = (np.sin(dip) * np.cos(strike), -np.sin(dip) * np.sin(strike),
                    np.cos(dip))
     else:
         print('Only top or bottom of Main Fault supported')
         return
-    Z = (((a * (X - x0)) + (b * (Y - y0))) / -1. * c) + z0
+    d = (a * x0) + (b * y0) + (c * z0)
+    Z = (d - (a * X) - (b * Y)) / c
     return Z
 
 
