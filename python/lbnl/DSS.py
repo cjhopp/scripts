@@ -543,7 +543,73 @@ def interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear', debug=0):
         plt.show()
     return interp
 
+
+def extract_strains(well_data, date, wells):
+    """
+    For a given datetime, extract the strain along the borehole (averaged
+    between down and upgoing legs...?)
+
+    :param well_data: Output of extract_wells
+    :param date: Datetime object to extract
+    :param wells: List of well names
+    :return:
+    """
+    pick_dict = {}
+    for well, well_dict in well_data.items():
+        date_col = np.argmin(np.abs(well_dict['times'] - date))
+        if well not in wells:
+            continue
+        pick_dict[well] = {}
+        # Grab along-fiber distances, split in two
+        deps = well_dict['depth'] - well_dict['depth'][0]
+        down_d, up_d = np.array_split(deps, 2)
+        # Same for data array
+        data = well_dict['data'][:, date_col]
+        down_data, up_data = np.array_split(data, 2)
+        if down_d.shape[0] != up_d.shape[0]:
+            # prepend last element of down to up if unequal lengths by 1
+            up_d = np.insert(up_d, 0, down_d[-1])
+            up_data = np.insert(up_data, 0, down_data[-1])
+        avg_data = (down_data + up_data) / 2.
+        pick_dict[well]['depths'] = down_d
+        pick_dict[well]['strains'] = avg_data
+    return pick_dict
+
+
 ################  Plotting  Funcs  ############################################
+
+def plot_DSS_interpolation(well_data, date, strike, dip, point,
+                           xrange, yrange, zrange, sampling,
+                           wells):
+    """
+    Plot a 2D image of a slice taken through a 3D interpolation of the DSS
+    results
+
+    :param well_data: Dictionary from extract_wells
+    :param date: Datetime of the image
+    :param strike: list of strike of the planes through volume
+    :param dip: Dips of the planes (to correct to actual units)
+    :param point: Points that lie on the planes
+    :param xrange: List of min and max values of X coordinates
+    :param yrange: List of min and max values of Y coordinates
+    :param zrange: List of min and max values of Z coordinates
+    :param sampling: Sampling interval (same unit as above)
+    :param wells: Which wells to include in the interp
+
+    :return:
+    """
+    Xs = np.arange(xrange[0], xrange[1], sampling)
+    Ys = np.arange(yrange[0], yrange[1], sampling)
+    Zs = np.arange(zrange[0], zrange[1], sampling)
+    gridx, gridy, gridz = np.meshgrid(Xs, Ys, Zs, indexing='xy', sparse=False)
+    volume = interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear')
+    faultZ_top = get_MT_fault(gridx, gridy, which='top')
+    faultZ_bot = get_MT_fault(gridx, gridy, which='bottom')
+    color_top = get_strain(volume=volume, gridz=gridz, planez=faultZ_top)
+    color_bot = get_strain(volume=volume, gridz=gridz, planez=faultZ_bot)
+
+    return
+
 
 def plot_fiber_correlation(template, template_lengths, image, image_lengths,
                            ccc, ccc_length, shift, title):
@@ -603,7 +669,8 @@ def plot_strains_w_dist(location, DSS_picks, point):
     """
 
     if location == 'surf':
-        well_dict = parse_surf_boreholes(well_file)
+        well_dict = parse_surf_boreholes(
+            '/media/chet/hdd/seismic/chet_collab/boreholes/surf_4850_wells.csv')
     elif location == 'fsb':
         # Too many points in asbuilt file to upload to plotly
         well_dict = create_FSB_boreholes()

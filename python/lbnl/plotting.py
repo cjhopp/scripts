@@ -82,7 +82,11 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         datas = add_inventory(inventory=inventory, location=location,
                               objects=datas)
     if DSS_picks:
-        datas = add_DSS(DSS_picks=DSS_picks, objects=datas, well_dict=well_dict)
+        try:
+            datas = add_DSS(DSS_picks=DSS_picks, objects=datas,
+                            well_dict=well_dict)
+        except KeyError as e:
+            print('Havent provided discrete picks with height, width')
         datas = add_DSS_volume_slices(objects=datas, pick_dict=DSS_picks,
                                       xrange=xrange, yrange=yrange,
                                       zrange=zrange, sampling=sampling)
@@ -152,33 +156,21 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
 
 ###### Adding various objects to the plotly figure #######
 
-def get_MT_fault(X, Y, which='top'):
+def get_plane_z(X, Y, strike, dip, point):
     """
-    Get Z values of Mont Terri Main Fault (top or bottom surface) from given
-    X, Y grid
+    Helper to return the Z values of a fault/frac on a grid defined by X, Y
 
-    :param X: X values
-    :param Y: Y values
-    :param which: top or bottom surface
-    :return: Z values
+    :param X: Array defining the X coordinates
+    :param Y: Array defining the Y coordinates
+    :param strike: Strike of plane (deg clockwise from N)
+    :param dip: Dip of plane (deg down from horizontal; RHR applies)
+    :param point: Point that lies on the plane
     """
-    if which == 'top':
-        x0, y0, z0 = (2579327.55063806, 1247523.80743839, 419.14869573)
-        # x0, y0, z0 = (2579436.53670393, 1247544.87027284, 341.30681888)
-        strike = np.deg2rad(52.)
-        dip = np.deg2rad(57.)
-        a, b, c = (np.sin(dip) * np.cos(strike), -np.sin(dip) * np.sin(strike),
-                   np.cos(dip))
-    elif which == 'bottom':
-        x0, y0, z0 = (2579394.34498769, 1247583.94281201, 425.28368236)
-        strike = np.deg2rad(52.)
-        dip = np.deg2rad(57.)
-        a, b, c = (np.sin(dip) * np.cos(strike), -np.sin(dip) * np.sin(strike),
-                   np.cos(dip))
-    else:
-        print('Only top or bottom of Main Fault supported')
-        return
-    d = (a * x0) + (b * y0) + (c * z0)
+    s = np.deg2rad(strike)
+    d = np.deg2rad(dip)
+    # Define fault normal
+    a, b, c = (np.sin(d) * np.cos(s), -np.sin(d) * np.sin(s), np.cos(d))
+    d = (a * point[0]) + (b * point[1]) + (c * point[2])
     Z = (d - (a * X) - (b * Y)) / c
     return Z
 
@@ -217,7 +209,9 @@ def get_strain(volume, gridz, planez):
                      np.arange(inds.shape[1]), inds]
     return strains
 
-def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling):
+
+def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling,
+                          clims=(-100, 100)):
     """
     Interpolate onto a volume between DSS measurements, then plot the top
     and bottom of the Main Fault where it intersects this volume.
@@ -235,8 +229,15 @@ def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling):
     Zs = np.arange(zrange[0], zrange[1], sampling)
     gridx, gridy, gridz = np.meshgrid(Xs, Ys, Zs, indexing='xy', sparse=False)
     volume = interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear')
-    faultZ_top = get_MT_fault(gridx, gridy, which='top')
-    faultZ_bot = get_MT_fault(gridx, gridy, which='bottom')
+    # Get z values within grid for fault/frac
+    faultZ_top = get_plane_z(gridx, gridy, strike=52., dip=57.,
+                             point=(2579327.55063806, 1247523.80743839,
+                                    419.14869573))
+    faultZ_bot = get_plane_z(gridx, gridy, strike=52., dip=57.,
+                             point=(2579394.34498769, 1247583.94281201,
+                                    425.28368236))
+    # faultZ_top = get_MT_fault(gridx, gridy, which='top')
+    # faultZ_bot = get_MT_fault(gridx, gridy, which='bottom')
     color_top = get_strain(volume=volume, gridz=gridz, planez=faultZ_top)
     color_bot = get_strain(volume=volume, gridz=gridz, planez=faultZ_bot)
     # Use strains to mask x, y, z values
@@ -244,16 +245,21 @@ def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling):
     slicez_t[np.where(np.isnan(color_top))] = np.nan
     slicez_b = faultZ_bot[:, :, 0]
     slicez_b[np.where(np.isnan(color_bot))] = np.nan
-    cmin_t, cmax_t = get_lims_colors(color_top)
-    cmin_b, cmax_b = get_lims_colors(color_bot)
     slice_top = get_the_slice(Xs, Ys, slicez_t, color_top,
                               name='Main Fault Strain: Top')
     slice_bot = get_the_slice(Xs, Ys, slicez_b, color_bot,
-                              name='Main Fault Strain: Bottom')
-    slice_top.update(cmin=np.min([cmin_t, cmin_b]),
-                     cmax=np.max([cmax_t, cmax_b]))
-    slice_bot.update(cmin=np.min([cmin_t, cmin_b]),
-                     cmax=np.max([cmax_t, cmax_b]))
+                              name='Main Fault Strain: Bottom',
+                              showscale=False)
+    if not clims:
+        cmin_t, cmax_t = get_lims_colors(color_top)
+        cmin_b, cmax_b = get_lims_colors(color_bot)
+        slice_top.update(cmin=np.min([cmin_t, cmin_b]),
+                         cmax=np.max([cmax_t, cmax_b]))
+        slice_bot.update(cmin=np.min([cmin_t, cmin_b]),
+                         cmax=np.max([cmax_t, cmax_b]))
+    else:
+        slice_top.update(cmin=clims[0], cmax=clims[1])
+        slice_bot.update(cmin=clims[0], cmax=clims[1])
     objects.extend([slice_top, slice_bot])
     return objects
 
