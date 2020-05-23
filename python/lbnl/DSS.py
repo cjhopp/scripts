@@ -576,11 +576,39 @@ def extract_strains(well_data, date, wells):
     return pick_dict
 
 
+def get_plane_z(X, Y, strike, dip, point):
+    """
+    Helper to return the Z values of a fault/frac on a grid defined by X, Y
+
+    :param X: Array defining the X coordinates
+    :param Y: Array defining the Y coordinates
+    :param strike: Strike of plane (deg clockwise from N)
+    :param dip: Dip of plane (deg down from horizontal; RHR applies)
+    :param point: Point that lies on the plane
+    """
+    s = np.deg2rad(strike)
+    d = np.deg2rad(dip)
+    # Define fault normal
+    a, b, c = (np.sin(d) * np.cos(s), -np.sin(d) * np.sin(s), np.cos(d))
+    d = (a * point[0]) + (b * point[1]) + (c * point[2])
+    Z = (d - (a * X) - (b * Y)) / c
+    return Z
+
+
+def get_strain(volume, gridz, planez):
+    # Get the 2D index array. This is the z-index closest to the plane for
+    # each X-Y pair
+    inds = np.argmin(np.abs(gridz - planez), axis=2)
+    # Index the 3D strain array with this index array
+    strains = volume[np.arange(inds.shape[0])[:, None],
+                     np.arange(inds.shape[1]), inds]
+    return strains
+
 ################  Plotting  Funcs  ############################################
 
-def plot_DSS_interpolation(well_data, date, strike, dip, point,
+def plot_DSS_interpolation(well_data, date, strike, dip, points,
                            xrange, yrange, zrange, sampling,
-                           wells):
+                           wells, clims=(-80, 80), debug=0):
     """
     Plot a 2D image of a slice taken through a 3D interpolation of the DSS
     results
@@ -589,7 +617,7 @@ def plot_DSS_interpolation(well_data, date, strike, dip, point,
     :param date: Datetime of the image
     :param strike: list of strike of the planes through volume
     :param dip: Dips of the planes (to correct to actual units)
-    :param point: Points that lie on the planes
+    :param points: Points that lie on the planes
     :param xrange: List of min and max values of X coordinates
     :param yrange: List of min and max values of Y coordinates
     :param zrange: List of min and max values of Z coordinates
@@ -601,13 +629,66 @@ def plot_DSS_interpolation(well_data, date, strike, dip, point,
     Xs = np.arange(xrange[0], xrange[1], sampling)
     Ys = np.arange(yrange[0], yrange[1], sampling)
     Zs = np.arange(zrange[0], zrange[1], sampling)
+    print('Creating grid')
     gridx, gridy, gridz = np.meshgrid(Xs, Ys, Zs, indexing='xy', sparse=False)
+    grid_shape = gridx.shape
+    # Define temporary origin for rotation
+    ox, oy, oz = (np.mean(gridx), np.mean(gridy), np.mean(gridz))
+    print('Rotating grid to align with fault')
+    if debug > 0:
+        fig = plt.figure()
+        ax = fig.add_subplot(211, projection='3d')
+        ax.scatter(gridx, gridy, gridz, color='magenta', alpha=0.5)
+    # Rotate grid parallel to fault (strike and dip)
+    thetaz = np.deg2rad(90 - strike)
+    thetax = np.deg2rad(dip)
+    pts = np.vstack([gridx.flatten() - ox, gridy.flatten() - oy,
+                     gridz.flatten() - oz])
+    rot_matz = np.array([[np.cos(thetaz), -np.sin(thetaz), 0],
+                        [np.sin(thetaz), np.cos(thetaz), 0],
+                        [0, 0, 1]])
+    rot_matx = np.array([[1, 0, 0],
+                         [0, np.cos(thetax), -np.sin(thetax)],
+                         [0, np.sin(thetax), np.cos(thetax)]])
+    big_rot = rot_matz.dot(rot_matx)
+    # Do rotation, then add the origin back in
+    gridx, gridy, gridz = big_rot.dot(pts)
+    if debug > 0:
+        ax2 = fig.add_subplot(212, projection='3d')
+        intx, inty, intz = rot_matz.dot(pts)
+        intx2, inty2, intz2 = rot_matx.dot(np.array([intx, inty, intz]))
+        ax2.scatter(intx, inty, intz, color='k', alpha=0.5)
+        ax2.scatter(intx2, inty2, intz2, color='green', alpha=0.5)
+        ax2.scatter(gridx, gridy, gridz, color='pink', alpha=0.5)
+    gridx = (gridx + ox).reshape(grid_shape)
+    gridy = (gridy + oy).reshape(grid_shape)
+    gridz = (gridz + oz).reshape(grid_shape)
+    print(gridx.shape)
+    print('Extracting DSS strain values from boreholes')
+    pick_dict = extract_strains(well_data, date=date, wells=wells)
+    faultZ_top = get_plane_z(gridx, gridy, strike=52., dip=57.,
+                             point=(2579327.55063806, 1247523.80743839,
+                                    419.14869573))
+    faultZ_bot = get_plane_z(gridx, gridy, strike=52., dip=57.,
+                             point=(2579394.34498769, 1247583.94281201,
+                                    425.28368236))
+    print(faultZ_top.shape)
+    if debug > 0:
+        ax.scatter(gridx, gridy, gridz, color='b', alpha=0.5)
+        ax.plot_surface(gridx[:, :, -1], gridy[:, :, -1], faultZ_top[:, :, -1],
+                        color='r', alpha=0.5)
+        plt.show()
+    print('Running interpolation on rotated grid')
     volume = interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear')
-    faultZ_top = get_MT_fault(gridx, gridy, which='top')
-    faultZ_bot = get_MT_fault(gridx, gridy, which='bottom')
+    print('Pulling strain values from interpolation points closest to fault')
     color_top = get_strain(volume=volume, gridz=gridz, planez=faultZ_top)
     color_bot = get_strain(volume=volume, gridz=gridz, planez=faultZ_bot)
-
+    fig, ax = plt.subplots(nrows=2, ncols=1)
+    # Origin is lower as 0, 0 corresponds to smallest x, y value in grid
+    img = ax[0].imshow(color_top, origin='lower')
+    img2 = ax[1].imshow(color_bot, origin='lower')
+    fig.colorbar(img)
+    plt.show()
     return
 
 

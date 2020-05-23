@@ -33,7 +33,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 title=None, offline=True, dd_only=False, surface='plane',
                 DSS_picks=None, structures=None, meshes=None,
                 xrange=(2579250, 2579400), yrange=(1247500, 1247650),
-                zrange=(400, 550), sampling=0.5):
+                zrange=(450, 500), sampling=0.5):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -236,8 +236,6 @@ def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling,
     faultZ_bot = get_plane_z(gridx, gridy, strike=52., dip=57.,
                              point=(2579394.34498769, 1247583.94281201,
                                     425.28368236))
-    # faultZ_top = get_MT_fault(gridx, gridy, which='top')
-    # faultZ_bot = get_MT_fault(gridx, gridy, which='bottom')
     color_top = get_strain(volume=volume, gridz=gridz, planez=faultZ_top)
     color_bot = get_strain(volume=volume, gridz=gridz, planez=faultZ_bot)
     # Use strains to mask x, y, z values
