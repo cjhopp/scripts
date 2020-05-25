@@ -527,10 +527,10 @@ def correlate_fibers(template, template_lengths, image, image_lengths,
 def interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear', debug=0):
     pts = []
     strains = []
+    well_dict = create_FSB_boreholes()
     for well, w_dict in pick_dict.items():
         for feature_dep in w_dict['depths']:
-            pts.append(depth_to_xyz(create_FSB_boreholes(), well,
-                                    feature_dep))
+            pts.append(depth_to_xyz(well_dict, well, feature_dep))
         strains.extend(w_dict['strains'])
     interp = griddata(np.array(pts), np.array(strains), (gridx, gridy, gridz),
                       method=method)
@@ -595,14 +595,36 @@ def get_plane_z(X, Y, strike, dip, point):
     return Z
 
 
-def get_strain(volume, gridz, planez):
+def get_strain(volume, gridx, gridy, gridz, planez):
     # Get the 2D index array. This is the z-index closest to the plane for
     # each X-Y pair
     inds = np.argmin(np.abs(gridz - planez), axis=2)
     # Index the 3D strain array with this index array
     strains = volume[np.arange(inds.shape[0])[:, None],
                      np.arange(inds.shape[1]), inds]
-    return strains
+    # Also return the x and y coords of this plane
+    xgrid = gridx[np.arange(inds.shape[0])[:, None],
+                  np.arange(inds.shape[1]), inds]
+    ygrid = gridy[np.arange(inds.shape[0])[:, None],
+                  np.arange(inds.shape[1]), inds]
+    return strains, xgrid, ygrid
+
+
+def get_well_piercepoint(wells):
+    """
+    Return the xyz points of the main fault for a list of wells
+
+    :param wells: List
+    :return:
+    """
+    well_dict = create_FSB_boreholes()
+    pierce_dict = {}
+    for well in wells:
+        pierce_dict[well] = {'top': depth_to_xyz(well_dict, well,
+                                                 fault_depths[well][0])}
+        pierce_dict[well]['bottom'] = depth_to_xyz(well_dict, well,
+                                                   fault_depths[well][1])
+    return pierce_dict
 
 ################  Plotting  Funcs  ############################################
 
@@ -626,6 +648,8 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
 
     :return:
     """
+    s = np.deg2rad(strike)
+    d = np.deg2rad(dip)
     Xs = np.arange(xrange[0], xrange[1], sampling)
     Ys = np.arange(yrange[0], yrange[1], sampling)
     Zs = np.arange(zrange[0], zrange[1], sampling)
@@ -637,7 +661,7 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
     print('Rotating grid to align with fault')
     if debug > 0:
         fig = plt.figure()
-        ax = fig.add_subplot(211, projection='3d')
+        ax = fig.add_subplot(311, projection='3d')
         ax.scatter(gridx, gridy, gridz, color='magenta', alpha=0.5)
     # Rotate grid parallel to fault (strike and dip)
     thetaz = np.deg2rad(90 - strike)
@@ -645,8 +669,8 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
     pts = np.vstack([gridx.flatten() - ox, gridy.flatten() - oy,
                      gridz.flatten() - oz])
     rot_matz = np.array([[np.cos(thetaz), -np.sin(thetaz), 0],
-                        [np.sin(thetaz), np.cos(thetaz), 0],
-                        [0, 0, 1]])
+                         [np.sin(thetaz), np.cos(thetaz), 0],
+                         [0, 0, 1]])
     rot_matx = np.array([[1, 0, 0],
                          [0, np.cos(thetax), -np.sin(thetax)],
                          [0, np.sin(thetax), np.cos(thetax)]])
@@ -654,7 +678,7 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
     # Do rotation, then add the origin back in
     gridx, gridy, gridz = big_rot.dot(pts)
     if debug > 0:
-        ax2 = fig.add_subplot(212, projection='3d')
+        ax2 = fig.add_subplot(312, projection='3d')
         intx, inty, intz = rot_matz.dot(pts)
         intx2, inty2, intz2 = rot_matx.dot(np.array([intx, inty, intz]))
         ax2.scatter(intx, inty, intz, color='k', alpha=0.5)
@@ -663,30 +687,76 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
     gridx = (gridx + ox).reshape(grid_shape)
     gridy = (gridy + oy).reshape(grid_shape)
     gridz = (gridz + oz).reshape(grid_shape)
-    print(gridx.shape)
     print('Extracting DSS strain values from boreholes')
     pick_dict = extract_strains(well_data, date=date, wells=wells)
+    top_point = (2579327.55063806, 1247523.80743839, 419.14869573)
+    bottom_point = (2579394.34498769, 1247583.94281201, 425.28368236)
     faultZ_top = get_plane_z(gridx, gridy, strike=52., dip=57.,
-                             point=(2579327.55063806, 1247523.80743839,
-                                    419.14869573))
+                             point=top_point)
     faultZ_bot = get_plane_z(gridx, gridy, strike=52., dip=57.,
-                             point=(2579394.34498769, 1247583.94281201,
-                                    425.28368236))
-    print(faultZ_top.shape)
+                             point=bottom_point)
     if debug > 0:
         ax.scatter(gridx, gridy, gridz, color='b', alpha=0.5)
         ax.plot_surface(gridx[:, :, -1], gridy[:, :, -1], faultZ_top[:, :, -1],
                         color='r', alpha=0.5)
-        plt.show()
     print('Running interpolation on rotated grid')
     volume = interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear')
     print('Pulling strain values from interpolation points closest to fault')
-    color_top = get_strain(volume=volume, gridz=gridz, planez=faultZ_top)
-    color_bot = get_strain(volume=volume, gridz=gridz, planez=faultZ_bot)
-    fig, ax = plt.subplots(nrows=2, ncols=1)
+    color_top, xs_t, ys_t = get_strain(volume=volume, gridx=gridx, gridy=gridy,
+                                   gridz=gridz, planez=faultZ_top)
+    color_bot, xs_b, ys_b = get_strain(volume=volume, gridx=gridx, gridy=gridy,
+                                   gridz=gridz, planez=faultZ_bot)
+    # Change of basis for fault xy to fault plane coordinates
+    origin = np.array((np.mean(xs_t), np.mean(ys_t), np.mean(faultZ_top)))
+    normal = np.array((np.sin(d) * np.cos(s), -np.sin(d) * np.sin(s),
+                       np.cos(d)))
+    normal /= np.linalg.norm(normal)
+    strike_new = np.array([np.sin(s), np.cos(s), 0])
+    strike_new /= np.linalg.norm(strike_new)
+    up_dip = np.array([-np.cos(s) * np.cos(d), np.sin(s) * np.cos(d), np.sin(d)])
+    up_dip /= np.linalg.norm(up_dip)
+    change_B_mat = np.array([strike_new, up_dip, normal])
+    grid_pts = np.subtract(np.array([xs_t.flatten(), ys_t.flatten(),
+                                     faultZ_top[:, :, 0].flatten()]),
+                           origin[:, None])
+    newx, newy, newz = change_B_mat.dot(grid_pts)
+    newx = newx.reshape(xs_t.shape)
+    newy = newy.reshape(xs_t.shape)
+    if debug > 0:
+        ax3 = fig.add_subplot(313, projection='3d')
+        ax3.scatter(newx, newy, newz, c=color_top)
+        plt.show()
+    # Make the pierce points
+    pierce_points = get_well_piercepoint(wells)
+    if debug > 0:
+        plt.imshow(color_top)
+        plt.show()
+    # Calculate distance between grid vertices as extents
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    print((newx[0, 0], newx[0, -1], newy[0, 0], newy[-1, 0]))
     # Origin is lower as 0, 0 corresponds to smallest x, y value in grid
-    img = ax[0].imshow(color_top, origin='lower')
-    img2 = ax[1].imshow(color_bot, origin='lower')
+    img = ax.imshow(color_top, origin='lower',
+                    extent=(newx[0, 0], newx[0, -1],
+                            newy[0, 0], newy[-1, 0]))
+    # img2 = ax[1].imshow(color_bot, origin='lower', extent=[(),
+    #                                                        (),
+    #                                                        (),
+    #                                                        ()])
+    # Plot well pierce points
+    for well, pts in pierce_points.items():
+        p = np.array(pts['top'])
+        # Project onto plane in question
+        proj_pt = p - (normal.dot(p - top_point)) *  normal
+        print(proj_pt)
+        print(p)
+        trans_pt = proj_pt - origin
+        new_pt = change_B_mat.dot(trans_pt.T)
+        print(new_pt)
+        ax.scatter(new_pt[0], new_pt[1], marker='+', color='k')
+        ax.annotate(s=well, xy=(new_pt[0], new_pt[1]), fontsize=10)
+        # ax[1].scatter(pts['bottom'][0], pts['bottom'][1], marker='+', color='k')
+        # ax[1].annotate(s=well, xy=(pts['bottom'][0], pts['bottom'][1]),
+        #                fontsize=10)
     fig.colorbar(img)
     plt.show()
     return
