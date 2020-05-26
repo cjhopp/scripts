@@ -632,7 +632,7 @@ def get_well_piercepoint(wells):
 
 def plot_DSS_interpolation(well_data, date, strike, dip, points,
                            xrange, yrange, zrange, sampling,
-                           wells, clims=(-80, 80), debug=0):
+                           wells, vlims=(-80, 80), debug=0):
     """
     Plot a 2D image of a slice taken through a 3D interpolation of the DSS
     results
@@ -734,7 +734,12 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
         plt.show()
     # Calculate distance between grid vertices as extents
     fig, ax = plt.subplots(nrows=1, ncols=1)
-    img = ax.contourf(newx, newy, color_top)
+    cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
+    cmap_norm = Normalize(vmin=vlims[0], vmax=vlims[1])
+    levels = np.linspace(vlims[0], vlims[1], 21)
+    img = ax.contourf(newx, newy, color_top, levels=levels, cmap=cmap,
+                      norm=cmap_norm, vmin=vlims[0], vmax=vlims[1],
+                      extend='both')
     # Plot well pierce points
     for well, pts in pierce_points.items():
         p = np.array(pts['top'])
@@ -748,6 +753,9 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
     #     ax[1].annotate(s=well, xy=(pts['bottom'][0], pts['bottom'][1]),
     #                    fontsize=10)
     fig.colorbar(img)
+    ax.set_ylabel('Up-dip distance [m]')
+    ax.set_xlabel('Along strike distance [m]')
+    fig.suptitle('Interpolated strain on Main Fault: {}'.format(date.date()))
     plt.show()
     return
 
