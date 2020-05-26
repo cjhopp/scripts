@@ -607,7 +607,9 @@ def get_strain(volume, gridx, gridy, gridz, planez):
                   np.arange(inds.shape[1]), inds]
     ygrid = gridy[np.arange(inds.shape[0])[:, None],
                   np.arange(inds.shape[1]), inds]
-    return strains, xgrid, ygrid
+    zgrid = gridz[np.arange(inds.shape[0])[:, None],
+                  np.arange(inds.shape[1]), inds]
+    return strains, xgrid, ygrid, zgrid
 
 
 def get_well_piercepoint(wells):
@@ -702,22 +704,21 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
     print('Running interpolation on rotated grid')
     volume = interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear')
     print('Pulling strain values from interpolation points closest to fault')
-    color_top, xs_t, ys_t = get_strain(volume=volume, gridx=gridx, gridy=gridy,
-                                   gridz=gridz, planez=faultZ_top)
-    color_bot, xs_b, ys_b = get_strain(volume=volume, gridx=gridx, gridy=gridy,
-                                   gridz=gridz, planez=faultZ_bot)
+    color_top, xs_t, ys_t, zs_t = get_strain(volume=volume, gridx=gridx,
+                                             gridy=gridy, gridz=gridz,
+                                             planez=faultZ_top)
+    color_bot, xs_b, ys_b, zs_b = get_strain(volume=volume, gridx=gridx,
+                                             gridy=gridy, gridz=gridz,
+                                             planez=faultZ_bot)
     # Change of basis for fault xy to fault plane coordinates
     origin = np.array((np.mean(xs_t), np.mean(ys_t), np.mean(faultZ_top)))
     normal = np.array((np.sin(d) * np.cos(s), -np.sin(d) * np.sin(s),
                        np.cos(d)))
-    normal /= np.linalg.norm(normal)
     strike_new = np.array([np.sin(s), np.cos(s), 0])
-    strike_new /= np.linalg.norm(strike_new)
     up_dip = np.array([-np.cos(s) * np.cos(d), np.sin(s) * np.cos(d), np.sin(d)])
-    up_dip /= np.linalg.norm(up_dip)
     change_B_mat = np.array([strike_new, up_dip, normal])
     grid_pts = np.subtract(np.array([xs_t.flatten(), ys_t.flatten(),
-                                     faultZ_top[:, :, 0].flatten()]),
+                                     zs_t.flatten()]),
                            origin[:, None])
     newx, newy, newz = change_B_mat.dot(grid_pts)
     newx = newx.reshape(xs_t.shape)
@@ -733,30 +734,19 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
         plt.show()
     # Calculate distance between grid vertices as extents
     fig, ax = plt.subplots(nrows=1, ncols=1)
-    print((newx[0, 0], newx[0, -1], newy[0, 0], newy[-1, 0]))
-    # Origin is lower as 0, 0 corresponds to smallest x, y value in grid
-    img = ax.imshow(color_top, origin='lower',
-                    extent=(newx[0, 0], newx[0, -1],
-                            newy[0, 0], newy[-1, 0]))
-    # img2 = ax[1].imshow(color_bot, origin='lower', extent=[(),
-    #                                                        (),
-    #                                                        (),
-    #                                                        ()])
+    img = ax.contourf(newx, newy, color_top)
     # Plot well pierce points
     for well, pts in pierce_points.items():
         p = np.array(pts['top'])
         # Project onto plane in question
-        proj_pt = p - (normal.dot(p - top_point)) *  normal
-        print(proj_pt)
-        print(p)
+        proj_pt = p - (normal.dot(p - top_point)) * normal
         trans_pt = proj_pt - origin
         new_pt = change_B_mat.dot(trans_pt.T)
-        print(new_pt)
         ax.scatter(new_pt[0], new_pt[1], marker='+', color='k')
         ax.annotate(s=well, xy=(new_pt[0], new_pt[1]), fontsize=10)
-        # ax[1].scatter(pts['bottom'][0], pts['bottom'][1], marker='+', color='k')
-        # ax[1].annotate(s=well, xy=(pts['bottom'][0], pts['bottom'][1]),
-        #                fontsize=10)
+    #     ax[1].scatter(pts['bottom'][0], pts['bottom'][1], marker='+', color='k')
+    #     ax[1].annotate(s=well, xy=(pts['bottom'][0], pts['bottom'][1]),
+    #                    fontsize=10)
     fig.colorbar(img)
     plt.show()
     return
