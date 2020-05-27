@@ -544,6 +544,35 @@ def interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear', debug=0):
     return interp
 
 
+def extract_channel_timeseries(well_data, well, depth, direction='down'):
+    """
+    Return a time series of the selected well and depth
+
+    :param well_data: Dict from extract_wells
+    :param well: String, wellname
+    :param depth: Depth to channel
+    :param direction: 'up' or 'down', defaults to 'down'
+    :return: times, strains, both arrays
+    """
+    well_d = well_data[well]
+    depths = well_d['depth'] - well_d['depth'][0]
+    data = well_d['data']
+    times = well_d['times']
+    if direction == 'up':
+        down_d, up_d = np.array_split(depths, 2)
+        down_data, up_data = np.array_split(data, 2)
+        if down_d.shape[0] != up_d.shape[0]:
+            # prepend last element of down to up if unequal lengths by 1
+            up_d = np.insert(up_d, 0, down_d[-1])
+            up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+        depths = np.abs(up_d - up_d[-1])
+        data = up_data
+    # Find closest channel
+    chan = np.argmin(np.abs(depth - depths))
+    strains = data[chan, :]
+    return times, strains
+
+
 def extract_strains(well_data, date, wells):
     """
     For a given datetime, extract the strain along the borehole (averaged
@@ -570,7 +599,8 @@ def extract_strains(well_data, date, wells):
             # prepend last element of down to up if unequal lengths by 1
             up_d = np.insert(up_d, 0, down_d[-1])
             up_data = np.insert(up_data, 0, down_data[-1])
-        avg_data = (down_data + up_data) / 2.
+        # Flip up_data to align
+        avg_data = (down_data + up_data[::-1]) / 2.
         pick_dict[well]['depths'] = down_d
         pick_dict[well]['strains'] = avg_data
     return pick_dict
@@ -629,6 +659,44 @@ def get_well_piercepoint(wells):
     return pierce_dict
 
 ################  Plotting  Funcs  ############################################
+
+def plot_channel_timeseries(well_data, well, depths):
+    """
+    Plot standalone multi-channel timeseries(es)
+
+    :param well_data: From extract_wells
+    :param well: Well string
+    :param depths: List of tuples with (depth, direction (i.e. up/down))
+    :param normalized: Whether to normalize the traces to max = 1
+    :return:
+    """
+    cmap = cycle(sns.color_palette('dark', 8))
+    fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(8, 12))
+    for depth in depths:
+        print(depth)
+        col = next(cmap)
+        times, data = extract_channel_timeseries(well_data, well, depth[0],
+                                                 direction=depth[1])
+        data_norm = data / np.max(np.abs(data))
+        axes[0].plot(times, data, color=col,
+                     label='{}: {} m'.format(well, depth[0]))
+        axes[1].plot(times, data_norm, color=col)
+    fig.suptitle('Borehole BCS-{}'.format(well), fontsize=20)
+    axes[0].set_ylabel('Microstrain', fontsize=14)
+    axes[0].set_title('Strain', fontsize=16)
+    axes[1].set_ylabel('Normalized strain', fontsize=14)
+    axes[1].set_title('Normalized', fontsize=16)
+    axes[1].set_xlabel('Date', fontsize=14)
+    axes[0].legend(title='Depth', loc='upper left',
+                   bbox_to_anchor=(0.0, 0.1), framealpha=1.)
+    axes[0].set_zorder(1000)
+    axes[0].grid(True, which='major', axis='both')
+    axes[1].grid(True, which='major', axis='both')
+    axes[0].set_facecolor('lightgray')
+    axes[1].set_facecolor('lightgray')
+    fig.autofmt_xdate()
+    return fig
+
 
 def plot_DSS_interpolation(well_data, date, strike, dip, points,
                            xrange, yrange, zrange, sampling,
