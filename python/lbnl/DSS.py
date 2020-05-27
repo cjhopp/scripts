@@ -3,6 +3,8 @@
 Functions for processing and plotting DSS data
 """
 
+import os
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -155,6 +157,20 @@ frac_cols = {'All fractures': 'black',
              'sedimentary structures/color changes undif.': 'green',
              'uncertain type': 'orange',
              'lithology change': 'yellow'}
+
+
+def date_generator(start_date, end_date, frequency='day'):
+    # Generator for date looping
+    from datetime import timedelta
+    if frequency == 'day':
+        for n in range(int((end_date - start_date).days) + 1):
+            yield start_date + timedelta(n)
+    elif frequency == 'hour':
+        for n in range((int((end_date - start_date).days * 86400) // 3600) + 1):
+            yield start_date + timedelta(hours=n)
+    else:
+        print('Only day and hour frequency supported')
+        return
 
 
 def read_ascii(path, header=42, encoding='iso-8859-1'):
@@ -698,9 +714,41 @@ def plot_channel_timeseries(well_data, well, depths):
     return fig
 
 
+def plot_interpolation_frames(well_data, date_range, strike, dip, points,
+                              xrange, yrange, zrange, sampling, wells,
+                              vlims=(-80, 80), outdir=None, debug=0):
+    """
+    Save frames of DSS interpolation for video creation
+
+    :param well_data: Dictionary from extract_wells
+    :param date_range: Start and stop date tuple
+    :param strike: list of strike of the planes through volume
+    :param dip: Dips of the planes (to correct to actual units)
+    :param points: Points that lie on the planes
+    :param xrange: List of min and max values of X coordinates
+    :param yrange: List of min and max values of Y coordinates
+    :param zrange: List of min and max values of Z coordinates
+    :param sampling: Sampling interval (same unit as above)
+    :param wells: Which wells to include in the interp
+    :param vlims: Colorbar limits passed to matplotlib
+    :param outdir: Output directory for frames
+    :param debug: Debug flag for extra plotting
+
+    :return:
+    """
+    for date in date_generator(date_range[0], date_range[1], frequency='hour'):
+        fname = os.path.join(outdir, '{}.png'.format(date))
+        print(date)
+        ax = plot_DSS_interpolation(well_data, date, strike, dip, points,
+                                    xrange, yrange, zrange, sampling, wells,
+                                    vlims, outfile=fname, debug=debug)
+    return
+
+
 def plot_DSS_interpolation(well_data, date, strike, dip, points,
                            xrange, yrange, zrange, sampling,
-                           wells, vlims=(-80, 80), debug=0):
+                           wells, vlims=(-80, 80), outfile=None,
+                           debug=0):
     """
     Plot a 2D image of a slice taken through a 3D interpolation of the DSS
     results
@@ -715,6 +763,9 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
     :param zrange: List of min and max values of Z coordinates
     :param sampling: Sampling interval (same unit as above)
     :param wells: Which wells to include in the interp
+    :param vlims: Colorbar limits passed to matplotlib
+    :param outfile: Path to output file
+    :param debug: Debug flag for extra plotting
 
     :return:
     """
@@ -824,8 +875,12 @@ def plot_DSS_interpolation(well_data, date, strike, dip, points,
     ax.set_ylabel('Up-dip distance [m]')
     ax.set_xlabel('Along strike distance [m]')
     fig.suptitle('Interpolated strain on Main Fault: {}'.format(date.date()))
-    plt.show()
-    return
+    if outfile:
+        plt.savefig(outfile, dpi=200)
+        plt.close('all')
+    else:
+        plt.show()
+    return ax
 
 
 def plot_fiber_correlation(template, template_lengths, image, image_lengths,

@@ -1,7 +1,7 @@
 # Trigger/picking parameter file for cascadia borehole project
 
 General:
-  wav_directory: /media/chet/hdd/seismic/chet_cascadia/waveforms
+  wav_directory: /media/chet/hdd/seismic/chet_cascadia/waveforms/2017
 Trigger:
   start_time: 2017-9-1
   end_time: 2017-9-1
@@ -10,15 +10,15 @@ Trigger:
   lowcut: 1.0
   highcut: 24.
   corners: 3
-  sampling_rate: 40.
+  sampling_rate: 50.
   threshold_on: 3.5
   threshold_off: 1.0
-  coincidence_sum: 5.
+  coincidence_sum: 4.
   channel_specific_params:
-    {'NV.NSMTC.B1.CNZ': {'sta': 0.5, 'lta': 10., 'thr_on': 6.0, 'thr_off': 2.0},
-     'NV.NSMTC.B2.CNZ': {'sta': 0.5, 'lta': 10., 'thr_on': 6.0, 'thr_off': 2.0},
-     'NV.NSMTC.B3.CNZ': {'sta': 0.5, 'lta': 10., 'thr_on': 6.0, 'thr_off': 2.0},
-     'NV.NSMTC.G2.CNZ': {'sta': 0.5, 'lta': 10., 'thr_on': 6.0, 'thr_off': 2.0},
-     'CN.PGC..HHZ': {'sta': 0.5, 'lta': 10., 'thr_on': 6.0, 'thr_off': 2.0},
+    {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'NV.NSMTC.B3.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'NV.NSMTC.G2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'CN.PGC..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 6.0, 'thr_off': 0.5},
      }
 Picker:
