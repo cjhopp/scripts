@@ -26,7 +26,7 @@ from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
 from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.core.match_filter import Tribe, Party
 from eqcorrscan.core.template_gen import template_gen
-from eqcorrscan.utils.pre_processing import shortproc, _check_daylong
+from eqcorrscan.utils.pre_processing import shortproc, _check_daylong, dayproc
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
 from scipy.stats import special_ortho_group, median_absolute_deviation
@@ -77,6 +77,27 @@ def read_raw_wavs(wav_dir, event_type='MEQ'):
 def _check_dir(path):
     if not os.path.isdir(path):
         os.mkdir(path)
+    return
+
+
+def downsample_mseeds(wavs):
+    """
+    Loop a list of miniseed files, downsample, and save to new files.
+
+    Intended for use with SA-ULN, looking at long-period trends
+
+    :param wavs:
+    :return:
+    """
+    st = Stream()
+    for w in wavs:
+        tmp_st = read(w)
+        starttime = tmp_st[0].stats.starttime.date
+        try:
+            st += dayproc(st=tmp_st, samp_rate=1., starttime=starttime, lowcut=None,
+                          highcut=None, filt_order=None)
+        except NotImplementedError:
+            continue
     return
 
 

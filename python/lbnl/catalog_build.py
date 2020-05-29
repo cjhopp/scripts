@@ -37,6 +37,7 @@ def trigger(param_file, plot=False):
     trig_p = paramz['Trigger']
     pick_p = paramz['Picker']
     sta_lta_params = trig_p['channel_specific_params']
+    network_sta_lta = trig_p['network_specific_params']
     trigs = []
     start = UTCDateTime(trig_p['start_time']).datetime
     end = UTCDateTime(trig_p['end_time']).datetime
@@ -51,7 +52,10 @@ def trigger(param_file, plot=False):
             seed_parts = os.path.basename(w).split('.')
             seed_id = '.'.join(seed_parts[:-3])
             if seed_id in sta_lta_params:
-                # TODO Do some checks for continuity, gaps, etc...
+                print('Reading in {}'.format(w))
+                st += read(w)
+            elif seed_id[-1] == 'Z':  # Triggering on Z comps only
+                print('Reading in {}'.format(w))
                 st += read(w)
         st = st.merge(fill_value='interpolate')
         # Filter and downsample the wavs
@@ -63,9 +67,8 @@ def trigger(param_file, plot=False):
         for tr in st:
             try:
                 seed_params = sta_lta_params[tr.id]
-            except KeyError as e:
-                print('No trigger params for {}'.format(tr.id))
-                continue
+            except KeyError as e:  # Take network general parameters
+                seed_params = network_sta_lta[tr.id.split('.')[0]]
             trigger_stream += tr.copy().trigger(
                 type='recstalta',
                 nsta=int(seed_params['sta'] * tr.stats.sampling_rate),
@@ -79,12 +82,11 @@ def trigger(param_file, plot=False):
             details=True)
         if plot:
             plot_triggers(trigs, st, trigger_stream,
-                          trig_p['threshold_on'],
-                          trig_p['threshold_off'])
+                          sta_lta_params)
     return trigs
 
 
-def plot_triggers(triggers, st, cft_stream, thr_on, thr_off):
+def plot_triggers(triggers, st, cft_stream, params):
     """Helper to plot triggers, traces and characteristic funcs"""
     for trig in triggers:
         seeds = trig['trace_ids']
@@ -97,14 +99,21 @@ def plot_triggers(triggers, st, cft_stream, thr_on, thr_off):
         fig.suptitle('Detection: {}'.format(trig['time']))
         fig.subplots_adjust(hspace=0.)
         for i, sid in enumerate(seeds):
+            tps = params[sid]
             tr_raw = st_slice.select(id=sid)[0]
             tr_cft= cft_slice.select(id=sid)[0].data
-            ax[i].plot(tr_raw.data / np.max(tr_raw.data) * 0.6 * np.max(tr_cft),
+            time_vect = np.arange(tr_cft.shape[0]) * tr_raw.stats.delta
+            ax[i].plot(time_vect,
+                       tr_raw.data / np.max(tr_raw.data) * 0.6 * np.max(tr_cft),
                        color='k')
-            ax[i].plot(tr_cft.data, color='gray')
-            ax[i].axhline(thr_on, linestyle='--', color='r')
-            ax[i].axhline(thr_off, linestyle='--', color='b')
-            ax[i].annotate(text=sid, xy=(0.1, 0.8), xycoords='axes fraction')
+            ax[i].plot(time_vect, tr_cft.data, color='gray')
+            ax[i].axhline(tps['thr_on'], linestyle='--', color='r')
+            ax[i].axhline(tps['thr_off'], linestyle='--', color='b')
+            bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
+                              ec="k", lw=1)
+            ax[i].annotate(s=sid, xy=(0.0, 0.8), xycoords='axes fraction',
+                           bbox=bbox_props, ha='center')
             ax[i].set_yticks([])
+        ax[i].set_xlabel('Time [s]', fontsize=14)
         plt.show()
     return

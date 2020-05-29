@@ -520,3 +520,25 @@ def retrieve_usgs_catalog(**kwargs):
         FM.triggering_origin_id = ev.preferred_origin().resource_id.id
         ev.focal_mechanisms = [FM]
     return cat
+
+
+def parse_eq_Canada(file_path):
+    """
+    Parse eqcanada text file to an obspy Catalog
+
+    :param file_path: Path to downloaded file
+    :return:
+    """
+    cat = Catalog()
+    with open(file_path, 'r') as f:
+        next(f)
+        for ln in f:
+            line = ln.split('|')
+            rid = ResourceIdentifier(id='smi:local/{}'.format(line[0]))
+            o = Origin(time=UTCDateTime(line[1]), latitude=float(line[2]),
+                       longitude=float(line[3]), depth=float(line[4]))
+            m = Magnitude(magnitude_type=line[5], mag=float(line[6]))
+            e = Event(resource_id=rid, force_resource_id=False,
+                      origins=[o], magnitudes=[m])
+            cat.events.append(e)
+    return cat

@@ -202,7 +202,10 @@ def dicts2NLLocPhases(ev):
         inst = "?".ljust(4)
         comp = "?".ljust(4)
         onset = "?"
-        phase = pick.phase_hint.ljust(6)
+        try:
+            phase = pick.phase_hint.ljust(6)
+        except AttributeError:
+            phase = 'P'.ljust(6)
         pol = "?"
         t = pick.time
         # CJH Hack to accommodate full microsecond precision...
