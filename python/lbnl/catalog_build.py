@@ -22,6 +22,8 @@ def date_generator(start_date, end_date):
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
 
+# TODO Read parameter file out here, then feed dates to trigger/picker to
+# TODO facilitate parallel processing
 
 def trigger(param_file, plot=False):
     """
@@ -35,9 +37,12 @@ def trigger(param_file, plot=False):
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
     trig_p = paramz['Trigger']
-    pick_p = paramz['Picker']
     sta_lta_params = trig_p['channel_specific_params']
-    network_sta_lta = trig_p['network_specific_params']
+    try:
+        network_sta_lta = trig_p['network_specific_params']
+    except KeyError as e:
+        print('No network-specific parameters. Trigger only on listed stations')
+        network_sta_lta = {}
     trigs = []
     start = UTCDateTime(trig_p['start_time']).datetime
     end = UTCDateTime(trig_p['end_time']).datetime
@@ -54,7 +59,8 @@ def trigger(param_file, plot=False):
             if seed_id in sta_lta_params:
                 print('Reading in {}'.format(w))
                 st += read(w)
-            elif seed_id[-1] == 'Z':  # Triggering on Z comps only
+            elif (seed_id[:2] in network_sta_lta and
+                  seed_id[-1] == 'Z'):  # Triggering on Z comps only
                 print('Reading in {}'.format(w))
                 st += read(w)
         st = st.merge(fill_value='interpolate')
@@ -82,11 +88,27 @@ def trigger(param_file, plot=False):
             details=True)
         if plot:
             plot_triggers(trigs, st, trigger_stream,
-                          sta_lta_params)
+                          sta_lta_params, outdir=trig_p['plot_outdir'])
+        if not trig_p['output']['write_wavs']:
+            print('Not writing waveforms')
+            return trigs
+        print('Writing triggered waveforms')
+        output_param = trig_p['output']
+        for t in trigs:
+            trigger_stream.slice(starttime=t['time'] - output_param['pre_trigger'],
+                                 endtime=t['time'] + output_param['post_trigger'])
+            trigger_stream.write(
+                '{}/Trig_{}.ms'.format(output_param['waveform_outdir'],
+                                       t['time']), format='MSEED')
     return trigs
 
 
-def plot_triggers(triggers, st, cft_stream, params):
+def picker():
+    pick_p = paramz['Picker']
+    return
+
+
+def plot_triggers(triggers, st, cft_stream, params, outdir):
     """Helper to plot triggers, traces and characteristic funcs"""
     for trig in triggers:
         seeds = trig['trace_ids']
@@ -115,5 +137,9 @@ def plot_triggers(triggers, st, cft_stream, params):
                            bbox=bbox_props, ha='center')
             ax[i].set_yticks([])
         ax[i].set_xlabel('Time [s]', fontsize=14)
-        plt.show()
+        if os.path.isdir(outdir):
+            plt.savefig('{}/Trig_{}.png'.format(outdir, trig['time']))
+            plt.close('all')
+        else:
+            plt.show()
     return
