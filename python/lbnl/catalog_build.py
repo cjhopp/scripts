@@ -11,9 +11,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from glob import glob
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+
 from obspy import UTCDateTime, read, Stream
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc
+from phasepapy.phasepicker import aicdpicker, ktpicker
+from phasepapy.associator import tables3D, assoc3D, plot3D
+from phasepapy.associator import tt_stations_3D
 
 
 def date_generator(start_date, end_date):
@@ -21,6 +27,27 @@ def date_generator(start_date, end_date):
     from datetime import timedelta
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
+
+
+def build_databases(param_file):
+    with open(param_file, 'r') as f:
+        paramz = yaml.load(f, Loader=yaml.FullLoader)
+    db_name = paramz['Database']['name']
+    # If the associator database exists delete it first
+    if os.path.exists('{}_associator.db'.format(db_name)):
+        os.remove('{}_associator.db'.format(db_name))
+        os.remove('{}_tt.db'.format(db_name))
+    # Our SQLite databases are:
+    db_assoc = 'sqlite:///{}_associator.db'.format(db_name)
+    db_tt = 'sqlite:///{}_tt.db'.format(db_name)  # Traveltime database
+
+    # Connect to our databases
+    engine_assoc = create_engine(db_assoc, echo=False)
+    # Create the tables required to run the 1D associator
+    tables3D.Base.metadata.create_all(engine_assoc)
+    Session = sessionmaker(bind=engine_assoc)
+    session = Session()
+    return session, db_assoc, db_tt
 
 # TODO Read parameter file out here, then feed dates to trigger/picker to
 # TODO facilitate parallel processing
@@ -95,16 +122,58 @@ def trigger(param_file, plot=False):
         print('Writing triggered waveforms')
         output_param = trig_p['output']
         for t in trigs:
-            trigger_stream.slice(starttime=t['time'] - output_param['pre_trigger'],
-                                 endtime=t['time'] + output_param['post_trigger'])
+            trigger_stream.slice(
+                starttime=t['time'] - output_param['pre_trigger'],
+                endtime=t['time'] + output_param['post_trigger'])
             trigger_stream.write(
                 '{}/Trig_{}.ms'.format(output_param['waveform_outdir'],
                                        t['time']), format='MSEED')
     return trigs
 
 
-def picker():
+def picker(param_file):
+    """
+    Pick the first arrivals (P) for triggered waveforms
+    :param method:
+    :return:
+    """
+    # Create databases
+    db_sesh, db_assoc, db_tt = build_databases(param_file)
+    with open(param_file, 'r') as f:
+        paramz = yaml.load(f, Loader=yaml.FullLoader)
     pick_p = paramz['Picker']
+    if pick_p['method'] == 'aicd':
+        picker = aicdpicker.AICDPicker(
+            t_ma=pick_p['t_ma'], nsigma=pick_p['nsigma'], t_up=pick_p['t_up'],
+            nr_len=pick_p['nr_len'], nr_coeff=pick_p['nr_coeff'],
+            pol_len=pick_p['pol_len'], pol_coeff=pick_p['pol_coeff'],
+            uncert_coeff=pick_p['uncert_coeff'])
+    elif pick_p['method'] == 'kurtosis':
+        picker = ktpicker.KTPicker(
+            t_ma=pick_p['t_ma'], nsigma=pick_p['nsigma'], t_up=pick_p['t_up'],
+            nr_len=pick_p['nr_len'], nr_coeff=pick_p['nr_coeff'],
+            pol_len=pick_p['pol_len'], pol_coeff=pick_p['pol_coeff'],
+            uncert_coeff=pick_p['uncert_coeff'])
+    else:
+        print('Only kpick and AICD supported')
+        return
+    trigger_files = glob('{}/*'.format(
+        paramz['Trigger']['output']['waveform_outdir']))
+    for trig_f in trigger_files:
+        st = read(trig_f)
+        for tr in st:
+            scnl, picks, polarity, snr, uncert = picker.picks(tr)
+            t_create = UTCDateTime().datetime
+            # Add each pick to the database
+            for i, pick in enumerate(picks):
+                new_pick = tables3D.Pick(scnl, pick.datetime, polarity[i],
+                                         snr[i], uncert[i], t_create)
+                db_sesh.add(new_pick)  # Add pick i to the database
+            db_sesh.commit()  # Commit the pick to the database
+    return
+
+
+def build_TT_tables():
     return
 
 

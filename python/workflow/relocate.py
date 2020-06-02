@@ -626,6 +626,7 @@ def getPickForArrival(picks, arrival):
 def update_origin_azimuthal_gap(ev):
     origin = ev.origins[0]
     arrivals = origin.arrivals
+    print(arrivals)
     picks = ev.picks
     azims = {}
     for a in arrivals:

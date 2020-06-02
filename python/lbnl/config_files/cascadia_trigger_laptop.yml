@@ -2,6 +2,10 @@
 
 General:
   wav_directory: '/media/chet/hdd/seismic/chet_cascadia/waveforms/2017'
+
+Database:
+  name: 'cascadia_test'
+
 Trigger:
   start_time: 2017-9-1
   end_time: 2017-9-30
@@ -40,4 +44,15 @@ Trigger:
     waveform_outdir: '/media/chet/hdd/seismic/chet_cascadia/trigger_wavs'
     pre_trigger: 10.
     post_trigger: 30.
+
 Picker:
+  # Values from OK initially
+  type: 'aicd'
+  t_ma: 3
+  nsigma: 8
+  t_up: 0.78
+  nr_len: 2
+  nr_coeff: 2
+  pol_len: 10
+  pol_coeff: 10
+  uncert_coeff: 3
