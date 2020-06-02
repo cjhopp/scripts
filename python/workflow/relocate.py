@@ -629,7 +629,6 @@ def getPickForArrival(picks, arrival):
 def update_origin_azimuthal_gap(ev):
     origin = ev.origins[0]
     arrivals = origin.arrivals
-    print(arrivals)
     picks = ev.picks
     azims = {}
     for a in arrivals:
@@ -647,7 +646,6 @@ def update_origin_azimuthal_gap(ev):
             print(msg)
         else:
             azims.setdefault(netsta, []).append(azim)
-        print(azims)
     azim_list = []
     for netsta in azims:
         tmp_list = azims.get(netsta, [])

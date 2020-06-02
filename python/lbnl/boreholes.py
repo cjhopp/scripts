@@ -224,12 +224,16 @@ def parse_surf_boreholes(file_path):
             xm = float(line[3]) / 3.28084
             ym = float(line[4]) / 3.28084
             zm = float(line[5]) / 3.28084
+            dp = float(line[2])
             name = line[0].split('-')[1]
             if name in well_dict:
-                well_dict[name].append((xm, ym, zm))
+                well_dict[name] = np.concatenate(
+                    (well_dict[name],
+                     np.array([xm, ym, zm, dp]).reshape(1, 4)))
             else:
-                well_dict[name] = [(xm, ym, zm)]
+                well_dict[name] = np.array([xm, ym, zm, dp]).reshape(1, 4)
     return well_dict
+
 
 def wells_4850_to_gmt(outfile):
     colors = cycle(sns.color_palette())

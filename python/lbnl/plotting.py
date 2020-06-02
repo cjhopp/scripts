@@ -24,7 +24,7 @@ from scipy.signal import resample
 
 # Local imports (assumed to be in python path)
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
-                            structures_to_planes)
+                            structures_to_planes, depth_to_xyz)
 from lbnl.coordinates import SURF_converter
 from lbnl.DSS import interpolate_picks
 
@@ -81,6 +81,8 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     if inventory:
         datas = add_inventory(inventory=inventory, location=location,
                               objects=datas)
+        if location == 'surf':
+            datas = add_surf_sources(well_dict, datas)
     if DSS_picks:
         try:
             datas = add_DSS(DSS_picks=DSS_picks, objects=datas,
@@ -96,8 +98,8 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         datas = add_structures(structures=structures, objects=datas,
                                well_dict=well_dict)
     if catalog:
-        datas = add_catalog(catalog=catalog, location=location,
-                            dd_only=dd_only, objects=datas, surface=surface)
+        datas = add_catalog(catalog=catalog, dd_only=dd_only, objects=datas,
+                            surface=surface)
     # Start figure
     fig = go.Figure(data=datas)
     # Manually find the data limits, and scale appropriately
@@ -263,7 +265,7 @@ def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling,
 
 
 def add_wells(well_dict, objects, structures):
-    well_colors = cl.scales['9']['seq']['BuPu']
+    well_colors = cycle(sns.color_palette().as_hex())
     for i, (key, pts) in enumerate(well_dict.items()):
         try:
             x, y, z = zip(*pts)
@@ -279,12 +281,15 @@ def add_wells(well_dict, objects, structures):
         elif key.startswith('B'):
             group = 'FS-B'
             viz = True
+        elif key[0] in ['O', 'P', 'I', 'P']:
+            group = 'Collab'
+            viz = True
         else:
             group = 'Other projects'
             viz = False
-        objects.append(go.Scatter3d(x=[x[0], x[-1]],
-                                    y=[y[0], y[-1]],
-                                    z=[z[0], z[-1]],
+        objects.append(go.Scatter3d(x=np.array([x[0], x[-1]]),
+                                    y=np.array([y[0], y[-1]]),
+                                    z=np.array([z[0], z[-1]]),
                                     mode='lines',
                                     visible=viz,
                                     name='{}: {}'.format(group, key),
@@ -420,6 +425,8 @@ def add_inventory(inventory, location, objects):
     """
     fsb_accel = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647', 'B659',
                  'B748', 'B75']
+    surf_accel = ['PDB3', 'PDB4', 'PDB6', 'PDT1', 'PSB7', 'PSB9', 'PST10',
+                  'PST12']
     sta_list = []
     if isinstance(inventory, dict):
         for sta, pt in inventory.items():
@@ -439,7 +446,7 @@ def add_inventory(inventory, location, objects):
                 legend = 'CASSM Source'
                 color = 'blue'
                 symbol = 'circle'
-            elif sta.code in fsb_accel:
+            elif sta.code in fsb_accel or sta.code in surf_accel:
                 legend = 'Accelerometer'
                 color = 'magenta'
                 symbol = 'square'
@@ -473,6 +480,25 @@ def add_inventory(inventory, location, objects):
                                                 line=dict(color=col,
                                                         width=1),
                                                 opacity=0.9)))
+    return objects
+
+
+def add_surf_sources(well_dict, objects):
+    surf_cassm_deps = {'OB': [30.1, 34.2, 38.5, 47., 51.5],
+                       'PST': [19.7, 22.9, 25.7, 28.7, 32., 35.1],
+                       'PSB': [9.1, 19.8, 30.5, 41.1, 51.8], 'PDT': [30.5]}
+    sta_list = []
+    # Add CASSM sources too
+    for bh, deps in surf_cassm_deps.items():
+        for d in deps:
+            x, y, z = depth_to_xyz(well_dict, bh, d)
+            sta_list.append((x, y, z))
+    xs, ys, zs = zip(*sta_list)
+    objects.append(go.Scatter3d(
+        x=np.array(xs), y=np.array(ys), z=np.array(zs), mode='markers',
+        name='CASSM', legendgroup='Seismic network',
+        marker=dict(color='black', size=2., symbol='x',
+        opacity=0.9)))
     return objects
 
 
