@@ -604,7 +604,10 @@ def loadNLLocOutput(ev, infile):
                   "Not incrementing P nor S phase count.")
         used_stations.add(station)
     o.used_station_count = len(used_stations)
-    update_origin_azimuthal_gap(ev)
+    try:
+        update_origin_azimuthal_gap(ev)
+    except IndexError as e:
+        print('Invalid resource ids breaking Arrival-->Pick lookup')
     print('Made it through location reading')
     # read NLLOC scatter file
     data = readNLLocScatter(infile.replace('hyp', 'scat'))
