@@ -77,8 +77,9 @@ def trigger(param_file, plot=False):
         print('Triggering on {}'.format(date))
         utcdto = UTCDateTime(date)
         jday = utcdto.julday
-        day_wavs = glob('{}/**/*{}.ms'.format(
-            paramz['General']['wav_directory'], jday), recursive=True)
+        day_wavs = glob('{}/{}/**/*{}.ms'.format(
+            paramz['General']['wav_directory'], date.year, jday),
+            recursive=True)
         st = Stream()
         for w in day_wavs:
             seed_parts = os.path.basename(w).split('.')
