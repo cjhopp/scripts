@@ -537,7 +537,8 @@ def add_catalog(catalog, dd_only, objects, surface):
         clust_col = next(colors)
         tickvals = np.linspace(min(t), max(t), 10)
         ticktext = [datetime.fromtimestamp(t) for t in tickvals]
-        scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=z,
+        print(np.max(z))
+        scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=np.array(z),
                                 mode='markers',
                                 name='Seismic event',
                                 hoverinfo='text',
