@@ -92,7 +92,7 @@ def trigger(param_file, plot=False):
                 st += read(w)
         st = st.merge(fill_value='interpolate')
         # Filter and downsample the wavs
-        st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=4,
+        st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
                      highcut=trig_p['highcut'], filt_order=trig_p['corners'],
                      samp_rate=trig_p['sampling_rate'], starttime=utcdto)
         # Precompute characteristic functions for each station as tuned manually

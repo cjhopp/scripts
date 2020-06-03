@@ -15,6 +15,7 @@ Trigger:
   highcut: 24.
   corners: 3
   sampling_rate: 50.
+  ncores: 8
   threshold_on: 5.0
   threshold_off: 0.5
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers'
