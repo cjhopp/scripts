@@ -1,0 +1,58 @@
+# Trigger/picking parameter file for cascadia borehole project
+
+General:
+  wav_directory: '/bear0-data/GMF_1/Cascadia/Chet/mseed'
+
+Database:
+  name: 'cascadia_test'
+
+Trigger:
+  start_time: 2017-9-1
+  end_time: 2017-9-30
+  sta: 1.0
+  lta: 10.0
+  lowcut: 1.0
+  highcut: 24.
+  corners: 3
+  sampling_rate: 50.
+  threshold_on: 5.0
+  threshold_off: 0.5
+  plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers'
+  coincidence_sum: 3.
+#  network_specific_params:
+#    {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+#     'PB': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+#     'UW': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+#     'CN': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+#    }
+  # Channel specific parameters take precedence
+  channel_specific_params:
+    {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'NV.NSMTC.B3.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'NV.NSMTC.G2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'NV.NSMTC.G1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+#     'PB.B001..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+#     'PB.B011..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+#     'UW.GNW..BHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+#     'UW.HDW..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+#     'UW.MCW..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+#     'CN.PGC..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
+     }
+  output:
+    write_wavs: True
+    waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers'
+    pre_trigger: 10.
+    post_trigger: 30.
+
+Picker:
+  # Values from OK initially
+  type: 'aicd'
+  t_ma: 3
+  nsigma: 8
+  t_up: 0.78
+  nr_len: 2
+  nr_coeff: 2
+  pol_len: 10
+  pol_coeff: 10
+  uncert_coeff: 3

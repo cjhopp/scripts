@@ -173,7 +173,28 @@ def picker(param_file):
     return
 
 
-def build_TT_tables():
+def build_TT_tables(inventory, tt_db):
+    # Create a connection to an sqlalchemy database
+    tt_engine = create_engine(tt_db, echo=False)
+    tt_stations_3D.BaseTT1D.metadata.create_all(tt_engine)
+    TTSession = sessionmaker(bind=tt_engine)
+    tt_session = TTSession()
+    # Now add all individual stations to tt sesh
+    seeds = list(set(['{}.{}.{}'.format(net.code, sta.code, chan.location_code)
+                      for net in inventory for sta in net for chan in sta]))
+    for seed in seeds:
+        net, sta, loc = seed.split(',')
+        sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
+        chan = sta_inv[0]
+        station = tt_stations_3D.Station1D(sta, net, loc, sta.latitude,
+                                           sta.longitude,
+                                           sta.elevation - chan.depth)
+        # Save the station locations in the database
+        tt_session.add(station)
+        tt_session.commit()
+    # Todo Figure out how to get the big ass vel model into a database
+    # Todo ...will involve reading in and reprojecting the grid
+    
     return
 
 
