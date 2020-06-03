@@ -19,7 +19,7 @@ Trigger:
   threshold_on: 5.0
   threshold_off: 0.5
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers'
-  coincidence_sum: 3.
+  coincidence_sum: 4.
 #  network_specific_params:
 #    {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
 #     'PB': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
