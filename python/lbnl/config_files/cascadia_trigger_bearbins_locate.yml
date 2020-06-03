@@ -35,11 +35,24 @@ Trigger:
      'NV.NSMTC.G1.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
      'PB.B001..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
      'PB.B011..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
-     'UW.GNW..BHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'PB.B004..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'PB.B003..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'PB.B007..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'PB.B926..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+     'UW.OTR..BHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'UW.STW..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'UW.ERW..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'UW.SWID..BHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
      'UW.HDW..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
-     'UW.MCW..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
      'CN.PGC..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
-     }
+     'CN.VDB..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'CN.SNB..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'CN.VGZ..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'CN.GOBB..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'CN.CLRS..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'CN.PTRF..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+     'CN.BPCB..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
+    }
   output:
     write_wavs: True
     waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/locate'
