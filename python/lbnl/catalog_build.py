@@ -205,6 +205,7 @@ def plot_triggers(triggers, st, cft_stream, params, outdir):
         print(trig)
         seeds = trig['trace_ids']
         print(seeds)
+        print(st)
         # Clip around trigger time
         st_slice = st.slice(starttime=trig['time'] - 3,
                             endtime=trig['time'] + 10)
