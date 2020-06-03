@@ -202,12 +202,15 @@ def build_TT_tables(inventory, tt_db):
 def plot_triggers(triggers, st, cft_stream, params, outdir):
     """Helper to plot triggers, traces and characteristic funcs"""
     for trig in triggers:
+        print(trig)
         seeds = trig['trace_ids']
+        print(seeds)
         # Clip around trigger time
         st_slice = st.slice(starttime=trig['time'] - 3,
                             endtime=trig['time'] + 10)
         cft_slice = cft_stream.slice(starttime=trig['time'] - 3,
                                      endtime=trig['time'] + 10)
+        print(st_slice)
         fig, ax = plt.subplots(nrows=len(seeds), sharex='col')
         fig.suptitle('Detection: {}'.format(trig['time']))
         fig.subplots_adjust(hspace=0.)
