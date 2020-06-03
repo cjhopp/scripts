@@ -108,27 +108,28 @@ def trigger(param_file, plot=False):
                 nsta=int(seed_params['sta'] * tr.stats.sampling_rate),
                 nlta=int(seed_params['lta'] * tr.stats.sampling_rate))
         # Coincidence triggering on precomputed characteristic funcs
-        trigs += coincidence_trigger(
+        day_trigs = coincidence_trigger(
             trigger_type=None, stream=trigger_stream,
             thr_on=seed_params['thr_on'],
             thr_off=seed_params['thr_off'],
             thr_coincidence_sum=trig_p['coincidence_sum'],
             details=True)
         if plot:
-            plot_triggers(trigs, st, trigger_stream,
+            plot_triggers(day_trigs, st, trigger_stream,
                           sta_lta_params, outdir=trig_p['plot_outdir'])
         if not trig_p['output']['write_wavs']:
             print('Not writing waveforms')
             return trigs
         print('Writing triggered waveforms')
         output_param = trig_p['output']
-        for t in trigs:
+        for t in day_trigs:
             trigger_stream.slice(
                 starttime=t['time'] - output_param['pre_trigger'],
                 endtime=t['time'] + output_param['post_trigger'])
             trigger_stream.write(
                 '{}/Trig_{}.ms'.format(output_param['waveform_outdir'],
                                        t['time']), format='MSEED')
+        trigs += day_trigs
     return trigs
 
 
