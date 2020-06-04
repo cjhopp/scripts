@@ -165,6 +165,7 @@ def picker(param_file):
         print('Picking {}'.format(trig_f))
         st = read(trig_f)
         for tr in st:
+            print(tr.id)
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
             t_create = UTCDateTime().datetime
             # Add each pick to the database
