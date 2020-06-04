@@ -169,10 +169,12 @@ def picker(param_file):
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
             t_create = UTCDateTime().datetime
             # Add each pick to the database
+            print('Adding to db')
             for i, pick in enumerate(picks):
                 new_pick = tables3D.Pick(scnl, pick.datetime, polarity[i],
                                          snr[i], uncert[i], t_create)
                 db_sesh.add(new_pick)  # Add pick i to the database
+            print('Committing to db')
             db_sesh.commit()  # Commit the pick to the database
     return
 
