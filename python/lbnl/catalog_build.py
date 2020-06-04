@@ -205,10 +205,10 @@ def plot_triggers(triggers, st, cft_stream, params, outdir):
     for trig in triggers:
         seeds = trig['trace_ids']
         # Clip around trigger time
-        st_slice = st.slice(starttime=trig['time'] - 3,
-                            endtime=trig['time'] + 10)
-        cft_slice = cft_stream.slice(starttime=trig['time'] - 3,
-                                     endtime=trig['time'] + 10)
+        st_slice = st.slice(starttime=trig['time'] - 10,
+                            endtime=trig['time'] + 30)
+        cft_slice = cft_stream.slice(starttime=trig['time'] - 10,
+                                     endtime=trig['time'] + 30)
         fig, ax = plt.subplots(nrows=len(seeds), sharex='col')
         fig.suptitle('Detection: {}'.format(trig['time']))
         fig.subplots_adjust(hspace=0.)

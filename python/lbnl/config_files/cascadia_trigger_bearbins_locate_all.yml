@@ -11,21 +11,21 @@ Trigger:
   end_time: 2017-9-30
   sta: 1.0
   lta: 10.0
-  lowcut: 2.0
+  lowcut: 1.0
   highcut: 24.
   corners: 3
   sampling_rate: 50.
   ncores: 8
   threshold_on: 5.0
-  threshold_off: 1.5
+  threshold_off: 0.5
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate_v2'
   coincidence_sum: 9.
 #  network_specific_params:
-#    {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
-#     'PB': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
-#     'UW': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
-#     'CN': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
-#    }
+    {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'PB': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'UW': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+    }
   # Channel specific parameters take precedence
   channel_specific_params:
     {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
@@ -61,7 +61,7 @@ Trigger:
 
 Picker:
   # Values from OK initially
-  method: 'aicd'
+  type: 'aicd'
   t_ma: 3
   nsigma: 8
   t_up: 0.78
