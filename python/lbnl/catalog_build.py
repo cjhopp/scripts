@@ -162,6 +162,7 @@ def picker(param_file):
     trigger_files = glob('{}/*'.format(
         paramz['Trigger']['output']['waveform_outdir']))
     for trig_f in trigger_files:
+        print('Picking {}'.format(trig_f))
         st = read(trig_f)
         for tr in st:
             scnl, picks, polarity, snr, uncert = picker.picks(tr)

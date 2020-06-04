@@ -61,7 +61,7 @@ Trigger:
 
 Picker:
   # Values from OK initially
-  method: 'aicd'
+  method  : 'aicd'
   t_ma: 3
   nsigma: 8
   t_up: 0.78
