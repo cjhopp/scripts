@@ -123,10 +123,10 @@ def trigger(param_file, plot=False):
         print('Writing triggered waveforms')
         output_param = trig_p['output']
         for t in day_trigs:
-            trigger_stream.slice(
+            trig_s = trigger_stream.slice(
                 starttime=t['time'] - output_param['pre_trigger'],
                 endtime=t['time'] + output_param['post_trigger'])
-            trigger_stream.write(
+            trig_s.write(
                 '{}/Trig_{}.ms'.format(output_param['waveform_outdir'],
                                        t['time']), format='MSEED')
         trigs += day_trigs
