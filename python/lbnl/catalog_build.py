@@ -189,7 +189,7 @@ def build_tt_tables(param_file, inventory, tt_db):
     assoc_paramz = paramz['Associator']
     # Create a connection to an sqlalchemy database
     tt_engine = create_engine(tt_db, echo=False)
-    tt_stations_3D.BaseTT1D.metadata.create_all(tt_engine)
+    tt_stations_3D.BaseTT3D.metadata.create_all(tt_engine)
     TTSession = sessionmaker(bind=tt_engine)
     tt_session = TTSession()
     # Now add all individual stations to tt sesh
