@@ -15,12 +15,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
 from obspy import UTCDateTime, read, Stream
+from obspy.geodetics import kilometer2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc
 from phasepapy.phasepicker import aicdpicker, ktpicker
 from phasepapy.associator import tables3D, assoc3D, plot3D
 from phasepapy.associator import tt_stations_3D
 
+import obspy.taup as taup
 
 def date_generator(start_date, end_date):
     # Generator for date looping
@@ -181,7 +183,10 @@ def picker(param_file):
     return
 
 
-def build_TT_tables(inventory, tt_db):
+def build_TT_tables(param_file, inventory, tt_db):
+    with open(param_file, 'r') as f:
+        paramz = yaml.load(f, Loader=yaml.FullLoader)
+    assoc_paramz = paramz['Associator']
     # Create a connection to an sqlalchemy database
     tt_engine = create_engine(tt_db, echo=False)
     tt_stations_3D.BaseTT1D.metadata.create_all(tt_engine)
@@ -194,17 +199,46 @@ def build_TT_tables(inventory, tt_db):
         net, sta, loc = seed.split(',')
         sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
         chan = sta_inv[0]
-        station = tt_stations_3D.Station1D(sta, net, loc, sta.latitude,
+        station = tt_stations_3D.Station3D(sta, net, loc, sta.latitude,
                                            sta.longitude,
                                            sta.elevation - chan.depth)
         # Save the station locations in the database
         tt_session.add(station)
         tt_session.commit()
-    # Todo Figure out how to get the big ass vel model into a database
-    # Todo ...will involve reading in and reprojecting the grid
-    
+    # We will use IASP91 here but obspy.taup does let you build your own model
+    velmod = taup.TauPyModel(model='iasp91')
+    # Define our distances we want to use in our lookup table
+    max_dist = assoc_paramz['max_dist']
+    dist_spacing = assoc_paramz['distance_spacing']
+    max_depth = assoc_paramz['max_depth']
+    depth_spacing = assoc_paramz['depth_spacing']
+    distance_km = np.arange(0, max_dist + dist_spacing, dist_spacing)
+    depth_km = np.arange(0, max_depth + depth_spacing, depth_spacing)
+    for d_km in distance_km:
+        for dep in depth_km:
+            d_deg = kilometer2degrees(d_km)
+            ptimes = []
+            stimes = []
+            p_arrivals = velmod.get_travel_times(
+                source_depth_in_km=dep, distance_in_degree=d_deg,
+                phase_list=['P', 'p'])
+            for p in p_arrivals:
+                ptimes.append(p.time)
+            # s_arrivals = velmod.get_travel_times(source_depth_in_km=source_depth,
+            #                                      distance_in_degree=d_deg,
+            #                                      phase_list=['S', 's'])
+            # for s in s_arrivals:
+            #     stimes.append(s.time)
+            tt_entry = tt_stations_3D.TTtable3D(d_km, d_deg, np.min(ptimes),
+                                                np.min(stimes),
+                                                np.min(stimes) - np.min(ptimes))
+            tt_session.add(tt_entry)
+            tt_session.commit()  # Probably faster to do the commit outside of loop but oh well
+    tt_session.close()
     return
 
+
+## Plotting ##
 
 def plot_triggers(triggers, st, cft_stream, params, outdir):
     """Helper to plot triggers, traces and characteristic funcs"""
@@ -240,4 +274,8 @@ def plot_triggers(triggers, st, cft_stream, params, outdir):
             plt.close('all')
         else:
             plt.show()
+    return
+
+
+def plot_picks():
     return

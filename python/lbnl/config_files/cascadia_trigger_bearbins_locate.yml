@@ -70,3 +70,10 @@ Picker:
   pol_len: 10
   pol_coeff: 10
   uncert_coeff: 3
+
+Associator:
+  max_dist: 250
+  dist_spacing: 2
+  max_depth: 60
+  depth_spacing: 2
+
