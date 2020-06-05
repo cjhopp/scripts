@@ -199,9 +199,9 @@ def build_tt_tables(param_file, inventory, tt_db):
         net, sta, loc = seed.split('.')
         sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
         chan = sta_inv[0]
-        station = tt_stations_3D.Station3D(sta, net, loc, sta.latitude,
-                                           sta.longitude,
-                                           sta.elevation - chan.depth)
+        station = tt_stations_3D.Station3D(sta, net, loc, sta_inv.latitude,
+                                           sta_inv.longitude,
+                                           sta_inv.elevation - chan.depth)
         # Save the station locations in the database
         tt_session.add(station)
         tt_session.commit()
