@@ -183,7 +183,7 @@ def picker(param_file):
     return
 
 
-def build_TT_tables(param_file, inventory, tt_db):
+def build_tt_tables(param_file, inventory, tt_db):
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
     assoc_paramz = paramz['Associator']
