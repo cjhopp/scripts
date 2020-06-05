@@ -224,11 +224,11 @@ def build_tt_tables(param_file, inventory, tt_db):
                 phase_list=['P', 'p'])
             for p in p_arrivals:
                 ptimes.append(p.time)
-            # s_arrivals = velmod.get_travel_times(source_depth_in_km=source_depth,
-            #                                      distance_in_degree=d_deg,
-            #                                      phase_list=['S', 's'])
-            # for s in s_arrivals:
-            #     stimes.append(s.time)
+            s_arrivals = velmod.get_travel_times(source_depth_in_km=dep,
+                                                 distance_in_degree=d_deg,
+                                                 phase_list=['S', 's'])
+            for s in s_arrivals:
+                stimes.append(s.time)
             tt_entry = tt_stations_3D.TTtable3D(d_km, d_deg, np.min(ptimes),
                                                 np.min(stimes),
                                                 np.min(stimes) - np.min(ptimes))
