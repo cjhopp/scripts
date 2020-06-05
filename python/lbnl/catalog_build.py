@@ -136,14 +136,12 @@ def trigger(param_file, plot=False):
     return trigs
 
 
-def picker(param_file):
+def picker(param_file, db_sesh):
     """
     Pick the first arrivals (P) for triggered waveforms
     :param method:
     :return:
     """
-    # Create databases
-    db_sesh, db_assoc, db_tt = build_databases(param_file)
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
     pick_p = paramz['Picker']
@@ -175,7 +173,7 @@ def picker(param_file):
             # Add each pick to the database
             print('Adding to db')
             for i, pick in enumerate(picks):
-                new_pick = tables3D.Pick(scnl, pick.datetime, polarity[i],
+                new_pick = tables1D.Pick(scnl, pick.datetime, polarity[i],
                                          snr[i], uncert[i], t_create)
                 db_sesh.add(new_pick)  # Add pick i to the database
             print('Committing to db')
@@ -223,12 +221,11 @@ def build_tt_tables(param_file, inventory, tt_db):
             phase_list=['P', 'p'])
         for p in p_arrivals:
             ptimes.append(p.time)
-        s_arrivals = velmod.get_travel_times(source_depth_in_km=15.,
-                                             distance_in_degree=d_deg,
-                                             phase_list=['S', 's'])
+        s_arrivals = velmod.get_travel_times(
+            source_depth_in_km=15., distance_in_degree=d_deg,
+            phase_list=['S', 's'])
         for s in s_arrivals:
             stimes.append(s.time)
-        print(ptimes, stimes)
         tt_entry = tt_stations_1D.TTtable1D(d_km, d_deg, np.min(ptimes),
                                             np.min(stimes),
                                             np.min(stimes) - np.min(ptimes))

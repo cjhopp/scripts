@@ -80,7 +80,7 @@ def _check_dir(path):
     return
 
 
-def downsample_mseeds(wavs):
+def downsample_mseeds(wavs, samp_rate):
     """
     Loop a list of miniseed files, downsample, and save to new files.
 
@@ -90,14 +90,11 @@ def downsample_mseeds(wavs):
     :return:
     """
     st = Stream()
+    wavs.sort()
     for w in wavs:
+        print(w)
         tmp_st = read(w)
-        starttime = tmp_st[0].stats.starttime.date
-        try:
-            st += dayproc(st=tmp_st, samp_rate=1., starttime=starttime, lowcut=None,
-                          highcut=None, filt_order=None)
-        except NotImplementedError:
-            continue
+        st += tmp_st.resample(samp_rate)
     return
 
 
