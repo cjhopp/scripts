@@ -90,12 +90,16 @@ def downsample_mseeds(wavs, samp_rate):
     :return:
     """
     st = Stream()
-    wavs.sort()
     for w in wavs:
         print(w)
         tmp_st = read(w)
-        st += tmp_st.resample(samp_rate)
-    return
+        try:
+            st += tmp_st.resample(samp_rate)
+        except ZeroDivisionError as e:
+            print('No data in this trace?')
+            print(e)
+            continue
+    return st
 
 
 def calculate_ppsds(netstalocchans, wav_dir, inventory, outdir):
