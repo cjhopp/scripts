@@ -196,7 +196,7 @@ def build_tt_tables(param_file, inventory, tt_db):
     seeds = list(set(['{}.{}.{}'.format(net.code, sta.code, chan.location_code)
                       for net in inventory for sta in net for chan in sta]))
     for seed in seeds:
-        net, sta, loc = seed.split(',')
+        net, sta, loc = seed.split('.')
         sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
         chan = sta_inv[0]
         station = tt_stations_3D.Station3D(sta, net, loc, sta.latitude,
