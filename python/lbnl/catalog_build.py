@@ -228,6 +228,7 @@ def build_tt_tables(param_file, inventory, tt_db):
                                              phase_list=['S', 's'])
         for s in s_arrivals:
             stimes.append(s.time)
+        print(ptimes, stimes)
         tt_entry = tt_stations_1D.TTtable1D(d_km, d_deg, np.min(ptimes),
                                             np.min(stimes),
                                             np.min(stimes) - np.min(ptimes))
