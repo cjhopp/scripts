@@ -209,7 +209,7 @@ def build_tt_tables(param_file, inventory, tt_db):
     velmod = taup.TauPyModel(model='iasp91')
     # Define our distances we want to use in our lookup table
     max_dist = assoc_paramz['max_dist']
-    dist_spacing = assoc_paramz['distance_spacing']
+    dist_spacing = assoc_paramz['dist_spacing']
     max_depth = assoc_paramz['max_depth']
     depth_spacing = assoc_paramz['depth_spacing']
     distance_km = np.arange(0, max_dist + dist_spacing, dist_spacing)
