@@ -18,7 +18,7 @@ Trigger:
   ncores: 8
   threshold_on: 5.0
   threshold_off: 1.5
-  trigger_off_extention: 5.
+  trigger_off_extension: 5.
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate'
   coincidence_sum: 9.
 #  network_specific_params:
