@@ -107,9 +107,6 @@ def build_tt_tables(param_file, inventory, tt_db):
     return
 
 
-# TODO Read parameter file out here, then feed dates to trigger/picker to
-# TODO facilitate parallel processing
-
 def trigger(param_file, plot=False):
     """
     Wrapper on obspy coincidence trigger for a directory of waveforms
@@ -258,10 +255,11 @@ def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):
         seeds = trig['trace_ids']
         # Clip around trigger time
         st_slice = st.slice(starttime=trig['time'] - 10,
-                            endtime=trig['time'] + 30)
+                            endtime=trig['time'] + 50)
         cft_slice = cft_stream.slice(starttime=trig['time'] - 10,
-                                     endtime=trig['time'] + 30)
-        fig, ax = plt.subplots(nrows=len(seeds), sharex='col')
+                                     endtime=trig['time'] + 50)
+        fig, ax = plt.subplots(nrows=len(seeds), sharex='col',
+                               figsize=(6, len(seeds) / 2.))
         fig.suptitle('Detection: {}'.format(trig['time']))
         fig.subplots_adjust(hspace=0.)
         for i, sid in enumerate(seeds):
@@ -282,11 +280,12 @@ def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):
             bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
                               ec="k", lw=1)
             ax[i].annotate(s=sid, xy=(0.0, 0.8), xycoords='axes fraction',
-                           bbox=bbox_props, ha='center')
+                           bbox=bbox_props, ha='center', fontsize=8)
             ax[i].set_yticks([])
-        ax[i].set_xlabel('Time [s]', fontsize=14)
+        ax[i].set_xlabel('Time [s]', fontsize=12)
         if os.path.isdir(outdir):
-            plt.savefig('{}/Trig_{}.png'.format(outdir, trig['time']))
+            plt.savefig('{}/Trig_{}.png'.format(outdir, trig['time']),
+                        dpi=200)
             plt.close('all')
         else:
             plt.show()
@@ -299,7 +298,8 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
     st_slice = st.slice(starttime=prepick,
                         endtime=postpick)
     time_v = np.arange(st_slice[0].data.shape[0]) * st_slice[0].stats.delta
-    fig, ax = plt.subplots(nrows=len(seeds), sharex='col')
+    fig, ax = plt.subplots(nrows=len(seeds), sharex='col',
+                           figsize=(6, len(seeds) / 2.), dpi=200)
     fig.suptitle('Detection: {}'.format(name))
     fig.subplots_adjust(hspace=0.)
     for i, sid in enumerate(seeds):
