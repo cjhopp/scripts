@@ -99,7 +99,7 @@ def downsample_mseeds(wavs, samp_rate):
             st += dayproc(st=tmp_st, samp_rate=samp_rate, starttime=starttime,
                           lowcut=0.0, highcut=0.4, filt_order=3,
                           ignore_length=False, ignore_bad_data=False)
-        except ValueError as e:
+        except (NotImplementedError, ValueError) as e:
             print(e)
             continue
     return st
