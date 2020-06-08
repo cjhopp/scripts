@@ -323,4 +323,5 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
                        bbox=bbox_props, ha='center')
         ax[i].set_yticks([])
     fig.savefig('{}/Picks_{}.png'.format(outdir, name))
+    plt.close('all')
     return
