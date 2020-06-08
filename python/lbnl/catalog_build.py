@@ -229,7 +229,7 @@ def picker(param_file):
         st = read(trig_f)
         for tr in st:
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
-            print(scnl[0], picks[0], polarity[0], snr[0], uncert[0])
+            print(picks[0], polarity[0], snr[0], uncert[0])
             if len(picks) > 1:
                 print('Taking greatest SNR at {}'.format(tr.id))
             # Always take pick with largest SNR
