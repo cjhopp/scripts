@@ -229,7 +229,6 @@ def picker(param_file):
         st = read(trig_f)
         for tr in st:
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
-            print(picks[0], polarity[0], snr[0], uncert[0])
             if len(picks) > 1:
                 print('Taking greatest SNR at {}'.format(tr.id))
             # Always take pick with largest SNR
@@ -243,8 +242,7 @@ def picker(param_file):
                     location_code=tr.stats.location,
                     channel_code=tr.stats.channel),
                 method_id=pick_p['method'],
-                time_error=QuantityError(uncertainty=uncert[ind]),
-                polarity=polarity[ind]))
+                time_error=QuantityError(uncertainty=uncert[ind])))
         cat.events.append(ev)
         if 'plotdir' in pick_p:
             plot_picks(
