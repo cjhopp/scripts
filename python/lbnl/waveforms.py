@@ -99,7 +99,7 @@ def downsample_mseeds(wavs, samp_rate, outdir):
         try:
             down_st = dayproc(
                 st=tmp_st, samp_rate=samp_rate, starttime=starttime,
-                lowcut=None, highcut=0.4, filt_order=3, ncores=12,
+                lowcut=None, highcut=0.4, filt_order=3, num_cores=12,
                 ignore_length=False, ignore_bad_data=False)
             print('Writing {}'.format(new_name))
             down_st.write(''.format(outdir, new_name), format="MSEED")
