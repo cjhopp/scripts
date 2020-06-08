@@ -180,6 +180,10 @@ def trigger(param_file, plot=False):
         print('Writing triggered waveforms')
         output_param = trig_p['output']
         for t in day_trigs:
+            trig_trs = Stream()
+            # Only keep stations that triggered
+            for sid in t['trace_ids']:
+                trig_trs += st.select(id=sid)
             trig_s = st.slice(
                 starttime=t['time'] - output_param['pre_trigger'],
                 endtime=t['time'] + output_param['post_trigger'])
