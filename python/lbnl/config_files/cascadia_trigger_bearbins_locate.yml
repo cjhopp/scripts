@@ -21,12 +21,12 @@ Trigger:
   trigger_off_extension: 5.
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate'
   coincidence_sum: 9.
-#  network_specific_params:
-#    {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
-#     'PB': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
-#     'UW': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
-#     'CN': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 0.5},
-#    }
+  network_specific_params:
+    {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+     'PB': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+     'UW': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+     'CN': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+    }
   # Channel specific parameters take precedence
   channel_specific_params:
     {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
