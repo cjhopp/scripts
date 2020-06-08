@@ -169,6 +169,7 @@ def trigger(param_file, plot=False):
             thr_on=seed_params['thr_on'],
             thr_off=seed_params['thr_off'],
             thr_coincidence_sum=trig_p['coincidence_sum'],
+            max_trigger_length=trig_p['max_trigger_length'],
             details=True, trigger_off_extension=trig_p['trigger_off_extension'])
         if plot:
             plot_triggers(day_trigs, st, trigger_stream,
