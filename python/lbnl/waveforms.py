@@ -95,7 +95,7 @@ def downsample_mseeds(wavs, samp_rate, outdir):
         print('Reading {}'.format(w))
         tmp_st = read(w)
         starttime = tmp_st[0].stats.starttime.date
-        # tmp_st.merge()
+        tmp_st.merge()
         try:
             print('Processing')
             down_st = dayproc(

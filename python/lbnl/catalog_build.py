@@ -222,7 +222,7 @@ def picker(param_file):
     trigger_files = glob('{}/*'.format(
         paramz['Trigger']['output']['waveform_outdir']))
     # Force chronological order
-    trigger_files = trigger_files.sort()
+    trigger_files.sort()
     for trig_f in trigger_files:
         ev = Event()
         print('Picking {}'.format(trig_f))
