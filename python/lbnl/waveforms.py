@@ -80,7 +80,7 @@ def _check_dir(path):
     return
 
 
-def downsample_mseeds(wavs, samp_rate, outdir):
+def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     """
     Loop a list of miniseed files, downsample, and save to new files.
 
@@ -90,8 +90,13 @@ def downsample_mseeds(wavs, samp_rate, outdir):
     :return:
     """
     st = Stream()
-    for w in wavs:
+    for date in date_generator(start, end):
+        wavs = [w for w in wavs if UTCDateTime(date).julday in w]
+        tmp_st = Stream()
+        for w in wavs:
+            tmp_st += read(w)
         new_name = os.path.basename(w).rstrip('.ms') + '_1Hz.ms'
+        new_name.replace()
         print('Reading {}'.format(w))
         tmp_st = read(w)
         starttime = tmp_st[0].stats.starttime.date
