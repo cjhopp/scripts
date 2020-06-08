@@ -91,12 +91,14 @@ def downsample_mseeds(wavs, samp_rate, outdir):
     """
     st = Stream()
     for w in wavs:
-        print(w)
         new_name = os.path.basename(w).rstrip('.ms') + '_1Hz.ms'
+        print('Reading {}'.format(w))
         tmp_st = read(w)
         starttime = tmp_st[0].stats.starttime.date
+        print('Merging')
         tmp_st.merge()
         try:
+            print('Processing')
             down_st = dayproc(
                 st=tmp_st, samp_rate=samp_rate, starttime=starttime,
                 lowcut=None, highcut=0.4, filt_order=3, num_cores=12,
