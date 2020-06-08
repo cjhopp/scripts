@@ -71,6 +71,7 @@ Picker:
   pol_len: 10
   pol_coeff: 10
   uncert_coeff: 3
+  pick_measure: earliest  # snr or earliest
   plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/picks/locate_v2.2'
 
 Associator:

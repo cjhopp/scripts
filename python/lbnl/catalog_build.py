@@ -234,7 +234,10 @@ def picker(param_file):
             elif len(picks) > 1:
                 print('Taking greatest SNR at {}'.format(tr.id))
             # Always take pick with largest SNR
-            ind = np.argmax(snr)
+            if pick_p['pick_measure'] == 'snr':
+                ind = np.argmax(snr)
+            elif pick_p['pick_measure'] == 'earliest':
+                ind = 0
             # Add pick to event
             ev.picks.append(Pick(
                 time=picks[ind].datetime,
