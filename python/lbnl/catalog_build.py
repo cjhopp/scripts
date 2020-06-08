@@ -314,9 +314,11 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         time_vect = np.arange(time_v.shape[0]) * tr_raw.stats.delta
         ax[i].plot(time_vect, tr_raw.data / np.max(tr_raw.data), color='k')
         try:
-            ax[i].axvline(pk_time[0], linestyle='-', color='r')
-        except IndexError:
+            pk_samp = ((pk_time[0] - st_slice[0].stats.starttime) *
+                       st_slice[0].stats.sampling_rate)
+        except IndexError as e:
             pass
+        ax[i].axvline(pk_samp, linestyle='-', color='r')
         bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
                           ec="k", lw=1)
         ax[i].annotate(s=sid, xy=(0.0, 0.8), xycoords='axes fraction',
