@@ -175,7 +175,8 @@ def trigger(param_file, plot=False):
             details=True, trigger_off_extension=trig_p['trigger_off_extension'])
         if plot:
             plot_triggers(day_trigs, st, trigger_stream,
-                          sta_lta_params, outdir=trig_p['plot_outdir'])
+                          sta_lta_params, network_sta_lta,
+                          outdir=trig_p['plot_outdir'])
         if not trig_p['output']['write_wavs']:
             print('Not writing waveforms')
             return trigs
@@ -249,14 +250,9 @@ def picker(param_file):
                 name=os.path.basename(trig_f).split('_')[-1].split('.')[0])
     return cat
 
-
-def associator(param_file, db_sesh, db_tt):
-    """Thin wrap phasepapy.associator.LocalAssociator"""
-    return
-
 ## Plotting ##
 
-def plot_triggers(triggers, st, cft_stream, params, outdir):
+def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):
     """Helper to plot triggers, traces and characteristic funcs"""
     for trig in triggers:
         seeds = trig['trace_ids']
@@ -269,7 +265,11 @@ def plot_triggers(triggers, st, cft_stream, params, outdir):
         fig.suptitle('Detection: {}'.format(trig['time']))
         fig.subplots_adjust(hspace=0.)
         for i, sid in enumerate(seeds):
-            tps = params[sid]
+            try:
+                tps = params[sid]
+            # Case where channel uses network-general params
+            except KeyError as e:
+                tps = net_params[sid.split('.')[0]]
             tr_raw = st_slice.select(id=sid)[0]
             tr_cft= cft_slice.select(id=sid)[0].data
             time_vect = np.arange(tr_cft.shape[0]) * tr_raw.stats.delta
