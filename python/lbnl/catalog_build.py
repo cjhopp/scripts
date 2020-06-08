@@ -184,7 +184,7 @@ def trigger(param_file, plot=False):
             # Only keep stations that triggered
             for sid in t['trace_ids']:
                 trig_trs += st.select(id=sid)
-            trig_s = st.slice(
+            trig_s = trig_trs.slice(
                 starttime=t['time'] - output_param['pre_trigger'],
                 endtime=t['time'] + output_param['post_trigger'])
             trig_s.write(
