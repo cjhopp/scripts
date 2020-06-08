@@ -20,7 +20,7 @@ Trigger:
   threshold_off: 1.5
   trigger_off_extension: 10.
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate_v2'
-  coincidence_sum: 9.
+  coincidence_sum: 15.
   network_specific_params:
     {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
      'PB': {'sta': 1., 'lta': 10., 'thr_on': 6.0, 'thr_off': 2.},
