@@ -80,7 +80,7 @@ def _check_dir(path):
     return
 
 
-def downsample_mseeds(wavs, samp_rate):
+def downsample_mseeds(wavs, samp_rate, outdir):
     """
     Loop a list of miniseed files, downsample, and save to new files.
 
@@ -92,13 +92,18 @@ def downsample_mseeds(wavs, samp_rate):
     st = Stream()
     for w in wavs:
         print(w)
+        new_name = os.path.basename(w).rstrip('.ms') + '_1Hz.ms'
         tmp_st = read(w)
         starttime = tmp_st[0].stats.starttime.date
         tmp_st.merge()
         try:
-            st += dayproc(st=tmp_st, samp_rate=samp_rate, starttime=starttime,
-                          lowcut=0.0, highcut=0.4, filt_order=3,
-                          ignore_length=False, ignore_bad_data=False)
+            down_st = dayproc(
+                st=tmp_st, samp_rate=samp_rate, starttime=starttime,
+                lowcut=None, highcut=0.4, filt_order=3,
+                ignore_length=False, ignore_bad_data=False)
+            print('Writing {}'.format(new_name))
+            down_st.write(''.format(outdir, new_name), format="MSEED")
+            st += down_st
         except (NotImplementedError, ValueError) as e:
             print(e)
             continue
