@@ -229,7 +229,9 @@ def picker(param_file):
         st = read(trig_f)
         for tr in st:
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
-            if 2. > len(picks) > 0:
+            if len(picks) > 0:
+                if len(picks) > 1:
+                    print('More than one pick: {}\nTaking first'.format(tr.id))
                 # Add pick to event
                 ev.picks.append(Pick(
                     time=picks[0].datetime,
@@ -241,8 +243,6 @@ def picker(param_file):
                     method_id=pick_p['method']))
             elif len(picks) == 0:
                 print('No picks at {}'.format(tr.id))
-            elif len(picks) > 1:
-                print('More than one pick on {}'.format(tr.id))
         if len(ev.picks) == 0:
             print('No picks for {}'.format(os.path.basename(trig_f)))
             continue
