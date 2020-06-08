@@ -18,6 +18,7 @@ Trigger:
   ncores: 8
   threshold_on: 5.0
   threshold_off: 0.5
+  trigger_off_extention: 5.
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/NSMTC'
   coincidence_sum: 4.
 #  network_specific_params:
@@ -28,10 +29,10 @@ Trigger:
 #    }
   # Channel specific parameters take precedence
   channel_specific_params:
-    {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
-     'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
-     'NV.NSMTC.B3.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
-     'NV.NSMTC.G2.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+    {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.B3.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.G2.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
      'NV.NSMTC.G1.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.0},
 #     'PB.B001..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
 #     'PB.B011..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
@@ -43,8 +44,8 @@ Trigger:
   output:
     write_wavs: True
     waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/NSMTC'
-    pre_trigger: 10.
-    post_trigger: 30.
+    pre_trigger: 30.
+    post_trigger: 60.
 
 Picker:
   # Values from OK initially

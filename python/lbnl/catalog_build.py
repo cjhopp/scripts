@@ -182,7 +182,7 @@ def trigger(param_file, plot=False):
         print('Writing triggered waveforms')
         output_param = trig_p['output']
         for t in day_trigs:
-            trig_s = trigger_stream.slice(
+            trig_s = st.slice(
                 starttime=t['time'] - output_param['pre_trigger'],
                 endtime=t['time'] + output_param['post_trigger'])
             trig_s.write(
