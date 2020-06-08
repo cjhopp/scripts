@@ -313,7 +313,10 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         tr_raw = st_slice.select(id=sid)[0]
         time_vect = np.arange(time_v.shape[0]) * tr_raw.stats.delta
         ax[i].plot(time_vect, tr_raw.data / np.max(tr_raw.data), color='k')
-        ax[i].axvline(pk_time[0], linestyle='-', color='r')
+        try:
+            ax[i].axvline(pk_time[0], linestyle='-', color='r')
+        except IndexError:
+            pass
         bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
                           ec="k", lw=1)
         ax[i].annotate(s=sid, xy=(0.0, 0.8), xycoords='axes fraction',
