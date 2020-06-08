@@ -224,8 +224,6 @@ def picker(param_file):
         print('Picking {}'.format(trig_f))
         st = read(trig_f)
         for tr in st:
-            print(tr.id)
-            print(tr)
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
             if 2. > len(picks) > 0:
                 # Add pick to event
@@ -314,9 +312,9 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         time_vect = np.arange(time_v.shape[0]) * tr_raw.stats.delta
         ax[i].plot(time_vect, tr_raw.data / np.max(tr_raw.data), color='k')
         try:
-            pk_samp = ((pk_time[0] - st_slice[0].stats.starttime) *
-                       st_slice[0].stats.sampling_rate)
-            ax[i].axvline(pk_samp, linestyle='-', color='r')
+            pk_t = ((pk_time[0] - st_slice[0].stats.starttime) *
+                    st_slice[0].stats.sampling_rate) * st_slice[0].stats.delta
+            ax[i].axvline(pk_t, linestyle='-', color='r')
         except IndexError as e:
             pass
         bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
