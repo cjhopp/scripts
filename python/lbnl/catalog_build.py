@@ -316,9 +316,9 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         try:
             pk_samp = ((pk_time[0] - st_slice[0].stats.starttime) *
                        st_slice[0].stats.sampling_rate)
+            ax[i].axvline(pk_samp, linestyle='-', color='r')
         except IndexError as e:
             pass
-        ax[i].axvline(pk_samp, linestyle='-', color='r')
         bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
                           ec="k", lw=1)
         ax[i].annotate(s=sid, xy=(0.0, 0.8), xycoords='axes fraction',
