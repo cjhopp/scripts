@@ -11,13 +11,14 @@ Trigger:
   end_time: 2017-9-30
   sta: 1.0
   lta: 10.0
-  lowcut: 2.0
+  lowcut: 3.
   highcut: 24.
   corners: 3
   sampling_rate: 50.
   ncores: 8
   threshold_on: 5.0
   threshold_off: 1.5
+  trigger_off_extention: 5.
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate_v2'
   coincidence_sum: 9.
 #  network_specific_params:
@@ -28,10 +29,10 @@ Trigger:
 #    }
   # Channel specific parameters take precedence
   channel_specific_params:
-    {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
-     'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
-     'NV.NSMTC.B3.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
-     'NV.NSMTC.G2.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 0.5},
+    {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.B3.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.G2.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
      'NV.NSMTC.G1.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
      'PB.B001..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
      'PB.B011..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
@@ -56,8 +57,8 @@ Trigger:
   output:
     write_wavs: True
     waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/locate_v2'
-    pre_trigger: 10.
-    post_trigger: 30.
+    pre_trigger: 30.
+    post_trigger: 60.
 
 Picker:
   # Values from OK initially
@@ -70,10 +71,19 @@ Picker:
   pol_len: 10
   pol_coeff: 10
   uncert_coeff: 3
+  plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/picks/locate_v2'
 
 Associator:
   max_dist: 250
-  dist_spacing: 2
+  dist_spacing: 1.
   max_depth: 60
-  depth_spacing: 2
+  depth_spacing: 1.
+  max_km: 350
+  aggregation: 1
+  aggr_norm: 'L2'
+  cutoff_outlier: 10
+  assoc_ot_uncert: 7
+  nsta_declare: 4
+  loc_uncert_thresh: 0.2
+
 

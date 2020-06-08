@@ -14,7 +14,8 @@ from glob import glob
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
-from obspy import UTCDateTime, read, Stream
+from obspy import UTCDateTime, read, Stream, Catalog
+from obspy.core.event import Pick, Event, WaveformStreamID
 from obspy.geodetics import kilometer2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc
@@ -50,6 +51,61 @@ def build_databases(param_file):
     Session = sessionmaker(bind=engine_assoc)
     session = Session()
     return session, db_assoc, db_tt
+
+
+def build_tt_tables(param_file, inventory, tt_db):
+    with open(param_file, 'r') as f:
+        paramz = yaml.load(f, Loader=yaml.FullLoader)
+    assoc_paramz = paramz['Associator']
+    # Create a connection to an sqlalchemy database
+    tt_engine = create_engine(tt_db, echo=False)
+    tt_stations_1D.BaseTT1D.metadata.create_all(tt_engine)
+    TTSession = sessionmaker(bind=tt_engine)
+    tt_session = TTSession()
+    # Now add all individual stations to tt sesh
+    seeds = list(set(['{}.{}.{}'.format(net.code, sta.code, chan.location_code)
+                      for net in inventory for sta in net for chan in sta]))
+    for seed in seeds:
+        net, sta, loc = seed.split('.')
+        sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
+        chan = sta_inv[0]
+        station = tt_stations_1D.Station1D(sta, net, loc, sta_inv.latitude,
+                                           sta_inv.longitude,
+                                           sta_inv.elevation - chan.depth)
+        # Save the station locations in the database
+        tt_session.add(station)
+        tt_session.commit()
+    # We will use IASP91 here but obspy.taup does let you build your own model
+    velmod = taup.TauPyModel(model='iasp91')
+    # Define our distances we want to use in our lookup table
+    max_dist = assoc_paramz['max_dist']
+    dist_spacing = assoc_paramz['dist_spacing']
+    max_depth = assoc_paramz['max_depth']
+    depth_spacing = assoc_paramz['depth_spacing']
+    distance_km = np.arange(0, max_dist + dist_spacing, dist_spacing)
+    depth_km = np.arange(0, max_depth + depth_spacing, depth_spacing)
+    for d_km in distance_km:
+        d_deg = kilometer2degrees(d_km)
+        ptimes = []
+        stimes = []
+        p_arrivals = velmod.get_travel_times(
+            source_depth_in_km=15., distance_in_degree=d_deg,
+            phase_list=['P', 'p'])
+        for p in p_arrivals:
+            ptimes.append(p.time)
+        s_arrivals = velmod.get_travel_times(
+            source_depth_in_km=15., distance_in_degree=d_deg,
+            phase_list=['S', 's'])
+        for s in s_arrivals:
+            stimes.append(s.time)
+        tt_entry = tt_stations_1D.TTtable1D(d_km, d_deg, np.min(ptimes),
+                                            np.min(stimes),
+                                            np.min(stimes) - np.min(ptimes))
+        tt_session.add(tt_entry)
+        tt_session.commit()  # Probably faster to do the commit outside of loop but oh well
+    tt_session.close()
+    return
+
 
 # TODO Read parameter file out here, then feed dates to trigger/picker to
 # TODO facilitate parallel processing
@@ -116,7 +172,7 @@ def trigger(param_file, plot=False):
             thr_on=seed_params['thr_on'],
             thr_off=seed_params['thr_off'],
             thr_coincidence_sum=trig_p['coincidence_sum'],
-            details=True)
+            details=True, trigger_off_extension=trig_p['trigger_off_extension'])
         if plot:
             plot_triggers(day_trigs, st, trigger_stream,
                           sta_lta_params, outdir=trig_p['plot_outdir'])
@@ -136,12 +192,13 @@ def trigger(param_file, plot=False):
     return trigs
 
 
-def picker(param_file, db_sesh):
+def picker(param_file):
     """
     Pick the first arrivals (P) for triggered waveforms
     :param method:
     :return:
     """
+    cat = Catalog()
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
     pick_p = paramz['Picker']
@@ -163,77 +220,41 @@ def picker(param_file, db_sesh):
     trigger_files = glob('{}/*'.format(
         paramz['Trigger']['output']['waveform_outdir']))
     for trig_f in trigger_files:
+        ev = Event()
         print('Picking {}'.format(trig_f))
         st = read(trig_f)
         for tr in st:
             print(tr.id)
             print(tr)
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
-            t_create = UTCDateTime().datetime
-            # Add each pick to the database
-            print('Adding to db')
-            for i, pick in enumerate(picks):
-                new_pick = tables1D.Pick(scnl, pick.datetime, polarity[i],
-                                         snr[i], uncert[i], t_create)
-                db_sesh.add(new_pick)  # Add pick i to the database
-            print('Committing to db')
-            db_sesh.commit()  # Commit the pick to the database
+            if 2. > len(picks) > 0:
+                # Add pick to event
+                ev.picks.append(Pick(
+                    time=picks[0].datetime,
+                    waveform_id=WaveformStreamID(
+                        network_code=tr.stats.network,
+                        station_code=tr.stats.station,
+                        location_code=tr.stats.location,
+                        channel_code=tr.stats.channel),
+                    method_id=pick_p['method']))
+            elif len(picks) == 0:
+                print('No picks at {}'.format(tr.id))
+            elif len(picks) > 1:
+                print('More than one pick on {}'.format(tr.id))
+        if len(ev.picks) == 0:
+            print('No picks for {}'.format(os.path.basename(trig_f)))
+            continue
+        cat.events.append(ev)
+        if 'plotdir' in pick_p:
+            plot_picks(
+                st, ev, prepick=5, postpick=10, outdir=pick_p['plotdir'],
+                name=os.path.basename(trig_f).split('_')[-1].split('.')[0])
+    return cat
+
+
+def associator(param_file, db_sesh, db_tt):
+    """Thin wrap phasepapy.associator.LocalAssociator"""
     return
-
-
-def build_tt_tables(param_file, inventory, tt_db):
-    with open(param_file, 'r') as f:
-        paramz = yaml.load(f, Loader=yaml.FullLoader)
-    assoc_paramz = paramz['Associator']
-    # Create a connection to an sqlalchemy database
-    tt_engine = create_engine(tt_db, echo=False)
-    tt_stations_1D.BaseTT1D.metadata.create_all(tt_engine)
-    TTSession = sessionmaker(bind=tt_engine)
-    tt_session = TTSession()
-    # Now add all individual stations to tt sesh
-    seeds = list(set(['{}.{}.{}'.format(net.code, sta.code, chan.location_code)
-                      for net in inventory for sta in net for chan in sta]))
-    for seed in seeds:
-        net, sta, loc = seed.split('.')
-        sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
-        chan = sta_inv[0]
-        station = tt_stations_1D.Station1D(sta, net, loc, sta_inv.latitude,
-                                           sta_inv.longitude,
-                                           sta_inv.elevation - chan.depth)
-        # Save the station locations in the database
-        tt_session.add(station)
-        tt_session.commit()
-    # We will use IASP91 here but obspy.taup does let you build your own model
-    velmod = taup.TauPyModel(model='iasp91')
-    # Define our distances we want to use in our lookup table
-    max_dist = assoc_paramz['max_dist']
-    dist_spacing = assoc_paramz['dist_spacing']
-    max_depth = assoc_paramz['max_depth']
-    depth_spacing = assoc_paramz['depth_spacing']
-    distance_km = np.arange(0, max_dist + dist_spacing, dist_spacing)
-    depth_km = np.arange(0, max_depth + depth_spacing, depth_spacing)
-    for d_km in distance_km:
-        d_deg = kilometer2degrees(d_km)
-        ptimes = []
-        stimes = []
-        p_arrivals = velmod.get_travel_times(
-            source_depth_in_km=15., distance_in_degree=d_deg,
-            phase_list=['P', 'p'])
-        for p in p_arrivals:
-            ptimes.append(p.time)
-        s_arrivals = velmod.get_travel_times(
-            source_depth_in_km=15., distance_in_degree=d_deg,
-            phase_list=['S', 's'])
-        for s in s_arrivals:
-            stimes.append(s.time)
-        tt_entry = tt_stations_1D.TTtable1D(d_km, d_deg, np.min(ptimes),
-                                            np.min(stimes),
-                                            np.min(stimes) - np.min(ptimes))
-        tt_session.add(tt_entry)
-        tt_session.commit()  # Probably faster to do the commit outside of loop but oh well
-    tt_session.close()
-    return
-
 
 ## Plotting ##
 
@@ -274,5 +295,29 @@ def plot_triggers(triggers, st, cft_stream, params, outdir):
     return
 
 
-def plot_picks():
+def plot_picks(st, ev, prepick, postpick, name, outdir):
+    seeds = [tr.id for tr in st]
+    # Clip around trigger time
+    st_slice = st.slice(starttime=prepick,
+                        endtime=postpick)
+    time_v = np.arange(st_slice[0].data.shape[0]) * st_slice[0].stats.delta
+    fig, ax = plt.subplots(nrows=len(seeds), sharex='col')
+    fig.suptitle('Detection: {}'.format(name))
+    fig.subplots_adjust(hspace=0.)
+    for i, sid in enumerate(seeds):
+        pk_time = [pk.time for pk in ev.picks
+                   if '{}.{}.{}.{}'.format(pk.waveform_id.network_code,
+                                           pk.waveform_id.station_code,
+                                           pk.waveform_id.location_code,
+                                           pk.waveform_id.channel_code) == sid]
+        tr_raw = st_slice.select(id=sid)[0]
+        time_vect = np.arange(time_v.shape[0]) * tr_raw.stats.delta
+        ax[i].plot(time_vect, tr_raw.data / np.max(tr_raw.data), color='k')
+        ax[i].axvline(pk_time, linestyle='-', color='r')
+        bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
+                          ec="k", lw=1)
+        ax[i].annotate(s=sid, xy=(0.0, 0.8), xycoords='axes fraction',
+                       bbox=bbox_props, ha='center')
+        ax[i].set_yticks([])
+    fig.savefig('{}/Picks_{}.png'.format(outdir, name))
     return
