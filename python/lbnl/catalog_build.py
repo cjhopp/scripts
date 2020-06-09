@@ -232,8 +232,6 @@ def picker(param_file):
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
             if len(picks) == 0:
                 continue
-            elif len(picks) > 1:
-                print('Taking greatest SNR at {}'.format(tr.id))
             # Always take pick with largest SNR
             if pick_p['pick_measure'] == 'snr':
                 ind = np.argmax(snr)
