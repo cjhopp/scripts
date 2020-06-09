@@ -94,12 +94,13 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
         dto = UTCDateTime(date)
         wavs = [w for w in wavs if '{}.{}'.format(dto.year, dto.julday) in w]
         wavs.sort()
+        print(wavs)
         tmp_st = Stream()
         for w in wavs:
             print(w)
             tmp_st += read(w)
         new_name = os.path.basename(wavs[0]).rstrip('.ms') + '_1Hz.ms'
-        new_name.replace('.CN1.', '')
+        new_name = new_name.replace('.CN1.', '')
         tmp_st = read(w)
         starttime = tmp_st[0].stats.starttime.date
         tmp_st.merge()
