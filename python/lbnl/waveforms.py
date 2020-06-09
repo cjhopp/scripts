@@ -96,12 +96,16 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
             print('No waveforms for {}.{}'.format(dto.year, dto.julday))
             continue
         dwavs.sort()
+        new_name = os.path.basename(dwavs[0]).rstrip('.ms') + '_1Hz.ms'
+        new_name = new_name.replace('.CN1', '')
+        outfile = '{}/{}'.format(outdir, new_name)
+        if os.path.exists(outfile):
+            print('{} already written'.format(outfile))
+            continue
         tmp_st = Stream()
         for w in dwavs:
             print('Reading {}'.format(w))
             tmp_st += read(w)
-        new_name = os.path.basename(dwavs[0]).rstrip('.ms') + '_1Hz.ms'
-        new_name = new_name.replace('.CN1', '')
         starttime = tmp_st[0].stats.starttime.date
         tmp_st.merge()
         try:
@@ -110,7 +114,7 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
                 st=tmp_st, samp_rate=samp_rate, starttime=starttime,
                 lowcut=0., highcut=0.4, filt_order=3)
             print('Writing {}'.format(new_name))
-            down_st.write('{}/{}'.format(outdir, new_name), format="MSEED")
+            down_st.write(outfile, format="MSEED")
         except (NotImplementedError, ValueError) as e:
             print(e)
             continue
