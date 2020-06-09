@@ -91,7 +91,8 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     """
     for date in date_generator(start, end):
         dto = UTCDateTime(date)
-        dwavs = [w for w in wavs if '{}.{}'.format(dto.year, dto.julday) in w]
+        dwavs = [w for w in wavs
+                 if '{}.{:03d}'.format(dto.year, dto.julday) in w]
         if len(dwavs) == 0:
             print('No waveforms for {}.{}'.format(dto.year, dto.julday))
             continue
