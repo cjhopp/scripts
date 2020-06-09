@@ -92,7 +92,7 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     st = Stream()
     for date in date_generator(start, end):
         wavs = [w for w in wavs if str(UTCDateTime(date).julday) in w
-                and str(date.year) in w]
+                and str(UTCDateTime(date).year) in w]
         wavs.sort()
         tmp_st = Stream()
         for w in wavs:
