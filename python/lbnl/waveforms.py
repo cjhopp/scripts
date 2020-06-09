@@ -102,7 +102,7 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
             print('Reading {}'.format(w))
             tmp_st += read(w)
         new_name = os.path.basename(dwavs[0]).rstrip('.ms') + '_1Hz.ms'
-        new_name = new_name.replace('.CN1.', '')
+        new_name = new_name.replace('.CN1', '')
         starttime = tmp_st[0].stats.starttime.date
         tmp_st.merge()
         try:
