@@ -92,23 +92,21 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     st = Stream()
     for date in date_generator(start, end):
         dto = UTCDateTime(date)
-        wavs = [w for w in wavs if '{}.{}'.format(dto.year, dto.julday) in w]
-        if len(wavs) == 0:
+        dwavs = [w for w in wavs if '{}.{}'.format(dto.year, dto.julday) in w]
+        if len(dwavs) == 0:
             print('No waveforms for {}.{}'.format(dto.year, dto.julday))
             continue
-        wavs.sort()
-        print(wavs)
+        dwavs.sort()
         tmp_st = Stream()
-        for w in wavs:
-            print(w)
+        for w in dwavs:
+            print('Reading {}'.format(w))
             tmp_st += read(w)
-        new_name = os.path.basename(wavs[0]).rstrip('.ms') + '_1Hz.ms'
+        new_name = os.path.basename(dwavs[0]).rstrip('.ms') + '_1Hz.ms'
         new_name = new_name.replace('.CN1.', '')
-        tmp_st = read(w)
         starttime = tmp_st[0].stats.starttime.date
         tmp_st.merge()
         try:
-            print('Processing')
+            print('Processing {}'.format(date))
             down_st = dayproc(
                 st=tmp_st, samp_rate=samp_rate, starttime=starttime,
                 lowcut=None, highcut=0.4, filt_order=3, num_cores=len(tmp_st))
