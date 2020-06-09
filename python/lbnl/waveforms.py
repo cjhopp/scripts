@@ -89,7 +89,6 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     :param wavs:
     :return:
     """
-    st = Stream()
     for date in date_generator(start, end):
         dto = UTCDateTime(date)
         dwavs = [w for w in wavs if '{}.{}'.format(dto.year, dto.julday) in w]
@@ -112,11 +111,10 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
                 lowcut=0., highcut=0.4, filt_order=3)
             print('Writing {}'.format(new_name))
             down_st.write('{}/{}'.format(outdir, new_name), format="MSEED")
-            st += down_st
         except (NotImplementedError, ValueError) as e:
             print(e)
             continue
-    return st
+    return
 
 
 def calculate_ppsds(netstalocchans, wav_dir, inventory, outdir):
