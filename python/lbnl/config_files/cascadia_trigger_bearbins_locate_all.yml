@@ -20,7 +20,7 @@ Trigger:
   threshold_off: 1.5
   trigger_off_extension: 5.
   max_trigger_length: 30.
-  plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate_v2.5'
+  plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate_v2.6'
   coincidence_sum: 9.
   network_specific_params:
     {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
@@ -57,7 +57,7 @@ Trigger:
     }
   output:
     write_wavs: True
-    waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/locate_v2.5'
+    waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/locate_v2.6'
     pre_trigger: 30.
     post_trigger: 60.
 
@@ -73,7 +73,7 @@ Picker:
   pol_coeff: 10
   uncert_coeff: 3
   pick_measure: earliest  # snr or earliest
-  plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/picks/locate_v2.5'
+  plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/picks/locate_v2.6'
 
 Associator:
   max_dist: 250
