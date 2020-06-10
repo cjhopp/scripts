@@ -53,7 +53,7 @@ def surf_xyz2latlon(x, y):
     lon, lat = utm(utmx, utmy, inverse=True)
     return (lon, lat)
 
-def relocate(cat, root_name, in_file, pick_uncertainty):
+def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
     """
     Run NonLinLoc relocations on a catalog. This is a function hardcoded for
     my laptop only.
@@ -92,7 +92,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
             print('LOC file already written, reading output to catalog')
         else:
             # Here forego obspy write func in favor of obspyck dicts2NLLocPhases
-            phases = dicts2NLLocPhases(ev)
+            phases = dicts2NLLocPhases(ev, location)
             with open(filename, 'w') as f:
                 f.write(phases)
             # Specify awk command to edit NLLoc .in file
@@ -115,7 +115,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty):
         # ev.preferred_origin_id = new_o_obj.resource_id.id
     return cat
 
-def dicts2NLLocPhases(ev):
+def dicts2NLLocPhases(ev, location):
     """
     *********
     CJH Stolen from obspyck to use a scaling hack for 6 decimal precision
@@ -198,7 +198,10 @@ def dicts2NLLocPhases(ev):
     nlloc_str = ""
 
     for pick in ev.picks:
-        sta = pick.waveform_id.station_code.ljust(6)
+        if pick.waveform_id.station_code == 'NSMTC':
+            sta = 'NSMT{}'.format(pick.waveform_id.location_code)
+        else:
+            sta = pick.waveform_id.station_code.ljust(6)
         inst = "?".ljust(4)
         comp = "?".ljust(4)
         onset = "?"
@@ -208,8 +211,9 @@ def dicts2NLLocPhases(ev):
             phase = 'P'.ljust(6)
         pol = "?"
         t = pick.time
-        # CJH Hack to accommodate full microsecond precision...
-        t = datetime.fromtimestamp(t.datetime.timestamp() * 100)
+        if location == 'SURF':
+            # CJH Hack to accommodate full microsecond precision...
+            t = datetime.fromtimestamp(t.datetime.timestamp() * 100)
         date = t.strftime("%Y%m%d")
         hour_min = t.strftime("%H%M")
         sec = "%7.4f" % (t.second + t.microsecond / 1e6)
