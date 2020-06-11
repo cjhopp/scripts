@@ -583,6 +583,7 @@ def loadNLLocOutput(ev, infile, location):
         pick = [p for p in ev.picks if p.waveform_id.station_code == station
                 and p.phase_hint == type]
         print(station)
+        print(ev.picks)
         if station.startswith('NSMT'):
             pick = [p for p in ev.picks
                     if p.waveform_id.station_code == 'NSMTC'
