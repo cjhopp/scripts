@@ -194,7 +194,7 @@ def associator(param_file):
             for res in results:
                 scnl, picks, polarity, snr, uncert = res
                 for i in range(len(picks)):
-                    new_pick = tables1D.Pick(scnl, picks[i].datetime,
+                    new_pick = tables3D.Pick(scnl, picks[i].datetime,
                                              polarity[i], snr[i], uncert[i],
                                              t_create)
                     db_sesh.add(new_pick)  # Add pick i to the database
@@ -314,13 +314,11 @@ def picker(param_file):
     inv = read_inventory(assoc_p['inventory'])
     db_sesh, db_assoc, db_tt = build_databases(param_file)
     build_tt_tables(param_file, inv, db_tt)
-    associator = assoc1D.LocalAssociator(
+    associator = assoc3D.LocalAssociator(
         db_assoc, db_tt, max_km=assoc_p['max_km'],
         aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
-        cutoff_outlier=assoc_p['cutoff_outlier'],
         assoc_ot_uncert=assoc_p['assoc_ot_uncert'],
-        nsta_declare=assoc_p['nsta_declare'],
-        loc_uncert_thresh=assoc_p['loc_uncert_thresh'])
+        nsta_declare=assoc_p['nsta_declare'])
     pick_p = paramz['Picker']
     if pick_p['method'] == 'aicd':
         picker = aicdpicker.AICDPicker(
@@ -357,7 +355,7 @@ def picker(param_file):
             # Do association?
             t_create = UTCDateTime().datetime
             for i in range(len(picks)):
-                new_pick = tables1D.Pick(scnl, picks[i].datetime,
+                new_pick = tables3D.Pick(scnl, picks[i].datetime,
                                          polarity[i], snr[i], uncert[i],
                                          t_create)
                 db_sesh.add(new_pick)  # Add pick i to the database
