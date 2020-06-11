@@ -310,6 +310,9 @@ def loadNLLocOutput(ev, infile, location):
         # Descale first
         depth *= 10
         lon, lat = surf_xyz2latlon(np.array([x]), np.array([y]))
+    else:
+        print('Location: {} not supported'.format(location))
+        return
     # goto origin time info line
     try:
         line = lines.pop(0)
@@ -412,6 +415,9 @@ def loadNLLocOutput(ev, infile, location):
     # assign origin info
     o.method_id = "/".join(["smi:de.erdbeben-in-bayern", "location_method",
                             "nlloc", "7"])
+    o.latitude = lat[0]
+    o.longitude = lon[0]
+    o.depth = depth
     if location == 'SURF':
         print('Creating origin uncertainty')
         o.longitude = lon[0]
