@@ -86,7 +86,7 @@ Associator:
   aggr_norm: 'L2'
   cutoff_outlier: 10
   assoc_ot_uncert: 7
-  nsta_declare: 10
+  nsta_declare: 5
   loc_uncert_thresh: 0.2
 
 
