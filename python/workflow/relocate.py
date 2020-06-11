@@ -283,7 +283,7 @@ def loadNLLocOutput(ev, infile, location):
     # depth = - float(line[6]) # depth: negative down!
     # CJH I reported depths at SURF in meters below 130 m so positive is
     # down in this case
-    depth = float(line[6])
+    depth = -float(line[6])
 
     # lon, lat = gk2lonlat(x, y)
     # Convert coords
@@ -582,6 +582,11 @@ def loadNLLocOutput(ev, infile, location):
         # assign synthetic phase info
         pick = [p for p in ev.picks if p.waveform_id.station_code == station
                 and p.phase_hint == type]
+        if station.startswith('NSMT'):
+            pick = [p for p in ev.picks
+                    if p.waveform_id.station_code == 'NSMTC'
+                    and p.waveform_id.location_code == station[-2:]
+                    and p.phase_hint == type]
         if len(pick) == 0:
             msg = "This should not happen! Location output was read and a corresponding pick is missing!"
             raise NotImplementedError(msg)
