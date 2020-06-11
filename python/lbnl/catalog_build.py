@@ -115,7 +115,7 @@ def associator(param_file):
     trig_p = paramz['Trigger']
     # Build tt databases
     print('Building tt databases')
-    inv = read_inventory(assoc_p['Inventory'])
+    inv = read_inventory(assoc_p['inventory'])
     db_sesh, db_assoc, db_tt = build_databases(param_file)
     build_tt_tables(param_file, inv, db_tt)
     # Define our picker
