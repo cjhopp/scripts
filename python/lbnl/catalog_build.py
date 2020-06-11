@@ -96,15 +96,15 @@ def build_tt_tables(param_file, inventory, tt_db):
                 source_depth_in_km=dep_km, distance_in_degree=d_deg,
                 phase_list=['P', 'p', 'Pn'])
             print(p_arrivals)
-            ptime = min([p.time for p in p_arrivals if p.phase in ['P', 'p']])
+            ptime = min([p.time for p in p_arrivals if p.name in ['P', 'p']])
             s_arrivals = velmod.get_travel_times(
                 source_depth_in_km=dep_km, distance_in_degree=d_deg,
                 phase_list=['S', 's', 'Sn'])
             print(s_arrivals)
-            stime = min([s.time for s in s_arrivals if s.phase in ['S', 's']])
+            stime = min([s.time for s in s_arrivals if s.name in ['S', 's']])
             try:
-                pn_time = [p for p in p_arrivals if p.phase in ['Pn']][0]
-                sn_time = [s for s in s_arrivals if s.phase in ['Sn']][0]
+                pn_time = [p for p in p_arrivals if p.name in ['Pn']][0]
+                sn_time = [s for s in s_arrivals if s.name in ['Sn']][0]
             except IndexError as e:
                 pn_time = -9999.
                 sn_time = -9999.
