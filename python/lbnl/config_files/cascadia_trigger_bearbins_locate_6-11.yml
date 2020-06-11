@@ -76,6 +76,7 @@ Picker:
   plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/picks/locate_v3.0'
 
 Associator:
+  inventory: '/bear0-data/GMF_1/Cascadia/Chet/stations/Preferred_sta_CW-NV-PB-CN_2deg.xml'
   max_dist: 250
   dist_spacing: 1.
   max_depth: 60
@@ -85,7 +86,7 @@ Associator:
   aggr_norm: 'L2'
   cutoff_outlier: 10
   assoc_ot_uncert: 7
-  nsta_declare: 4
+  nsta_declare: 10
   loc_uncert_thresh: 0.2
 
 

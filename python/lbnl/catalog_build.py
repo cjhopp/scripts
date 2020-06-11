@@ -14,7 +14,7 @@ from glob import glob
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
-from obspy import UTCDateTime, read, Stream, Catalog
+from obspy import UTCDateTime, read, Stream, Catalog, read_inventory
 from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
 from obspy.geodetics import kilometer2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
@@ -45,7 +45,6 @@ def build_databases(param_file):
     # Our SQLite databases are:
     db_assoc = 'sqlite:///{}_associator.db'.format(db_name)
     db_tt = 'sqlite:///{}_tt.db'.format(db_name)  # Traveltime database
-
     # Connect to our databases
     engine_assoc = create_engine(db_assoc, echo=False)
     # Create the tables required to run the 1D associator
@@ -107,6 +106,79 @@ def build_tt_tables(param_file, inventory, tt_db):
         tt_session.commit()  # Probably faster to do the commit outside of loop but oh well
     tt_session.close()
     return
+
+
+def associator(param_file):
+    with open(param_file, 'r') as f:
+        paramz = yaml.load(f, Loader=yaml.FullLoader)
+    assoc_p = paramz['Associator']
+    trig_p = paramz['Trigger']
+    # Build tt databases
+    print('Building tt databases')
+    inv = read_inventory(assoc_p['Inventory'])
+    db_sesh, db_assoc, db_tt = build_databases(param_file)
+    build_tt_tables(param_file, inv, db_tt)
+    # Define our picker
+    pick_p = paramz['Picker']
+    if pick_p['method'] == 'aicd':
+        picker = aicdpicker.AICDPicker(
+            t_ma=pick_p['t_ma'], nsigma=pick_p['nsigma'], t_up=pick_p['t_up'],
+            nr_len=pick_p['nr_len'], nr_coeff=pick_p['nr_coeff'],
+            pol_len=pick_p['pol_len'], pol_coeff=pick_p['pol_coeff'],
+            uncert_coeff=pick_p['uncert_coeff'])
+    elif pick_p['method'] == 'kurtosis':
+        picker = ktpicker.KTPicker(
+            t_ma=pick_p['t_ma'], nsigma=pick_p['nsigma'], t_up=pick_p['t_up'],
+            nr_len=pick_p['nr_len'], nr_coeff=pick_p['nr_coeff'],
+            pol_len=pick_p['pol_len'], pol_coeff=pick_p['pol_coeff'],
+            uncert_coeff=pick_p['uncert_coeff'])
+    else:
+        print('Only kpick and AICD supported')
+        return
+    # Define associator
+    associator = assoc1D.LocalAssociator(
+        db_assoc, db_tt, max_km=assoc_p['max_km'],
+        aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
+        cutoff_outlier=assoc_p['cutoff_outlier'],
+        assoc_ot_uncert=assoc_p['assoc_ot_uncert'],
+        nsta_declare=assoc_p['nsta_declare'],
+        loc_uncert_thresh=assoc_p['loc_uncert_thresh'])
+    # Run over all days individually
+    start = UTCDateTime(trig_p['start_time']).datetime
+    end = UTCDateTime(trig_p['end_time']).datetime
+    for date in date_generator(start.date(), end.date()):
+        print('Picking on {}'.format(date))
+        utcdto = UTCDateTime(date)
+        jday = utcdto.julday
+        day_wavs = glob('{}/{}/**/*{:03d}.ms'.format(
+            paramz['General']['wav_directory'], date.year, jday),
+            recursive=True)
+        st = Stream()
+        for w in day_wavs:
+            print('Reading {}'.format(w))
+            st += read(w)
+        st = st.merge(fill_value='interpolate')
+        # Filter and downsample the wavs
+        print('Processing')
+        st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
+                     highcut=trig_p['highcut'], filt_order=trig_p['corners'],
+                     samp_rate=trig_p['sampling_rate'], starttime=utcdto,
+                     ignore_length=True)
+        for tr in st:
+            print('Picking on {}'.format(tr.id))
+            scnl, picks, polarity, snr, uncert = picker.picks(tr)
+            t_create = UTCDateTime().datetime
+            # Add each pick to the database
+            for i in range(len(picks)):
+                new_pick = tables1D.Pick(scnl, picks[i].datetime, polarity[i],
+                                         snr[i], uncert[i], t_create)
+                db_sesh.add(new_pick)  # Add pick i to the database
+        db_sesh.commit()  # Commit the pick to the database
+    print('Associating events')
+    associator.id_candidate_events()
+    associator.associate_candidates()
+    associator.single_phase()
+    return db_sesh, db_assoc, db_tt
 
 
 def trigger(param_file, plot=False):
