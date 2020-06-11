@@ -100,6 +100,7 @@ def build_tt_tables(param_file, inventory, tt_db):
             s_arrivals = velmod.get_travel_times(
                 source_depth_in_km=dep_km, distance_in_degree=d_deg,
                 phase_list=['S', 's', 'Sn'])
+            print(s_arrivals)
             stimes = [s.time for s in s_arrivals if s.phase in ['S', 's']]
             try:
                 pn_time = [p for p in p_arrivals if p.phase in ['Pn']][0]
