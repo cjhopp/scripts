@@ -7,8 +7,8 @@ Database:
   name: 'cascadia_test'
 
 Trigger:
-  start_time: 2017-9-1
-  end_time: 2017-9-30
+  start_time: 2017-8-1
+  end_time: 2019-12-31
   sta: 1.0
   lta: 10.0
   lowcut: 3.
@@ -21,7 +21,7 @@ Trigger:
   trigger_off_extension: 5.
   max_trigger_length: 30.
   plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate_v2.6'
-  coincidence_sum: 9.
+  coincidence_sum: 10.
   network_specific_params:
     {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
      'PB': {'sta': 1., 'lta': 10., 'thr_on': 6.5, 'thr_off': 2.},
