@@ -22,6 +22,7 @@ from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc
 from phasepapy.phasepicker import aicdpicker, ktpicker
 from phasepapy.associator import tables1D, assoc1D, plot1D
+from phasepapy.associator.tables1D import Associated
 from phasepapy.associator import tt_stations_1D
 
 import obspy.taup as taup
@@ -298,6 +299,18 @@ def picker(param_file):
     cat = Catalog()
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
+    assoc_p = paramz['Associator']
+    print('Building tt databases')
+    inv = read_inventory(assoc_p['inventory'])
+    db_sesh, db_assoc, db_tt = build_databases(param_file)
+    build_tt_tables(param_file, inv, db_tt)
+    associator = assoc1D.LocalAssociator(
+        db_assoc, db_tt, max_km=assoc_p['max_km'],
+        aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
+        cutoff_outlier=assoc_p['cutoff_outlier'],
+        assoc_ot_uncert=assoc_p['assoc_ot_uncert'],
+        nsta_declare=assoc_p['nsta_declare'],
+        loc_uncert_thresh=assoc_p['loc_uncert_thresh'])
     pick_p = paramz['Picker']
     if pick_p['method'] == 'aicd':
         picker = aicdpicker.AICDPicker(
@@ -331,17 +344,31 @@ def picker(param_file):
                 ind = np.argmax(snr)
             elif pick_p['pick_measure'] == 'earliest':
                 ind = 0
-            # Add pick to event
-            ev.picks.append(Pick(
-                time=picks[ind].datetime,
-                waveform_id=WaveformStreamID(
-                    network_code=tr.stats.network,
-                    station_code=tr.stats.station,
-                    location_code=tr.stats.location,
-                    channel_code=tr.stats.channel),
-                method_id=pick_p['method'],
-                time_error=QuantityError(uncertainty=uncert[ind]),
-                phase_hint='P'))
+            # Do association?
+            t_create = UTCDateTime().datetime
+            for i in range(len(picks)):
+                new_pick = tables1D.Pick(scnl, picks[i].datetime,
+                                         polarity[i], snr[i], uncert[i],
+                                         t_create)
+                db_sesh.add(new_pick)  # Add pick i to the database
+            db_sesh.commit()  # Commit the pick to the database
+        print('Associating events')
+        associator.id_candidate_events()
+        associator.associate_candidates()
+        associator.single_phase()
+        # Query database for associated events
+        events = db_sesh.query(Associated).all()
+        print(events)
+        ev.picks.append(Pick(
+            time=picks[ind].datetime,
+            waveform_id=WaveformStreamID(
+                network_code=tr.stats.network,
+                station_code=tr.stats.station,
+                location_code=tr.stats.location,
+                channel_code=tr.stats.channel),
+            method_id=pick_p['method'],
+            time_error=QuantityError(uncertainty=uncert[ind]),
+            phase_hint='P'))
         cat.events.append(ev)
         if 'plotdir' in pick_p:
             plot_picks(
