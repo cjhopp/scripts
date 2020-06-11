@@ -25,6 +25,8 @@ from phasepapy.associator import tt_stations_1D
 
 import obspy.taup as taup
 
+sidney_stas = ['NSMTC', 'B009', 'B010', 'B011', 'PGC']
+
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
@@ -132,7 +134,7 @@ def trigger(param_file, plot=False):
         print('Triggering on {}'.format(date))
         utcdto = UTCDateTime(date)
         jday = utcdto.julday
-        day_wavs = glob('{}/{}/**/*{}.ms'.format(
+        day_wavs = glob('{}/{}/**/*{:03d}.ms'.format(
             paramz['General']['wav_directory'], date.year, jday),
             recursive=True)
         st = Stream()
@@ -171,6 +173,9 @@ def trigger(param_file, plot=False):
             thr_coincidence_sum=trig_p['coincidence_sum'],
             max_trigger_length=trig_p['max_trigger_length'],
             details=True, trigger_off_extension=trig_p['trigger_off_extension'])
+        # Enforce at least 5 non-sidney stations (which don't add to locs)
+        day_trigs = [t for t in trigs if len([sta for sta in t.stations
+                                              if sta not in sidney_stas]) > 4]
         if plot:
             plot_triggers(day_trigs, st, trigger_stream,
                           sta_lta_params, network_sta_lta,

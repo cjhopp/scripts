@@ -1,0 +1,91 @@
+# Trigger/picking parameter file for cascadia borehole project
+
+General:
+  wav_directory: '/bear0-data/GMF_1/Cascadia/Chet/mseed'
+
+Database:
+  name: 'cascadia_test'
+
+Trigger:
+  start_time: 2017-8-1
+  end_time: 2019-12-31
+  sta: 1.0
+  lta: 10.0
+  lowcut: 3.
+  highcut: 24.
+  corners: 3
+  sampling_rate: 50.
+  ncores: 8
+  threshold_on: 5.0
+  threshold_off: 1.5
+  trigger_off_extension: 5.
+  max_trigger_length: 30.
+  plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/run2_full_ds'
+  coincidence_sum: 6.
+  network_specific_params:
+    {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+     'PB': {'sta': 1., 'lta': 10., 'thr_on': 6.5, 'thr_off': 2.},
+     'UW': {'sta': 1., 'lta': 10., 'thr_on': 6.5, 'thr_off': 2.},
+     'CN': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+    }
+  # Channel specific parameters take precedence
+  channel_specific_params:
+    {'NV.NSMTC.B1.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.B3.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.G2.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'NV.NSMTC.G1.CHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'PB.B001..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'PB.B011..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'PB.B004..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'PB.B003..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'PB.B007..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'PB.B926..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'UW.OTR..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'UW.STW..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+#     'UW.ERW..HNZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'UW.SWID..BHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'UW.HDW..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN.PGC..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN.VDB..EHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN.SNB..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN.VGZ..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN.GOBB..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN.CLRS..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN.PTRF..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'CN.BPCB..HHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+    }
+  output:
+    write_wavs: True
+    waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/run2_full_ds'
+    pre_trigger: 30.
+    post_trigger: 60.
+
+Picker:
+  # Values from OK initially
+  method  : 'aicd'
+  t_ma: 3
+  nsigma: 8
+  t_up: 0.78
+  nr_len: 2
+  nr_coeff: 2
+  pol_len: 10
+  pol_coeff: 10
+  uncert_coeff: 3
+  pick_measure: earliest  # snr or earliest
+  plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/picks/run2_full_ds'
+
+Associator:
+  max_dist: 250
+  dist_spacing: 1.
+  max_depth: 60
+  depth_spacing: 1.
+  max_km: 350
+  aggregation: 1
+  aggr_norm: 'L2'
+  cutoff_outlier: 10
+  assoc_ot_uncert: 7
+  nsta_declare: 4
+  loc_uncert_thresh: 0.2
+
+
