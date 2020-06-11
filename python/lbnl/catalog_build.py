@@ -235,7 +235,7 @@ def trigger(param_file, plot=False):
                   seed_id[-1] == 'Z'):  # Triggering on Z comps only
                 print('Reading in {}'.format(w))
                 st += read(w)
-        st = st.merge(fill_value='interpolate')
+        st = st.merge()
         # Filter and downsample the wavs
         st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
                      highcut=trig_p['highcut'], filt_order=trig_p['corners'],
