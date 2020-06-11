@@ -107,7 +107,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
         # XXX BE MORE CAREFUL HERE. CANNOT GRAB BOTH SUM AND NON-SUM
         out_w_ext = glob(outfile + '.????????.??????.grid0.loc.hyp')
         try:
-            loadNLLocOutput(ev=ev, infile=out_w_ext[0])
+            loadNLLocOutput(ev=ev, infile=out_w_ext[0], location=location)
         except ValueError as ve:
             print(ve)
             continue
