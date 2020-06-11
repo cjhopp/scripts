@@ -81,7 +81,7 @@ Associator:
   dist_spacing: 1.
   max_depth: 60
   depth_spacing: 1.
-  max_km: 350
+  max_km: 250
   aggregation: 1
   aggr_norm: 'L2'
   cutoff_outlier: 10

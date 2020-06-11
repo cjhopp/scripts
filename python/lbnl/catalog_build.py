@@ -103,7 +103,7 @@ def build_tt_tables(param_file, inventory, tt_db):
                                             np.min(stimes),
                                             np.min(stimes) - np.min(ptimes))
         tt_session.add(tt_entry)
-        tt_session.commit()  # Probably faster to do the commit outside of loop but oh well
+        tt_session.commit()
     tt_session.close()
     return
 
