@@ -174,7 +174,7 @@ def trigger(param_file, plot=False):
             max_trigger_length=trig_p['max_trigger_length'],
             details=True, trigger_off_extension=trig_p['trigger_off_extension'])
         # Enforce at least 5 non-sidney stations (which don't add to locs)
-        day_trigs = [t for t in trigs if len([sta for sta in t.stations
+        day_trigs = [t for t in day_trigs if len([sta for sta in t.stations
                                               if sta not in sidney_stas]) > 4]
         if plot:
             plot_triggers(day_trigs, st, trigger_stream,
