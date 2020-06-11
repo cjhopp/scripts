@@ -78,9 +78,9 @@ Picker:
 Associator:
   inventory: '/bear0-data/GMF_1/Cascadia/Chet/stations/Preferred_sta_CW-NV-PB-CN_2deg.xml'
   max_dist: 250
-  dist_spacing: 1.
+  dist_spacing: 2.
   max_depth: 60
-  depth_spacing: 1.
+  depth_spacing: 2.
   max_km: 250
   aggregation: 1
   aggr_norm: 'L2'

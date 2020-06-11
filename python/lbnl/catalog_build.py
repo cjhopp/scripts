@@ -87,7 +87,7 @@ def build_tt_tables(param_file, inventory, tt_db):
     max_depth = assoc_paramz['max_depth']
     depth_spacing = assoc_paramz['depth_spacing']
     distance_km = np.arange(0, max_dist + dist_spacing, dist_spacing)
-    depth_km = np.arange(0, max_depth + depth_spacing, depth_spacing)
+    depth_km = np.arange(1, max_depth + depth_spacing, depth_spacing)
     for d_km in distance_km:
         print('Adding dist {}'.format(d_km))
         for dep_km in depth_km:
