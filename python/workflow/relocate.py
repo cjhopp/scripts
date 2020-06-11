@@ -32,6 +32,24 @@ def my_conversion(x, y, z):
                          (111111 * np.cos(origin[0] * (np.pi/180))))
     return new_x, new_y, z
 
+def casc_xyz2latlon(x, y):
+    """
+    Convert from scaled surf xyz (in km) to lat lon
+    :param x:
+    :param y:
+    :return:
+    """
+    import pyproj
+
+    pts = zip(x, y)
+    orig_utm = (239200, 5117300)
+    utm = pyproj.Proj(init="EPSG:32610")
+    pts_utm = [(orig_utm[0] + pt[0], orig_utm[1] + pt[1])
+               for pt in pts]
+    utmx, utmy = zip(*pts_utm)
+    lon, lat = utm(utmx, utmy, inverse=True)
+    return (lon, lat)
+
 def surf_xyz2latlon(x, y):
     """
     Convert from scaled surf xyz (in km) to lat lon
@@ -280,14 +298,14 @@ def loadNLLocOutput(ev, infile, location):
     line = line.split()
     x = float(line[2])
     y = float(line[4])
-    # depth = - float(line[6]) # depth: negative down!
-    # CJH I reported depths at SURF in meters below 130 m so positive is
-    # down in this case
-    depth = -float(line[6])
-
-    # lon, lat = gk2lonlat(x, y)
+    depth = - float(line[6]) # depth: negative down!
+    if location == 'cascadia':
+        lon, lat = casc_xyz2latlon(np.array([x]), np.array([y]))
     # Convert coords
-    if location == 'SURF':
+    elif location == 'SURF':
+        # CJH I reported depths at SURF in meters below 130 m so positive is
+        # down in this case
+        depth = float(line[6])
         print('Doing hypo conversion')
         # Descale first
         depth *= 10
