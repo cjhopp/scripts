@@ -103,11 +103,11 @@ def build_tt_tables(param_file, inventory, tt_db):
             print(s_arrivals)
             stime = min([s.time for s in s_arrivals if s.name in ['S', 's']])
             try:
-                pn_time = [p for p in p_arrivals if p.name in ['Pn']][0]
-                sn_time = [s for s in s_arrivals if s.name in ['Sn']][0]
+                pn_time = [p.time for p in p_arrivals if p.name in ['Pn']][0]
+                sn_time = [s.time for s in s_arrivals if s.name in ['Sn']][0]
             except IndexError as e:
-                pn_time = 0.
-                sn_time = 0.
+                pn_time = 9999.
+                sn_time = 9999.
             for net in inventory:
                 for sta in net:
                     tt_entry = tt_stations_3D.TTtable3D(
