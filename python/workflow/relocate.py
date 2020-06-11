@@ -44,7 +44,7 @@ def casc_xyz2latlon(x, y):
     pts = zip(x, y)
     orig_utm = (239200, 5117300)
     utm = pyproj.Proj(init="EPSG:32610")
-    pts_utm = [(orig_utm[0] + pt[0], orig_utm[1] + pt[1])
+    pts_utm = [(orig_utm[0] + (pt[0] * 1000), orig_utm[1] + (pt[1] * 1000))
                for pt in pts]
     utmx, utmy = zip(*pts_utm)
     lon, lat = utm(utmx, utmy, inverse=True)
