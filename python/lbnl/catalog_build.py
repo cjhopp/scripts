@@ -300,7 +300,7 @@ def trigger(param_file, plot=False):
     return trigs
 
 
-def picker(param_file):
+def picker(param_file, db_sesh, db_assoc, db_tt):
     """
     Pick the first arrivals (P) for triggered waveforms
     :param method:
@@ -312,8 +312,8 @@ def picker(param_file):
     assoc_p = paramz['Associator']
     print('Building tt databases')
     inv = read_inventory(assoc_p['inventory'])
-    db_sesh, db_assoc, db_tt = build_databases(param_file)
-    build_tt_tables(param_file, inv, db_tt)
+    # db_sesh, db_assoc, db_tt = build_databases(param_file)
+    # build_tt_tables(param_file, inv, db_tt)
     associator = assoc3D.LocalAssociator(
         db_assoc, db_tt, max_km=assoc_p['max_km'],
         aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
