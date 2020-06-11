@@ -582,6 +582,7 @@ def loadNLLocOutput(ev, infile, location):
         # assign synthetic phase info
         pick = [p for p in ev.picks if p.waveform_id.station_code == station
                 and p.phase_hint == type]
+        print(station)
         if station.startswith('NSMT'):
             pick = [p for p in ev.picks
                     if p.waveform_id.station_code == 'NSMTC'
