@@ -298,7 +298,7 @@ def loadNLLocOutput(ev, infile, location):
     line = line.split()
     x = float(line[2])
     y = float(line[4])
-    depth = - float(line[6]) # depth: negative down!
+    depth = float(line[6]) * 1000 # depth: negative down!
     if location == 'cascadia':
         lon, lat = casc_xyz2latlon(np.array([x]), np.array([y]))
     # Convert coords
