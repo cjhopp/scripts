@@ -358,9 +358,6 @@ def picker(param_file):
         associator.single_phase()
         # Query database for associated events
         events = db_sesh.query(Associated).all()
-        plt = plot1D.Plot(db_assoc, db_tt)
-        plt.cluster_plot(assoc_ot_uncert=3)
-        plt.event_plot(1, west=-104.5, east=-94, south=33.5, north=37.5, deltalon=1.0, deltalat=1.0)
         return db_sesh
         # print(events)
         # ev.picks.append(Pick(
