@@ -697,7 +697,6 @@ def update_origin_azimuthal_gap(ev):
     azims.sort()
     # calculate azimuthal gap
     gaps = azims - np.roll(azims, 1)
-    print(gaps)
     gaps[0] += 360.0
     gap = gaps.max()
     i_ = gaps.argmax()
