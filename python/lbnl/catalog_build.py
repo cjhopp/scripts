@@ -111,7 +111,7 @@ def build_tt_tables(param_file, inventory, tt_db):
             for net in inventory:
                 for sta in net:
                     tt_entry = tt_stations_3D.TTtable3D(
-                        sta=sta, sgid=1, d_km=d_km, delta=d_deg,
+                        sta=sta.code, sgid=1, d_km=d_km, delta=d_deg,
                         p_tt=ptime, s_tt=stime,
                         s_p=stime - ptime, pn_tt=pn_time,
                         sn_tt=sn_time, sn_pn=sn_time - pn_time)
