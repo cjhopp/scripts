@@ -96,12 +96,12 @@ def build_tt_tables(param_file, inventory, tt_db):
                 source_depth_in_km=dep_km, distance_in_degree=d_deg,
                 phase_list=['P', 'p', 'Pn'])
             print(p_arrivals)
-            ptimes = [p.time for p in p_arrivals if p.phase in ['P', 'p']]
+            ptime = min([p.time for p in p_arrivals if p.phase in ['P', 'p']])
             s_arrivals = velmod.get_travel_times(
                 source_depth_in_km=dep_km, distance_in_degree=d_deg,
                 phase_list=['S', 's', 'Sn'])
             print(s_arrivals)
-            stimes = [s.time for s in s_arrivals if s.phase in ['S', 's']]
+            stime = min([s.time for s in s_arrivals if s.phase in ['S', 's']])
             try:
                 pn_time = [p for p in p_arrivals if p.phase in ['Pn']][0]
                 sn_time = [s for s in s_arrivals if s.phase in ['Sn']][0]
@@ -112,8 +112,8 @@ def build_tt_tables(param_file, inventory, tt_db):
                 for sta in net:
                     tt_entry = tt_stations_3D.TTtable3D(
                         sta=sta, sgid=1, d_km=d_km, delta=d_deg,
-                        p_tt=np.min(ptimes), s_tt=np.min(stimes),
-                        s_p=np.min(stimes) - np.min(ptimes), pn_tt=pn_time,
+                        p_tt=ptime, s_tt=stime,
+                        s_p=stime - ptime, pn_tt=pn_time,
                         sn_tt=sn_time, sn_pn=sn_time - pn_time)
                     tt_session.add(tt_entry)
             tt_session.commit()
