@@ -21,9 +21,9 @@ from obspy.geodetics import kilometer2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc
 from phasepapy.phasepicker import aicdpicker, ktpicker
-from phasepapy.associator import tables1D, assoc1D, plot1D
-from phasepapy.associator.tables1D import Associated
-from phasepapy.associator import tt_stations_1D
+from phasepapy.associator import tables3D, assoc3D, plot3D
+from phasepapy.associator.tables3D import Associated
+from phasepapy.associator import tt_stations_3D
 
 import obspy.taup as taup
 
@@ -51,7 +51,7 @@ def build_databases(param_file):
     # Connect to our databases
     engine_assoc = create_engine(db_assoc, echo=False)
     # Create the tables required to run the 1D associator
-    tables1D.Base.metadata.create_all(engine_assoc)
+    tables3D.Base.metadata.create_all(engine_assoc)
     Session = sessionmaker(bind=engine_assoc)
     session = Session()
     return session, db_assoc, db_tt
@@ -63,7 +63,7 @@ def build_tt_tables(param_file, inventory, tt_db):
     assoc_paramz = paramz['Associator']
     # Create a connection to an sqlalchemy database
     tt_engine = create_engine(tt_db, echo=False)
-    tt_stations_1D.BaseTT1D.metadata.create_all(tt_engine)
+    tt_stations_3D.BaseTT3D.metadata.create_all(tt_engine)
     TTSession = sessionmaker(bind=tt_engine)
     tt_session = TTSession()
     # Now add all individual stations to tt sesh
@@ -73,7 +73,7 @@ def build_tt_tables(param_file, inventory, tt_db):
         net, sta, loc = seed.split('.')
         sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
         chan = sta_inv[0]
-        station = tt_stations_1D.Station1D(sta, net, loc, sta_inv.latitude,
+        station = tt_stations_3D.Station3D(sta, net, loc, sta_inv.latitude,
                                            sta_inv.longitude,
                                            sta_inv.elevation - chan.depth)
         # Save the station locations in the database
@@ -89,24 +89,28 @@ def build_tt_tables(param_file, inventory, tt_db):
     distance_km = np.arange(0, max_dist + dist_spacing, dist_spacing)
     depth_km = np.arange(0, max_depth + depth_spacing, depth_spacing)
     for d_km in distance_km:
-        d_deg = kilometer2degrees(d_km)
-        ptimes = []
-        stimes = []
-        p_arrivals = velmod.get_travel_times(
-            source_depth_in_km=15., distance_in_degree=d_deg,
-            phase_list=['P', 'p'])
-        for p in p_arrivals:
-            ptimes.append(p.time)
-        s_arrivals = velmod.get_travel_times(
-            source_depth_in_km=15., distance_in_degree=d_deg,
-            phase_list=['S', 's'])
-        for s in s_arrivals:
-            stimes.append(s.time)
-        tt_entry = tt_stations_1D.TTtable1D(d_km, d_deg, np.min(ptimes),
-                                            np.min(stimes),
-                                            np.min(stimes) - np.min(ptimes))
-        tt_session.add(tt_entry)
-        tt_session.commit()
+        print('Adding dist {}'.format(d_km))
+        for dep_km in depth_km:
+            d_deg = kilometer2degrees(d_km)
+            p_arrivals = velmod.get_travel_times(
+                source_depth_in_km=dep_km, distance_in_degree=d_deg,
+                phase_list=['P', 'p', 'Pn'])
+            ptimes = [p.time for p in p_arrivals if p.phase in ['P', 'p']]
+            s_arrivals = velmod.get_travel_times(
+                source_depth_in_km=dep_km, distance_in_degree=d_deg,
+                phase_list=['S', 's', 'Sn'])
+            stimes = [s.time for s in s_arrivals if s.phase in ['S', 's']]
+            pn_time = [p for p in p_arrivals if p.phase in ['Pn']][0]
+            sn_time = [s for s in s_arrivals if s.phase in ['Sn']][0]
+            for net in inventory:
+                for sta in net:
+                    tt_entry = tt_stations_3D.TTtable3D(
+                        sta=sta, sgid=1, d_km=d_km, delta=d_deg,
+                        p_tt=np.min(ptimes), s_tt=np.min(stimes),
+                        s_p=np.min(stimes) - np.min(ptimes), pn_tt=pn_time,
+                        sn_tt=sn_time, sn_pn=sn_time - pn_time)
+                    tt_session.add(tt_entry)
+            tt_session.commit()
     tt_session.close()
     return
 
