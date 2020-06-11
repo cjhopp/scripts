@@ -234,7 +234,7 @@ def dicts2NLLocPhases(ev, location):
         nlloc_str += phase_str + "\n"
     return nlloc_str
 
-def loadNLLocOutput(ev, infile):
+def loadNLLocOutput(ev, infile, location):
     lines = open(infile, "rt").readlines()
     if not lines:
         err = "Error: NLLoc output file (%s) does not exist!" % infile
@@ -287,11 +287,11 @@ def loadNLLocOutput(ev, infile):
 
     # lon, lat = gk2lonlat(x, y)
     # Convert coords
-    print('Doing hypo conversion')
-    # Descale first
-    depth *= 10
-    lon, lat = surf_xyz2latlon(np.array([x]), np.array([y]))
-    print(lon, lat)
+    if location == 'SURF':
+        print('Doing hypo conversion')
+        # Descale first
+        depth *= 10
+        lon, lat = surf_xyz2latlon(np.array([x]), np.array([y]))
     # goto origin time info line
     try:
         line = lines.pop(0)
@@ -310,10 +310,11 @@ def loadNLLocOutput(ev, infile):
     minute = int(line[6])
     seconds = float(line[7])
     time = UTCDateTime(year, month, day, hour, minute, seconds)
-    # Convert to actual time
-    time = UTCDateTime(datetime.fromtimestamp(
-        time.datetime.timestamp() / 100.
-    ))
+    if location == 'SURF':
+        # Convert to actual time
+        time = UTCDateTime(datetime.fromtimestamp(
+            time.datetime.timestamp() / 100.
+        ))
     # goto location quality info line
     try:
         line = lines.pop(0)
@@ -364,10 +365,11 @@ def loadNLLocOutput(ev, infile):
     errX *= 2
     errY *= 2
     errZ *= 2
-    # CJH Now descale to correct dimensions
-    errX /= 100
-    errY /= 100
-    errZ /= 100
+    if location == 'SURF':
+        # CJH Now descale to correct dimensions
+        errX /= 100
+        errY /= 100
+        errZ /= 100
     # determine which model was used:
     # XXX handling of path extremely hackish! to be improved!!
     dirname = os.path.dirname(infile)
@@ -392,28 +394,29 @@ def loadNLLocOutput(ev, infile):
     # assign origin info
     o.method_id = "/".join(["smi:de.erdbeben-in-bayern", "location_method",
                             "nlloc", "7"])
-    print('Creating origin uncertainty')
-    o.longitude = lon[0]
-    o.latitude = lat[0]
-    print('Assigning depth {}'.format(depth))
-    o.depth = depth# * (-1e3)  # meters positive down!
-    print('Creating extra AttribDict')
-    # Attribute dict for actual hmc coords
-    extra = AttribDict({
-        'hmc_east': {
-            'value': x * 10,
-            'namespace': 'smi:local/hmc'
-        },
-        'hmc_north': {
-            'value': y * 10,
-            'namespace': 'smi:local/hmc'
-        },
-        'hmc_elev': {
-            'value': 130 - depth, # Extra attribs maintain absolute elevation
-            'namespace': 'smi:local/hmc'
-        }
-    })
-    o.extra = extra
+    if location == 'SURF':
+        print('Creating origin uncertainty')
+        o.longitude = lon[0]
+        o.latitude = lat[0]
+        print('Assigning depth {}'.format(depth))
+        o.depth = depth# * (-1e3)  # meters positive down!
+        print('Creating extra AttribDict')
+        # Attribute dict for actual hmc coords
+        extra = AttribDict({
+            'hmc_east': {
+                'value': x * 10,
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_north': {
+                'value': y * 10,
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_elev': {
+                'value': 130 - depth, # Extra attribs maintain absolute elevation
+                'namespace': 'smi:local/hmc'
+            }
+        })
+        o.extra = extra
     o.origin_uncertainty = OriginUncertainty()
     o.quality = OriginQuality()
     ou = o.origin_uncertainty
@@ -587,8 +590,9 @@ def loadNLLocOutput(ev, infile):
         # residual is defined as P-Psynth by NLLOC!
         arrival.distance = kilometer2degrees(epidist)
         arrival.phase = type
-        # arrival.time_residual = res
-        arrival.time_residual = res / 1000. # CJH descale time too (why 1000)??
+        arrival.time_residual = res
+        if location == 'SURF':
+            arrival.time_residual = res / 1000. # CJH descale time too (why 1000)??
         arrival.azimuth = azimuth
         if not np.isnan(ray_dip):
             arrival.takeoff_angle = ray_dip
