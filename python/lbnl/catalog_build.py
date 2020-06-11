@@ -155,6 +155,10 @@ def associator(param_file):
             recursive=True)
         st = Stream()
         for w in day_wavs:
+            seed_parts = os.path.basename(w).split('.')
+            seed_id = '.'.join(seed_parts[:-3])
+            if seed_id[-1] != 'Z':
+                continue
             print('Reading {}'.format(w))
             st += read(w)
         st = st.merge(fill_value='interpolate')
