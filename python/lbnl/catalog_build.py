@@ -14,6 +14,7 @@ from glob import glob
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
+from joblib import Parallel, delayed
 from obspy import UTCDateTime, read, Stream, Catalog, read_inventory
 from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
 from obspy.geodetics import kilometer2degrees
@@ -168,15 +169,23 @@ def associator(param_file):
                      highcut=trig_p['highcut'], filt_order=trig_p['corners'],
                      samp_rate=trig_p['sampling_rate'], starttime=utcdto,
                      ignore_length=True)
+        # Loop slices to speed calculations
         for tr in st:
             print('Picking on {}'.format(tr.id))
-            scnl, picks, polarity, snr, uncert = picker.picks(tr)
+            results = Parallel(n_jobs=trig_p['ncores'], verbose=10)(
+                delayed(picker.picks)(
+                    tr.slice(starttime=utcdto + (3600. * hr),
+                             endtime=utcdto + (3600. * (hr + 1))))
+                for hr in np.arange(24))
             t_create = UTCDateTime().datetime
             # Add each pick to the database
-            for i in range(len(picks)):
-                new_pick = tables1D.Pick(scnl, picks[i].datetime, polarity[i],
-                                         snr[i], uncert[i], t_create)
-                db_sesh.add(new_pick)  # Add pick i to the database
+            for res in results:
+                scnl, picks, polarity, snr, uncert = res
+                for i in range(len(picks)):
+                    new_pick = tables1D.Pick(scnl, picks[i].datetime,
+                                             polarity[i], snr[i], uncert[i],
+                                             t_create)
+                    db_sesh.add(new_pick)  # Add pick i to the database
         db_sesh.commit()  # Commit the pick to the database
     print('Associating events')
     associator.id_candidate_events()
