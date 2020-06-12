@@ -79,10 +79,10 @@ def build_tt_tables(param_file, inventory, tt_db):
     depth_spacing = assoc_paramz['depth_spacing']
     lats = np.arange(grid_origin_lat,
                      grid_origin_lat + (grid_shape_lat * grid_spacing),
-                     grid_shape_lat)
+                     grid_spacing)
     lons = np.arange(grid_origin_lon,
                      grid_origin_lon + (grid_shape_lon * grid_spacing),
-                     grid_shape_lon)
+                     grid_spacing)
     depth_km = np.arange(0, max_depth + depth_spacing,
                          depth_spacing)
     # Now add all individual stations to tt sesh
@@ -168,7 +168,7 @@ def associator(param_file):
         print('Only kpick and AICD supported')
         return
     # Define associator
-    associator = assoc1D.LocalAssociator(
+    associator = assoc3D.LocalAssociator(
         db_assoc, db_tt, max_km=assoc_p['max_km'],
         aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
         cutoff_outlier=assoc_p['cutoff_outlier'],
@@ -329,15 +329,14 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
     assoc_p = paramz['Associator']
-    print('Building tt databases')
-    inv = read_inventory(assoc_p['inventory'])
-    # db_sesh, db_assoc, db_tt = build_databases(param_file)
-    # build_tt_tables(param_file, inv, db_tt)
     associator = assoc3D.LocalAssociator(
         db_assoc, db_tt, max_km=assoc_p['max_km'],
         aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
         assoc_ot_uncert=assoc_p['assoc_ot_uncert'],
-        nsta_declare=assoc_p['nsta_declare'])
+        nsta_declare=assoc_p['nsta_declare'],
+        nt=assoc_p['grid_shape_lat'] + 1,
+        np=assoc_p['grid_shape_lon'] + 1,
+        nr=(assoc_p['max_depth'] / assoc_p['depth_spacing']) + 1)
     pick_p = paramz['Picker']
     if pick_p['method'] == 'aicd':
         picker = aicdpicker.AICDPicker(
@@ -382,7 +381,6 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
         print('Associating events')
         associator.id_candidate_events()
         associator.associate_candidates()
-        associator.single_phase()
         # Query database for associated events
         events = db_sesh.query(Associated).all()
         return db_sesh
