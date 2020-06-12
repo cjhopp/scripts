@@ -70,7 +70,7 @@ def build_tt_tables(param_file, inventory, tt_db):
     # We will use IASP91 here but obspy.taup does let you build your own model
     velmod = taup.TauPyModel(model='iasp91')
     # Define our distances we want to use in our lookup table
-    grid_shape = assoc_paramz['grid_shape']
+    grid_shape = tuple(assoc_paramz['grid_shape'])
     print(grid_shape[0])
     print(type(grid_shape[0]))
     grid_origin = assoc_paramz['grid_origin']
