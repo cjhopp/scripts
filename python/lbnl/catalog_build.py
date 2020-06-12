@@ -484,7 +484,7 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
                 col = 'r'
             elif pk.phase_hint == 'S':
                 col = 'b'
-            pk_t = ((pk_time[0] - st_slice[0].stats.starttime) *
+            pk_t = ((pk_time - st_slice[0].stats.starttime) *
                     st_slice[0].stats.sampling_rate) * st_slice[0].stats.delta
             ax[i].axvline(pk_t, linestyle='-', color=col)
         except IndexError as e:
