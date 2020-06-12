@@ -130,7 +130,7 @@ def build_tt_tables(param_file, inventory, tt_db):
                         pn_time = 9999.
                         sn_time = 9999.
                     tt_entry = TTtable3D(
-                        sta=sta.code, sgid=src_grid.id, d_km=d_km, delta=d_deg,
+                        sta=sta, sgid=src_grid.id, d_km=d_km, delta=d_deg,
                         p_tt=ptime, s_tt=stime,
                         s_p=stime - ptime, pn_tt=pn_time,
                         sn_tt=sn_time, sn_pn=sn_time - pn_time)
