@@ -395,7 +395,11 @@ def picker(param_file):
         associator.id_candidate_events()
         associator.associate_candidates()
         # Query database for associated events
-        event = db_sesh.query(Associated).all()[0]
+        try:
+            event = db_sesh.query(Associated).all()[0]
+        except IndexError:
+            print('No event associated for these picks')
+            continue
         picks = db_sesh.query(PickModified).filter(PickModified.assoc_id==event.id)
         for pick in picks:
             ev.picks.append(Pick(
