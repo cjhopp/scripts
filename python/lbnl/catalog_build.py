@@ -406,7 +406,6 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
                 method_id=pick_p['method'],
                 time_error=QuantityError(uncertainty=pick.error),
                 phase_hint=pick.phase,
-                polarity=pick.polarity,
                 ))
         cat.events.append(ev)
         if 'plotdir' in pick_p:
