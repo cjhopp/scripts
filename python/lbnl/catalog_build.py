@@ -399,7 +399,7 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
             ev.picks.append(Pick(
                 time=pick.time,
                 waveform_id=WaveformStreamID(
-                    network_code=pick.network,
+                    network_code=pick.net,
                     station_code=pick.sta,
                     location_code=pick.loc,
                     channel_code=pick.chan),
