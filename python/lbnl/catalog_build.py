@@ -404,7 +404,7 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
                     location_code=pick.loc,
                     channel_code=pick.chan),
                 method_id=pick_p['method'],
-                time_error=QuantityError(uncertainty=pick.uncert),
+                time_error=QuantityError(uncertainty=pick.error),
                 phase_hint=pick.phase,
                 polarity=pick.polarity,
                 ))
