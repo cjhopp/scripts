@@ -20,8 +20,8 @@ Trigger:
   threshold_off: 1.5
   trigger_off_extension: 5.
   max_trigger_length: 30.
-  plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate_v3.1'
-  coincidence_sum: 6.
+  plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/locate_v4'
+  coincidence_sum: 8.
   network_specific_params:
     {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
      'PB': {'sta': 1., 'lta': 10., 'thr_on': 6.5, 'thr_off': 2.},
@@ -57,7 +57,7 @@ Trigger:
     }
   output:
     write_wavs: True
-    waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/locate_v3.1'
+    waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/locate_v4'
     pre_trigger: 30.
     post_trigger: 60.
 
@@ -73,25 +73,25 @@ Picker:
   pol_coeff: 10
   uncert_coeff: 3
   pick_measure: earliest  # snr or earliest
-  plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/picks/locate_v3.1'
+  plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/picks/locate_v4'
 
 Associator:
   # Grid parameters
   inventory: '/bear0-data/GMF_1/Cascadia/Chet/stations/Preferred_sta_CW-NV-PB-CN_2deg.xml'
   grid_origin_lat: 46.1593
   grid_origin_lon: -126.3779 # Lat, Lon
-  grid_shape_lat: 4
-  grid_shape_lon: 5 # Rows, Columns
-  grid_spacing: 1. # Degrees
+  grid_shape_lat: 40
+  grid_shape_lon: 50 # Rows, Columns
+  grid_spacing: 0.1 # Degrees
   max_depth: 60 # km
   depth_spacing: 5. # km
   # Associator parameters
-  max_km: 250
+  max_km: 150
   aggregation: 1
   aggr_norm: 'L2'
   cutoff_outlier: 10
   assoc_ot_uncert: 7
-  nsta_declare: 6
+  nsta_declare: 4
   loc_uncert_thresh: 0.2
 
 
