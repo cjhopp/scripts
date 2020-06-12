@@ -80,11 +80,11 @@ Associator:
   inventory: '/bear0-data/GMF_1/Cascadia/Chet/stations/Preferred_sta_CW-NV-PB-CN_2deg.xml'
   grid_origin_lat: 46.1593
   grid_origin_lon: -126.3779 # Lat, Lon
-  grid_shape_lat: 40
-  grid_shape_lon: 50 # Rows, Columns
-  grid_spacing: 0.1 # Degrees
+  grid_shape_lat: 4
+  grid_shape_lon: 5 # Rows, Columns
+  grid_spacing: 1. # Degrees
   max_depth: 60 # km
-  depth_spacing: 2. # km
+  depth_spacing: 5. # km
   # Associator parameters
   max_km: 250
   aggregation: 1
