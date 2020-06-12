@@ -70,19 +70,19 @@ def build_tt_tables(param_file, inventory, tt_db):
     # We will use IASP91 here but obspy.taup does let you build your own model
     velmod = taup.TauPyModel(model='iasp91')
     # Define our distances we want to use in our lookup table
-    grid_shape = tuple(assoc_paramz['grid_shape'])
-    print(grid_shape[0])
-    print(type(grid_shape[0]))
-    grid_origin = assoc_paramz['grid_origin']
+    grid_shape_lat = tuple(assoc_paramz['grid_shape_lat'])
+    grid_shape_lon = tuple(assoc_paramz['grid_shape_lon'])
+    grid_origin_lat = assoc_paramz['grid_origin_lat']
+    grid_origin_lon = assoc_paramz['grid_origin_lon']
     grid_spacing = assoc_paramz['grid_spacing']
     max_depth = assoc_paramz['max_depth']
     depth_spacing = assoc_paramz['depth_spacing']
-    lats = np.arange(grid_origin[0],
-                     grid_origin[0] + (grid_shape[0] * grid_spacing),
-                     grid_shape[0])
-    lons = np.arange(grid_origin[1],
-                     grid_origin[1] + (grid_shape[1] * grid_spacing),
-                     grid_shape[1])
+    lats = np.arange(grid_origin_lat,
+                     grid_origin_lat + (grid_shape_lat * grid_spacing),
+                     grid_shape_lat)
+    lons = np.arange(grid_origin_lon,
+                     grid_origin_lon + (grid_shape_lon * grid_spacing),
+                     grid_shape_lon)
     depth_km = np.arange(0, max_depth + depth_spacing,
                          depth_spacing)
     # Now add all individual stations to tt sesh
