@@ -71,6 +71,7 @@ def build_tt_tables(param_file, inventory, tt_db):
     velmod = taup.TauPyModel(model='iasp91')
     # Define our distances we want to use in our lookup table
     grid_shape = assoc_paramz['grid_shape']
+    print(grid_shape)
     grid_origin = assoc_paramz['grid_origin']
     grid_spacing = assoc_paramz['grid_spacing']
     max_depth = assoc_paramz['max_depth']
