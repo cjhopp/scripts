@@ -118,7 +118,6 @@ def build_tt_tables(param_file, inventory, tt_db):
                     s_arrivals = velmod.get_travel_times(
                         source_depth_in_km=dep, distance_in_degree=d_deg,
                         phase_list=['S', 's', 'Sn'])
-                    print(s_arrivals)
                     stime = min([s.time for s in s_arrivals
                                  if s.name in ['S', 's']])
                     try:
