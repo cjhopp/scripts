@@ -100,12 +100,15 @@ def build_tt_tables(param_file, inventory, tt_db):
         tt_session.commit()
         # Now loop lat, lon depth (ijk); populate the SourceGrids and TTtable3D
         # for each grid point
+        used_pts = []
         for glat in lats:
             for glon in lons:
                 for dep in depth_km:
-                    print('Adding node {},{},{}'.format(glat, glon, dep))
-                    src_grid = SourceGrids(latitude=glat, longitude=glon,
-                                           depth=dep)
+                    if (glat, glon, dep) not in used_pts:
+                        print('Adding node {},{},{}'.format(glat, glon, dep))
+                        src_grid = SourceGrids(latitude=glat, longitude=glon,
+                                               depth=dep)
+                        used_pts.append((glat, glon, dep))
                     d_deg = locations2degrees(
                         lat1=sta_inv.latitude, long1=sta_inv.longitude,
                         lat2=glat, long2=glon)
