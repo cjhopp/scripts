@@ -88,6 +88,7 @@ def build_tt_tables(param_file, inventory, tt_db):
     depth_spacing = assoc_paramz['depth_spacing']
     distance_km = np.arange(0, max_dist + dist_spacing, dist_spacing)
     depth_km = np.arange(1, max_depth + depth_spacing, depth_spacing)
+    grd_cnt = 0
     for d_km in distance_km:
         print('Adding dist {}'.format(d_km))
         for dep_km in depth_km:
@@ -111,11 +112,12 @@ def build_tt_tables(param_file, inventory, tt_db):
             for net in inventory:
                 for sta in net:
                     tt_entry = tt_stations_3D.TTtable3D(
-                        sta=sta.code, sgid=1, d_km=d_km, delta=d_deg,
+                        sta=sta.code, sgid=grd_cnt, d_km=d_km, delta=d_deg,
                         p_tt=ptime, s_tt=stime,
                         s_p=stime - ptime, pn_tt=pn_time,
                         sn_tt=sn_time, sn_pn=sn_time - pn_time)
                     tt_session.add(tt_entry)
+                    grd_cnt += 1
             tt_session.commit()
     tt_session.close()
     return
