@@ -21,7 +21,8 @@ from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc
 from phasepapy.phasepicker import aicdpicker, ktpicker
-from phasepapy.associator import tables3D, assoc3D, plot3D
+from phasepapy.associator import tables3D
+from phasepapy.associator.assoc3D import LocalAssociator, PickModified
 from phasepapy.associator.tables3D import Associated
 from phasepapy.associator.tt_stations_3D import BaseTT3D, TTtable3D, SourceGrids
 from phasepapy.associator.tt_stations_3D import Station3D
@@ -171,7 +172,7 @@ def associator(param_file):
         print('Only kpick and AICD supported')
         return
     # Define associator
-    associator = assoc3D.LocalAssociator(
+    associator = LocalAssociator(
         db_assoc, db_tt, max_km=assoc_p['max_km'],
         aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
         cutoff_outlier=assoc_p['cutoff_outlier'],
@@ -332,7 +333,7 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
     assoc_p = paramz['Associator']
-    associator = assoc3D.LocalAssociator(
+    associator = LocalAssociator(
         db_assoc, db_tt, max_km=assoc_p['max_km'],
         aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
         assoc_ot_uncert=assoc_p['assoc_ot_uncert'],
@@ -386,7 +387,7 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
         associator.associate_candidates()
         # Query database for associated events
         event = db_sesh.query(Associated).all()[0]
-        picks = db_sesh.query(assoc3D.PickModified).filter(Pick.assoc_id == event.id)
+        picks = db_sesh.query(PickModified).filter(PickModified.assoc_id==event.id)
         for pick in picks:
             ev.picks.append(Pick(
                 time=pick.time,
