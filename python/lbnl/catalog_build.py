@@ -386,7 +386,7 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
         associator.associate_candidates()
         # Query database for associated events
         events = db_sesh.query(Associated).all()
-        return db_sesh
+        return db_sesh, events
         # print(events)
         # ev.picks.append(Pick(
         #     time=picks[ind].datetime,
