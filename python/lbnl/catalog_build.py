@@ -88,7 +88,8 @@ def build_tt_tables(param_file, inventory, tt_db):
     # Now add all individual stations to tt sesh
     seeds = list(set(['{}.{}.{}'.format(net.code, sta.code, chan.location_code)
                       for net in inventory for sta in net for chan in sta]))
-    for seed in seeds:
+    grid_ids = {}
+    for i, seed in enumerate(seeds):
         print('Populating {}'.format(seed))
         net, sta, loc = seed.split('.')
         sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
@@ -100,15 +101,14 @@ def build_tt_tables(param_file, inventory, tt_db):
         tt_session.commit()
         # Now loop lat, lon depth (ijk); populate the SourceGrids and TTtable3D
         # for each grid point
-        used_pts = []
         for glat in lats:
             for glon in lons:
                 for dep in depth_km:
-                    if (glat, glon, dep) not in used_pts:
+                    if i == 0:
                         print('Adding node {},{},{}'.format(glat, glon, dep))
                         src_grid = SourceGrids(latitude=glat, longitude=glon,
                                                depth=dep)
-                        used_pts.append((glat, glon, dep))
+                        grid_ids[(glat, glon, dep)] = src_grid.id
                     d_deg = locations2degrees(
                         lat1=sta_inv.latitude, long1=sta_inv.longitude,
                         lat2=glat, long2=glon)
@@ -132,8 +132,8 @@ def build_tt_tables(param_file, inventory, tt_db):
                         pn_time = 9999.
                         sn_time = 9999.
                     tt_entry = TTtable3D(
-                        sta=sta, sgid=src_grid.id, d_km=d_km, delta=d_deg,
-                        p_tt=ptime, s_tt=stime,
+                        sta=sta, sgid=grid_ids[(glat, glon, dep)], d_km=d_km,
+                        delta=d_deg, p_tt=ptime, s_tt=stime,
                         s_p=stime - ptime, pn_tt=pn_time,
                         sn_tt=sn_time, sn_pn=sn_time - pn_time)
                     tt_session.add(tt_entry)
