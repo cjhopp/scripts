@@ -470,18 +470,23 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
     fig.suptitle('Detection: {}'.format(name))
     fig.subplots_adjust(hspace=0.)
     for i, sid in enumerate(seeds):
-        pk_time = [pk.time for pk in ev.picks
-                   if '{}.{}.{}.{}'.format(pk.waveform_id.network_code,
-                                           pk.waveform_id.station_code,
-                                           pk.waveform_id.location_code,
-                                           pk.waveform_id.channel_code) == sid]
         tr_raw = st_slice.select(id=sid)[0]
         time_vect = np.arange(time_v.shape[0]) * tr_raw.stats.delta
         ax[i].plot(time_vect, tr_raw.data / np.max(tr_raw.data), color='k')
         try:
+            pk = [pk for pk in ev.picks
+                  if '{}.{}.{}.{}'.format(pk.waveform_id.network_code,
+                                          pk.waveform_id.station_code,
+                                          pk.waveform_id.location_code,
+                                          pk.waveform_id.channel_code) == sid][0]
+            pk_time = pk.time
+            if pk.phase_hint == 'P':
+                col = 'r'
+            elif pk.phase_hint == 'S':
+                col = 'b'
             pk_t = ((pk_time[0] - st_slice[0].stats.starttime) *
                     st_slice[0].stats.sampling_rate) * st_slice[0].stats.delta
-            ax[i].axvline(pk_t, linestyle='-', color='r')
+            ax[i].axvline(pk_t, linestyle='-', color=col)
         except IndexError as e:
             pass
         bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
