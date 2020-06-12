@@ -17,13 +17,14 @@ from sqlalchemy import create_engine
 from joblib import Parallel, delayed
 from obspy import UTCDateTime, read, Stream, Catalog, read_inventory
 from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
-from obspy.geodetics import kilometer2degrees
+from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc
 from phasepapy.phasepicker import aicdpicker, ktpicker
 from phasepapy.associator import tables3D, assoc3D, plot3D
 from phasepapy.associator.tables3D import Associated
-from phasepapy.associator import tt_stations_3D
+from phasepapy.associator.tt_stations_3D import BaseTT3D, TTtable3D, SourceGrids
+from phasepapy.associator.tt_stations_3D import Station3D
 
 import obspy.taup as taup
 
@@ -63,62 +64,77 @@ def build_tt_tables(param_file, inventory, tt_db):
     assoc_paramz = paramz['Associator']
     # Create a connection to an sqlalchemy database
     tt_engine = create_engine(tt_db, echo=False)
-    tt_stations_3D.BaseTT3D.metadata.create_all(tt_engine)
+    BaseTT3D.metadata.create_all(tt_engine)
     TTSession = sessionmaker(bind=tt_engine)
     tt_session = TTSession()
+    # We will use IASP91 here but obspy.taup does let you build your own model
+    velmod = taup.TauPyModel(model='iasp91')
+    # Define our distances we want to use in our lookup table
+    grid_shape = assoc_paramz['grid_shape']
+    grid_origin = assoc_paramz['grid_origin']
+    grid_spacing = assoc_paramz['grid_spacing']
+    max_depth = assoc_paramz['max_depth']
+    depth_spacing = assoc_paramz['depth_spacing']
+    lats = np.arange(grid_origin[0],
+                     grid_origin[0] + (grid_shape[0] * grid_spacing),
+                     grid_shape[0])
+    lons = np.arange(grid_origin[1],
+                     grid_origin[1] + (grid_shape[1] * grid_spacing),
+                     grid_shape[1])
+    depth_km = np.arange(0, max_depth + depth_spacing,
+                         depth_spacing)
     # Now add all individual stations to tt sesh
     seeds = list(set(['{}.{}.{}'.format(net.code, sta.code, chan.location_code)
                       for net in inventory for sta in net for chan in sta]))
     for seed in seeds:
+        print('Populating {}'.format(seed))
         net, sta, loc = seed.split('.')
         sta_inv = inventory.select(network=net, station=sta, location=loc)[0][0]
         chan = sta_inv[0]
-        station = tt_stations_3D.Station3D(sta, net, loc, sta_inv.latitude,
-                                           sta_inv.longitude,
-                                           sta_inv.elevation - chan.depth)
+        station = Station3D(sta, net, loc, sta_inv.latitude, sta_inv.longitude,
+                            sta_inv.elevation - chan.depth)
         # Save the station locations in the database
         tt_session.add(station)
         tt_session.commit()
-    # We will use IASP91 here but obspy.taup does let you build your own model
-    velmod = taup.TauPyModel(model='iasp91')
-    # Define our distances we want to use in our lookup table
-    max_dist = assoc_paramz['max_dist']
-    dist_spacing = assoc_paramz['dist_spacing']
-    max_depth = assoc_paramz['max_depth']
-    depth_spacing = assoc_paramz['depth_spacing']
-    distance_km = np.arange(0, max_dist + dist_spacing, dist_spacing)
-    depth_km = np.arange(1, max_depth + depth_spacing, depth_spacing)
-    grd_cnt = 0
-    for d_km in distance_km:
-        print('Adding dist {}'.format(d_km))
-        for dep_km in depth_km:
-            d_deg = kilometer2degrees(d_km)
-            p_arrivals = velmod.get_travel_times(
-                source_depth_in_km=dep_km, distance_in_degree=d_deg,
-                phase_list=['P', 'p', 'Pn'])
-            print(p_arrivals)
-            ptime = min([p.time for p in p_arrivals if p.name in ['P', 'p']])
-            s_arrivals = velmod.get_travel_times(
-                source_depth_in_km=dep_km, distance_in_degree=d_deg,
-                phase_list=['S', 's', 'Sn'])
-            print(s_arrivals)
-            stime = min([s.time for s in s_arrivals if s.name in ['S', 's']])
-            try:
-                pn_time = [p.time for p in p_arrivals if p.name in ['Pn']][0]
-                sn_time = [s.time for s in s_arrivals if s.name in ['Sn']][0]
-            except IndexError as e:
-                pn_time = 9999.
-                sn_time = 9999.
-            for net in inventory:
-                for sta in net:
-                    tt_entry = tt_stations_3D.TTtable3D(
-                        sta=sta.code, sgid=grd_cnt, d_km=d_km, delta=d_deg,
+        # Now loop lat, lon depth (ijk); populate the SourceGrids and TTtable3D
+        # for each grid point
+        for glat in lats:
+            for glon in lons:
+                for dep in depth_km:
+                    print('Adding node {},{},{}'.format(glat, glon, dep))
+                    src_grid = SourceGrids(latitude=glat, longitude=glon,
+                                           depth=dep)
+                    d_deg = locations2degrees(
+                        lat1=sta_inv.latitude, long1=sta_inv.longitude,
+                        lat2=glat, long2=glon)
+                    d_km = degrees2kilometers(d_deg)
+                    p_arrivals = velmod.get_travel_times(
+                        source_depth_in_km=dep, distance_in_degree=d_deg,
+                        phase_list=['P', 'p', 'Pn'])
+                    ptime = min([p.time for p in p_arrivals
+                                 if p.name in ['P', 'p']])
+                    s_arrivals = velmod.get_travel_times(
+                        source_depth_in_km=dep, distance_in_degree=d_deg,
+                        phase_list=['S', 's', 'Sn'])
+                    print(s_arrivals)
+                    stime = min([s.time for s in s_arrivals
+                                 if s.name in ['S', 's']])
+                    try:
+                        pn_time = [p.time for p in p_arrivals
+                                   if p.name in ['Pn']][0]
+                        sn_time = [s.time for s in s_arrivals
+                                   if s.name in ['Sn']][0]
+                    except IndexError as e:
+                        pn_time = 9999.
+                        sn_time = 9999.
+                    tt_entry = TTtable3D(
+                        sta=sta.code, sgid=src_grid.id, d_km=d_km, delta=d_deg,
                         p_tt=ptime, s_tt=stime,
                         s_p=stime - ptime, pn_tt=pn_time,
                         sn_tt=sn_time, sn_pn=sn_time - pn_time)
                     tt_session.add(tt_entry)
-                    grd_cnt += 1
-            tt_session.commit()
+                    tt_session.add(src_grid)
+    tt_session.commit()
     tt_session.close()
     return
 
