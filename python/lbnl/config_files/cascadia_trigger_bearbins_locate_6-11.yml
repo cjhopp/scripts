@@ -84,7 +84,7 @@ Associator:
   grid_shape_lon: 50 # Rows, Columns
   grid_spacing: 0.1 # Degrees
   max_depth: 60 # km
-  depth_spacing: 5. # km
+  depth_spacing: 10. # km
   # Associator parameters
   max_km: 150
   aggregation: 1
