@@ -39,14 +39,21 @@ def date_generator(start_date, end_date):
         yield start_date + timedelta(n)
 
 
-def build_databases(param_file):
+def build_databases(param_file, which='assoc'):
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
     db_name = paramz['Database']['name']
     # If the associator database exists delete it first
-    if os.path.exists('{}_associator.db'.format(db_name)):
-        os.remove('{}_associator.db'.format(db_name))
-        os.remove('{}_tt.db'.format(db_name))
+    if which == 'assoc':
+        if os.path.exists('{}_associator.db'.format(db_name)):
+            os.remove('{}_associator.db'.format(db_name))
+    elif which == 'tt':
+        if os.path.exists('{}_tt.db'.format(db_name)):
+            os.remove('{}_tt.db'.format(db_name))
+    elif which == 'both':
+        if os.path.exists('{}_tt.db'.format(db_name)):
+            os.remove('{}_tt.db'.format(db_name))
+            os.remove('{}_associator.db'.format(db_name))
     # Our SQLite databases are:
     db_assoc = 'sqlite:///{}_associator.db'.format(db_name)
     db_tt = 'sqlite:///{}_tt.db'.format(db_name)  # Traveltime database
