@@ -385,24 +385,26 @@ def picker(param_file, db_sesh, db_assoc, db_tt):
         associator.id_candidate_events()
         associator.associate_candidates()
         # Query database for associated events
-        events = db_sesh.query(Associated).all()
-        return db_sesh, events
-        # print(events)
-        # ev.picks.append(Pick(
-        #     time=picks[ind].datetime,
-        #     waveform_id=WaveformStreamID(
-        #         network_code=tr.stats.network,
-        #         station_code=tr.stats.station,
-        #         location_code=tr.stats.location,
-        #         channel_code=tr.stats.channel),
-        #     method_id=pick_p['method'],
-        #     time_error=QuantityError(uncertainty=uncert[ind]),
-        #     phase_hint='P'))
-        # cat.events.append(ev)
-        # if 'plotdir' in pick_p:
-        #     plot_picks(
-        #         st, ev, prepick=5, postpick=10, outdir=pick_p['plotdir'],
-        #         name=os.path.basename(trig_f).split('_')[-1].split('.')[0])
+        event = db_sesh.query(Associated).all()[0]
+        picks = db_sesh.query(assoc3D.PickModified).filter(Pick.assoc_id == event.id)
+        for pick in picks:
+            ev.picks.append(Pick(
+                time=pick.time,
+                waveform_id=WaveformStreamID(
+                    network_code=pick.network,
+                    station_code=pick.sta,
+                    location_code=pick.loc,
+                    channel_code=pick.chan),
+                method_id=pick_p['method'],
+                time_error=QuantityError(uncertainty=pick.uncert),
+                phase_hint=pick.phase,
+                polarity=pick.polarity,
+                ))
+        cat.events.append(ev)
+        if 'plotdir' in pick_p:
+            plot_picks(
+                st, ev, prepick=5, postpick=10, outdir=pick_p['plotdir'],
+                name=os.path.basename(trig_f).split('_')[-1].split('.')[0])
     return cat
 
 ## Plotting ##
