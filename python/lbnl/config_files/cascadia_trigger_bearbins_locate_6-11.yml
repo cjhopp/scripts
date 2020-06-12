@@ -4,7 +4,7 @@ General:
   wav_directory: '/bear0-data/GMF_1/Cascadia/Chet/mseed'
 
 Database:
-  name: 'cascadia_test'
+  name: 'cascadia_10km'
 
 Trigger:
   start_time: 2017-9-1
