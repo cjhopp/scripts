@@ -19,7 +19,7 @@ from obspy import UTCDateTime, read, Stream, Catalog, read_inventory
 from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
 from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
-from eqcorrscan.utils.pre_processing import dayproc
+from eqcorrscan.utils.pre_processing import dayproc, _check_daylong
 from phasepapy.phasepicker import aicdpicker, ktpicker
 from phasepapy.associator import tables3D
 from phasepapy.associator.assoc3D import LocalAssociator, PickModified
@@ -276,6 +276,13 @@ def trigger(param_file, plot=False):
                 print('Reading in {}'.format(w))
                 st += read(w)
         st = st.merge()
+        # Remove all traces with more zeros than data
+        rms = []
+        for tr in st:
+            if not _check_daylong(tr):
+                rms.append(tr)
+        for rm in rms:
+            st.traces.remove(rm)
         # Filter and downsample the wavs
         st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
                      highcut=trig_p['highcut'], filt_order=trig_p['corners'],
