@@ -286,7 +286,7 @@ def extract_fdsn_events(param_file):
                                      endtime=o.time + extract_p['length'])
             # Write event waveform
             wav_slice.write('{}/Event_{}.ms'.format(
-                extract_p['outdir'], eid, format='MSEED'))
+                extract_p['outdir'], eid), format='MSEED')
             pick_seeds = ['{}.{}.{}.{}'.format(
                 pk.waveform_id.network_code,
                 pk.waveform_id.station_code,
