@@ -350,7 +350,7 @@ def extract_fdsn_events(param_file):
             if 'plotdir' in pick_p:
                 plot_picks(
                     wav_slice, ev, prepick=5, postpick=10,
-                    outdir=pick_p['plotdir'],
+                    outdir=extract_p['plotdir'],
                     name=os.path.basename(eid).split('_')[-1].split('.')[0])
     return cat
 
