@@ -328,7 +328,8 @@ def extract_fdsn_events(param_file):
                 stime = min([s.time for s in s_arrivals
                              if s.name in ['S', 's']])
                 for i, pk in enumerate(picks):
-                    if np.abs(UTCDateTime(pk.time) - (o.time + ptime)) < 0.5:
+                    if np.abs(pk.time -
+                              (o.time.datetime + ptime).total_seconds()) < 0.5:
                         ev.picks.append(Pick(
                             time=pk.time,
                             waveform_id=WaveformStreamID(
@@ -340,18 +341,19 @@ def extract_fdsn_events(param_file):
                             time_error=QuantityError(uncertainty=uncert[i]),
                             phase_hint='P'
                         ))
-                    elif np.abs(UTCDateTime(pk.time) - (o.time + stime)) < 0.5:
+                    elif np.abs(pk.time -
+                              (o.time.datetime + stime).total_seconds()) < 0.5:
                         ev.picks.append(Pick(
-                            time=pk.time,
-                            waveform_id=WaveformStreamID(
-                                network_code=tr.stats.network,
-                                station_code=tr.stats.station,
-                                location_code=tr.stats.location,
-                                channel_code=tr.stats.channel),
-                            method_id=pick_p['method'],
-                            time_error=QuantityError(uncertainty=uncert[i]),
-                            phase_hint='S'
-                        ))
+                        time=pk.time,
+                        waveform_id=WaveformStreamID(
+                            network_code=tr.stats.network,
+                            station_code=tr.stats.station,
+                            location_code=tr.stats.location,
+                            channel_code=tr.stats.channel),
+                        method_id=pick_p['method'],
+                        time_error=QuantityError(uncertainty=uncert[i]),
+                        phase_hint='S'
+                    ))
             if 'plotdir' in pick_p:
                 plot_picks(
                     wav_slice, ev, prepick=5, postpick=10,
