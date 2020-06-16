@@ -276,7 +276,9 @@ def extract_fdsn_events(param_file):
             paramz['General']['wav_directory'], date.year, jday),
             recursive=True)
         day_st = Stream()
+        print('Reading:')
         for w in day_wavs:
+            print(w)
             day_st += read(w)
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
@@ -296,6 +298,7 @@ def extract_fdsn_events(param_file):
             for tr in wav_slice:
                 if tr.id in pick_seeds:
                     continue
+                print('Picking {}'.format(tr.id))
                 # Process and pick
                 pk_tr = shortproc(
                     tr.copy(), lowcut=trig_p['lowcut'], parallel=False,
@@ -310,6 +313,7 @@ def extract_fdsn_events(param_file):
                 d_deg = locations2degrees(
                     lat1=tr_inv.latitude, long1=tr_inv.longitude,
                     lat2=o.latitude, long2=o.longitude)
+                print('Predicting arrival times')
                 # Get the P and S arrivals from TauP iasp91
                 p_arrivals = velmod.get_travel_times(
                     source_depth_in_km=o.depth / 1000.,
@@ -324,7 +328,7 @@ def extract_fdsn_events(param_file):
                 stime = min([s.time for s in s_arrivals
                              if s.name in ['S', 's']])
                 for i, pk in enumerate(picks):
-                    if np.abs(pk.time - ptime) < 0.5:
+                    if np.abs(UTCDateTime(pk.time) - (o.time + ptime)) < 0.5:
                         ev.picks.append(Pick(
                             time=pk.time,
                             waveform_id=WaveformStreamID(
@@ -336,7 +340,7 @@ def extract_fdsn_events(param_file):
                             time_error=QuantityError(uncertainty=uncert[i]),
                             phase_hint='P'
                         ))
-                    elif np.abs(pk.time - stime) < 0.5:
+                    elif np.abs(UTCDateTime(pk.time) - (o.time + stime)) < 0.5:
                         ev.picks.append(Pick(
                             time=pk.time,
                             waveform_id=WaveformStreamID(
