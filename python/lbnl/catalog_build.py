@@ -279,6 +279,9 @@ def extract_fdsn_events(param_file):
         print('Reading:')
         for w in day_wavs:
             print(w)
+            # Only pick on Z and N for speed
+            if w.split('.')[-4].endswith('E'):
+                continue
             day_st += read(w)
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
@@ -315,21 +318,28 @@ def extract_fdsn_events(param_file):
                     lat2=o.latitude, long2=o.longitude)
                 print('Predicting arrival times')
                 # Get the P and S arrivals from TauP iasp91
-                p_arrivals = velmod.get_travel_times(
-                    source_depth_in_km=o.depth / 1000.,
-                    distance_in_degree=d_deg,
-                    phase_list=['P', 'p'])
-                ptime = min([p.time for p in p_arrivals
-                             if p.name in ['P', 'p']])
-                s_arrivals = velmod.get_travel_times(
-                    source_depth_in_km=o.depth / 1000.,
-                    distance_in_degree=d_deg,
-                    phase_list=['S', 's'])
-                stime = min([s.time for s in s_arrivals
-                             if s.name in ['S', 's']])
+                if tr.stats.channel.endswith('Z'):
+                    p_arrivals = velmod.get_travel_times(
+                        source_depth_in_km=o.depth / 1000.,
+                        distance_in_degree=d_deg,
+                        phase_list=['P', 'p'])
+                    ptime = min([p.time for p in p_arrivals
+                                 if p.name in ['P', 'p']])
+                    phase = 'P'
+                else:
+                    s_arrivals = velmod.get_travel_times(
+                        source_depth_in_km=o.depth / 1000.,
+                        distance_in_degree=d_deg,
+                        phase_list=['S', 's'])
+                    ptime = min([s.time for s in s_arrivals
+                                 if s.name in ['S', 's']])
+                    phase = 'S'
                 for i, pk in enumerate(picks):
-                    if np.abs(pk.time -
-                              (o.time.datetime + ptime).total_seconds()) < 0.5:
+                    pt = pk.time
+                    pred_pt = o.time + ptime
+                    # P misfit
+                    p_dt = np.abs(pt - pred_pt).total_seconds()
+                    if p_dt < 0.5:
                         ev.picks.append(Pick(
                             time=pk.time,
                             waveform_id=WaveformStreamID(
@@ -339,21 +349,8 @@ def extract_fdsn_events(param_file):
                                 channel_code=tr.stats.channel),
                             method_id=pick_p['method'],
                             time_error=QuantityError(uncertainty=uncert[i]),
-                            phase_hint='P'
+                            phase_hint=phase
                         ))
-                    elif np.abs(pk.time -
-                              (o.time.datetime + stime).total_seconds()) < 0.5:
-                        ev.picks.append(Pick(
-                        time=pk.time,
-                        waveform_id=WaveformStreamID(
-                            network_code=tr.stats.network,
-                            station_code=tr.stats.station,
-                            location_code=tr.stats.location,
-                            channel_code=tr.stats.channel),
-                        method_id=pick_p['method'],
-                        time_error=QuantityError(uncertainty=uncert[i]),
-                        phase_hint='S'
-                    ))
             if 'plotdir' in pick_p:
                 plot_picks(
                     wav_slice, ev, prepick=5, postpick=10,
