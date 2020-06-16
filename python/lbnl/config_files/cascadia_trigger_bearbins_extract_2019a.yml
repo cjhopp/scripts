@@ -10,7 +10,7 @@ Extract:
   catalog: '/bear0-data/GMF_1/Cascadia/Chet/fdsn_catalogs/Cascadia_combined_EQCA-USGS_2sec_decluster.xml'
   length: 120
   overwrite: True
-  start_date: 2019-1-1
+  start_date: 2019-1-3
   end_date: 2019-6-30
   outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/extracted/combined_cat_6-15'
   plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/extracted/combined_cat_6-15'
