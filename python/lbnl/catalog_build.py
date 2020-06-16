@@ -284,6 +284,7 @@ def extract_fdsn_events(param_file):
                 continue
             print(w)
             day_st += read(w)
+        day_st.merge()
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
             print('Extracting {}'.format(eid))
