@@ -342,7 +342,7 @@ def extract_fdsn_events(param_file):
                     p_dt = np.abs((pt - pred_pt).total_seconds())
                     if p_dt < 0.5:
                         ev.picks.append(Pick(
-                            time=pk.time,
+                            time=pk.datetime,
                             waveform_id=WaveformStreamID(
                                 network_code=tr.stats.network,
                                 station_code=tr.stats.station,
