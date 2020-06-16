@@ -272,6 +272,8 @@ def extract_fdsn_events(param_file):
         day_cat = Catalog(events=[ev for ev in cat
                                   if utcdto < ev.origins[-1].time
                                   < utcdto + 86400.])
+        if len(day_cat) == 0:
+            continue
         jday = utcdto.julday
         day_wavs = glob('{}/{}/**/*{:03d}.ms'.format(
             paramz['General']['wav_directory'], date.year, jday),
@@ -361,7 +363,6 @@ def extract_fdsn_events(param_file):
                             phase_hint=phase
                         ))
             if 'plotdir' in pick_p:
-                print(wav_slice[0].stats.starttime, o.time)
                 plot_picks(
                     wav_slice.copy(), ev, prepick=o.time, postpick=o.time + 40,
                     outdir=extract_p['plotdir'],
