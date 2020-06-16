@@ -329,9 +329,13 @@ def extract_fdsn_events(param_file):
                     lat2=o.latitude, long2=o.longitude)
                 print('Predicting arrival times')
                 # Get the P and S arrivals from TauP iasp91
+                if o.depth < 0.:
+                    dep = 0.
+                else:
+                    dep = o.depth
                 if tr.stats.channel.endswith('Z'):
                     p_arrivals = velmod.get_travel_times(
-                        source_depth_in_km=o.depth / 1000.,
+                        source_depth_in_km=dep / 1000.,
                         distance_in_degree=d_deg,
                         phase_list=['P', 'p'])
                     ptime = min([p.time for p in p_arrivals
@@ -339,7 +343,7 @@ def extract_fdsn_events(param_file):
                     phase = 'P'
                 else:
                     s_arrivals = velmod.get_travel_times(
-                        source_depth_in_km=o.depth / 1000.,
+                        source_depth_in_km=dep / 1000.,
                         distance_in_degree=d_deg,
                         phase_list=['S', 's'])
                     ptime = min([s.time for s in s_arrivals
@@ -350,7 +354,7 @@ def extract_fdsn_events(param_file):
                     pred_pt = (o.time + ptime).datetime
                     # P misfit
                     p_dt = np.abs((pt - pred_pt).total_seconds())
-                    if p_dt < 0.5:
+                    if p_dt < 2.:
                         ev.picks.append(Pick(
                             time=pk.datetime,
                             waveform_id=WaveformStreamID(
