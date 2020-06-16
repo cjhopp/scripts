@@ -286,7 +286,7 @@ def extract_fdsn_events(param_file):
             day_st += read(w)
         day_st.merge()
         day_st = shortproc(
-            tr.copy(), lowcut=trig_p['lowcut'], parallel=False,
+            day_st, lowcut=trig_p['lowcut'], parallel=False,
             highcut=trig_p['highcut'], filt_order=trig_p['corners'],
             samp_rate=trig_p['sampling_rate'])
         for ev in day_cat:
