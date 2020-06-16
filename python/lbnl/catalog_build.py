@@ -283,12 +283,11 @@ def extract_fdsn_events(param_file):
             paramz['General']['wav_directory'], date.year, jday),
             recursive=True)
         day_st = Stream()
-        print('Reading:')
+        print('Reading wavs')
         for w in day_wavs:
             # Only pick on Z and N or 2 for speed (arbitrarily)
             if w.split('.')[-4][-1] in ['E', '1']:
                 continue
-            print(w)
             day_st += read(w)
         day_st.merge()
         rms = []
@@ -298,11 +297,16 @@ def extract_fdsn_events(param_file):
         for rm in rms:
             day_st.traces.remove(rm)
         # Filter and downsample the wavs
-        day_st = dayproc(
-            day_st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
-            highcut=trig_p['highcut'], filt_order=trig_p['corners'],
-            samp_rate=trig_p['sampling_rate'], starttime=utcdto,
-            ignore_length=True, ignore_bad_data=True)
+        print('Processing daylong wavs')
+        try:
+            day_st = dayproc(
+                day_st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
+                highcut=trig_p['highcut'], filt_order=trig_p['corners'],
+                samp_rate=trig_p['sampling_rate'], starttime=utcdto,
+                ignore_length=True, ignore_bad_data=True)
+        except (Exception, ValueError, AttributeError) as e:
+            print(e)
+            continue
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
             if len(eid.split('=')) > 1:
