@@ -15,11 +15,11 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
 from joblib import Parallel, delayed
-from obspy import UTCDateTime, read, Stream, Catalog, read_inventory
+from obspy import UTCDateTime, read, Stream, Catalog, read_inventory, read_events
 from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
 from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
-from eqcorrscan.utils.pre_processing import dayproc, _check_daylong
+from eqcorrscan.utils.pre_processing import dayproc, _check_daylong, shortproc
 from phasepapy.phasepicker import aicdpicker, ktpicker
 from phasepapy.associator import tables3D
 from phasepapy.associator.assoc3D import LocalAssociator, PickModified
@@ -236,6 +236,125 @@ def associator(param_file):
     return db_sesh, db_assoc, db_tt
 
 
+def extract_fdsn_events(param_file):
+    """
+    Loop all events detected via fdsn, extract waveforms and pick them (for CN
+    events with no picks)
+
+    :param param_file:
+    :return:
+    """
+    with open(param_file, 'r') as f:
+        paramz = yaml.load(f, Loader=yaml.FullLoader)
+    extract_p = paramz['Extract']
+    pick_p = paramz['Picker']
+    trig_p = paramz['Trigger']
+    # Read in catalog
+    cat = read_events(extract_p['catalog'])
+    cat.events.sort(key=lambda x: x.origins[-1].time)
+    # Read in inventory
+    inv = read_inventory(paramz['Associator']['inventory'])
+    start = cat[0].origins[-1].time
+    end = cat[-1].origins[-1].time
+    # Basic vmod for anticipated arrival times
+    velmod = taup.TauPyModel(model='iasp91')
+    # Set up picker
+    picker = aicdpicker.AICDPicker(
+        t_ma=pick_p['t_ma'], nsigma=pick_p['nsigma'], t_up=pick_p['t_up'],
+        nr_len=pick_p['nr_len'], nr_coeff=pick_p['nr_coeff'],
+        pol_len=pick_p['pol_len'], pol_coeff=pick_p['pol_coeff'],
+        uncert_coeff=pick_p['uncert_coeff'])
+    for date in date_generator(start.date(), end.date()):
+        print('Extracting events on {}'.format(date))
+        utcdto = UTCDateTime(date)
+        day_cat = Catalog(events=[ev for ev in cat
+                                  if utcdto < ev.origins[-1].time
+                                  < utcdto + 86400.])
+        jday = utcdto.julday
+        day_wavs = glob('{}/{}/**/*{:03d}.ms'.format(
+            paramz['General']['wav_directory'], date.year, jday),
+            recursive=True)
+        day_st = Stream()
+        for w in day_wavs:
+            day_st += read(w)
+        for ev in day_cat:
+            eid = ev.resource_id.id.split('/')[-1]
+            print('Extracting {}'.format(eid))
+            o = ev.origins[-1]
+            wav_slice = day_st.slice(starttime=o.time,
+                                     endtime=o.time + extract_p['length'])
+            # Write event waveform
+            wav_slice.write('{}/Event_{}.ms'.format(
+                extract_p['outdir'], eid, format='MSEED'))
+            pick_seeds = ['{}.{}.{}.{}'.format(
+                pk.waveform_id.network_code,
+                pk.waveform_id.station_code,
+                pk.waveform_id.location_code,
+                pk.waveform_id.channel_code) for pk in ev.picks]
+            # Pick traces with not pick already
+            for tr in wav_slice:
+                if tr.id in pick_seeds:
+                    continue
+                # Process and pick
+                pk_tr = shortproc(
+                    tr.copy(), lowcut=trig_p['lowcut'], parallel=False,
+                    highcut=trig_p['highcut'], filt_order=trig_p['corners'],
+                    samp_rate=trig_p['sampling_rate'])
+                scnl, picks, polarity, snr, uncert = picker.picks(pk_tr)
+                if len(picks) == 0:
+                    continue
+                tr_inv = inv.select(station=tr.stats.station,
+                                    location=tr.stats.location)[0][0]
+                d_deg = locations2degrees(
+                    lat1=tr_inv.latitude, long1=tr_inv.longitude,
+                    lat2=o.latitude, long2=o.longitude)
+                d_km = degrees2kilometers(d_deg)
+                # Get the P and S arrivals from TauP iasp91
+                p_arrivals = velmod.get_travel_times(
+                    source_depth_in_km=o.depth / 1000.,
+                    distance_in_degree=d_deg,
+                    phase_list=['P', 'p'])
+                ptime = min([p.time for p in p_arrivals
+                             if p.name in ['P', 'p']])
+                s_arrivals = velmod.get_travel_times(
+                    source_depth_in_km=o.depth / 1000.,
+                    distance_in_degree=d_deg,
+                    phase_list=['S', 's'])
+                stime = min([s.time for s in s_arrivals
+                             if s.name in ['S', 's']])
+                for i, pk in enumerate(picks):
+                    if np.abs(pk.time - ptime) < 0.5:
+                        ev.picks.append(Pick(
+                            time=pk.time,
+                            waveform_id=WaveformStreamID(
+                                network_code=tr.stats.network,
+                                station_code=tr.stats.station,
+                                location_code=tr.stats.location,
+                                channel_code=tr.stats.channel),
+                            method_id=pick_p['method'],
+                            time_error=QuantityError(uncertainty=uncert[i]),
+                            phase_hint='P'
+                        ))
+                    elif np.abs(pk.time - stime) < 0.5:
+                        ev.picks.append(Pick(
+                            time=pk.time,
+                            waveform_id=WaveformStreamID(
+                                network_code=tr.stats.network,
+                                station_code=tr.stats.station,
+                                location_code=tr.stats.location,
+                                channel_code=tr.stats.channel),
+                            method_id=pick_p['method'],
+                            time_error=QuantityError(uncertainty=uncert[i]),
+                            phase_hint='S'
+                        ))
+            if 'plotdir' in pick_p:
+                plot_picks(
+                    wav_slice, ev, prepick=5, postpick=10,
+                    outdir=pick_p['plotdir'],
+                    name=os.path.basename(eid).split('_')[-1].split('.')[0])
+    return cat
+
+
 def trigger(param_file, plot=False):
     """
     Wrapper on obspy coincidence trigger for a directory of waveforms
@@ -382,6 +501,7 @@ def picker(param_file):
         print('Picking {}'.format(trig_f))
         st = read(trig_f)
         for tr in st:
+            # TODO Should process trace before picking!!
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
             if len(picks) == 0:
                 continue

@@ -6,6 +6,10 @@ General:
 Database:
   name: 'cascadia_10km'
 
+Extract:
+  catalog:
+  length: 120
+
 Trigger:
   start_time: 2017-9-1
   end_time: 2017-9-30
