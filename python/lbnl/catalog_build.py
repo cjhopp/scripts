@@ -336,10 +336,10 @@ def extract_fdsn_events(param_file):
                                  if s.name in ['S', 's']])
                     phase = 'S'
                 for i, pk in enumerate(picks):
-                    pt = pk.time
-                    pred_pt = o.time + ptime
+                    pt = pk.datetime
+                    pred_pt = (o.time + ptime).datetime
                     # P misfit
-                    p_dt = np.abs(pt - pred_pt).total_seconds()
+                    p_dt = np.abs((pt - pred_pt).total_seconds())
                     if p_dt < 0.5:
                         ev.picks.append(Pick(
                             time=pk.time,
