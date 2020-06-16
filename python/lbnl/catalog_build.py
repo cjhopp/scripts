@@ -300,6 +300,7 @@ def extract_fdsn_events(param_file):
                     tr.copy(), lowcut=trig_p['lowcut'], parallel=False,
                     highcut=trig_p['highcut'], filt_order=trig_p['corners'],
                     samp_rate=trig_p['sampling_rate'])
+                # Make picks
                 scnl, picks, polarity, snr, uncert = picker.picks(pk_tr)
                 if len(picks) == 0:
                     continue
@@ -308,7 +309,6 @@ def extract_fdsn_events(param_file):
                 d_deg = locations2degrees(
                     lat1=tr_inv.latitude, long1=tr_inv.longitude,
                     lat2=o.latitude, long2=o.longitude)
-                d_km = degrees2kilometers(d_deg)
                 # Get the P and S arrivals from TauP iasp91
                 p_arrivals = velmod.get_travel_times(
                     source_depth_in_km=o.depth / 1000.,
