@@ -301,6 +301,9 @@ def extract_fdsn_events(param_file):
             ignore_length=True)
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
+            if len(eid.split('=')) > 1:
+                # For FDSN pulled events from USGS
+                eid = ev.resource_id.id.split('=')[-2].split('&')[0]
             print('Extracting {}'.format(eid))
             o = ev.origins[-1]
             wav_slice = day_st.slice(starttime=o.time,
@@ -319,6 +322,7 @@ def extract_fdsn_events(param_file):
             # Pick traces with not pick already
             for tr in wav_slice:
                 if tr.id in pick_seeds:
+                    print('Pick already made')
                     continue
                 print('Picking {}'.format(tr.id))
                 # Make picks
@@ -369,6 +373,8 @@ def extract_fdsn_events(param_file):
                             time_error=QuantityError(uncertainty=uncert[i]),
                             phase_hint=phase
                         ))
+            outev = '{}/Event_{}.xml'.format(extract_p['outdir'], eid)
+            ev.write(outev, format='QUAKEML')
             if 'plotdir' in pick_p:
                 plot_picks(
                     wav_slice.copy(), ev, prepick=o.time, postpick=o.time + 40,
