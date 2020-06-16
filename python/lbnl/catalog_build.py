@@ -285,10 +285,18 @@ def extract_fdsn_events(param_file):
             print(w)
             day_st += read(w)
         day_st.merge()
-        day_st = shortproc(
+        rms = []
+        for tr in day_st:
+            if not _check_daylong(tr):
+                rms.append(tr)
+        for rm in rms:
+            day_st.traces.remove(rm)
+        # Filter and downsample the wavs
+        day_st = dayproc(
             day_st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
             highcut=trig_p['highcut'], filt_order=trig_p['corners'],
-            samp_rate=trig_p['sampling_rate'])
+            samp_rate=trig_p['sampling_rate'], starttime=utcdto,
+            ignore_length=True)
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
             print('Extracting {}'.format(eid))
