@@ -284,7 +284,11 @@ def extract_fdsn_events(param_file):
                 continue
             print(w)
             day_st += read(w)
-        day_st.merge(fill_value='interpolate')
+        day_st.merge()
+        day_st = shortproc(
+            tr.copy(), lowcut=trig_p['lowcut'], parallel=False,
+            highcut=trig_p['highcut'], filt_order=trig_p['corners'],
+            samp_rate=trig_p['sampling_rate'])
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
             print('Extracting {}'.format(eid))
@@ -304,13 +308,8 @@ def extract_fdsn_events(param_file):
                 if tr.id in pick_seeds:
                     continue
                 print('Picking {}'.format(tr.id))
-                # Process and pick
-                pk_tr = shortproc(
-                    tr.copy(), lowcut=trig_p['lowcut'], parallel=False,
-                    highcut=trig_p['highcut'], filt_order=trig_p['corners'],
-                    samp_rate=trig_p['sampling_rate'])
                 # Make picks
-                scnl, picks, polarity, snr, uncert = picker.picks(pk_tr)
+                scnl, picks, polarity, snr, uncert = picker.picks(tr.copy())
                 if len(picks) == 0:
                     continue
                 tr_inv = inv.select(station=tr.stats.station,
@@ -354,6 +353,7 @@ def extract_fdsn_events(param_file):
                             phase_hint=phase
                         ))
             if 'plotdir' in pick_p:
+                print(wav_slice[0].stats.starttime, o.time)
                 plot_picks(
                     wav_slice.copy(), ev, prepick=o.time, postpick=o.time + 40,
                     outdir=extract_p['plotdir'],
