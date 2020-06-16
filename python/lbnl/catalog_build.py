@@ -250,6 +250,7 @@ def extract_fdsn_events(param_file):
     pick_p = paramz['Picker']
     trig_p = paramz['Trigger']
     # Read in catalog
+    print('Reading catalog to memory')
     cat = read_events(extract_p['catalog'])
     print(cat)
     cat.events.sort(key=lambda x: x.origins[-1].time)
