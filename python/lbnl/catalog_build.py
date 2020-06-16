@@ -254,8 +254,8 @@ def extract_fdsn_events(param_file):
     cat.events.sort(key=lambda x: x.origins[-1].time)
     # Read in inventory
     inv = read_inventory(paramz['Associator']['inventory'])
-    start = cat[0].origins[-1].time
-    end = cat[-1].origins[-1].time
+    start = cat[0].origins[-1].time.datetime
+    end = cat[-1].origins[-1].time.datetime
     # Basic vmod for anticipated arrival times
     velmod = taup.TauPyModel(model='iasp91')
     # Set up picker
