@@ -251,6 +251,7 @@ def extract_fdsn_events(param_file):
     trig_p = paramz['Trigger']
     # Read in catalog
     cat = read_events(extract_p['catalog'])
+    print(cat)
     cat.events.sort(key=lambda x: x.origins[-1].time)
     # Read in inventory
     inv = read_inventory(paramz['Associator']['inventory'])
