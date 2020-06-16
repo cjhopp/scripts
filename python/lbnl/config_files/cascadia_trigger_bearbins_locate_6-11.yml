@@ -7,7 +7,7 @@ Database:
   name: 'cascadia_10km'
 
 Extract:
-  catalog:
+  catalog: '/bear0-data/GMF_1/Cascadia/Chet/fdsn_catalogs/Cascadia_combined_EQCA-USGS_2sec_decluster.xml'
   length: 120
   outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/extracted/combined_cat_6-15'
   plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/extracted/combined_cat_6-15'
