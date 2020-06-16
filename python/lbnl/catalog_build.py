@@ -306,8 +306,11 @@ def extract_fdsn_events(param_file):
             wav_slice = day_st.slice(starttime=o.time,
                                      endtime=o.time + extract_p['length'])
             # Write event waveform
-            wav_slice.write('{}/Event_{}.ms'.format(
-                extract_p['outdir'], eid), format='MSEED')
+            outwav = '{}/Event_{}.ms'.format(extract_p['outdir'], eid)
+            if not extract_p['overwrite'] and os.path.exists(outwav):
+                print('Already extracted {}'.format(outwav))
+                continue
+            wav_slice.write(outwav, format='MSEED')
             pick_seeds = ['{}.{}.{}.{}'.format(
                 pk.waveform_id.network_code,
                 pk.waveform_id.station_code,
