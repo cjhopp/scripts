@@ -279,10 +279,10 @@ def extract_fdsn_events(param_file):
         day_st = Stream()
         print('Reading:')
         for w in day_wavs:
-            print(w)
-            # Only pick on Z and N for speed
-            if w.split('.')[-4].endswith('E'):
+            # Only pick on Z and N or 2 for speed (arbitrarily)
+            if w.split('.')[-4][-1] in ['E', '1']:
                 continue
+            print(w)
             day_st += read(w)
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
