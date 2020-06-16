@@ -302,7 +302,7 @@ def extract_fdsn_events(param_file):
             day_st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
             highcut=trig_p['highcut'], filt_order=trig_p['corners'],
             samp_rate=trig_p['sampling_rate'], starttime=utcdto,
-            ignore_length=True)
+            ignore_length=True, ignore_bad_data=True)
         for ev in day_cat:
             eid = ev.resource_id.id.split('/')[-1]
             if len(eid.split('=')) > 1:
