@@ -289,7 +289,11 @@ def extract_fdsn_events(param_file):
             if w.split('.')[-4][-1] in ['E', '1']:
                 continue
             day_st += read(w)
-        day_st.merge()
+        try:
+            day_st.merge()
+        except Exception as e:
+            print(e)
+            continue
         rms = []
         for tr in day_st:
             if not _check_daylong(tr):
@@ -304,7 +308,7 @@ def extract_fdsn_events(param_file):
                 highcut=trig_p['highcut'], filt_order=trig_p['corners'],
                 samp_rate=trig_p['sampling_rate'], starttime=utcdto,
                 ignore_length=True, ignore_bad_data=True)
-        except (Exception, ValueError, AttributeError) as e:
+        except (ValueError, AttributeError) as e:
             print(e)
             continue
         for ev in day_cat:
