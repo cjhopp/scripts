@@ -288,7 +288,7 @@ def extract_fdsn_events(param_file):
             eid = ev.resource_id.id.split('/')[-1]
             print('Extracting {}'.format(eid))
             o = ev.origins[-1]
-            wav_slice = day_st.slice(starttime=o.time - 2,
+            wav_slice = day_st.slice(starttime=o.time,
                                      endtime=o.time + extract_p['length'])
             # Write event waveform
             wav_slice.write('{}/Event_{}.ms'.format(
@@ -354,7 +354,7 @@ def extract_fdsn_events(param_file):
                         ))
             if 'plotdir' in pick_p:
                 plot_picks(
-                    wav_slice.copy(), ev, prepick=0, postpick=20,
+                    wav_slice.copy(), ev, prepick=o.time, postpick=o.time + 40,
                     outdir=extract_p['plotdir'],
                     name=os.path.basename(eid).split('_')[-1].split('.')[0])
     return cat
