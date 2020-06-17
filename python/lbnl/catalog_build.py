@@ -310,6 +310,9 @@ def extract_fdsn_events(param_file):
         for tr in day_st:
             if not _check_daylong(tr):
                 rms.append(tr)
+            else:
+                # Address silly sampling rate issues by rounding delta?
+                tr.stats.delta = round(tr.stats.delta, 5)
         for rm in rms:
             day_st.traces.remove(rm)
         # Filter and downsample the wavs
