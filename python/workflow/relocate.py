@@ -93,6 +93,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
                 ev.resource_id.id))
             continue
         for pk in ev.picks:
+            # Assign arrival time uncertainties
             if (not pk.time_errors.upper_uncertainty
                 and not pk.time_errors.uncertainty):
                 sta = pk.waveform_id.station_code[:2]
@@ -101,7 +102,13 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
                     pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
                 except TypeError as e:
                     pk.time_errors.uncertainty = pick_uncertainty
+            # For cases of specific P or S phases, just convert to P or S
+            if pk.phase_hint not in ['P', 'S']:
+                pk.phase_hint = pk.phase_hint[0]
         id_str = str(ev.resource_id).split('/')[-1]
+        if len(id_str.split('=')) > 1 and location == 'cascadia':
+            # For FDSN pulled events from USGS
+            id_str = ev.resource_id.id.split('=')[-2].split('&')[0]
         filename = '{}/obs/{}.nll'.format(root_name, id_str)
         outfile = '{}/loc/{}'.format(root_name, id_str)
         # TODO This clause needs faster file existece check. Do 25-7.
