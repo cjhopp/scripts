@@ -1291,13 +1291,13 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         data = data[:, indices]
         data = np.squeeze(data)
     mpl_times = mdates.date2num(times)
-    # TODO still don't know the best way to deal with relative values?
-    if mode == 'Relative':
-        data = data - data[:, 0, np.newaxis]
     # Denoise methods are not mature yet
     if denoise_method:
         data = denoise(data, denoise_method, times=times, depth=depth_vect,
                        window=window)
+    if mode == 'Relative':
+        # TODO Is ten samples enough for mean removal?
+        data = data - data[:, 0:10, np.newaxis].mean(axis=1)
     if colorbar_type == 'dark':
         cmap = ListedColormap(sns.diverging_palette(
             240, 10, n=21, center='dark').as_hex())
