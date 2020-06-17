@@ -133,7 +133,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
         out_w_ext = glob(outfile + '.????????.??????.grid0.loc.hyp')
         try:
             loadNLLocOutput(ev=ev, infile=out_w_ext[0], location=location)
-        except ValueError as ve:
+        except (ValueError, IndexError) as ve:
             print(ve)
             continue
         # ev.origins.append(new_o_obj)
