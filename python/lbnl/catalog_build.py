@@ -653,14 +653,16 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
                                           pk.waveform_id.location_code,
                                           pk.waveform_id.channel_code) == sid][0]
             pk_time = pk.time
-            if pk.phase_hint == 'P':
+            if pk.phase_hint.lower().startswith('p'):
                 col = 'r'
-            elif pk.phase_hint == 'S':
+            elif pk.phase_hint.lower().startswith('s'):
                 col = 'b'
+            else:
+                col = 'green'
             pk_t = ((pk_time - st_slice[0].stats.starttime) *
                     st_slice[0].stats.sampling_rate) * st_slice[0].stats.delta
             ax[i].axvline(pk_t, linestyle='-', color=col)
-        except IndexError as e:
+        except (IndexError, UnboundLocalError) as e:
             pass
         bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
                           ec="k", lw=1)

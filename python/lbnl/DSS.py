@@ -262,7 +262,7 @@ def read_metadata(path, encoding='iso-8859-1'):
         return 'Absolute', 'Brillouin Frequency'
 
 
-def extract_wells(root, measure, mapping, wells=None, fibers=None,
+def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='majdabadi', convert_freq=False):
     """
     Helper to extract only the channels in specific wells
@@ -289,12 +289,12 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
     if not location:
         print('Specify location: surf or fsb')
         return
-    data_files = glob('{}/*{}.txt'.format(root, measure))
     well_data = {}
     fiber_data = {}
     print('Reading data')
     if location == 'fsb':
         chan_map = {}
+        data_files = glob('{}/*{}.txt'.format(root, measure))
         for f in data_files:
             if f.split('/')[-1].startswith('FSB-SMF-1'):
                 # Skip fiber 1
@@ -321,6 +321,7 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
         chan_map = mapping_dict[location]
         mode, type_m = read_metadata(glob('{}/**/*bpr.txt'.format(root),
                                           recursive=True)[0])
+        fiber_data['surf'] = {}
         fiber_data['surf']['data'] = data
         fiber_data['surf']['depth'] = depth
         fiber_data['surf']['times'] = times
@@ -349,9 +350,14 @@ def extract_wells(root, measure, mapping, wells=None, fibers=None,
             if well not in chan_map:
                 print('{} not in mapping'.format(well))
                 continue
-            depth = fiber_data[well_fiber_map[well]]['depth']
-            data = fiber_data[well_fiber_map[well]]['data']
-            times = fiber_data[well_fiber_map[well]]['times']
+            if location == 'fsb':
+                depth = fiber_data[well_fiber_map[well]]['depth']
+                data = fiber_data[well_fiber_map[well]]['data']
+                times = fiber_data[well_fiber_map[well]]['times']
+            elif location == 'surf':
+                depth = fiber_data['surf']['depth']
+                data = fiber_data['surf']['data']
+                times = fiber_data['surf']['times']
             if type(chan_map[well]) == float:
                 start_chan = np.abs(depth - (chan_map[well] -
                                              fiber_depths[well]))

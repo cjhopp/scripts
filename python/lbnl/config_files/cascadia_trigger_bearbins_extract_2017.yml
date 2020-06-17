@@ -9,7 +9,7 @@ Database:
 Extract:
   catalog: '/bear0-data/GMF_1/Cascadia/Chet/fdsn_catalogs/Cascadia_combined_EQCA-USGS_2sec_decluster.xml'
   length: 120
-  overwrite: True
+  overwrite: False
   start_date: 2017-8-1
   end_date: 2017-12-31
   outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/extracted/combined_cat_6-15'
