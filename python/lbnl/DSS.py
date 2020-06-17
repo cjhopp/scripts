@@ -338,6 +338,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             # First convert to delta Freq
             for fib, f_dict in fiber_data.items():
                 f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
+                print(f_dict['data'][:, 0])
             mode = 'Relative'  # overwrite mode
             type_m = 'Strain'
         # Use conversion factor 0.579 GHz shift per 1% strain

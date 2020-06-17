@@ -276,6 +276,18 @@ def extract_fdsn_events(param_file):
         day_cat = Catalog(events=[ev for ev in cat
                                   if utcdto < ev.origins[-1].time
                                   < utcdto + 86400.])
+        if not extract_p['overwrite']:
+            donezos = []
+            for ev in day_cat:
+                eid = ev.resource_id.id.split('/')[-1]
+                if len(eid.split('=')) > 1:
+                    # For FDSN pulled events from USGS
+                    eid = ev.resource_id.id.split('=')[-2].split('&')[0]
+                if os.path.exists(
+                    '{}/Event_{}.ms'.format(extract_p['outdir'], eid)):
+                    donezos.append(ev)
+            for rm in donezos:
+                day_cat.events.remove(rm)
         if len(day_cat) == 0:
             continue
         jday = utcdto.julday
@@ -322,9 +334,6 @@ def extract_fdsn_events(param_file):
                                      endtime=o.time + extract_p['length'])
             # Write event waveform
             outwav = '{}/Event_{}.ms'.format(extract_p['outdir'], eid)
-            if not extract_p['overwrite'] and os.path.exists(outwav):
-                print('Already extracted {}'.format(outwav))
-                continue
             wav_slice.write(outwav, format='MSEED')
             pick_seeds = ['{}.{}.{}.{}'.format(
                 pk.waveform_id.network_code,
