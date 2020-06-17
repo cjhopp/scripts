@@ -400,10 +400,16 @@ def extract_fdsn_events(param_file):
             outev = '{}/Event_{}.xml'.format(extract_p['outdir'], eid)
             ev.write(outev, format='QUAKEML')
             if 'plotdir' in pick_p:
-                plot_picks(
-                    wav_slice.copy(), ev, prepick=o.time, postpick=o.time + 40,
-                    outdir=extract_p['plotdir'],
-                    name=os.path.basename(eid).split('_')[-1].split('.')[0])
+                try:
+                    plot_picks(
+                        wav_slice.copy(), ev, prepick=o.time,
+                        postpick=o.time + 40,
+                        outdir=extract_p['plotdir'],
+                        name=os.path.basename(eid).split('_')[-1].split('.')[0])
+                except ValueError as e:
+                    print('Mismatch in x and y for some reason')
+                    print(e)
+                    continue
     return cat
 
 
