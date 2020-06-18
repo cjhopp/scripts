@@ -245,7 +245,9 @@ def dicts2NLLocPhases(ev, location):
         error_type = "GAU"
         error = None
         # XXX check: should we take only half of the complete left-to-right error?!?
-        if pick.time_errors.upper_uncertainty and pick.time_errors.lower_uncertainty:
+        if location == 'cascadia':
+            error = pick.time_errors.uncertainty
+        elif pick.time_errors.upper_uncertainty and pick.time_errors.lower_uncertainty:
             error = (pick.time_errors.upper_uncertainty + pick.time_errors.lower_uncertainty) * 100
         elif pick.time_errors.uncertainty:
             error = 200 * pick.time_errors.uncertainty
