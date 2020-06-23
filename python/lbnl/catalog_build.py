@@ -9,10 +9,13 @@ import yaml
 
 import numpy as np
 import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 from glob import glob
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
+from matplotlib.gridspec import GridSpec
 
 from joblib import Parallel, delayed
 from obspy import UTCDateTime, read, Stream, Catalog, read_inventory, read_events
@@ -31,6 +34,19 @@ import obspy.taup as taup
 
 sidney_stas = ['NSMTC', 'B009', 'B010', 'B011', 'PGC']
 olympic_bhs = ['B005', 'B006', 'B007']
+
+
+def read_slab_model(slab_mod_path):
+    # Helper to read in slab model for cascadia and return (x, 3) ndarray
+    slab_grd = []
+    with open(slab_mod_path, 'r') as f:
+        next(f)
+        for ln in f:
+            line = ln.strip()
+            line = line.split(',')
+            slab_grd.append((float(line[0]), float(line[1]), float(line[2])))
+    return np.array(slab_grd)
+
 
 def date_generator(start_date, end_date):
     # Generator for date looping
@@ -689,4 +705,69 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         ax[i].set_yticks([])
     fig.savefig('{}/Picks_{}.png'.format(outdir, name))
     plt.close('all')
+    return
+
+
+def plot_locations(catalog, slab_file=None, title=None, filename=None):
+    """
+    Cartopy-based plotting function for map view and simple cross sections
+
+    :param catalog:
+    :param slab_file:
+    :return:
+    """
+    fig = plt.figure(figsize=(8, 8.5))
+    gs = GridSpec(ncols=12, nrows=12, figure=fig)
+    crs = ccrs.UTM(10)
+    lats = np.array([e.origins[0].latitude for e in catalog])
+    lons = np.array([e.origins[0].longitude for e in catalog])
+    axes_map = fig.add_subplot(gs[:7, :7], projection=crs)
+    axes_cs_lat = fig.add_subplot(gs[:7, 7:], sharey=axes_map)
+    axes_cs_lon = fig.add_subplot(gs[7:-1, :7])#, sharex=axes_map)
+    axes_map.coastlines(resolution='50m', color='black', linewidth=0.5)
+    axes_map.add_feature(cfeature.NaturalEarthFeature(
+        'physical', 'ocean', '50m', edgecolor='face',
+        facecolor=cfeature.COLORS['water']), alpha=0.7, zorder=0)
+    pts = crs.transform_points(ccrs.Geodetic(), lons, lats)
+    x = pts[:, 0]
+    y = pts[:, 1]
+    axes_map.scatter(x, y, s=[e.magnitudes[0].mag**2 for e in catalog],
+                     marker='o', facecolors='none', edgecolors='k',
+                     linewidths=0.5)
+    axes_cs_lat.scatter(
+        [e.origins[0].depth / 1000. for e in catalog], y,
+        s=[e.magnitudes[0].mag**2 for e in catalog],
+        marker='o', facecolors='none', edgecolors='k',
+        linewidths=0.5)
+    axes_cs_lon.scatter(
+        x, [e.origins[0].depth / 1000. for e in catalog],
+        s=[e.magnitudes[0].mag**2 for e in catalog],
+        marker='o', facecolors='none', edgecolors='k',
+        linewidths=0.5)
+    # Plot rough slab interface
+    slab_grd = read_slab_model(slab_file)
+    # Take single latitude for now
+    line_pts = slab_grd[np.where(slab_grd[:, 1] == 45.9282994)]
+    pts_trans = crs.transform_points(ccrs.Geodetic(), line_pts[:, 0],
+                                     line_pts[:, 1])
+    axes_cs_lon.plot(pts_trans[:, 0], -line_pts[:, 2], linewidth=0.75,
+                     color='b')
+    # Formatting
+    axes_cs_lon.invert_yaxis()
+    axes_cs_lat.yaxis.set_ticks_position('right')
+    axes_cs_lat.xaxis.set_ticks_position('top')
+    axes_cs_lat.yaxis.set_label_position('right')
+    axes_cs_lat.xaxis.set_label_position('top')
+    axes_cs_lat.set_xlabel('Depth [km]')
+    axes_cs_lon.set_ylabel('Depth [km]')
+    axes_cs_lat.set_ylabel('Northing [m]')
+    axes_cs_lon.set_xlabel('Easting [m]')
+    axes_map.margins(0, 0)
+    axes_cs_lon.margins(0, 0)
+    axes_cs_lat.margins(0, 0)
+    if title:
+        plt.suptitle(title)
+    if filename:
+        plt.savefig('{}.png'.format(filename))
+        plt.savefig('{}.pdf'.format(filename))
     return

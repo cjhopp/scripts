@@ -16,13 +16,13 @@ import matplotlib.patches as mpatches
 from glob import glob
 from obspy import Stream, Trace
 from eqcorrscan.core.match_filter import normxcorr2
-from scipy.interpolate import griddata
+from scipy.interpolate import griddata, interp2d
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks
 from scipy.stats import median_absolute_deviation
 from datetime import datetime, timedelta
 from itertools import cycle
-from matplotlib.dates import num2date
+from matplotlib.dates import num2date, date2num
 from matplotlib.colors import ListedColormap, Normalize
 from matplotlib.gridspec import GridSpec
 from matplotlib.cm import ScalarMappable
@@ -32,6 +32,7 @@ from matplotlib.collections import LineCollection
 from lbnl.coordinates import cartesian_distance
 from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
     calculate_frac_density, read_frac_cores, depth_to_xyz
+from lbnl.DTS import read_struct
 from lbnl.simfip import read_excavation, plot_displacement_components
 
 
@@ -265,7 +266,8 @@ def read_metadata(path, encoding='iso-8859-1'):
 
 
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
-                  location=None, noise_method='majdabadi', convert_freq=False):
+                  location=None, noise_method='majdabadi', convert_freq=False,
+                  DTS=None, DTS_interp='linear'):
     """
     Helper to extract only the channels in specific wells
 
@@ -318,6 +320,9 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             chan_map.update(mapping_dict[mapping][file_root])
             mode, type_m = read_metadata(f)
     elif location == 'surf':
+        if DTS:
+            # Read in DTS temps to remove response
+            temp_dict = read_struct(DTS)
         data, depth, times = read_ascii_directory(root, header=34,
                                                   location=location)
         chan_map = mapping_dict[location]
@@ -328,7 +333,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
         fiber_data['surf']['depth'] = depth
         fiber_data['surf']['times'] = times
     else:
-        print('Provide valide location')
+        print('Provide valid location')
         return
     print('Realigning')
     # First realign
@@ -340,13 +345,8 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             # First convert to delta Freq
             for fib, f_dict in fiber_data.items():
                 f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
-                print(f_dict['data'][:, 0])
             mode = 'Relative'  # overwrite mode
             type_m = 'Strain'
-        # Use conversion factor 0.579 GHz shift per 1% strain
-        # For microstrain, factor is 5790
-        for fib, f_dict in fiber_data.items():
-            f_dict['data'] *= 5790.
     print('Calculating channel mapping')
     if wells:
         for well in wells:
@@ -375,6 +375,39 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             noise = estimate_noise(data_tmp, method=noise_method)
             well_data[well] = {'times': times, 'mode': mode,
                                'type': type_m}
+            if DTS:
+                # Remove temperature signal from strain
+                full_loop_T = np.concatenate((temp_dict[well]['temp'],
+                                              np.flip(temp_dict[well]['temp'],
+                                                      axis=0)),
+                                             axis=0)
+                full_loop_d = np.concatenate((temp_dict[well]['depth'],
+                                              temp_dict[well]['depth'] +
+                                              temp_dict[well]['depth'][-1]))
+                # DTS grid
+                xt, yt = np.meshgrid(full_loop_d,
+                                     date2num(temp_dict[well]['times']),
+                                     indexing='ij')
+                # DSS grid
+                xd, yd = np.meshgrid(depth_tmp - depth_tmp[0], date2num(times),
+                                     indexing='ij')
+                temp_interp = griddata(
+                    np.array([xt.flatten(), yt.flatten()]).T,
+                    full_loop_T.flatten(),
+                    np.array([xd.ravel(), yd.ravel()]).T,
+                    method=DTS_interp).reshape(data_tmp.shape)
+                # We want delta T since start (relative to same time as DSS)
+                temp_interp = temp_interp - temp_interp[:, 0, np.newaxis]
+                well_data[well].update({'brillouin_freq': data_tmp,
+                                        'uncorrected_strain': data_tmp * 5790.,
+                                        'interp_temp': temp_interp,
+                                        'raw_temp': temp_dict[well]['temp']})
+                data_tmp = data_tmp - (temp_interp * 0.00095)
+                well_data[well].update({'data_corrected': data_tmp})
+            if convert_freq:
+                # Use conversion factor 0.579 GHz shift per 1% strain
+                # For microstrain, factor is 5790
+                data_tmp *= 5790.
             well_data[well].update({'data': data_tmp, 'depth': depth_tmp,
                                     'noise': noise})
     elif fibers:
