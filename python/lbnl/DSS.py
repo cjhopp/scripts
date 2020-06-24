@@ -361,6 +361,9 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 depth = fiber_data['surf']['depth']
                 data = fiber_data['surf']['data']
                 times = fiber_data['surf']['times']
+            else:
+                print('{} not a location'.format(location))
+                return
             if type(chan_map[well]) == float:
                 start_chan = np.abs(depth - (chan_map[well] -
                                              fiber_depths[well]))
@@ -398,12 +401,15 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                     method=DTS_interp).reshape(data_tmp.shape)
                 # We want delta T since start (relative to same time as DSS)
                 temp_interp = temp_interp - temp_interp[:, 0, np.newaxis]
-                well_data[well].update({'brillouin_freq': data_tmp,
-                                        'uncorrected_strain': data_tmp * 5790.,
-                                        'interp_temp': temp_interp,
-                                        'raw_temp': temp_dict[well]['temp']})
+                well_data[well].update(
+                    {'uncorrected_freq': data_tmp.copy(),
+                     'uncorrected_strain': data_tmp.copy() * 5790.,
+                     'interp_temp': temp_interp,
+                     'temp-induced_freq': temp_interp.copy() * 0.00095,
+                     'temp-induced_strain': temp_interp.copy() * 0.00095 * 5790.,
+                     'raw_temp': temp_dict[well]['temp']})
                 data_tmp = data_tmp - (temp_interp * 0.00095)
-                well_data[well].update({'data_corrected': data_tmp})
+                well_data[well].update({'corrected_freq': data_tmp.copy()})
             if convert_freq:
                 # Use conversion factor 0.579 GHz shift per 1% strain
                 # For microstrain, factor is 5790
@@ -478,7 +484,7 @@ def estimate_noise(data, method='majdabadi'):
         return
 
 
-def rolling_mean(data, times, depth, window='2h'):
+def rolling_stats(data, times, depth, window='2h', stat='mean'):
     """
     Run a rolling mean on a data matrix with pandas rolling framework
 
@@ -486,14 +492,21 @@ def rolling_mean(data, times, depth, window='2h'):
     :param times: Time array (will be used as index)
     :param depth: Depth (column indices)
     :param window: Time window to use in rolling calcs, default 2h
+    :param stat: 'mean' or 'median'
 
     :return:
     """
 
     df = pd.DataFrame(data=data.T, index=times, columns=depth)
     df = df.sort_index()
-    roll_mean = df.rolling(window).mean()
-    return roll_mean.values.T
+    if stat == 'mean':
+        roll = df.rolling(window).mean()
+    elif stat == 'median':
+        roll = df.rolling(window).median()
+    else:
+        print('{} is not a supported statistic'.format(stat))
+        return None
+    return roll.values.T
 
 
 def denoise(data, method='detrend', depth=None, times=None, window='2h'):
@@ -510,7 +523,9 @@ def denoise(data, method='detrend', depth=None, times=None, window='2h'):
     elif method == 'median':
         data = median_filter(data, 2)
     elif method == 'rolling_mean':
-        data = rolling_mean(data, times, depth, window)
+        data = rolling_stats(data, times, depth, window, stat='mean')
+    elif method == 'rolling_median':
+        data = rolling_stats(data, times, depth, window, stat='median')
     return data
 
 
@@ -717,6 +732,44 @@ def get_well_piercepoint(wells):
     return pierce_dict
 
 ################  Plotting  Funcs  ############################################
+
+def plot_temp_removal(well_data, well, vmin=-50, vmax=50):
+    # Plot images of temperature removal at different stages
+    fig, axes = plt.subplots(nrows=3, figsize=(6, 8), sharex='col')
+    times = well_data[well]['times']
+    depth = well_data[well]['depth'] - well_data[well]['depth'][0]
+    it = axes[0].imshow(
+        well_data[well]['temp-induced_strain'],
+        extent=(date2num(times[0]), date2num(times[-1]),
+                         depth[-1], depth[0]),
+        origin='upper', aspect='auto',
+    vmin=vmin, vmax=vmax)
+    axes[0].set_title('Temp-induced strain', fontsize=16)
+    plt.colorbar(it, label=r'$\mu\varepsilon$', ax=axes[0])
+    us = axes[1].imshow(
+        well_data[well]['uncorrected_strain'],
+        extent=(date2num(times[0]), date2num(times[-1]),
+                         depth[-1], depth[0]),
+        origin='upper', aspect='auto',
+        vmin=vmin, vmax=vmax)
+    axes[1].set_title('Uncorrected strain', fontsize=16)
+    plt.colorbar(us, label=r'$\mu\varepsilon$', ax=axes[1])
+    axes[1].set_ylabel('Distance from borehole entry (full loop)', fontsize=18)
+    cs = axes[2].imshow(
+        well_data[well]['data'],
+        extent=(date2num(times[0]), date2num(times[-1]),
+                         depth[-1], depth[0]),
+        origin='upper', aspect='auto',
+        vmin=vmin, vmax=vmax)
+    axes[2].set_title('Corrected strain', fontsize=16)
+    axes[2].xaxis_date()
+    plt.colorbar(cs, label=r'$\mu\varepsilon$', ax=axes[2])
+    plt.setp(axes[2].xaxis.get_majorticklabels(), rotation=30, ha='right')
+    axes[2].set_xlabel('Date', fontsize=16)
+    fig.autofmt_xdate()
+    plt.show()
+    return
+
 
 def plot_channel_timeseries(well_data, well, depths):
     """
