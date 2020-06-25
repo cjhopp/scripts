@@ -11,9 +11,11 @@ import matplotlib.dates as mdates
 import colorlover as cl
 import chart_studio.plotly as py
 import plotly.graph_objs as go
+import seaborn as sns
 
 from obspy import UTCDateTime
 from datetime import datetime
+from itertools import cycle
 from matplotlib.collections import LineCollection
 
 # 6x6 calibration matrix for SIMFIP
@@ -177,6 +179,33 @@ def read_excavation(path):
     df.rename(columns={'dispE': 'Xc', 'dispN': 'Yc', 'dispUp': 'Zc'}, inplace=True)
     return df
 
+
+def read_collab(path):
+    """
+    Read excavation displacement data for SIMFIP, tiltmeters, borehole
+    extensometers
+
+    :param path: Path to file from Yves
+    :return:
+    """
+    # Use Dask as its significantly faster for this many data points
+    df = pd.read_csv(path, sep=' ')
+    df['dt'] = pd.to_datetime(df['date'], format='%d/%b/%YT%H:%M:%S.%f')
+    df = df.set_index('dt')
+    df = df.drop(['date'], axis=1)
+    # Sort index as this isn't forced by pandas for DateTime indices
+    df = df.sort_index()
+    df.index = df.index.tz_localize('US/Mountain')
+    df.index = df.index.tz_convert('UTC')
+    df.index = df.index.tz_convert(None)
+    df.index.name = None
+    # Assuming these data are corrected for clamp effects now??
+    df.rename(columns={
+        'S2TopIE': 'P Top', 'S2YatesIE': 'P Yates', 'S2WellAxialIE': 'P Axial',
+        'S1TopIE': 'I Top', 'S1YatesIE': 'I Yates', 'S1WellAxialIE': 'I Axial'},
+        inplace=True)
+    return df
+
 ################### Plotting functions below here #######################
 
 def plot_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
@@ -225,7 +254,7 @@ def plot_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
 
 def plot_displacement_components(df, starttime=datetime(2018, 5, 22, 11, 24),
                                  endtime=datetime(2018, 5, 22, 12, 36),
-                                 new_axes=None, rotated=True,
+                                 new_axes=None, rotated=True, location='fsb',
                                  plot_clamp_curves=False, remove_clamps=False):
     """
     Plot X, Y and Z on same  or separate axes and compare to clamp effects
@@ -241,39 +270,32 @@ def plot_displacement_components(df, starttime=datetime(2018, 5, 22, 11, 24),
 
     :return:
     """
+    colors = cycle(sns.color_palette("Paired"))
     # Set out date formatter
     date_formatter = mdates.DateFormatter('%b-%d %H:%M')
     df = df[starttime:endtime]
     if not new_axes:
         fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
-    if rotated and not remove_clamps:
+    if location == 'collab':
+        # headers = ('I Top', 'I Yates', 'I Axial', 'P Top', 'P Yates', 'P Axial')
+        headers = ('P Top', 'P Yates', 'P Axial')
+    elif rotated and not remove_clamps:
         headers = ('Xc', 'Yc', 'Zc')
     elif rotated:
         headers = ('X', 'Y', 'Z')
     else:
         headers = ('ux', 'uy', 'uz')
     if not new_axes:
-        # Plot measurements first
-        axes[0].plot(df[headers[0]] - df[headers[0]][0],
-                     label='{}'.format(headers[0][0]),
-                     color='steelblue', linewidth=1.5)
-        axes[1].plot(df[headers[1]] - df[headers[1]][0],
-                     label='{}'.format(headers[1][0]), color='orange',
-                     linewidth=1.5)
-        axes[2].plot(df[headers[2]] - df[headers[2]][0],
-                     label='{}'.format(headers[2][0]), color='green',
-                     linewidth=1.5)
+        for i, header in enumerate(headers):
+            new_axes.plot(df[header] - df[header][0],
+                          label='{}'.format(header),
+                          color=next(colors), linewidth=1.5)
     else:
         # Plot measurements first
-        new_axes.plot(df[headers[0]] - df[headers[0]][0],
-                      label='{}'.format(headers[0][0]),
-                      color='steelblue', linewidth=1.5)
-        new_axes.plot(df[headers[1]] - df[headers[1]][0],
-                      label='{}'.format(headers[1][0]), color='orange',
-                      linewidth=1.5)
-        new_axes.plot(df[headers[2]] - df[headers[2]][0],
-                      label='{}'.format(headers[2][0]), color='green',
-                      linewidth=1.5)
+        for i, header in enumerate(headers):
+            new_axes.plot(df[header] - df[header][0],
+                          label='{}'.format(header),
+                          color=next(colors), linewidth=1.5)
     # If plotting possible clamp effects
     if plot_clamp_curves and not remove_clamps and not rotated:
         axes[0].plot(-0.00028805 + (-7.8e-6 * df['Pz1'] / 300.),

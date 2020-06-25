@@ -33,7 +33,7 @@ from lbnl.coordinates import cartesian_distance
 from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
     calculate_frac_density, read_frac_cores, depth_to_xyz
 from lbnl.DTS import read_struct
-from lbnl.simfip import read_excavation, plot_displacement_components
+from lbnl.simfip import read_excavation, plot_displacement_components, read_collab
 
 
 ######### SURF CHANNEL MAPPING ############
@@ -500,9 +500,9 @@ def rolling_stats(data, times, depth, window='2h', stat='mean'):
     df = pd.DataFrame(data=data.T, index=times, columns=depth)
     df = df.sort_index()
     if stat == 'mean':
-        roll = df.rolling(window).mean()
+        roll = df.rolling(window, min_periods=1).mean()
     elif stat == 'median':
-        roll = df.rolling(window).median()
+        roll = df.rolling(window, min_periods=1).median()
     else:
         print('{} is not a supported statistic'.format(stat))
         return None
@@ -1305,7 +1305,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
              denoise_method=None, window='2h', vrange=(-60, 60), title=None,
-             tv_picks=None, prominence=30., pot_data=None):
+             tv_picks=None, prominence=30., pot_data=None, offset_samps=120):
     """
     Plot a colormap of DSS data
 
@@ -1325,6 +1325,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param tv_picks: Path to excel file with optical televiewer picks
     :param prominence: Prominence (in measurand units) fed to
         scipy.signal.find_peaks
+    :param pot_data: Path to potentiometer data file
+    :param offset_samps: Number of time samples to use to compute/remove noise
 
     :return:
     """
@@ -1339,7 +1341,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
         log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
         cax = fig.add_subplot(gs[:6, -1])
-        df = read_excavation(simfip)
+        try:
+            df = read_excavation(simfip)
+        except KeyError:
+            df = read_collab(simfip)
     elif inset_channels and well != 'D5':
         fig = plt.figure(constrained_layout=False, figsize=(14, 14))
         gs = GridSpec(ncols=12, nrows=12, figure=fig)
@@ -1385,7 +1390,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                        window=window)
     if mode == 'Relative':
         # TODO Is ten samples enough for mean removal?
-        data = data - data[:, 0:10, np.newaxis].mean(axis=1)
+        data = data - data[:, 0:offset_samps, np.newaxis].mean(axis=1)
     if colorbar_type == 'dark':
         cmap = ListedColormap(sns.diverging_palette(
             240, 10, n=21, center='dark').as_hex())
@@ -1433,13 +1438,18 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                          framealpha=1.).set_zorder(110)
         except IndexError as e:
             print(e)
-    date_formatter = mdates.DateFormatter('%b-%d %H')
+    date_formatter = mdates.DateFormatter('%m-%d %H:%M')
     # If simfip, plot these data here
     if simfip:
-        plot_displacement_components(df, starttime=date_range[0],
-                                     endtime=date_range[1], new_axes=axes3,
-                                     remove_clamps=False,
-                                     rotated=True)
+        if 'P Top' in df.keys():
+            plot_displacement_components(df, starttime=date_range[0],
+                                         endtime=date_range[1], new_axes=axes3,
+                                         location='collab')
+        else:
+            plot_displacement_components(df, starttime=date_range[0],
+                                         endtime=date_range[1], new_axes=axes3,
+                                         remove_clamps=False,
+                                         rotated=True)
         axes3.set_ylabel(r'$\mu$m', fontsize=16)
         plt.setp(axes1.get_xticklabels(), visible=False)
         plt.setp(axes1b.get_xticklabels(), visible=False)
