@@ -34,6 +34,7 @@ from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
     calculate_frac_density, read_frac_cores, depth_to_xyz
 from lbnl.DTS import read_struct
 from lbnl.simfip import read_excavation, plot_displacement_components, read_collab
+from lbnl.hydraulic_data import read_collab_hydro
 
 
 ######### SURF CHANNEL MAPPING ############
@@ -1305,7 +1306,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
              denoise_method=None, window='2h', vrange=(-60, 60), title=None,
-             tv_picks=None, prominence=30., pot_data=None, offset_samps=120):
+             tv_picks=None, prominence=30., pot_data=None, hydro_data=None,
+             offset_samps=120):
     """
     Plot a colormap of DSS data
 
@@ -1326,11 +1328,12 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param prominence: Prominence (in measurand units) fed to
         scipy.signal.find_peaks
     :param pot_data: Path to potentiometer data file
+    :param hydro_data: Path to hydraulic data file (just Martin's at collab rn)
     :param offset_samps: Number of time samples to use to compute/remove noise
 
     :return:
     """
-    if inset_channels and simfip and well != 'D5':
+    if inset_channels and simfip and well != 'D5' and not hydro_data:
         fig = plt.figure(constrained_layout=False, figsize=(14, 14))
         gs = GridSpec(ncols=14, nrows=12, figure=fig)
         axes1 = fig.add_subplot(gs[:3, 7:-1])
@@ -1345,7 +1348,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             df = read_excavation(simfip)
         except KeyError:
             df = read_collab(simfip)
-    elif inset_channels and well != 'D5':
+    elif inset_channels and well != 'D5' and not hydro_data:
         fig = plt.figure(constrained_layout=False, figsize=(14, 14))
         gs = GridSpec(ncols=12, nrows=12, figure=fig)
         axes1 = fig.add_subplot(gs[:4, 7:-1])
@@ -1368,6 +1371,32 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
         df = read_excavation(simfip)
         cax = fig.add_subplot(gs[:8, -1])
+    elif inset_channels and simfip and hydro_data:
+        fig = plt.figure(constrained_layout=False, figsize=(15, 16))
+        gs = GridSpec(ncols=14, nrows=20, figure=fig)
+        axes1 = fig.add_subplot(gs[:4, 7:-1])
+        axes1b = fig.add_subplot(gs[4:8, 7:-1], sharex=axes1)
+        axes2 = fig.add_subplot(gs[8:12, 7:-1], sharex=axes1)
+        axes3 = fig.add_subplot(gs[12:16, 7:-1], sharex=axes1)
+        hydro_ax = fig.add_subplot(gs[16:, 7:-1], sharex=axes1)
+        pres_ax = hydro_ax.twinx()
+        axes4 = fig.add_subplot(gs[:, 2:4])
+        axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
+        log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
+        df = read_excavation(simfip)
+        cax = fig.add_subplot(gs[:8, -1])
+    elif inset_channels and hydro_data:
+        fig = plt.figure(constrained_layout=False, figsize=(14, 14))
+        gs = GridSpec(ncols=14, nrows=12, figure=fig)
+        axes1 = fig.add_subplot(gs[:3, 7:-1])
+        axes1b = fig.add_subplot(gs[3:6, 7:-1], sharex=axes1)
+        axes2 = fig.add_subplot(gs[6:9, 7:-1], sharex=axes1)
+        hydro_ax = fig.add_subplot(gs[9:, 7:-1], sharex=axes1)
+        pres_ax = hydro_ax.twinx()
+        axes4 = fig.add_subplot(gs[:, 2:4])
+        axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
+        log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
+        cax = fig.add_subplot(gs[:6, -1])
     # Get just the channels from the well in question
     times = well_data[well]['times']
     data = well_data[well]['data']
@@ -1454,6 +1483,25 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         plt.setp(axes1.get_xticklabels(), visible=False)
         plt.setp(axes1b.get_xticklabels(), visible=False)
         plt.setp(axes2.get_xticklabels(), visible=False)
+    elif hydro_data:
+        df = read_collab_hydro(hydro_data)
+        df = df[date_range[0]:date_range[1]]
+        hydro_ax.plot(df['Flow'], color='steelblue',
+                      label='Flow')
+        pres_ax.plot(df['Pressure'], color='red', label='Pressure')
+        hydro_ax.margins(x=0., y=0.)
+        pres_ax.margins(x=0., y=0.)
+        hydro_ax.set_ylim(bottom=0.)
+        pres_ax.set_ylim(bottom=0.)
+        hydro_ax.set_ylabel('L/min')
+        pres_ax.set_ylabel('MPa')
+        hydro_ax.yaxis.label.set_color('steelblue')
+        hydro_ax.tick_params(axis='y', colors='steelblue')
+        pres_ax.yaxis.label.set_color('red')
+        pres_ax.tick_params(axis='y', colors='red')
+        plt.setp(axes1.get_xticklabels(), visible=False)
+        plt.setp(axes1b.get_xticklabels(), visible=False)
+        plt.setp(axes2.get_xticklabels(), visible=False)
     else:
         axes2.xaxis_date()
         axes2.xaxis.set_major_formatter(date_formatter)
@@ -1468,7 +1516,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     axes1.set_title('Downgoing')
     axes1b.set_title('Upgoing')
     axes2.set_ylabel(label, fontsize=16)
-    if not pot_data and simfip:
+    if not pot_data and simfip and not hydro_data:
         axes3.xaxis_date()
         axes3.xaxis.set_major_formatter(date_formatter)
         plt.setp(axes3.xaxis.get_majorticklabels(), rotation=30, ha='right')
@@ -1477,6 +1525,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         pot_ax.xaxis.set_major_formatter(date_formatter)
         plt.setp(pot_ax.xaxis.get_majorticklabels(), rotation=30, ha='right')
         plt.setp(axes3.get_xticklabels(), visible=False)
+    elif hydro_data:
+        hydro_ax.xaxis_date()
+        hydro_ax.xaxis.set_major_formatter(date_formatter)
+        plt.setp(hydro_ax.xaxis.get_majorticklabels(), rotation=30, ha='right')
+        # plt.setp(hydro_ax.get_xticklabels(), visible=False)
     cbar = fig.colorbar(im, cax=cax, orientation='vertical')
     cbar.ax.set_ylabel(label, fontsize=16)
     if not title:
@@ -1524,24 +1577,24 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             log_ax.legend(
                 loc=2, fontsize=12, bbox_to_anchor=(-1.2, 1.13),
                 framealpha=1.).set_zorder(110)
-            if well == 'D5':  # Potentiometer elements
-                pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
-                max_x = log_ax.get_xlim()[-1]
-                ymin = []
-                ymax = []
-                cs = []
-                pot_cols = cycle(sns.color_palette("Paired"))
-                for i, dep in enumerate(pot_depths):
-                    deps = potentiometer_depths[str(12 - i)]
-                    if dep > 18.:
-                        ymin.append(deps[0])
-                        ymax.append(deps[-1])
-                        cs.append(next(pot_cols))
-                log_ax.vlines(x=np.ones(len(ymin)) * max_x,
-                              ymax=ymax, ymin=ymin,
-                              linewidth=8., color=cs)
-                plot_potentiometer(pot_d, pot_depths, pot_times, axes=pot_ax,
-                                   colors='Paired')
+        if well == 'D5':  # Potentiometer elements
+            pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
+            max_x = log_ax.get_xlim()[-1]
+            ymin = []
+            ymax = []
+            cs = []
+            pot_cols = cycle(sns.color_palette("Paired"))
+            for i, dep in enumerate(pot_depths):
+                deps = potentiometer_depths[str(12 - i)]
+                if dep > 18.:
+                    ymin.append(deps[0])
+                    ymax.append(deps[-1])
+                    cs.append(next(pot_cols))
+            log_ax.vlines(x=np.ones(len(ymin)) * max_x,
+                          ymax=ymax, ymin=ymin,
+                          linewidth=8., color=cs)
+            plot_potentiometer(pot_d, pot_depths, pot_times, axes=pot_ax,
+                               colors='Paired')
         # Grid lines on axes 1
         axes2.grid(which='both', axis='y')
         axes4.grid(which='both', axis='x')
@@ -1628,7 +1681,6 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 if pot_data:
                     self.figure.axes[4].axvline(x=event.xdata, color='k',
                                                 linestyle='--', alpha=0.5)
-
                 # Silly
                 self.figure.axes[2].margins(x=0.)
                 # Plot two traces for downgoing and upgoing trace at user-
