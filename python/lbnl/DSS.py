@@ -18,7 +18,7 @@ from obspy import Stream, Trace
 from eqcorrscan.core.match_filter import normxcorr2
 from scipy.interpolate import griddata, interp2d
 from scipy.ndimage import gaussian_filter, median_filter
-from scipy.signal import detrend, welch, find_peaks
+from scipy.signal import detrend, welch, find_peaks, zpk2sos, sosfilt, iirfilter
 from scipy.stats import median_absolute_deviation
 from datetime import datetime, timedelta
 from itertools import cycle
@@ -508,6 +508,51 @@ def rolling_stats(data, times, depth, window='2h', stat='mean'):
         print('{} is not a supported statistic'.format(stat))
         return None
     return roll.values.T
+
+
+def filter(data, freqmin, freqmax, df, corners=4, zerophase=False):
+    """
+    CJH Stolen from obspy.signal.bandstop to apply over axis=0
+
+    Butterworth-Bandstop Filter.
+
+    Filter data removing data between frequencies ``freqmin`` and ``freqmax``
+    using ``corners`` corners.
+    The filter uses :func:`scipy.signal.iirfilter` (for design)
+    and :func:`scipy.signal.sosfilt` (for applying the filter).
+
+    :type data: numpy.ndarray
+    :param data: Data to filter.
+    :param freqmin: Stop band low corner frequency.
+    :param freqmax: Stop band high corner frequency.
+    :param df: Sampling rate in Hz.
+    :param corners: Filter corners / order.
+    :param zerophase: If True, apply filter once forwards and once backwards.
+        This results in twice the number of corners but zero phase shift in
+        the resulting filtered trace.
+    :return: Filtered data.
+    """
+    fe = 0.5 * df
+    low = freqmin / fe
+    high = freqmax / fe
+    # raise for some bad scenarios
+    if high > 1:
+        high = 1.0
+        msg = "Selected high corner frequency is above Nyquist. " + \
+              "Setting Nyquist as high corner."
+        print(msg)
+    if low > 1:
+        msg = "Selected low corner frequency is above Nyquist."
+        raise ValueError(msg)
+    z, p, k = iirfilter(corners, [low, high],
+                        btype='bandstop', ftype='butter', output='zpk')
+    sos = zpk2sos(z, p, k)
+    if zerophase:
+        firstpass = sosfilt(sos, data, axis=1)
+        return np.flip(sosfilt(sos, np.flip(firstpass[::-1], axis=1),
+                               axis=1), axis=1)
+    else:
+        return sosfilt(sos, data, axis=1)
 
 
 def denoise(data, method='detrend', depth=None, times=None, window='2h'):
@@ -1307,7 +1352,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
              denoise_method=None, window='2h', vrange=(-60, 60), title=None,
              tv_picks=None, prominence=30., pot_data=None, hydro_data=None,
-             offset_samps=120):
+             offset_samps=120, filter_params=None, plot_stack=False):
     """
     Plot a colormap of DSS data
 
@@ -1330,6 +1375,9 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param pot_data: Path to potentiometer data file
     :param hydro_data: Path to hydraulic data file (just Martin's at collab rn)
     :param offset_samps: Number of time samples to use to compute/remove noise
+    :param filter_params: Nested dict of various bandstop parameters
+    :param plot_stack: Whether to plot the stack of 20 channels centered on
+        manual pick.
 
     :return:
     """
@@ -1383,7 +1431,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes4 = fig.add_subplot(gs[:, 2:4])
         axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
         log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
-        df = read_excavation(simfip)
+        try:
+            df = read_excavation(simfip)
+        except KeyError:
+            df = read_collab(simfip)
         cax = fig.add_subplot(gs[:8, -1])
     elif inset_channels and hydro_data:
         fig = plt.figure(constrained_layout=False, figsize=(14, 14))
@@ -1399,7 +1450,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         cax = fig.add_subplot(gs[:6, -1])
     # Get just the channels from the well in question
     times = well_data[well]['times']
-    data = well_data[well]['data']
+    data = well_data[well]['data'].copy()
     depth_vect = well_data[well]['depth']
     if well_data[well]['noise'][1] is None:
         noise = well_data[well]['noise'][0]
@@ -1417,6 +1468,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     if denoise_method:
         data = denoise(data, denoise_method, times=times, depth=depth_vect,
                        window=window)
+    if filter_params:
+        for key, f in filter_params.items():
+            data = filter(data, freqmin=f['freqmin'],
+                          freqmax=f['freqmax'],
+                          df=1 / (times[1] - times[0]).seconds)
     if mode == 'Relative':
         # TODO Is ten samples enough for mean removal?
         data = data - data[:, 0:offset_samps, np.newaxis].mean(axis=1)
@@ -1483,6 +1539,23 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         plt.setp(axes1.get_xticklabels(), visible=False)
         plt.setp(axes1b.get_xticklabels(), visible=False)
         plt.setp(axes2.get_xticklabels(), visible=False)
+        plt.setp(axes3.get_xticklabels(), visible=False)
+        if hydro_data:
+            dfh = read_collab_hydro(hydro_data)
+            dfh = dfh[date_range[0]:date_range[1]]
+            hydro_ax.plot(dfh['Flow'], color='steelblue',
+                          label='Flow')
+            pres_ax.plot(dfh['Pressure'], color='red', label='Pressure')
+            hydro_ax.margins(x=0., y=0.)
+            pres_ax.margins(x=0., y=0.)
+            hydro_ax.set_ylim(bottom=0.)
+            pres_ax.set_ylim(bottom=0.)
+            hydro_ax.set_ylabel('L/min')
+            pres_ax.set_ylabel('MPa')
+            hydro_ax.yaxis.label.set_color('steelblue')
+            hydro_ax.tick_params(axis='y', colors='steelblue')
+            pres_ax.yaxis.label.set_color('red')
+            pres_ax.tick_params(axis='y', colors='red')
     elif hydro_data:
         df = read_collab_hydro(hydro_data)
         df = df[date_range[0]:date_range[1]]
@@ -1669,6 +1742,9 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 dts = np.abs(self.times - event.xdata)
                 time_int = np.argmin(dts)
                 trace = self.data[chan, :]
+                # Also stack a range of channels in case we want that?
+                stack = np.sum(self.data[chan-10:chan+10, :], axis=0)
+                stack *= (np.max(np.abs(trace)) / np.max(np.abs(stack)))
                 # depth = self.depth[chan]
                 depth = event.ydata
                 # Grab along-fiber vector
@@ -1737,7 +1813,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                     pick_ax.add_patch(arrow)
                     self.figure.axes[2].plot(
                         self.times, trace, color=pick_col,
-                        label='Depth {:0.2f}'.format(depth))
+                        label='Depth {:0.2f}'.format(depth), alpha=0.7)
+                    if plot_stack:
+                        self.figure.axes[2].plot(
+                            self.times, stack, color='red',
+                            label='Stack', alpha=0.7)
                 else:
                     if self.noise[1] is None:
                         noise_mean = 0.
