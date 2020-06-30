@@ -51,17 +51,15 @@ def write_simul2000(dataset, outfile):
         np.savetxt(f, vp.coords['depth'].values, delimiter=',',
                    newline='\n', fmt='%0.4f')
         f.write('0,0,0\n0,0,0\n')  # Whatever these are...
-        for z in vp.coords['depth'].values:
-            for y in vp.coords['Northing'].values:
-                print(y)
-                print(vp.coords['Northing'])
-                np.savetxt(f, vp.isel(depth=z, Northing=y)['Vp'].values / 1000.,
+        for i, z in enumerate(vp.coords['depth']):
+            for j, y in enumerate(vp.coords['Northing']):
+                np.savetxt(f, vp.isel(depth=i, Northing=j)['Vp'].values / 1000.,
                            delimiter=',', newline='\n', fmt='%0.3f')
         # Finally Vp/Vs ratio
-        for z in vp.coords['depth'].values:
-            for y in vp.coords['Northing'].values:
-                np.savetxt(f, vp.isel(depth=z, Northing=y) /
-                           vs.isel(depth=z, Northing=y),
+        for i, z in enumerate(vp.coords['depth']):
+            for j, y in enumerate(vp.coords['Northing']):
+                np.savetxt(f, vp.isel(depth=i, Northing=j) /
+                           vs.isel(depth=i, Northing=j),
                            delimiter=',', newline='\n', fmt='%0.3f')
     return
 
