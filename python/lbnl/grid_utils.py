@@ -35,38 +35,35 @@ def write_simul2000(dataset, outfile):
         vs = xr.concat([vs[:, :, 0], vs], dim='depth')
     vp.assign_coords(depth=new_dc)
     vs.assign_coords(depth=new_dc)
-    # With above indexing, grid origin is: (-126.3779, 46.1593, -2.5)
-    utm = pyproj.Proj(init="EPSG:32610")
-    # Make origin 0, 0, 0
-    utm_grid = np.meshgrid(vp.coords['Easting'].values - vp.coords['Easting'].values[0],
+    # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
+    # SE vertex (considered origin in simul) is: (-121.1441, 46.1593, -2.5)
+    # Make origin 0, 0, 0 at SE corner (and West is positive!!)
+    utm_grid = np.meshgrid(vp.coords['Easting'].values[-1] - vp.coords['Easting'].values,
                            vp.coords['Northing'].values - vp.coords['Northing'].values[0])
-    lon, _ = utm(utm_grid[0][0, :], utm_grid[1][0, :], inverse=True)
-    _, lat = utm(utm_grid[0][:, 0], utm_grid[1][:, 0], inverse=True)
     # Now write the file
     # Loop over Y inside Z with X (cartesian) varying along file row
     with open(outfile, 'w') as f:
         f.write('{} {} {} {}\n'.format(1.0, vp.coords['Easting'].size,
                                        vp.coords['Northing'].size,
                                        vp.coords['depth'].size))
-        # np.savetxt(f, lon.reshape(1, lon.shape[0]), fmt='%.4f')
-        # np.savetxt(f, lat.reshape(1, lat.shape[0]), fmt='%.4f')
+        # Flip longitude array to start at lowest no.s (SE corner)
         np.savetxt(f, utm_grid[0][0, :].reshape(
-            1, lon.shape[0]) / 1000., fmt='%6.1f')
+            1, utm_grid[0].shape[1])[::-1] / 1000., fmt='%6.1f')
         np.savetxt(f, utm_grid[1][:, 0].reshape(
-            1, lat.shape[0]) / 1000., fmt='%6.1f')
+            1, utm_grid[0].shape[0]) / 1000., fmt='%6.1f')
         np.savetxt(f, (new_dc / 1000.).reshape(
             1, new_dc.shape[0]), fmt='%6.1f')
         f.write('0 0 0\n0 0 0\n')  # Whatever these are...
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
-                row_vals = vp.isel(depth=i, Northing=j).values / 1000.
+                row_vals = vp.isel(depth=i, Northing=j).values[::-1] / 1000.
                 np.savetxt(f, row_vals.reshape(1, row_vals.shape[0]),
                            fmt='%5.2f')
         # Finally Vp/Vs ratio
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
                 row_vals = (vp.isel(depth=i, Northing=j) /
-                            vs.isel(depth=i, Northing=j)).values
+                            vs.isel(depth=i, Northing=j)).values[::-1]
                 np.savetxt(f, row_vals.reshape(1, row_vals.shape[0]),
                            fmt='%5.2f')
     return
