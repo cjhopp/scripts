@@ -47,22 +47,24 @@ def write_simul2000(dataset, outfile):
         f.write('{},{},{},{}\n'.format(1.0, vp.coords['Easting'].size,
                                        vp.coords['Northing'].size,
                                        vp.coords['depth'].size))
-        np.savetxt(f, lon.reshape(1, lon.shape[0]), fmt='%0.4f')
-        np.savetxt(f, lat.reshape(1, lat.shape[0]), fmt='%0.4f')
-        np.savetxt(f, (new_dc / 1000.).reshape(1, new_dc.shape[0]), fmt='%0.4f')
+        # np.savetxt(f, lon.reshape(1, lon.shape[0]), fmt='%.4f')
+        # np.savetxt(f, lat.reshape(1, lat.shape[0]), fmt='%.4f')
+        np.savetxt(f, utm_grid[0][0, :].reshape(1, lon.shape[0]), fmt='%.4f')
+        np.savetxt(f, utm_grid[1][:, 0].reshape(1, lat.shape[0]), fmt='%.4f')
+        np.savetxt(f, (new_dc / 1000.).reshape(1, new_dc.shape[0]), fmt='%.4f')
         f.write('0,0,0\n0,0,0\n')  # Whatever these are...
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
                 row_vals = vp.isel(depth=i, Northing=j).values / 1000.
                 np.savetxt(f, row_vals.reshape(1, row_vals.shape[0]),
-                           fmt='%0.3f')
+                           fmt='%.3f')
         # Finally Vp/Vs ratio
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
                 row_vals = (vp.isel(depth=i, Northing=j) /
                             vs.isel(depth=i, Northing=j)).values
                 np.savetxt(f, row_vals.reshape(1, row_vals.shape[0]),
-                           fmt='%0.3f')
+                           fmt='%.3f')
     return
 
 
