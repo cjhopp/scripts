@@ -36,14 +36,16 @@ def write_simul2000(dataset, outfile):
     vs.assign_coords(depth=new_dc)
     # With above indexing, grid origin is: (-126.3779, 46.1593, -2.5)
     utm = pyproj.Proj(init="EPSG:32610")
-    lon, lat = utm(vp.coords['Easting'].values, vp.coords['Northing'].values,
-                   inverse=True)
+    utm_grid = np.meshgrid(vp.coords['Easting'].values,
+                           vp.coords['Northing'].values)[0, :]
+    lon, _ = utm(utm_grid[0][0, :], utm_grid[1][0, :], inverse=True)
+    _, lat = utm(utm_grid[0][:, 0], utm_grid[1][:, 0], inverse=True)
     # Now write the file
     # Loop over Y inside Z with X (cartesian) varying along file row
     with open(outfile, 'w') as f:
         f.write('{},{},{},{}\n'.format(1.0, vp.coords['Easting'].size,
-                                     vp.coords['Northing'].size,
-                                     vp.coords['depth'].size))
+                                       vp.coords['Northing'].size,
+                                       vp.coords['depth'].size))
         np.savetxt(lon, delimiter=',', newline='\n', format='{:0.4f}')
         np.savetxt(lat, delimiter=',', newline='\n', format='{:0.4f}')
         np.savetxt(vp.coords['depth'].values, delimiter=',',
