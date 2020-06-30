@@ -37,8 +37,9 @@ def write_simul2000(dataset, outfile):
     vs.assign_coords(depth=new_dc)
     # With above indexing, grid origin is: (-126.3779, 46.1593, -2.5)
     utm = pyproj.Proj(init="EPSG:32610")
-    utm_grid = np.meshgrid(vp.coords['Easting'].values,
-                           vp.coords['Northing'].values)
+    # Make origin 0, 0, 0
+    utm_grid = np.meshgrid(vp.coords['Easting'].values - vp.coords['Easting'].values[0],
+                           vp.coords['Northing'].values - vp.coords['Northing'].values[0])
     lon, _ = utm(utm_grid[0][0, :], utm_grid[1][0, :], inverse=True)
     _, lat = utm(utm_grid[0][:, 0], utm_grid[1][:, 0], inverse=True)
     # Now write the file
@@ -49,9 +50,12 @@ def write_simul2000(dataset, outfile):
                                        vp.coords['depth'].size))
         # np.savetxt(f, lon.reshape(1, lon.shape[0]), fmt='%.4f')
         # np.savetxt(f, lat.reshape(1, lat.shape[0]), fmt='%.4f')
-        np.savetxt(f, utm_grid[0][0, :].reshape(1, lon.shape[0]), fmt='%.4f')
-        np.savetxt(f, utm_grid[1][:, 0].reshape(1, lat.shape[0]), fmt='%.4f')
-        np.savetxt(f, (new_dc / 1000.).reshape(1, new_dc.shape[0]), fmt='%.4f')
+        np.savetxt(f, utm_grid[0][0, :].reshape(
+            1, lon.shape[0]) / 1000., fmt='%.4f')
+        np.savetxt(f, utm_grid[1][:, 0].reshape(
+            1, lat.shape[0]) / 1000., fmt='%.4f')
+        np.savetxt(f, (new_dc / 1000.).reshape(
+            1, new_dc.shape[0]), fmt='%.4f')
         f.write('0,0,0\n0,0,0\n')  # Whatever these are...
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
