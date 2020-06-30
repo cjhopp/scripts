@@ -25,10 +25,11 @@ def write_simul2000(dataset, outfile):
     """
     # Hardcoded
     vp = dataset['Vp'][1300:, 500:, :].copy()
+    vs = dataset['Vs'][1300:, 500:, :].copy()
     # Add five depth layers to dataset (ugly as), theres a Dataset concat...
     for i in range(5):
-        vp['Vp'] = xr.concat([vp['Vp'][:, :, 0], vp['Vp']], dim='depth')
-        vp['Vs'] = xr.concat([vp['Vs'][:, :, 0], vp['Vs']], dim='depth')
+        vp = xr.concat([vp[:, :, 0], vp], dim='depth')
+        vs = xr.concat([vs[:, :, 0], vs], dim='depth')
     vp.coords['depth'][:5] = np.array([-2.5, -2., -1.5, -1., -0.5])
     # With above indexing, grid origin is: (-126.3779, 46.1593, -2.5)
     utm = pyproj.Proj(init="EPSG:32610")
@@ -37,23 +38,23 @@ def write_simul2000(dataset, outfile):
     # Now write the file
     # Loop over Y inside Z with X (cartesian) varying along file row
     with open(outfile, 'w') as f:
-        f.write('{},{},{},{}\n'.format(1.0, vp['Vp'].coords['Easting'].size,
-                                     vp['Vp'].coords['Northing'].size,
-                                     vp['Vp'].coords['depth'].size))
+        f.write('{},{},{},{}\n'.format(1.0, vp.coords['Easting'].size,
+                                     vp.coords['Northing'].size,
+                                     vp.coords['depth'].size))
         np.savetxt(lon, delimiter=',', newline='\n', format='{:0.4f}')
         np.savetxt(lat, delimiter=',', newline='\n', format='{:0.4f}')
-        np.savetxt(vp['Vp'].coords['depth'].values, delimiter=',',
+        np.savetxt(vp.coords['depth'].values, delimiter=',',
                    newline='\n', format='{:0.4f}')
         f.write('0,0,0\n0,0,0\n')  # Whatever these are...
-        for z in vp['Vp'].coords['depth'].values:
+        for z in vp.coords['depth'].values:
             for y in lat:
                 np.savetxt(vp.isel(depth=z, Northing=y)['Vp'] / 1000.,
                            delimiter=',', newline='\n', format='{:0.3f}')
         # Finally Vp/Vs ratio
-        for z in vp['Vp'].coords['depth'].values:
+        for z in vp.coords['depth'].values:
             for y in lat:
-                np.savetxt(vp.isel(depth=z, Northing=y)['Vp'] /
-                           vp.isel(depth=z, Northing=y)['Vs'],
+                np.savetxt(vp.isel(depth=z, Northing=y) /
+                           vs.isel(depth=z, Northing=y),
                            delimiter=',', newline='\n', format='{:0.3f}')
     return
 
