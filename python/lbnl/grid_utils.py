@@ -46,9 +46,8 @@ def write_simul2000(dataset, outfile):
         f.write('{} {} {} {}\n'.format(1.0, vp.coords['Easting'].size,
                                        vp.coords['Northing'].size,
                                        vp.coords['depth'].size))
-        # Flip longitude array to start at lowest no.s (SE corner)
         np.savetxt(f, utm_grid[0][0, :].reshape(
-            1, utm_grid[0].shape[1])[::-1] / 1000., fmt='%6.1f')
+            1, utm_grid[0].shape[1]) / 1000., fmt='%6.1f')
         np.savetxt(f, utm_grid[1][:, 0].reshape(
             1, utm_grid[0].shape[0]) / 1000., fmt='%6.1f')
         np.savetxt(f, (new_dc / 1000.).reshape(
