@@ -28,7 +28,8 @@ def write_simul2000(dataset, outfile):
     vs = dataset['Vs'][1300:, 500:, :].copy()
     # Add five depth layers to dataset (ugly as), theres a Dataset concat...
     dep_coords = vp.coords['depth'].values
-    new_dc = np.insert(dep_coords, 0, np.array([-2.5, -2., -1.5, -1., -0.5]))
+    new_dc = np.insert(dep_coords, 0, np.array([-2500, -2000, -1500,
+                                                -1000, -500]))
     for i in range(5):
         vp = xr.concat([vp[:, :, 0], vp], dim='depth')
         vs = xr.concat([vs[:, :, 0], vs], dim='depth')
@@ -48,7 +49,7 @@ def write_simul2000(dataset, outfile):
                                        vp.coords['depth'].size))
         np.savetxt(f, lon, delimiter=',', newline=" ", fmt='%0.4f')
         np.savetxt(f, lat, delimiter=',', newline=" ", fmt='%0.4f')
-        np.savetxt(f, vp.coords['depth'].values, delimiter=',',
+        np.savetxt(f, new_dc / 1000., delimiter=',',
                    newline=" ", fmt='%0.4f')
         f.write('0,0,0\n0,0,0\n')  # Whatever these are...
         for i, z in enumerate(vp.coords['depth']):
