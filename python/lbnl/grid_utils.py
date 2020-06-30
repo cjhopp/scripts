@@ -24,10 +24,12 @@ def write_simul2000(dataset, outfile):
     :return:
     """
     # Hardcoded
-    vp = dataset['Vp'][1300:, 500:, :]
-    # Add five depth layers to dataset (ugly as)
+    vp = dataset['Vp'][1300:, 500:, :].copy()
+    # Add five depth layers to dataset (ugly as), theres a Dataset concat...
     for i in range(5):
-        vp.values = np.insert(vp.values, 0, vp.values[:, :, 0], axis=2)
+        vp['Vp'] = xr.concat([vp['Vp'][:, :, 0], vp['Vp']], dim='depth')
+        vp['Vs'] = xr.concat([vp['Vs'][:, :, 0], vp['Vs']], dim='depth')
+    vp.coords['depth'][:5] = np.array([-2.5, -2., -1.5, -1., -0.5])
     # With above indexing, grid origin is: (-126.3779, 46.1593, -2.5)
     utm = pyproj.Proj(init="EPSG:32610")
     lon, lat = utm(vp.coords['Easting'].values, vp.coords['Northing'].values,
