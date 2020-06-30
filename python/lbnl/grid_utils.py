@@ -37,7 +37,7 @@ def write_simul2000(dataset, outfile):
     # With above indexing, grid origin is: (-126.3779, 46.1593, -2.5)
     utm = pyproj.Proj(init="EPSG:32610")
     utm_grid = np.meshgrid(vp.coords['Easting'].values,
-                           vp.coords['Northing'].values)[0, :]
+                           vp.coords['Northing'].values)
     lon, _ = utm(utm_grid[0][0, :], utm_grid[1][0, :], inverse=True)
     _, lat = utm(utm_grid[0][:, 0], utm_grid[1][:, 0], inverse=True)
     # Now write the file
