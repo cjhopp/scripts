@@ -45,7 +45,7 @@ def write_simul2000(dataset, outfile):
     # Now write the file
     # Loop over Y inside Z with X (cartesian) varying along file row
     with open(outfile, 'w') as f:
-        f.write('{},{},{},{}\n'.format(1.0, vp.coords['Easting'].size,
+        f.write('{} {} {} {}\n'.format(1.0, vp.coords['Easting'].size,
                                        vp.coords['Northing'].size,
                                        vp.coords['depth'].size))
         # np.savetxt(f, lon.reshape(1, lon.shape[0]), fmt='%.4f')
@@ -56,7 +56,7 @@ def write_simul2000(dataset, outfile):
             1, lat.shape[0]) / 1000., fmt='%.4f')
         np.savetxt(f, (new_dc / 1000.).reshape(
             1, new_dc.shape[0]), fmt='%.4f')
-        f.write('0,0,0\n0,0,0\n')  # Whatever these are...
+        f.write('0 0 0\n0 0 0\n')  # Whatever these are...
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
                 row_vals = vp.isel(depth=i, Northing=j).values / 1000.
