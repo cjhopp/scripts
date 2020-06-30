@@ -38,8 +38,10 @@ def write_simul2000(dataset, outfile):
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
     # SE vertex (considered origin in simul) is: (-121.1441, 46.1593, -2.5)
     # Make origin 0, 0, 0 at SE corner (and West is positive!!)
-    utm_grid = np.meshgrid(vp.coords['Easting'].values[-1] - vp.coords['Easting'].values,
-                           vp.coords['Northing'].values - vp.coords['Northing'].values[0])
+    utm_grid = np.meshgrid((vp.coords['Easting'].values[-1] -
+                            vp.coords['Easting'].values)[::-1],
+                           (vp.coords['Northing'].values -
+                            vp.coords['Northing'].values[0]))
     # Now write the file
     # Loop over Y inside Z with X (cartesian) varying along file row
     with open(outfile, 'w') as f:
