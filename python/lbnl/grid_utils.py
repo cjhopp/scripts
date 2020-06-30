@@ -46,19 +46,19 @@ def write_simul2000(dataset, outfile):
         f.write('{},{},{},{}\n'.format(1.0, vp.coords['Easting'].size,
                                        vp.coords['Northing'].size,
                                        vp.coords['depth'].size))
-        np.savetxt(lon, delimiter=',', newline='\n', fmt='{:0.4f}')
-        np.savetxt(lat, delimiter=',', newline='\n', fmt='{:0.4f}')
-        np.savetxt(vp.coords['depth'].values, delimiter=',',
+        np.savetxt(f, lon, delimiter=',', newline='\n', fmt='{:0.4f}')
+        np.savetxt(f, lat, delimiter=',', newline='\n', fmt='{:0.4f}')
+        np.savetxt(f, vp.coords['depth'].values, delimiter=',',
                    newline='\n', fmt='{:0.4f}')
         f.write('0,0,0\n0,0,0\n')  # Whatever these are...
         for z in vp.coords['depth'].values:
             for y in lat:
-                np.savetxt(vp.isel(depth=z, Northing=y)['Vp'] / 1000.,
+                np.savetxt(f, vp.isel(depth=z, Northing=y)['Vp'] / 1000.,
                            delimiter=',', newline='\n', fmt='{:0.3f}')
         # Finally Vp/Vs ratio
         for z in vp.coords['depth'].values:
             for y in lat:
-                np.savetxt(vp.isel(depth=z, Northing=y) /
+                np.savetxt(f, vp.isel(depth=z, Northing=y) /
                            vs.isel(depth=z, Northing=y),
                            delimiter=',', newline='\n', fmt='{:0.3f}')
     return
