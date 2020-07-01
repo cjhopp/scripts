@@ -24,8 +24,8 @@ def write_simul2000(dataset, outfile):
     :return:
     """
     # Hardcoded
-    vp = dataset['Vp'][1300::4, 500::4, 0::4].copy()
-    vs = dataset['Vs'][1300::4, 500::4, 0::4].copy()
+    vp = dataset['Vp'][1300::10, 500::10, 0::10].copy()
+    vs = dataset['Vs'][1300::10, 500::10, 0::10].copy()
     # Add five depth layers to dataset (ugly as), theres a Dataset concat...
     dep_coords = vp.coords['depth'].values
     new_dc = np.insert(dep_coords, 0, np.array([-2000]))
