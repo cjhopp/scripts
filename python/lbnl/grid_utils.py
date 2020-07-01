@@ -24,14 +24,13 @@ def write_simul2000(dataset, outfile):
     :return:
     """
     # Hardcoded
-    vp = dataset['Vp'][1300::4, 500::4, ::4].copy()
-    vs = dataset['Vs'][1300::4, 500::4, ::4].copy()
+    vp = dataset['Vp'][1300::4, 500::4, 0::4].copy()
+    vs = dataset['Vs'][1300::4, 500::4, 0::4].copy()
     # Add five depth layers to dataset (ugly as), theres a Dataset concat...
     dep_coords = vp.coords['depth'].values
     new_dc = np.insert(dep_coords, 0, np.array([-2000]))
-    for i in range(5):
-        vp = xr.concat([vp[:, :, 0], vp], dim='depth')
-        vs = xr.concat([vs[:, :, 0], vs], dim='depth')
+    vp = xr.concat([vp[:, :, 0], vp], dim='depth')
+    vs = xr.concat([vs[:, :, 0], vs], dim='depth')
     vp.assign_coords(depth=new_dc)
     vs.assign_coords(depth=new_dc)
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
