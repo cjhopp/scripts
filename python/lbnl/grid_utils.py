@@ -26,15 +26,6 @@ def write_simul2000(dataset, outfile):
     # Hardcoded
     vp = dataset['Vp'][1300::80, 500::80, 0::10].copy()
     vs = dataset['Vs'][1300::80, 500::80, 0::10].copy()
-    # Add five depth layers to dataset (ugly as), theres a Dataset concat...
-    dep_coords = vp.coords['depth'].values
-    new_dc = np.insert(dep_coords, 0, np.array([-2000]))
-    new_dc = np.insert(new_dc, -1, np.array([6000]))
-    # Add planes on all sides, far from the model volume?
-    new_east = np.insert(vp.coords['Easting'], 0, np.array([-5000]))
-    new_east = np.insert(new_east, -1, np.array([9000]))
-    new_north = np.insert(vp.coords['Northing'], 0, np.array([-5000]))
-    new_north = np.insert(new_north, -1, np.array([9000]))
     vp = xr.concat([vp.isel(depth=0), vp], dim='depth')
     vs = xr.concat([vs.isel(depth=0), vs], dim='depth')
     vp = xr.concat([vp.isel(Northing=0), vp], dim='Northing')
@@ -47,6 +38,16 @@ def write_simul2000(dataset, outfile):
     vs = xr.concat([vs, vs.isel(Northing=-1)], dim='Northing')
     vp = xr.concat([vp, vp.isel(Easting=-1)], dim='Easting')
     vs = xr.concat([vs, vs.isel(Easting=-1)], dim='Easting')
+    # Edit coordinates for the periphery planes
+    new_dc = vp.coords['depth']
+    new_dc[0] = -2000
+    new_dc[-1] = 60000
+    new_east = vp.coords['Easting']
+    new_east[0] = -50000
+    new_east[-1] = 90000
+    new_north = vp.coords['Northing']
+    new_north[0] = -50000
+    new_north[-1] = 90000
     vp.assign_coords(depth=new_dc)
     vs.assign_coords(depth=new_dc)
     vp.assign_coords(Easting=new_east)
