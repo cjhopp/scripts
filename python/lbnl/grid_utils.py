@@ -41,6 +41,7 @@ def write_simul2000(dataset, outfile):
     vs = xr.concat([vs[:, 0, :], vs], dim='Easting')
     vp = xr.concat([vp[0, :, :], vp], dim='Northing')
     vs = xr.concat([vs[0, :, :], vs], dim='Northing')
+    print(vp)
     vp = xr.concat([vp, vp[:, :, 0]], dim='depth')
     vs = xr.concat([vs, vs[:, :, 0]], dim='depth')
     vp = xr.concat([vp, vp[0, :, :]], dim='Easting')
