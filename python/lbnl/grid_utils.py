@@ -48,22 +48,20 @@ def write_simul2000(dataset, outfile):
             vp.coords['Northing'].size,
             vp.coords['depth'].size))
         np.savetxt(f, utm_grid[0][0, :].reshape(
-            1, utm_grid[0].shape[1]) / 1000., fmt='%6.1f')
+            1, utm_grid[0].shape[1]) / 1000., fmt='%7.1f')
         np.savetxt(f, utm_grid[1][:, 0].reshape(
-            1, utm_grid[0].shape[0]) / 1000., fmt='%6.1f')
+            1, utm_grid[0].shape[0]) / 1000., fmt='%7.1f')
         np.savetxt(f, (new_dc / 1000.).reshape(
-            1, new_dc.shape[0]), fmt='%6.1f')
+            1, new_dc.shape[0]), fmt='%7.1f')
         f.write('  0  0  0\n  0  0  0\n')  # Whatever these are...
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
-                print(j)
                 row_vals = vp.isel(depth=i, Northing=j).values[::-1] / 1000.
                 row_vals = row_vals.reshape(1, row_vals.shape[0])
                 np.savetxt(f, row_vals, fmt='%5.2f')
         # Finally Vp/Vs ratio
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
-                print(j)
                 row_vals = (vp.isel(depth=i, Northing=j) /
                             vs.isel(depth=i, Northing=j)).values[::-1]
                 row_vals = row_vals.reshape(1, row_vals.shape[0])
