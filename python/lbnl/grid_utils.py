@@ -47,8 +47,8 @@ def write_simul2000(dataset, outfile):
     new_east_p[0] = -100000
     new_east_p[-1] = 900000
     new_north_p = vp.coords['Northing'].values
-    new_north_p[0] = -100000
-    new_north_p[-1] = 900000
+    new_north_p[0] = 4900000
+    new_north_p[-1] = 5600000
     new_dc_s = vs.coords['depth'].values
     new_dc_s[0] = -2000
     new_dc_s[-1] = 600000
@@ -56,8 +56,8 @@ def write_simul2000(dataset, outfile):
     new_east_s[0] = -100000
     new_east_s[-1] = 900000
     new_north_s = vs.coords['Northing'].values
-    new_north_s[0] = -100000
-    new_north_s[-1] = 900000
+    new_north_s[0] = 4900000
+    new_north_s[-1] = 5600000
     vp.assign_coords(Easting=new_east_p, Northing=new_north_p, depth=new_dc_p)
     vs.assign_coords(Easting=new_east_s, Northing=new_north_s, depth=new_dc_s)
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
