@@ -54,6 +54,7 @@ def write_simul2000(dataset, outfile):
     vs.assign_coords(Easting=new_east)
     vp.assign_coords(Northing=new_north)
     vs.assign_coords(Northing=new_north)
+    print(vp.coords['Easting'])
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
     # SE vertex (considered origin in simul) is: (-121.1441, 46.1593, -2.5)
     # Make origin 0, 0, 0 at SE corner (and West is positive!!)
