@@ -39,17 +39,26 @@ def write_simul2000(dataset, outfile):
     vp = xr.concat([vp, vp.isel(Easting=-1)], dim='Easting')
     vs = xr.concat([vs, vs.isel(Easting=-1)], dim='Easting')
     # Edit coordinates for the periphery planes
-    new_dc = vp.coords['depth'].values
-    new_dc[0] = -2000
-    new_dc[-1] = 600000
-    new_east = vp.coords['Easting'].values
-    new_east[0] = -100000
-    new_east[-1] = 900000
-    new_north = vp.coords['Northing'].values
-    new_north[0] = -100000
-    new_north[-1] = 900000
-    vp.assign_coords(Easting=new_east, Northing=new_north, depth=new_dc)
-    vs.assign_coords(Easting=new_east, Northing=new_north, depth=new_dc)
+    new_dc_p = vp.coords['depth'].values
+    new_dc_p[0] = -2000
+    new_dc_p[-1] = 600000
+    new_east_p = vp.coords['Easting'].values
+    new_east_p[0] = -100000
+    new_east_p[-1] = 900000
+    new_north_p = vp.coords['Northing'].values
+    new_north_p[0] = -100000
+    new_north_p[-1] = 900000
+    new_dc_s = vs.coords['depth'].values
+    new_dc_s[0] = -2000
+    new_dc_s[-1] = 600000
+    new_east_s = vs.coords['Easting'].values
+    new_east_s[0] = -100000
+    new_east_s[-1] = 900000
+    new_north_s = vs.coords['Northing'].values
+    new_north_s[0] = -100000
+    new_north_s[-1] = 900000
+    vp.assign_coords(Easting=new_east_p, Northing=new_north_p, depth=new_dc_p)
+    vs.assign_coords(Easting=new_east_s, Northing=new_north_s, depth=new_dc_s)
     print(vp.coords['Easting'])
     print(vp.coords['Northing'])
     print(vp.coords['depth'])
