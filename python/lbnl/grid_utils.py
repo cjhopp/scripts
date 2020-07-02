@@ -26,6 +26,7 @@ def write_simul2000(dataset, outfile):
     # Hardcoded
     vp = dataset['Vp'][1300::80, 500::80, 0::10].copy()
     vs = dataset['Vs'][1300::80, 500::80, 0::10].copy()
+    print(vp.coords['Northing'])
     vp = xr.concat([vp.isel(depth=0), vp], dim='depth')
     vs = xr.concat([vs.isel(depth=0), vs], dim='depth')
     vp = xr.concat([vp.isel(Northing=0), vp], dim='Northing')
