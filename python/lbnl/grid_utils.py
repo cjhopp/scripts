@@ -48,12 +48,8 @@ def write_simul2000(dataset, outfile):
     new_north = vp.coords['Northing'].values
     new_north[0] = -100000
     new_north[-1] = 900000
-    vp.assign_coords(depth=new_dc)
-    vs.assign_coords(depth=new_dc)
-    vp.assign_coords(Easting=new_east)
-    vs.assign_coords(Easting=new_east)
-    vp.assign_coords(Northing=new_north)
-    vs.assign_coords(Northing=new_north)
+    vp.assign_coords(Easting=new_east, Northing=new_north, depth=new_dc)
+    vs.assign_coords(Easting=new_east, Northing=new_north, depth=new_dc)
     print(vp.coords['Easting'])
     print(vs.coords['Northing'])
     print(vs.coords['depth'])
