@@ -43,10 +43,10 @@ def write_simul2000(dataset, outfile):
     new_dc[0] = -2000
     new_dc[-1] = 600000
     new_east = vp.coords['Easting'].values
-    new_east[0] = -500000
+    new_east[0] = -100000
     new_east[-1] = 900000
     new_north = vp.coords['Northing'].values
-    new_north[0] = -500000
+    new_north[0] = -100000
     new_north[-1] = 900000
     vp.assign_coords(depth=new_dc)
     vs.assign_coords(depth=new_dc)
@@ -55,6 +55,8 @@ def write_simul2000(dataset, outfile):
     vp.assign_coords(Northing=new_north)
     vs.assign_coords(Northing=new_north)
     print(vp.coords['Easting'])
+    print(vs.coords['Northing'])
+    print(vs.coords['depth'])
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
     # SE vertex (considered origin in simul) is: (-121.1441, 46.1593, -2.5)
     # Make origin 0, 0, 0 at SE corner (and West is positive!!)
