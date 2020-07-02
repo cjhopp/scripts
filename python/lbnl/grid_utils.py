@@ -29,10 +29,30 @@ def write_simul2000(dataset, outfile):
     # Add five depth layers to dataset (ugly as), theres a Dataset concat...
     dep_coords = vp.coords['depth'].values
     new_dc = np.insert(dep_coords, 0, np.array([-2000]))
+    new_dc = np.insert(new_dc, -1, np.array([6000]))
+    # Add planes on all sides, far from the model volume?
+    new_east = np.insert(vp.coords['Easting'], 0, np.array([-5000]))
+    new_east = np.insert(new_east, -1, np.array([9000]))
+    new_north = np.insert(vp.coords['Northing'], 0, np.array([-5000]))
+    new_north = np.insert(new_north, -1, np.array([9000]))
     vp = xr.concat([vp[:, :, 0], vp], dim='depth')
     vs = xr.concat([vs[:, :, 0], vs], dim='depth')
+    vp = xr.concat([vp[0, :, :], vp], dim='Easting')
+    vs = xr.concat([vs[0, :, :], vs], dim='Easting')
+    vp = xr.concat([vp[:, 0, :], vp], dim='Northing')
+    vs = xr.concat([vs[:, 0, :], vs], dim='Northing')
+    vp = xr.concat([vp, vp[:, :, 0]], dim='depth')
+    vs = xr.concat([vs, vs[:, :, 0]], dim='depth')
+    vp = xr.concat([vp, vp[0, :, :]], dim='Easting')
+    vs = xr.concat([vs, vs[0, :, :]], dim='Easting')
+    vp = xr.concat([vp, vp[:, 0, :]], dim='Northing')
+    vs = xr.concat([vs, vs[:, 0, :]], dim='Northing')
     vp.assign_coords(depth=new_dc)
     vs.assign_coords(depth=new_dc)
+    vp.assign_coords(Easting=new_east)
+    vs.assign_coords(Easting=new_east)
+    vp.assign_coords(Northing=new_north)
+    vs.assign_coords(Northing=new_north)
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
     # SE vertex (considered origin in simul) is: (-121.1441, 46.1593, -2.5)
     # Make origin 0, 0, 0 at SE corner (and West is positive!!)
@@ -48,11 +68,11 @@ def write_simul2000(dataset, outfile):
             vp.coords['Northing'].size,
             vp.coords['depth'].size))
         np.savetxt(f, utm_grid[0][0, :].reshape(
-            1, utm_grid[0].shape[1]) / 1000., fmt='%7.1f')
+            1, utm_grid[0].shape[1]) / 1000., fmt='%6.1f')
         np.savetxt(f, utm_grid[1][:, 0].reshape(
-            1, utm_grid[0].shape[0]) / 1000., fmt='%7.1f')
+            1, utm_grid[0].shape[0]) / 1000., fmt='%6.1f')
         np.savetxt(f, (new_dc / 1000.).reshape(
-            1, new_dc.shape[0]), fmt='%7.1f')
+            1, new_dc.shape[0]), fmt='%6.1f')
         f.write('  0  0  0\n  0  0  0\n')  # Whatever these are...
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
