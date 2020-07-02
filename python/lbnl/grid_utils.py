@@ -39,13 +39,13 @@ def write_simul2000(dataset, outfile):
     vp = xr.concat([vp, vp.isel(Easting=-1)], dim='Easting')
     vs = xr.concat([vs, vs.isel(Easting=-1)], dim='Easting')
     # Edit coordinates for the periphery planes
-    new_dc = vp.coords['depth']
+    new_dc = vp.coords['depth'].values
     new_dc[0] = -2000
     new_dc[-1] = 60000
-    new_east = vp.coords['Easting']
+    new_east = vp.coords['Easting'].values
     new_east[0] = -50000
     new_east[-1] = 90000
-    new_north = vp.coords['Northing']
+    new_north = vp.coords['Northing'].values
     new_north[0] = -50000
     new_north[-1] = 90000
     vp.assign_coords(depth=new_dc)
