@@ -676,20 +676,25 @@ def extract_channel_timeseries(well_data, well, depth, direction='down'):
     well_d = well_data[well]
     depths = well_d['depth'] - well_d['depth'][0]
     data = well_d['data']
+    temp = well_d['interp_temp']
     times = well_d['times']
     if direction == 'up':
         down_d, up_d = np.array_split(depths, 2)
         down_data, up_data = np.array_split(data, 2)
+        down_temp, up_temp = np.array_split(temp, 2)
         if down_d.shape[0] != up_d.shape[0]:
             # prepend last element of down to up if unequal lengths by 1
             up_d = np.insert(up_d, 0, down_d[-1])
             up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+            up_temp = np.insert(up_temp, 0, down_temp[-1, :], axis=0)
         depths = np.abs(up_d - up_d[-1])
         data = up_data
+        temp = up_temp
     # Find closest channel
     chan = np.argmin(np.abs(depth - depths))
     strains = data[chan, :]
-    return times, strains
+    temps = temp[chan, :]
+    return times, strains, temps
 
 
 def extract_strains(well_data, date, wells):

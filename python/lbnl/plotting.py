@@ -18,6 +18,7 @@ from itertools import cycle
 from glob import glob
 from datetime import datetime
 from scipy.linalg import lstsq
+from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib.colors import ListedColormap
 from scipy.signal import resample
@@ -26,7 +27,64 @@ from scipy.signal import resample
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             structures_to_planes, depth_to_xyz)
 from lbnl.coordinates import SURF_converter
-from lbnl.DSS import interpolate_picks
+from lbnl.DSS import interpolate_picks, extract_channel_timeseries
+
+
+def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro):
+    """
+    DataFrame of timeseries data of any kind
+
+    :param fiber_dict: Dictionary {'depth', 'times', 'DSS', 'DTS'}}
+    :param simfip: Simfip dataframe
+    :param hydro: Hydro dataframe
+    :return:
+    """
+    # fig = make_subplots(rows=2, cols=1, shared_xaxes=False,
+    #                     vertical_spacing=0.5,
+    #                     specs=[[{"secondary_y": False}],
+    #                            [{"secondary_y": False}]])
+    # Top figure: fibers and hydro?
+    # TODO Pass in entire matrix and rolling median? Or do this in extract?
+    # rolling_median = rolling_stats(DSS_dict['DSS'], DSS_dict['times'], DSS_dict[])
+    trace_dss = go.Scatter(x=DSS_dict['times'], y=DSS_dict['DSS'],
+                           name="DSS at {} m".format(DSS_dict['depth']))
+    # fig.add_trace(go.Scatter(x=DAS_, y=DAS_df['strain'],
+    #                          name='DAS at 41 m', row=1))
+    trace_dts = go.Scatter(x=DSS_dict['times'], y=DSS_dict['DTS'],
+                           name="DTS at {} m".format(DSS_dict['depth']),
+                           yaxis="y2")
+    trace_flow = go.Scatter(x=hydro.index, y=hydro['Flow'], name="Flow",
+                            yaxis="y3")
+    trace_pres = go.Scatter(x=hydro.index, y=hydro['Pressure'],
+                            name="Pressure", yaxis="y4")
+    trace_simfip_Y = go.Scatter(x=simfip.index, y=simfip['P Yates'],
+                                name='P Yates', yaxis="y5")
+    trace_simfip_T = go.Scatter(x=simfip.index, y=simfip['P Top'],
+                                name='P Top', yaxis="y5")
+    trace_simfip_A = go.Scatter(x=simfip.index, y=simfip['P Axial'],
+                                name='P Axial', yaxis="y5", xaxis='x')
+    # Create axis objects
+    layout = go.Layout(
+        xaxis=dict(domain=[0.2, 0.8]),
+        yaxis=dict(title="Microstrain", titlefont=dict(color="#1f77b4"),
+                   tickfont=dict(color="#1f77b4"), domain=[0.5, 1.0]),
+        yaxis2=dict(title="Temperature (C)", titlefont=dict(color="#ff7f0e"),
+                    tickfont=dict(color="#ff7f0e"), anchor="free",
+                    overlaying="y", side="left", position=0.15),
+        yaxis3=dict(title="Flow [L/min]", titlefont=dict(color="#d62728"),
+                    tickfont=dict(color="#d62728"), anchor="x", overlaying="y",
+                    side="right"),
+        yaxis4=dict(title="Pressure [MPa]", titlefont=dict(color="#9467bd"),
+                    tickfont=dict(color="#9467bd"), anchor="free",
+                    overlaying="y", side="right", position=0.85),
+        yaxis5=dict(title="Microns", titlefont=dict(color="#1f77b4"),
+                    tickfont=dict(color="#1f77b4"), domain=[0., 0.45])
+    )
+    fig = go.Figure(data=[trace_dss, trace_dts, trace_flow, trace_pres,
+                          trace_simfip_A, trace_simfip_T, trace_simfip_Y],
+                    layout=layout)
+    fig.show()
+    return
 
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
