@@ -504,6 +504,8 @@ def rolling_stats(data, times, depth, window='2h', stat='mean'):
         roll = df.rolling(window, min_periods=1).mean()
     elif stat == 'median':
         roll = df.rolling(window, min_periods=1).median()
+    elif stat == 'std':
+        roll = df.rolling(window, min_periods=1).std()
     else:
         print('{} is not a supported statistic'.format(stat))
         return None
@@ -663,7 +665,8 @@ def interpolate_picks(pick_dict, gridx, gridy, gridz, method='linear', debug=0):
     return interp
 
 
-def extract_channel_timeseries(well_data, well, depth, direction='down'):
+def extract_channel_timeseries(well_data, well, depth, direction='down',
+                               window='20T'):
     """
     Return a time series of the selected well and depth
 
@@ -678,23 +681,33 @@ def extract_channel_timeseries(well_data, well, depth, direction='down'):
     data = well_d['data']
     temp = well_d['interp_temp']
     times = well_d['times']
+    data_median = rolling_stats(data, times, depths, window, stat='median')
+    data_std = rolling_stats(data, times, depths, window, stat='std')
     if direction == 'up':
         down_d, up_d = np.array_split(depths, 2)
         down_data, up_data = np.array_split(data, 2)
+        down_median, up_median = np.array_split(data_median, 2)
+        down_std, up_std = np.array_split(data_std, 2)
         down_temp, up_temp = np.array_split(temp, 2)
         if down_d.shape[0] != up_d.shape[0]:
             # prepend last element of down to up if unequal lengths by 1
             up_d = np.insert(up_d, 0, down_d[-1])
             up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+            up_median = np.insert(up_median, 0, down_median[-1, :], axis=0)
+            up_std = np.insert(up_std, 0, down_std[-1, :], axis=0)
             up_temp = np.insert(up_temp, 0, down_temp[-1, :], axis=0)
         depths = np.abs(up_d - up_d[-1])
         data = up_data
+        data_median = up_median
+        data_std = up_std
         temp = up_temp
     # Find closest channel
     chan = np.argmin(np.abs(depth - depths))
     strains = data[chan, :]
+    strain_median = data_median[chan, :]
+    strain_std = data_std[chan, :]
     temps = temp[chan, :]
-    return times, strains, temps
+    return times, strains, strain_median, strain_std, temps
 
 
 def extract_strains(well_data, date, wells):
