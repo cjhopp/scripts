@@ -323,10 +323,13 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     elif location == 'surf':
         if DTS:
             # Read in DTS temps to remove response
+            print('Reading DTS')
             temp_dict = read_struct(DTS)
+        print('Reading DSS')
         data, depth, times = read_ascii_directory(root, header=34,
                                                   location=location)
         chan_map = mapping_dict[location]
+        print('Reading metadata')
         mode, type_m = read_metadata(glob('{}/**/*bpr.txt'.format(root),
                                           recursive=True)[0])
         fiber_data['surf'] = {}
@@ -380,6 +383,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             well_data[well] = {'times': times, 'mode': mode,
                                'type': type_m}
             if DTS:
+                print('Removing DTS-induced strain')
                 # Remove temperature signal from strain
                 full_loop_T = np.concatenate((temp_dict[well]['temp'],
                                               np.flip(temp_dict[well]['temp'],
@@ -398,8 +402,8 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 temp_interp = griddata(
                     np.array([xt.flatten(), yt.flatten()]).T,
                     full_loop_T.flatten(),
-                    np.array([xd.ravel(), yd.ravel()]).T,
-                    method=DTS_interp).reshape(data_tmp.shape)
+                    np.array([xd.flatten(), yd.flatten()]).T,
+                    method=DTS_interp, rescale=True).reshape(xd.shape)
                 # We want delta T since start (relative to same time as DSS)
                 temp_interp = temp_interp - temp_interp[:, 0, np.newaxis]
                 well_data[well].update(

@@ -40,7 +40,6 @@ def read_struct(f, date_range=None):
             for w, w_dict in well_dict.items():
                 w_dict['depth'] = getattr(day_struct, attr_map[w][0])
                 w_dict['temp'] = getattr(day_struct, attr_map[w][1]).T
-                # Correct for wrong years (this will come back to bite me...)
                 w_dict['times'] = datenum_to_datetime(day_struct.dates)
         for w, w_dict in well_dict.items():
             w_dict['temp'] = np.concatenate((w_dict['temp'],

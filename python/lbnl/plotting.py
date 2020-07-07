@@ -18,10 +18,11 @@ from itertools import cycle
 from glob import glob
 from datetime import datetime
 from scipy.linalg import lstsq
+from obspy import Trace
 from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib.colors import ListedColormap
-from scipy.signal import resample
+from scipy.signal import resample, detrend
 
 # Local imports (assumed to be in python path)
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
@@ -40,10 +41,6 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro):
     :param hydro: Hydro dataframe
     :return:
     """
-    # Top figure: fibers and hydro?
-    # trace_dss = go.Scatter(x=DSS_dict['times'], y=DSS_dict['DSS'],
-    #                        name="DSS at {} m".format(DSS_dict['depth']),
-    #                        opacity=0.5, visible=False)
     trace_dss_std_bot = go.Scatter(x=DSS_dict['times'],
                                    y=DSS_dict['DSS_median'] - DSS_dict['DSS_std'],
                                    line=dict(color="mediumvioletred", width=0),
@@ -56,7 +53,9 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro):
                                   name="DSS: 20 min rolling median",
                                   line=dict(color='mediumvioletred'),
                                   fill=None)
-    das_trace = go.Scatter(x=DAS_dict['times'], y=DAS_dict['data'],
+    # Linear detrend of DAS
+    das_detrend = Trace(data=DAS_dict['data']).detrend('simple').data
+    das_trace = go.Scatter(x=DAS_dict['times'], y=das_detrend,
                            name='DAS at 41 m', yaxis="y6",
                            line=dict(color='purple'))
     trace_dts = go.Scatter(x=DSS_dict['times'], y=DSS_dict['DTS'],
