@@ -22,7 +22,9 @@ def read_struct(f):
     # Return the parts of the struct we actually want
     struct = loadmat(f, struct_as_record=False,
                      squeeze_me=True)
-    data = struct['OT_strain'].data[24, :]
+    data = struct['OT_strain'].data[41, :]
+    # Convert nano to microstrain
+    data /= 1000.
     datenums = struct['OT_strain'].dn
     time = datenum_to_datetime(datenums)
     return time, data

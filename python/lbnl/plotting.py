@@ -41,64 +41,77 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro):
     :param hydro: Hydro dataframe
     :return:
     """
-    trace_dss_std_bot = go.Scatter(x=DSS_dict['times'],
-                                   y=DSS_dict['DSS_median'] - DSS_dict['DSS_std'],
-                                   line=dict(color="mediumvioletred", width=0),
-                                   fill=None)
-    trace_dss_std_top = go.Scatter(x=DSS_dict['times'],
-                                   y=DSS_dict['DSS_median'] + DSS_dict['DSS_std'],
-                                   line=dict(color="mediumvioletred", width=0),
-                                   fill='tonexty')
-    trace_dss_median = go.Scatter(x=DSS_dict['times'], y=DSS_dict['DSS_median'],
-                                  name="DSS: 20 min rolling median",
-                                  line=dict(color='mediumvioletred'),
-                                  fill=None)
-    # Linear detrend of DAS
-    das_detrend = Trace(data=DAS_dict['data']).detrend('simple').data
-    das_trace = go.Scatter(x=DAS_dict['times'], y=das_detrend,
-                           name='DAS at 41 m', yaxis="y6",
-                           line=dict(color='purple'))
-    trace_dts = go.Scatter(x=DSS_dict['times'], y=DSS_dict['DTS'],
-                           name="DTS at {} m".format(DSS_dict['depth']),
-                           yaxis="y2",
-                           line=dict(color='saddlebrown'))
-    trace_flow = go.Scatter(x=hydro.index, y=hydro['Flow'], name="Flow",
-                            yaxis="y3",
-                            line=dict(color='steelblue'))
-    trace_pres = go.Scatter(x=hydro.index, y=hydro['Pressure'],
-                            name="Pressure", yaxis="y4",
-                            line=dict(color='red'))
-    trace_simfip_Y = go.Scatter(x=simfip.index, y=simfip['P Yates'],
-                                name='P Yates', yaxis="y5")
-    trace_simfip_T = go.Scatter(x=simfip.index, y=simfip['P Top'],
-                                name='P Top', yaxis="y5")
-    trace_simfip_A = go.Scatter(x=simfip.index, y=simfip['P Axial'],
-                                name='P Axial', yaxis="y5", xaxis='x')
+
+    # Try to go back to subplots?
+    fig = go.Figure()
+    # Fibers traces
+    fig.add_trace(go.Scatter(x=DSS_dict['times'],
+                             y=DSS_dict['DSS_median'] - DSS_dict['DSS_std'],
+                             line=dict(color="mediumvioletred", width=0),
+                             fill=None, showlegend=False, hoverinfo='skip'))
+    fig.add_trace(go.Scatter(x=DSS_dict['times'],
+                             y=DSS_dict['DSS_median'] + DSS_dict['DSS_std'],
+                             line=dict(color="mediumvioletred", width=0),
+                             fill='tonexty', showlegend=False,
+                             hoverinfo='skip'))
+    fig.add_trace(go.Scatter(x=DSS_dict['times'], y=DSS_dict['DSS_median'],
+                             name="DSS: 20 min rolling median",
+                             line=dict(color='mediumvioletred'),
+                             fill=None))
+    fig.add_trace(go.Scatter(x=DAS_dict['times'], y=DAS_dict['data'],
+                             name='DAS at 41 m', line=dict(color='#9467bd',
+                                                           width=2.5)))
+    fig.add_trace(go.Scatter(x=DSS_dict['times'], y=DSS_dict['DTS'],
+                             name="DTS at {} m".format(DSS_dict['depth']),
+                             yaxis="y2", line=dict(color='#ee854a')))
+    # Hydraulic data
+    fig.add_trace(go.Scatter(x=hydro.index, y=hydro['Flow'], name="Flow",
+                             line=dict(color='steelblue'),
+                             yaxis='y3'))
+    fig.add_trace(go.Scatter(x=hydro.index, y=hydro['Pressure'],
+                             name="Pressure", line=dict(color='red'),
+                             yaxis='y4'))
+    fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Yates'],
+                             name='E1-P Yates',
+                             yaxis='y5'))
+    fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Top'],
+                             name='E1-P Top',
+                             yaxis='y5'))
+    fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Axial'],
+                             name='E1-P Axial',
+                             yaxis='y5'))
+    fig.add_trace(go.Scatter(x=simfip.index, y=simfip['I Yates'],
+                             name='E1-I Yates',
+                             yaxis='y5'))
+    fig.add_trace(go.Scatter(x=simfip.index, y=simfip['I Top'],
+                             name='E1-I Top',
+                             yaxis='y5'))
+    fig.add_trace(go.Scatter(x=simfip.index, y=simfip['I Axial'],
+                             name='E1-I Axial',
+                             yaxis='y5'))
     # Create axis objects
-    layout = go.Layout(
-        xaxis=dict(domain=[0.1, 0.9]),
-        yaxis=dict(title="DSS microstrain", titlefont=dict(color="black"),
-                   tickfont=dict(color="black"), domain=[0.66, 1.0]),
-        yaxis2=dict(title="Temperature (C)", titlefont=dict(color="saddlebrown"),
-                    tickfont=dict(color="saddlebrown"), anchor="x",
-                    overlaying="y", side="right"),
+    fig.update_layout(
+        xaxis=dict(showspikes=True, spikemode='across', spikethickness=1.5,
+                   spikedash='dot', domain=[0., 0.95], type='date',
+                   anchor='y5'),
+        yaxis=dict(title="$\mu\epsilon$", titlefont=dict(color="black"),
+                   tickfont=dict(color="black"), domain=[0.66, 1.0],
+                   anchor='x', zeroline=False),
+        yaxis2=dict(title=r"$\Delta{T}\;\text{[}^{\circ}\text{C]}$", titlefont=dict(color='#ee854a'),
+                    tickfont=dict(color='#ee854a'), overlaying="y",
+                    side="right", showgrid=False, anchor='x'),
         yaxis3=dict(title="Flow [L/min]", titlefont=dict(color="steelblue"),
-                    tickfont=dict(color="steelblue"), anchor="x",
-                    side="left", domain=[0.33, 0.63]),
+                    tickfont=dict(color="steelblue"), side="left",
+                    rangemode='nonnegative', domain=[0.33, 0.66],
+                    anchor='x'),
         yaxis4=dict(title="Pressure [MPa]", titlefont=dict(color="red"),
-                    tickfont=dict(color="red"), anchor="x",
-                    overlaying="y3", side="right"),
-        yaxis5=dict(title="Microns", titlefont=dict(color="black"),
-                    tickfont=dict(color="black"), domain=[0., 0.3]),
-        yaxis6=dict(title="DAS microstrain", titlefont=dict(color="purple"),
-                    tickfont=dict(color="purple"), overlaying='y', side='left',
-                    position=0.04)
-    )
-    fig = go.Figure(data=[trace_dts, trace_flow, trace_pres,
-                          trace_simfip_A, trace_simfip_T, trace_simfip_Y,
-                          trace_dss_std_bot, trace_dss_std_top,
-                          trace_dss_median, das_trace],
-                    layout=layout)
+                    tickfont=dict(color="red"), overlaying="y3", side="right",
+                    rangemode='nonnegative', anchor='x'),
+        yaxis5=dict(title="Displacement [m]", titlefont=dict(color="black"),
+                    tickfont=dict(color="black"), domain=[0., 0.33],
+                    anchor='x'))
+    fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
+    fig.update_layout(template="ggplot2", legend=dict(traceorder='reversed'))
     fig.show()
     return
 
