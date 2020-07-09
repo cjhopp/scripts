@@ -16,6 +16,7 @@ import matplotlib.patches as mpatches
 from glob import glob
 from obspy import Stream, Trace
 from eqcorrscan.core.match_filter import normxcorr2
+from scipy.integrate import trapz
 from scipy.interpolate import griddata, interp2d
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks, zpk2sos, sosfilt, iirfilter
@@ -99,21 +100,21 @@ chan_map_excav_34 = {'D3': 76.61,
 # Loop 5, 6
 chan_map_co2_5612 = {'D5': 95.92,
                      'D6': 186.74,
-                     'D1': 353.64,
-                     'D2': 272.91}
+                     'D1': 354.14,
+                     'D2': 273.41}
 # Loop 3, 4
 chan_map_co2_34 = {'D3': 76.12,
                    'D4': 166.93}
-# Anchor point mapping TODO HAVE NOT BEEN SHIFTED!!
-D1_anchor_map = {'seg3': (349.63, 352.05),
-                 'seg2': (352.05, 353.86),
-                 'seg1': (353.86, 356.08),
+# Anchor point mapping (depth in hole)
+D1_anchor_map = {'seg3': (12.97, 15.37),
+                 'seg2': (15.37, 17.17),
+                 'seg1': (17.17, 19.37),
                  }
-D2_anchor_map = {'seg5': (271.74, 270.33),
-                 'seg4': (272.80, 271.74),
-                 'seg3': (273.61, 272.80),
-                 'seg2': (274.41, 273.61),
-                 'seg1': (275.37, 274.41),
+D2_anchor_map = {'seg5': (10.27, 11.67),
+                 'seg4': (11.67, 12.72),
+                 'seg3': (12.72, 13.52),
+                 'seg2': (13.52, 14.32),
+                 'seg1': (14.32, 15.27),
                  }
 ######### DRILLING FAULT DEPTH ############
 # Dict of drilled depths
@@ -266,6 +267,29 @@ def read_metadata(path, encoding='iso-8859-1'):
         return 'Absolute', 'Brillouin Frequency'
 
 
+def integrate_anchors(data, depth, well):
+    """
+    Helper to replace the strain values between anchors with the integral over
+    the anchor span
+    """
+    if well == 'D1':
+        chan_map = {key: (np.argmin(np.abs(depth - tup[0])),
+                          np.argmin(np.abs(depth - tup[1])))
+                    for key, tup in D1_anchor_map.items()}
+    elif well == 'D2':
+        chan_map = {key: (np.argmin(np.abs(depth - tup[0])),
+                          np.argmin(np.abs(depth - tup[1])))
+                    for key, tup in D2_anchor_map.items()}
+    for seg, chans in chan_map.items():
+        if chans[0] > chans[1]:
+            chans = (chans[1], chans[0])
+        intg = trapz(data[chans[0]:chans[1] + 1, :], axis=0)
+        # Scale to channel spacing
+        print(np.abs(depth[1] - depth[0]))
+        data[chans[0]:chans[1] + 1, :] = intg * np.abs(depth[1] - depth[0])
+    return data
+
+
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='majdabadi', convert_freq=False,
                   DTS=None, DTS_interp='linear'):
@@ -309,6 +333,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             fiber_data[file_root] = {}
             if fibers:
                 if file_root not in fibers:
+                    print('{} not in fibers'.format(file_root))
                     continue
             data = read_ascii(f)
             times = read_times(f)
@@ -342,6 +367,9 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     print('Realigning')
     # First realign
     for fib, f_dict in fiber_data.items():
+        if not f_dict:
+            print('Fiber {} returned empty dictionary'.format(fib))
+            continue
         f_dict['data'] = madjdabadi_realign(f_dict['data'])
     if convert_freq and type_m.endswith('Frequency'):
         print('Converting from freq to strain')
@@ -1374,7 +1402,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
              denoise_method=None, window='2h', vrange=(-60, 60), title=None,
              tv_picks=None, prominence=30., pot_data=None, hydro_data=None,
-             offset_samps=120, filter_params=None, plot_stack=False):
+             offset_samps=120, filter_params=None, plot_stack=False,
+             integrate_anchor_segs=True):
     """
     Plot a colormap of DSS data
 
@@ -1400,6 +1429,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     :param filter_params: Nested dict of various bandstop parameters
     :param plot_stack: Whether to plot the stack of 20 channels centered on
         manual pick.
+    :param integrate_anchor_segs: For CSD boreholes D1-D2, integrate strain signal
+        over the anchored segments?
 
     :return:
     """
@@ -1522,6 +1553,13 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         # prepend last element of down to up if unequal lengths by 1
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
         up_d = np.insert(up_d, 0, down_d[-1])
+    # Run the integration for D1/2
+    if well in ['D1', 'D2'] and integrate_anchor_segs:
+        down_data = integrate_anchors(down_data, down_d, well)
+        up_data = integrate_anchors(up_data, up_d[-1] - up_d, well)
+    # fig, axes = plt.subplots(ncols=2)
+    # axes[1].imshow(up_data)
+    # axes[0].imshow(down_data)
     im = axes1.imshow(down_data, cmap=cmap, origin='upper',
                       extent=[mpl_times[0], mpl_times[-1],
                               down_d[-1] - down_d[0], 0],
