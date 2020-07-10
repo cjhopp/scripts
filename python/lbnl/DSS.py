@@ -98,13 +98,13 @@ chan_map_excav_56 = {'D5': 187.535,
 chan_map_excav_34 = {'D3': 76.61,
                      'D4': 167.22}
 # Loop 5, 6
-chan_map_co2_5612 = {'D5': 95.92,
+chan_map_co2_5612 = {'D5': 96.42,
                      'D6': 186.74,
                      'D1': 354.14,
                      'D2': 273.41}
 # Loop 3, 4
-chan_map_co2_34 = {'D3': 76.12,
-                   'D4': 166.93}
+chan_map_co2_34 = {'D3': 79.62,
+                   'D4': 170.43}
 # Anchor point mapping (depth in hole)
 D1_anchor_map = {'seg3': (12.97, 15.37),
                  'seg2': (15.37, 17.17),
@@ -273,20 +273,31 @@ def integrate_anchors(data, depth, well):
     the anchor span
     """
     if well == 'D1':
-        chan_map = {key: (np.argmin(np.abs(depth - tup[0])),
-                          np.argmin(np.abs(depth - tup[1])))
+        chan_map = {key: {'down': (np.argmin(np.abs(depth - tup[0])),
+                                   np.argmin(np.abs(depth - tup[1]))),
+                          'up': (np.argmin(np.abs(depth -
+                                                  (depth[-1] - tup[0]))),
+                                 np.argmin(np.abs(depth -
+                                                  (depth[-1] - tup[1]))))}
                     for key, tup in D1_anchor_map.items()}
     elif well == 'D2':
-        chan_map = {key: (np.argmin(np.abs(depth - tup[0])),
-                          np.argmin(np.abs(depth - tup[1])))
+        chan_map = {key: {'down': (np.argmin(np.abs(depth - tup[0])),
+                                   np.argmin(np.abs(depth - tup[1]))),
+                          'up': (np.argmin(np.abs(depth -
+                                                  (depth[-1] - tup[0]))),
+                                 np.argmin(np.abs(depth -
+                                                  (depth[-1] - tup[1]))))}
                     for key, tup in D2_anchor_map.items()}
     for seg, chans in chan_map.items():
-        if chans[0] > chans[1]:
-            chans = (chans[1], chans[0])
-        intg = trapz(data[chans[0]:chans[1] + 1, :], axis=0)
+        up_chans = chans['up']
+        down_chans = chans['down']
+        if up_chans[0] > up_chans[1]:
+            up_chans = (up_chans[1], up_chans[0])
+        intg_up = trapz(data[up_chans[0]:up_chans[1] + 1, :], axis=0)
+        intg_down = trapz(data[down_chans[0]:down_chans[1] + 1, :], axis=0)
         # Scale to channel spacing
-        print(np.abs(depth[1] - depth[0]))
-        data[chans[0]:chans[1] + 1, :] = intg * np.abs(depth[1] - depth[0])
+        data[up_chans[0]:up_chans[1] + 1, :] = intg_up * np.abs(depth[1] - depth[0])
+        data[down_chans[0]:down_chans[1] + 1, :] = intg_down * np.abs(depth[1] - depth[0])
     return data
 
 
@@ -1434,6 +1445,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
 
     :return:
     """
+    # TODO This is ghastly
     if inset_channels and simfip and well != 'D5' and not hydro_data:
         fig = plt.figure(constrained_layout=False, figsize=(14, 14))
         gs = GridSpec(ncols=14, nrows=12, figure=fig)
@@ -1501,6 +1513,16 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
         log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
         cax = fig.add_subplot(gs[:6, -1])
+    elif inset_channels:
+        fig = plt.figure(constrained_layout=False, figsize=(14, 14))
+        gs = GridSpec(ncols=14, nrows=12, figure=fig)
+        axes1 = fig.add_subplot(gs[:4, 7:-1])
+        axes1b = fig.add_subplot(gs[4:8, 7:-1], sharex=axes1)
+        axes2 = fig.add_subplot(gs[8:, 7:-1], sharex=axes1)
+        axes4 = fig.add_subplot(gs[:, 2:4])
+        axes5 = fig.add_subplot(gs[:, 4:6], sharex=axes4)
+        log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
+        cax = fig.add_subplot(gs[:6, -1])
     # Get just the channels from the well in question
     times = well_data[well]['times']
     data = well_data[well]['data'].copy()
@@ -1527,7 +1549,6 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                           freqmax=f['freqmax'],
                           df=1 / (times[1] - times[0]).seconds)
     if mode == 'Relative':
-        # TODO Is ten samples enough for mean removal?
         data = data - data[:, 0:offset_samps, np.newaxis].mean(axis=1)
     if colorbar_type == 'dark':
         cmap = ListedColormap(sns.diverging_palette(
@@ -1546,6 +1567,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         label = r'%'
     elif type == 'Brillouin Frequency':
         label = r'GHz'
+    if well in ['D1', 'D2'] and integrate_anchor_segs:
+        data = integrate_anchors(data, depth_vect - depth_vect[0], well)
     # Split the array in two and plot both separately
     down_data, up_data = np.array_split(data, 2, axis=0)
     down_d, up_d = np.array_split(depth_vect - depth_vect[0], 2)
@@ -1554,12 +1577,6 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
         up_d = np.insert(up_d, 0, down_d[-1])
     # Run the integration for D1/2
-    if well in ['D1', 'D2'] and integrate_anchor_segs:
-        down_data = integrate_anchors(down_data, down_d, well)
-        up_data = integrate_anchors(up_data, up_d[-1] - up_d, well)
-    # fig, axes = plt.subplots(ncols=2)
-    # axes[1].imshow(up_data)
-    # axes[0].imshow(down_data)
     im = axes1.imshow(down_data, cmap=cmap, origin='upper',
                       extent=[mpl_times[0], mpl_times[-1],
                               down_d[-1] - down_d[0], 0],
@@ -1710,7 +1727,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             log_ax.legend(
                 loc=2, fontsize=12, bbox_to_anchor=(-1.2, 1.13),
                 framealpha=1.).set_zorder(110)
-        if well == 'D5':  # Potentiometer elements
+        if well == 'D5' and pot_data:  # Potentiometer elements
             pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
             max_x = log_ax.get_xlim()[-1]
             ymin = []
