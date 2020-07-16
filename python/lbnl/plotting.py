@@ -31,7 +31,7 @@ from lbnl.coordinates import SURF_converter
 from lbnl.DSS import interpolate_picks, extract_channel_timeseries
 
 
-def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro):
+def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers):
     """
     DataFrame of timeseries data of any kind
 
@@ -39,6 +39,8 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro):
     :param DAS_dict:
     :param simfip: Simfip dataframe
     :param hydro: Hydro dataframe
+    :param packers: Packer pressure dataframe
+
     :return:
     """
 
@@ -48,16 +50,17 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro):
     fig.add_trace(go.Scatter(x=DSS_dict['times'],
                              y=DSS_dict['DSS_median'] - DSS_dict['DSS_std'],
                              line=dict(color="mediumvioletred", width=0),
-                             fill=None, showlegend=False, hoverinfo='skip'))
+                             fill=None, showlegend=False, hoverinfo='skip',
+                             legendgroup='1'))
     fig.add_trace(go.Scatter(x=DSS_dict['times'],
                              y=DSS_dict['DSS_median'] + DSS_dict['DSS_std'],
                              line=dict(color="mediumvioletred", width=0),
                              fill='tonexty', showlegend=False,
-                             hoverinfo='skip'))
+                             hoverinfo='skip', legendgroup='1'))
     fig.add_trace(go.Scatter(x=DSS_dict['times'], y=DSS_dict['DSS_median'],
                              name="DSS: 20 min rolling median",
                              line=dict(color='mediumvioletred'),
-                             fill=None))
+                             fill=None, legendgroup='1'))
     fig.add_trace(go.Scatter(x=DAS_dict['times'], y=DAS_dict['data'],
                              name='DAS at 41 m', line=dict(color='#9467bd',
                                                            width=2.5)))
@@ -65,12 +68,33 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro):
                              name="DTS at {} m".format(DSS_dict['depth']),
                              yaxis="y2", line=dict(color='#ee854a')))
     # Hydraulic data
-    fig.add_trace(go.Scatter(x=hydro.index, y=hydro['Flow'], name="Flow",
+    fig.add_trace(go.Scatter(x=hydro.index, y=hydro['Flow'], name="Pump Flow",
                              line=dict(color='steelblue'),
                              yaxis='y3'))
     fig.add_trace(go.Scatter(x=hydro.index, y=hydro['Pressure'],
-                             name="Pressure", line=dict(color='red'),
+                             name="Pump Pressure", line=dict(color='red'),
                              yaxis='y4'))
+    # Packer pressures
+    fig.add_trace(go.Scatter(
+        x=packers.index,
+        y=packers['Pressure_Packer_Upper_Injection_SNL06'] / 145.,
+        name="E1-I: Upper Packer Pressure", line=dict(color='lime'),
+        yaxis='y4'))
+    fig.add_trace(go.Scatter(
+        x=packers.index,
+        y=packers['Pressure_Packer_Lower_Injection_SNL07'] / 145.,
+        name="E1-I: Lower Packer Pressure", line=dict(color='olive'),
+        yaxis='y4'))
+    fig.add_trace(go.Scatter(
+        x=packers.index,
+        y=packers['Pressure_Packer_Upper_Production_SNL08'] / 145.,
+        name="E1-P: Upper Packer Pressure", line=dict(color='maroon'),
+        yaxis='y4'))
+    fig.add_trace(go.Scatter(
+        x=packers.index,
+        y=packers['Pressure_Packer_Lower_Production_SNL09'] / 145.,
+        name="E1-P: Lower Packer Pressure", line=dict(color='darkred'),
+        yaxis='y4'))
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Yates'],
                              name='E1-P Yates',
                              yaxis='y5'))

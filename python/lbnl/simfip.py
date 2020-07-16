@@ -175,6 +175,9 @@ def read_excavation(path):
     # Sort index as this isn't forced by pandas for DateTime indices
     df = df.sort_index()
     df.index.name = None
+    df.index = df.index.tz_localize('Etc/GMT+2')
+    df.index = df.index.tz_convert('UTC')
+    df.index = df.index.tz_convert(None)
     # Assuming these data are corrected for clamp effects now??
     df.rename(columns={'dispE': 'Xc', 'dispN': 'Yc', 'dispUp': 'Zc'}, inplace=True)
     return df
@@ -182,14 +185,17 @@ def read_excavation(path):
 
 def read_collab(path):
     """
-    Read excavation displacement data for SIMFIP, tiltmeters, borehole
-    extensometers
+    Read excavation displacement data for SIMFIP at surf 4850L
 
     :param path: Path to file from Yves
     :return:
     """
+    col_names = ['date', 'time', 'Pz1', 'Pz2', 'S1Yates', 'S1Top',
+                 'S1WellAxial', 'S1YatesE', 'S1TopE', 'S1WellAxialE',
+                 'S1YatesIE', 'S1TopIE', 'S1WellAxialIE', 'S2YatesIE',
+                 'S2TopIE', 'S2WellAxialIE', 'blank']
     # Use Dask as its significantly faster for this many data points
-    df = pd.read_csv(path, sep=' ')
+    df = pd.read_csv(path, sep=' ', names=col_names, header=0)
     df['dt'] = pd.to_datetime(df['date'], format='%d/%b/%YT%H:%M:%S.%f')
     df = df.set_index('dt')
     df = df.drop(['date'], axis=1)
@@ -199,7 +205,7 @@ def read_collab(path):
     df.index = df.index.tz_convert('UTC')
     df.index = df.index.tz_convert(None)
     df.index.name = None
-    # Assuming these data are corrected for clamp effects now??
+    # Seems like Yates and Axial are swapped??
     df.rename(columns={
         'S2TopIE': 'P Top', 'S2YatesIE': 'P Yates', 'S2WellAxialIE': 'P Axial',
         'S1TopIE': 'I Top', 'S1YatesIE': 'I Yates', 'S1WellAxialIE': 'I Axial'},

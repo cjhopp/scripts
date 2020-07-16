@@ -6,6 +6,7 @@ Functions for processing and plotting DSS data
 import os
 
 import numpy as np
+import pytz
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -15,7 +16,9 @@ import matplotlib.patches as mpatches
 
 from glob import glob
 from obspy import Stream, Trace
+from pytz import timezone
 from eqcorrscan.core.match_filter import normxcorr2
+from pandas.errors import ParserError
 from scipy.integrate import trapz
 from scipy.interpolate import griddata, interp2d
 from scipy.ndimage import gaussian_filter, median_filter
@@ -35,7 +38,7 @@ from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
     calculate_frac_density, read_frac_cores, depth_to_xyz
 from lbnl.DTS import read_struct
 from lbnl.simfip import read_excavation, plot_displacement_components, read_collab
-from lbnl.hydraulic_data import read_collab_hydro
+from lbnl.hydraulic_data import read_collab_hydro, read_csd_hydro
 
 
 ######### SURF CHANNEL MAPPING ############
@@ -226,24 +229,44 @@ def read_potentiometer(path):
     return data, depths, times
 
 
-def datetime_parse(t, fmt):
-    # Parse the date format of the DSS headers
+def read_potentiometer_co2(root_path):
+    csvs = glob('{}/*.csv'.format(root_path))
+    csvs.sort()
+    df_dict = {}
+    for csv in csvs:
+        name = os.path.basename(csv).rstrip('.csv')
+        parser = lambda x: datetime.strptime(x, '%d.%m.%Y %H:%M:%S')
+        df_temp = pd.read_csv(csv, usecols=[0, 1],
+                              skiprows=list(np.arange(8)), header=0,
+                              parse_dates=[0], date_parser=parser)
+        df_temp = df_temp.set_index('dd.MM.yyyy  hh:mm:ss')
+        df_temp.rename(columns={'Measurement': name}, inplace=True)
+        df_dict[name] = df_temp
+    return df_dict
+
+
+def datetime_parse(t, fmt, location):
+    # Parse the date format of the DSS headers; return as UTC for fsb
+    if location == 'fsb':
+        tz = timezone('Etc/GMT+2')
+        tz.localize(datetime.strptime(t, fmt)).astimezone()
     return datetime.strptime(t, fmt)
 
 
 def read_times(path, encoding='iso-8859-1', header=10,
                time_fmt='%Y/%m/%d %H:%M:%S', location='fsb'):
     """Read timestamps from ascii header"""
+    # Create appropriate timezone object
     strings = np.genfromtxt(path, skip_header=header, max_rows=1,
                             encoding=encoding, dtype=None, delimiter='\t')
     if header == 1:  # Potentiometer file
-        return np.array([datetime_parse(t, time_fmt)
+        return np.array([datetime_parse(t, time_fmt, location)
                          for t in strings[:-1]])[::-1]
     elif header == 10 and location == 'fsb':  # Omnisens output
-        return np.array([datetime_parse(t, time_fmt)
+        return np.array([datetime_parse(t, time_fmt, location)
                          for t in strings[1:-1]])[::-1]
     elif header == 10 and location == 'surf':
-        return np.array([datetime_parse(t, time_fmt)
+        return np.array([datetime_parse(t, time_fmt, location)
                          for t in strings[1:]])[::-1]
     elif header == 67:  # Neubrex output file
         row_str = str(strings).split()
@@ -317,7 +340,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     :param mapping: For Mont Terri, specifically, who's channel mapping do
         we use? The preferred mappings are now 'excavation' or 'co2_injection'
     :param wells: List of well name strings to return
-    :param fibers: Optionaly specify individual fiber loops (FSB, CSD3 or CSD5)
+    :param fibers: Optionally specify individual fiber loops (FSB, CSD3 or CSD5)
     :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
         'majdabadi' returns scalar, 'by_channel' an array
 
@@ -1618,7 +1641,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         plt.setp(axes2.get_xticklabels(), visible=False)
         plt.setp(axes3.get_xticklabels(), visible=False)
         if hydro_data:
-            dfh = read_collab_hydro(hydro_data)
+            try:
+                dfh = read_collab_hydro(hydro_data)
+            except ParserError:
+                dfh = read_csd_hydro(hydro_data)
             dfh = dfh[date_range[0]:date_range[1]]
             hydro_ax.plot(dfh['Flow'], color='steelblue',
                           label='Flow')
@@ -1634,7 +1660,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             pres_ax.yaxis.label.set_color('red')
             pres_ax.tick_params(axis='y', colors='red')
     elif hydro_data:
-        df = read_collab_hydro(hydro_data)
+        try:
+            df = read_collab_hydro(hydro_data)
+        except ParserError:
+            df = read_csd_hydro(hydro_data)
         df = df[date_range[0]:date_range[1]]
         hydro_ax.plot(df['Flow'], color='steelblue',
                       label='Flow')
