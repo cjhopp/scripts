@@ -31,7 +31,7 @@ from lbnl.coordinates import SURF_converter
 from lbnl.DSS import interpolate_picks, extract_channel_timeseries
 
 
-def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers):
+def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic):
     """
     DataFrame of timeseries data of any kind
 
@@ -40,6 +40,7 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers):
     :param simfip: Simfip dataframe
     :param hydro: Hydro dataframe
     :param packers: Packer pressure dataframe
+    :param seismic: Dict of seismicity of keys 'times' and 'dists'
 
     :return:
     """
@@ -95,6 +96,20 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers):
         y=packers['Pressure_Packer_Lower_Production_SNL09'] / 145.,
         name="E1-P: Lower Packer Pressure", line=dict(color='darkred'),
         yaxis='y4'))
+    # Earthquakes
+    fig.add_trace(go.Scatter(x=seismic['times'], y=seismic['dists'],
+                             name='Seismic event', mode='markers',
+                             marker=dict(color='rgba(0,0,0,0.05)',
+                                         line=dict(color='rgba(0,0,0,1.0)',
+                                                   width=0.5)), yaxis='y6'))
+    # Add reference line for distance to OT
+    fig.add_trace(go.Scatter(x=[seismic['times'][0], seismic['times'][-1]],
+                             y=[7.457, 7.457],
+                             name='Distance to OT', mode='lines',
+                             line=dict(color='red', dash='dot',
+                                       width=1.),
+                             yaxis='y6'))
+    # SIMFIP
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Yates'],
                              name='E1-P Yates',
                              yaxis='y5'))
@@ -133,7 +148,11 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers):
                     rangemode='nonnegative', anchor='x'),
         yaxis5=dict(title="Displacement [m]", titlefont=dict(color="black"),
                     tickfont=dict(color="black"), domain=[0., 0.33],
-                    anchor='x'))
+                    anchor='x'),
+        yaxis6=dict(title="Distance from 164-notch [m]",
+                    titlefont=dict(color="black"),
+                    tickfont=dict(color="black"), domain=[0., 0.33],
+                    anchor='x', side='right', overlaying='y5'))
     fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
     fig.update_layout(template="ggplot2", legend=dict(traceorder='reversed'))
     fig.show()
