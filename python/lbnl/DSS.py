@@ -472,10 +472,10 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                     {'uncorrected_freq': data_tmp.copy(),
                      'uncorrected_strain': data_tmp.copy() * 5790.,
                      'interp_temp': temp_interp,
-                     'temp-induced_freq': temp_interp.copy() * 0.00095,
-                     'temp-induced_strain': temp_interp.copy() * 0.00095 * 5790.,
+                     'temp-induced_freq': temp_interp.copy() * 0.00164,
+                     'temp-induced_strain': temp_interp.copy() * 0.00164 * 5790.,
                      'raw_temp': temp_dict[well]['temp']})
-                data_tmp = data_tmp - (temp_interp * 0.00095)
+                data_tmp = data_tmp - (temp_interp * 0.00164)
                 well_data[well].update({'corrected_freq': data_tmp.copy()})
             if convert_freq:
                 # Use conversion factor 0.579 GHz shift per 1% strain
