@@ -18,13 +18,20 @@ def datenum_to_datetime(datenums):
             for d in datenums]
 
 
-def read_struct(f):
+def read_struct(f, depth=41):
     # Return the parts of the struct we actually want
-    struct = loadmat(f, struct_as_record=False,
-                     squeeze_me=True)
-    data = struct['OT_strain'].data[41, :]
-    # Convert nano to microstrain
-    data /= 1000.
-    datenums = struct['OT_strain'].dn
+    try:
+        struct = loadmat(f, struct_as_record=False,
+                         squeeze_me=True)
+        data = struct['OT_strain'].data[depth, :]
+        # Convert nano to microstrain
+        data /= 1000.
+        datenums = struct['OT_strain'].dn
+    except NotImplementedError:
+        # In case of Matlab 7.3 format
+        with h5py.File(f, 'r') as f:
+            data = f['OT_strain']['data'][()].T
+            data = data[41, :] / 1000.
+            datenums = np.concatenate(f['OT_strain']['datenum'][()])
     time = datenum_to_datetime(datenums)
     return time, data

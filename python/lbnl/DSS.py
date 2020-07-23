@@ -234,14 +234,19 @@ def read_potentiometer_co2(root_path):
     csvs.sort()
     df_dict = {}
     for csv in csvs:
-        name = os.path.basename(csv).rstrip('.csv')
+        name = os.path.basename(csv).rstrip('.csv').split('-')[-1]
+        name = '{:d}'.format(int(name))
         parser = lambda x: datetime.strptime(x, '%d.%m.%Y %H:%M:%S')
         df_temp = pd.read_csv(csv, usecols=[0, 1],
                               skiprows=list(np.arange(8)), header=0,
                               parse_dates=[0], date_parser=parser)
         df_temp = df_temp.set_index('dd.MM.yyyy  hh:mm:ss')
         df_temp.rename(columns={'Measurement': name}, inplace=True)
-        df_dict[name] = df_temp
+        # Length of potentiometer element in meters
+        scale = potentiometer_depths[name][2] - potentiometer_depths[name][0]
+        # Measurement is mm, so divide by length of element (in mm), then
+        # convert to microstrain
+        df_dict[name] = (df_temp - df_temp.iloc[0]) / (scale * 0.001)
     return df_dict
 
 

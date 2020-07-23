@@ -31,7 +31,8 @@ from lbnl.coordinates import SURF_converter
 from lbnl.DSS import interpolate_picks, extract_channel_timeseries
 
 
-def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic):
+def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
+                      accel_dict):
     """
     DataFrame of timeseries data of any kind
 
@@ -41,6 +42,7 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic):
     :param hydro: Hydro dataframe
     :param packers: Packer pressure dataframe
     :param seismic: Dict of seismicity of keys 'times' and 'dists'
+    :param accel_dict: Keys 'data' and 'times'
 
     :return:
     """
@@ -109,6 +111,12 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic):
                              line=dict(color='red', dash='dot',
                                        width=1.),
                              yaxis='y6'))
+    # Now accelerometer behind the hydraulics
+    fig.add_trace(go.Scatter(x=accel_dict['times'],
+                             y=accel_dict['data'],
+                             name='Acceleration: OT16.XNX', mode='lines',
+                             line=dict(color='indigo', width=1.),
+                             yaxis='y7'))
     # SIMFIP
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Yates'],
                              name='E1-P Yates',
@@ -152,7 +160,13 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic):
         yaxis6=dict(title="Distance from 164-notch [m]",
                     titlefont=dict(color="black"),
                     tickfont=dict(color="black"), domain=[0., 0.33],
-                    anchor='x', side='right', overlaying='y5'))
+                    anchor='x', side='right', overlaying='y5'),
+        yaxis7=dict(title="Acceleration [m/s^2]",
+                    titlefont=dict(color="indigo"),
+                    tickfont=dict(color="indigo"),
+                    anchor='x', side='right', overlaying='y3',
+                    position=0.9)
+    )
     fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
     fig.update_layout(template="ggplot2", legend=dict(traceorder='reversed'))
     fig.show()
