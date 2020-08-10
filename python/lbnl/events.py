@@ -25,6 +25,7 @@ from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
     QuantityError
 from obspy.clients.fdsn import Client
 from lbnl.coordinates import SURF_converter
+from lbnl.boreholes import depth_to_xyz, parse_surf_boreholes
 try:
     from libcomcat.search import get_event_by_id
     from libcomcat.dataframes import get_phase_dataframe, get_detail_data_frame
@@ -57,6 +58,34 @@ def parse_resource_id_to_eid(ev, method='SURF'):
     else:
         name = ev.resource_id.id.split('/')[-1]
     return name
+
+
+def cat_dist_to_notch(
+        cat, well, depth, starttime, endtime,
+        well_file='data/chet-collab/boreholes/surf_4850_wells.csv'):
+    """
+    Return dict of distances to a notch for a catalog.
+
+    Used as an argument for plotly_timeseries
+
+    :param cat: Catalog object
+    :param well: String of well
+    :param depth: Depth of notch in well
+    :param starttime: Start time of catalog
+    :param endtime: End time of catalog
+    :return:
+    """
+    times = [ev.origins[0].time.datetime for ev in cat
+             if starttime < ev.origins[-1].time < endtime]
+    xyzs = [(float(ev.origins[-1].extra.hmc_east.value),
+             float(ev.origins[-1].extra.hmc_north.value),
+             float(ev.origins[-1].extra.hmc_elev.value))
+             for ev in cat if starttime < ev.origins[-1].time < endtime]
+    well_dict = parse_surf_boreholes(well_file)
+    notch = depth_to_xyz(well_dict, well, depth)
+    dists = [np.sqrt((p[0] - notch[0])**2 + (p[1] - notch[1])**2 +
+                     (p[2] - notch[2])**2) for p in xyzs]
+    return {'times': times, 'dists': dists}
 
 
 def clean_cat_picks(cat, PS_one_chan=True):

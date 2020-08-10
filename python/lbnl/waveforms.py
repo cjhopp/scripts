@@ -23,7 +23,6 @@ from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
-from surf_seis.vibbox import vibbox_preprocess
 from eqcorrscan.core.match_filter import Tribe, Party
 from eqcorrscan.core.template_gen import template_gen
 from eqcorrscan.utils.pre_processing import shortproc, _check_daylong, dayproc
@@ -36,7 +35,10 @@ from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 
 # Local imports
-from surf_seis.vibbox import vibbox_read, vibbox_preprocess
+try:
+    from surf_seis.vibbox import vibbox_read, vibbox_preprocess
+except:
+    print('No surf_seis on this machine')
 
 extra_stas = ['CMon', 'CTrig', 'CEnc', 'PPS']
 
@@ -1169,7 +1171,141 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
         group_cats.append(group_cat)
     return group_cats
 
+
+def make_accelerometer_LP_dict(streams):
+    """
+    Convenience function to return the accel_dict arg for plotly_timeseries
+
+    :param streams: List of Stream objects in chronological order
+    """
+    accel_dict = {}
+    times = []
+    data = np.array([])
+    dt = streams[0][0].stats.delta
+    for st in streams:
+        for tr in st:
+            tmp_data = tr.data
+            tmp_data[np.array([0, 1])] = np.nan
+            times = [st[0].stats.starttime + timedelta(seconds=i * dt)
+                     for i in range(tr.data.shape[0])]
+            stachan = '{}.{}'.format(tr.stats.station, tr.stats.channel)
+            if stachan not in accel_dict:
+                accel_dict[stachan] = {
+                    'times': times,
+                    'data': tmp_data}
+            else:
+                accel_dict[stachan]['times'].extend(
+                    [st[0].stats.starttime + timedelta(seconds=i * dt)
+                     for i in range(st[0].data.shape[0])])
+                accel_dict[stachan]['data'] = np.append(
+                    accel_dict[stachan]['data'], tmp_data)
+    return accel_dict
+
 ########################## PLOTTING ######################################
+
+def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.'):
+    """
+    Plot signal comparison between SA-ULNs and Geophone (B3 and G2)
+
+    :param file_dict: Dict {id: path}
+    :param cat: Catalog with the picks
+    :param inv: Inventory with response info
+    :param signal_len: Length of signal for SNR calcs
+    :param noise_len: Length of noise window for SNR
+
+    :return:
+    """
+    snrs = {}
+    for wav_file in wav_files:
+        eid = wav_file.split('_')[-1].rstrip('.ms')
+        print(eid)
+        if os.path.exists('{}/{}.png'.format(outdir, eid)):
+            print('Output already made')
+            continue
+        try:
+            ev = [ev for ev in cat
+                  if ev.resource_id.id[-25:-15] == eid][0]
+        except IndexError:
+            ev = [ev for ev in cat
+                  if ev.resource_id.id.split('/')[-1] == eid][0]
+        st = read(wav_file)
+        # Remove response
+        st = st.select(station='[NP]*C')
+        st.remove_response(inventory=inv, output='VEL')
+        try:
+            pk_P = [pk for pk in ev.picks if pk.waveform_id.location_code
+                    in ['B3', 'G2', 'G1'] and pk.phase_hint == 'P'][0]
+        except IndexError:
+            print('No P pick at either, skipping')
+            continue
+        st_b3 = st.select(location='B3', channel='*Z')
+        st_g2 = st.select(location='G2', channel='*Z')
+        st_g1 = st.select(location='G1', channel='*Z')
+        st_pgc = st.select(station='PGC', channel='*Z')
+        b3_noise = st_b3.slice(endtime=pk_P.time - 0.25).copy()
+        b3_signal = st_b3.slice(starttime=pk_P.time,
+                                endtime=pk_P.time + signal_len).copy()
+        g2_noise = st_g2.slice(endtime=pk_P.time - 0.25).copy()
+        g2_signal = st_g2.slice(starttime=pk_P.time,
+                                endtime=pk_P.time + signal_len).copy()
+        g1_noise = st_g1.slice(endtime=pk_P.time - 0.25).copy()
+        g1_signal = st_g1.slice(starttime=pk_P.time,
+                                endtime=pk_P.time + signal_len).copy()
+        pgc_noise = st_pgc.slice(endtime=pk_P.time - 0.25).copy()
+        pgc_signal = st_pgc.slice(starttime=pk_P.time,
+                                  endtime=pk_P.time + signal_len).copy()
+        g2_snr = SNR(g2_signal[0].data, g2_noise[0].data)
+        g1_snr = SNR(g1_signal[0].data, g1_noise[0].data)
+        b3_snr = SNR(b3_signal[0].data, b3_noise[0].data)
+        pgc_snr = SNR(pgc_signal[0].data, pgc_noise[0].data)
+        snrs[eid] = {'G1': g1_snr, 'G2': g2_snr, 'B3': b3_snr,
+                     'PGC': pgc_snr, 'event': ev}
+        g2_plot = st_g2.slice(starttime=pk_P.time - 5,
+                              endtime=pk_P.time + 10).copy()
+        b3_plot = st_b3.slice(starttime=pk_P.time - 5,
+                              endtime=pk_P.time + 10).copy()
+        g1_plot = st_g1.slice(starttime=pk_P.time - 5,
+                              endtime=pk_P.time + 10).copy()
+        pgc_plot = st_pgc.slice(starttime=pk_P.time - 5,
+                                endtime=pk_P.time + 10).copy()
+        fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(8, 10))
+        start = g2_plot[0].stats.starttime.datetime
+        dt = g2_plot[0].stats.delta
+        time_vect = [start + timedelta(seconds=dt * i)
+                     for i in range(g2_plot[0].data.shape[0])]
+        axes[0].plot(time_vect, g1_plot[0].data, color='green',
+                     alpha=0.6, linewidth=1.5, label='Geophone (surface)')
+        axes[0].plot(time_vect, pgc_plot[0].data, color='purple',
+                     alpha=0.6, linewidth=1.5, label='Broadband')
+        axes[1].plot(time_vect, g2_plot[0].data, color='steelblue',
+                     alpha=0.6, linewidth=1.5, label='Geophone (borehole)')
+        axes[1].plot(time_vect, b3_plot[0].data, color='red',
+                     alpha=0.6, linewidth=1.5, label='SA-ULN')
+        props = dict(boxstyle='round', facecolor='whitesmoke', alpha=0.5)
+        axes[0].annotate(xy=(0.7, 0.9), text='SNR: {:0.2f} dB'.format(pgc_snr),
+                      color='purple', xycoords='axes fraction',
+                      fontsize=12, bbox=props)
+        axes[0].annotate(xy=(0.7, 0.8), text='SNR: {:0.2f} dB'.format(g1_snr),
+                      color='green', xycoords='axes fraction',
+                      fontsize=12, bbox=props)
+        axes[1].annotate(xy=(0.7, 0.9), text='SNR: {:0.2f} dB'.format(g2_snr),
+                      color='steelblue', xycoords='axes fraction',
+                      fontsize=12, bbox=props)
+        axes[1].annotate(xy=(0.7, 0.8), text='SNR: {:0.2f} dB'.format(b3_snr),
+                      color='red', xycoords='axes fraction', fontsize=12,
+                      bbox=props)
+        axes[1].xaxis_date()
+        axes[0].legend(loc=2)
+        axes[1].legend(loc=2)
+        axes[0].set_ylabel('Velocity [m/s]', fontsize=12)
+        axes[1].set_ylabel('Velocity [m/s]', fontsize=12)
+        fig.suptitle('{}'.format(eid), fontsize=16)
+        fig.autofmt_xdate()
+        plt.tight_layout()
+        plt.savefig(dpi=300, fname='{}/{}.png'.format(outdir, eid))
+        plt.close()
+    return snrs
+
 
 def plot_pick_corrections(catalog, stream_dir, plotdir):
     """

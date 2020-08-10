@@ -3,522 +3,29 @@
   <component name="AnalysisUIOptions">
     <option name="SCOPE_TYPE" value="4" />
   </component>
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.circleci/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.circleci/config.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.coveragerc" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.coveragerc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.gitattributes" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.gitattributes" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.github/ISSUE_TEMPLATE/bug_report.md" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.github/ISSUE_TEMPLATE/bug_report.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.github/ISSUE_TEMPLATE/feature_request.md" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.github/ISSUE_TEMPLATE/feature_request.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.github/ISSUE_TEMPLATE/help-request.md" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.github/ISSUE_TEMPLATE/help-request.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.github/ISSUE_TEMPLATE/version_checklist.md" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.github/ISSUE_TEMPLATE/version_checklist.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.github/PULL_REQUEST_TEMPLATE.md" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.github/PULL_REQUEST_TEMPLATE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.readthedocs.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.readthedocs.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.stickler.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.stickler.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/.travis.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/.travis.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/CHANGES.md" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/CHANGES.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/CONTRIBUTORS.md" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/CONTRIBUTORS.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/LICENCE.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/LICENCE.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/MANIFEST.in" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/MANIFEST.in" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/appveyor.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/appveyor.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/codecov.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/codecov.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/conftest.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/conftest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/lag_calc.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/lag_calc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/detection.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/detection.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/family.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/family.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/helpers.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/helpers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/matched_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/matched_filter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/party.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/party.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/template.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/template.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/tribe.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/match_filter/tribe.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/subspace.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/subspace.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/template_gen.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/core/template_gen.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.ico" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.ico" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.pdf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.svg" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/EQcorrscan_logo.svg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/Makefile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/_ext/obspydoc.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/_ext/obspydoc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/conf.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/conf.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/core.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/core.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/environment.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/environment.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/index.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/index.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/installation.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/installation.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/intro.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/intro.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/detection_multiplot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/detection_multiplot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/multi_event_singlechan.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/multi_event_singlechan.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/plot_repicked.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/plot_repicked.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/template_gen.from_client.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/template_gen.from_client.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/triple_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/triple_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/xcorr_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/plots/xcorr_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/processing_flow.svg" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/processing_flow.svg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.lag_calc.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.lag_calc.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.detection.Detection.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.detection.Detection.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.detection.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.detection.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.family.Family.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.family.Family.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.family.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.family.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.helpers.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.helpers.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.matched_filter.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.matched_filter.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.party.Party.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.party.Party.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.party.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.party.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.template.Template.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.template.Template.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.template.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.template.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.tribe.Tribe.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.tribe.Tribe.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.tribe.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.match_filter.tribe.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.subspace.Detector.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.subspace.Detector.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.subspace.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.subspace.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.template_gen.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/core.template_gen.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.archive_read.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.archive_read.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.catalog_to_dd.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.catalog_to_dd.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.catalog_utils.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.catalog_utils.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.clustering.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.clustering.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.correlate.fast_matched_filter.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.correlate.fast_matched_filter.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.correlate.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.correlate.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.despike.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.despike.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.findpeaks.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.findpeaks.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.mag_calc.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.mag_calc.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.picker.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.picker.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.plotting.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.plotting.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.pre_processing.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.pre_processing.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.sac_util.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.sac_util.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.stacking.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.stacking.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.synth_seis.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.synth_seis.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.trigger.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/submodules/utils.trigger.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorial.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorial.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/clustering.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/clustering.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/lag-calc.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/lag-calc.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/mag-calc.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/mag-calc.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/matched-filter.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/matched-filter.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/processing_flow.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/processing_flow.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/quick_start.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/quick_start.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/subspace.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/subspace.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/template-creation.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/tutorials/template-creation.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/updates.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/updates.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/utils.rst" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/doc/utils.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/helpers/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/helpers/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/helpers/mock_logger.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/helpers/mock_logger.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/scripts/test_eqcorrscan.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/scripts/test_eqcorrscan.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_cumulative_detections.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_cumulative_detections.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_cumulative_detections_rate.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_cumulative_detections_rate.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_detection_multiplot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_detection_multiplot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_freq_mag.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_freq_mag.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_interev_mag.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_interev_mag.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_multi_event_singlechan.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_multi_event_singlechan.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_multi_event_singlechan_realign.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_multi_event_singlechan_realign.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_network_response_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_network_response_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_noise_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_noise_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_noise_plot_normalized.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_noise_plot_normalized.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_obspy_3d_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_obspy_3d_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_party_plot_grouped.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_party_plot_grouped.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_party_plot_grouped_rate.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_party_plot_grouped_rate.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_party_plot_individual.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_party_plot_individual.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_peaks_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_peaks_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_plot_repicked.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_plot_repicked.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_plot_synth_real.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_plot_synth_real.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_pretty_template_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_pretty_template_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_pretty_template_plot_basic.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_pretty_template_plot_basic.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_spec_trace.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_spec_trace.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_spec_trace_list.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_spec_trace_list.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_subspace_detector_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_subspace_detector_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_subspace_fc_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_subspace_fc_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_svd_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_svd_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_threeD_gridplot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_threeD_gridplot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_triple_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_triple_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_xcorr_plot.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_xcorr_plot.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_xcorr_plot_cc_vec.png" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/baseline/test_xcorr_plot_cc_vec.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/catalog_to_dd_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/catalog_to_dd_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/catalog_utils_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/catalog_utils_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/clustering_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/clustering_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/correlate_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/correlate_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/despike_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/despike_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/find_peaks_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/find_peaks_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/lag_calc_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/lag_calc_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/mag_calc_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/mag_calc_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/match_filter_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/match_filter_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/picker_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/picker_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/plotting_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/plotting_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/pre_processing_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/pre_processing_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/stacking_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/stacking_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/subspace_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/subspace_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/synth_seis_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/synth_seis_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/template_gen_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/template_gen_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/1D_short.S.COSA.time.csv" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/1D_short.S.COSA.time.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/1D_short.S.LABE.time.csv" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/1D_short.S.LABE.time.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/20130901T041115.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/20130901T041115.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/20130901T041115_missingwavid.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/20130901T041115_missingwavid.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/3D_short.P.COSA.time.csv" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/3D_short.P.COSA.time.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/DUWZ_template.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/DUWZ_template.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/LABE_testlog" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/LABE_testlog" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/POCR2SH_1.2008-01-01-0000_GSE" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/POCR2SH_1.2008-01-01-0000_GSE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/01-0411-15L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/01-0411-15L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/01-0411-16L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/01-0411-16L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/01-2040-51L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/01-2040-51L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/02-0715-42L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/02-0715-42L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/02-1958-00L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/02-1958-00L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/05-0208-14L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/05-0208-14L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/05-0208-15L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/05-0208-15L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/05-0208-16L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/05-0208-16L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/08-0326-41L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/08-0326-41L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-1205-27L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-1205-27L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-1826-19L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-1826-19L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-2209-24L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-2209-24L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-2209-25L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-2209-25L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-2239-02L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/11-2239-02L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/12-0314-58L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/12-0314-58L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/15-0403-32L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/15-0403-32L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/15-0931-08L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/15-0931-08L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/15-2026-57L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/15-2026-57L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-0318-24L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-0318-24L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-0318-25L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-0318-25L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-2041-14L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-2041-14L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-2041-15L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-2041-15L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-2354-43L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-2354-43L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-2354-44L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/16-2354-44L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/17-1350-46L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/17-1350-46L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-0113-34L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-0113-34L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-0632-01L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-0632-01L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-2120-52L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-2120-52L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-2120-53L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-2120-53L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-2350-07L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-2350-07L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-2350-08L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/18-2350-08L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/19-0926-59L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/19-0926-59L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/20-0849-47L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/20-0849-47L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/20-1728-18L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/20-1728-18L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/20-2037-49L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/20-2037-49L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/01-0411-15L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/01-0411-15L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/01-0411-16L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/01-0411-16L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/01-2040-51L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/01-2040-51L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/02-0715-42L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/02-0715-42L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/02-1958-00L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/2013/09/02-1958-00L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/21-1412-02L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/21-1412-02L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/21-1512-14L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/21-1512-14L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/21-1512-15L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/21-1512-15L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/21-1759-04L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/21-1759-04L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/23-1939-32L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/23-1939-32L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/25-0815-25L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/25-0815-25L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/25-1126-25L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/25-1126-25L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/25-2007-20L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/25-2007-20L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/26-0601-21L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/26-0601-21L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/26-1517-03L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/26-1517-03L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/26-1517-4L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/26-1517-4L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/27-1351-54L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/27-1351-54L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/27-2226-19L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/27-2226-19L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/29-1236-10L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/29-1236-10L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/29-1510-29L.S201309" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/REA/TEST_/29-1510-29L.S201309" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/RESP.NZ.GCSZ.10.EHZ" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/RESP.NZ.GCSZ.10.EHZ" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/RESP.WZ01.ZT" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/RESP.WZ01.ZT" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.DCZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.DCZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.DCZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.DCZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.DCZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.DCZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.EAZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.EAZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.EAZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.EAZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.EAZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.EAZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.FOZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.FOZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.FOZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.FOZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.FOZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.FOZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.GCSZ_.EH1.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.GCSZ_.EH1.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.GCSZ_.EH2.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.GCSZ_.EH2.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.GCSZ_.EHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.GCSZ_.EHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.JCZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.JCZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.JCZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.JCZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.JCZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.JCZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.LBZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.LBZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.LBZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.LBZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.LBZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.LBZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MLZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MLZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MLZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MLZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MLZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MLZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MSZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MSZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MSZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MSZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MSZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.MSZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.RPZ__.HH1.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.RPZ__.HH1.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.RPZ__.HH2.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.RPZ__.HH2.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.RPZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.RPZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.THZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.THZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.THZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.THZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.THZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.THZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WHFS_.BN1.20.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WHFS_.BN1.20.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WHFS_.BN2.20.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WHFS_.BN2.20.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WHFS_.BNZ.20.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WHFS_.BNZ.20.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WKZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WKZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WKZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WKZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WKZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WKZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WNPS_.BN1.20.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WNPS_.BN1.20.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WNPS_.BN2.20.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WNPS_.BN2.20.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WNPS_.BNZ.20.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WNPS_.BNZ.20.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WTSZ_.EHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WTSZ_.EHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WTSZ_.EHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WTSZ_.EHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WTSZ_.EHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WTSZ_.EHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WVZ__.HHE.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WVZ__.HHE.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WVZ__.HHN.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WVZ__.HHN.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WVZ__.HHZ.10.NZ.sac" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/2014p611252/2014p611252.WVZ__.HHZ.10.NZ.sac" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SH1" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SH1" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SH2" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SH2" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SH3" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SH3" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SHE" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SHE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SHN" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SHN" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SHZ" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/FRAN.SHZ" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WHYM.SHE" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WHYM.SHE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WHYM.SHN" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WHYM.SHN" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WHYM.SHZ" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WHYM.SHZ" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WV02.SH1" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WV02.SH1" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WV02.SH2" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WV02.SH2" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WV02.SHZ" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WV02.SHZ" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ02.ELE" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ02.ELE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ02.ELN" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ02.ELN" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ02.ELZ" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ02.ELZ" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ04.HHE" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ04.HHE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ04.HHN" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ04.HHN" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ04.HHZ" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ04.HHZ" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ11.HHE" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ11.HHE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ11.HHN" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ11.HHN" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ11.HHZ" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/SAC/No_head/WZ11.HHZ" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/STATION0.HYP" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/STATION0.HYP" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/S_file_with_t_errors" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/S_file_with_t_errors" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/Sfile_extra_header" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/Sfile_extra_header" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/Sfile_no_header" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/Sfile_no_header" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/Test_detector.h5" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/Test_detector.h5" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-01-0410-35.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-01-0410-35.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-01-0410-36.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-01-0410-36.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-01-2040-11.DFDPC_039_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-01-2040-11.DFDPC_039_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-02-0715-02.DFDPC_018_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-02-0715-02.DFDPC_018_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-02-1957-20.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-02-1957-20.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-05-0207-34.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-05-0207-34.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-05-0207-35.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-05-0207-35.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-05-0207-35.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-05-0207-35.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-08-0326-01.DFDPC_033_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-08-0326-01.DFDPC_033_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-1204-47.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-1204-47.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-1825-39.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-1825-39.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-2208-44.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-2208-44.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-2208-45.DFDPC_030_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-2208-45.DFDPC_030_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-2238-22.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-11-2238-22.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-12-0314-18.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-12-0314-18.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-15-0402-52.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-15-0402-52.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-15-0930-28.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-15-0930-28.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-15-2026-17.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-15-2026-17.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-0317-44.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-0317-44.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-0317-45.DFDPC_018_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-0317-45.DFDPC_018_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-2040-34.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-2040-34.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-2040-35.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-2040-35.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-2354-03.DFDPC_018_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-2354-03.DFDPC_018_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-2354-03.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-16-2354-03.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-17-1350-06.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-17-1350-06.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-0112-54.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-0112-54.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-0631-21.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-0631-21.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-2120-12.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-2120-12.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-2120-13.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-2120-13.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-2349-27.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-18-2349-27.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-19-0926-19.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-19-0926-19.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-20-0849-07.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-20-0849-07.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-20-1727-38.DFDPC_057_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-20-1727-38.DFDPC_057_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-20-2037-09.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-20-2037-09.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-21-1411-22.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-21-1411-22.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-21-1511-34.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-21-1511-34.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-21-1511-34.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-21-1511-34.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-21-1758-24.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-21-1758-24.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-23-1938-52.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-23-1938-52.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-25-0814-45.DFDPC_030_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-25-0814-45.DFDPC_030_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-25-1125-45.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-25-1125-45.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-25-2006-40.DFDPC_018_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-25-2006-40.DFDPC_018_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-26-0600-41.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-26-0600-41.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-26-1516-23.DFDPC_021_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-26-1516-23.DFDPC_021_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-27-1351-14.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-27-1351-14.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-27-2225-39.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-27-2225-39.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-29-1235-30.DFDPC_030_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-29-1235-30.DFDPC_030_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-29-1509-49.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013-09-29-1509-49.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-01-0410-35.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-01-0410-35.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-01-0410-36.DFDPC_027_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-01-0410-36.DFDPC_027_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-01-2040-11.DFDPC_039_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-01-2040-11.DFDPC_039_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-02-0715-02.DFDPC_018_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-02-0715-02.DFDPC_018_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-02-1957-20.DFDPC_024_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/WAV/TEST_/2013/09/2013-09-02-1957-20.DFDPC_024_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/bad_picks.sfile" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/bad_picks.sfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/day_vols/Y2012/R086.01/EORO.AF..SHZ.2012.086" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/day_vols/Y2012/R086.01/EORO.AF..SHZ.2012.086" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/day_vols/Y2012/R086.01/GOVA.AF..SHZ.2012.086" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/day_vols/Y2012/R086.01/GOVA.AF..SHZ.2012.086" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/day_vols/Y2012/R086.01/WHYM.AF..SHZ.2012.086" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/day_vols/Y2012/R086.01/WHYM.AF..SHZ.2012.086" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/expected_tutorial_detections.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/expected_tutorial_detections.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/known_alignment.csv" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/known_alignment.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/known_positive_alignment.csv" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/known_positive_alignment.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/phase.dat" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/phase.dat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/random_spiked.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/random_spiked.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/round_len_undef.sfile" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/round_len_undef.sfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/select.out" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/select.out" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/sfile_wout_phase_hint" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/sfile_wout_phase_hint" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-17-0253-56.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-17-0253-56.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-17-0855-36.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-17-0855-36.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-17-1026-10.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-17-1026-10.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-18-0326-15.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-18-0326-15.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-18-0638-08.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-18-0638-08.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-18-1605-58.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-18-1605-58.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-18-2053-11.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-18-2053-11.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-20-0909-49.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-20-0909-49.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-23-2318-12.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-23-2318-12.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-26-1759-43.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-26-1759-43.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-28-1923-59.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-02-28-1923-59.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-03-01-0948-56.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-03-01-0948-56.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-03-04-0610-40.DFDPC_036_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-03-04-0610-40.DFDPC_036_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-03-25-0900-37.DFDPC_033_00" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/similar_events_processed/2013-03-25-0900-37.DFDPC_033_00" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/station.dat" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/station.dat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/master_detector.h5" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/master_detector.h5" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/master_detector_multi.h5" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/master_detector_multi.h5" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/master_detector_multi_unaligned.h5" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/master_detector_multi_unaligned.h5" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/master_detector_unaligned.h5" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/master_detector_unaligned.h5" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/stat_test_detector.h5" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/stat_test_detector.h5" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/test_trace.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/subspace/test_trace.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/synthetic_data/seeds.npz" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/synthetic_data/seeds.npz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/synthetic_data/synth_data.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/synthetic_data/synth_data.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/synthetic_data/synth_template_0.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/synthetic_data/synth_template_0.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/synthetic_data/synth_template_1.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/synthetic_data/synth_template_1.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/temp1.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/temp1.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/temp2.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/temp2.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_ccc.npy" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_ccc.npy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_ccc_matlab.npy" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_ccc_matlab.npy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_image.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_image.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_party.tgz" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_party.tgz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_peaks.npy" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_peaks.npy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_template.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/test_template.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tunnel.phase" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tunnel.phase" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tutorial_template_0.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tutorial_template_0.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tutorial_template_1.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tutorial_template_1.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tutorial_template_2.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tutorial_template_2.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tutorial_template_3.ms" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/test_data/tutorial_template_3.ms" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/trigger_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/trigger_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/tutorials_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tests/tutorials_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/lag_calc.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/lag_calc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/match_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/match_filter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/subspace.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/subspace.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/template_creation.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/tutorials/template_creation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/archive_read.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/archive_read.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/catalog_to_dd.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/catalog_to_dd.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/catalog_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/catalog_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/clustering.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/clustering.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/correlate.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/correlate.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/despike.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/despike.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/findpeaks.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/findpeaks.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/lib/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/lib/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/libnames.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/libnames.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/mag_calc.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/mag_calc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/picker.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/picker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/plotting.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/pre_processing.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/pre_processing.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/sac_util.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/sac_util.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/distance_cluster.c" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/distance_cluster.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/find_peaks.c" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/find_peaks.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/libutils.def" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/libutils.def" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/libutils.h" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/libutils.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/multi_corr.c" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/multi_corr.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/time_corr.c" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/src/time_corr.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/stacking.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/stacking.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/synth_seis.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/synth_seis.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/timer.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/timer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/trigger.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/eqcorrscan/utils/trigger.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/fftw3.h" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/fftw3.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/install-miniconda.ps1" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/install-miniconda.ps1" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/run_with_env.cmd" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/run_with_env.cmd" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/setup_fftw_dlls.cmd" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/setup_fftw_dlls.cmd" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/trim_path.bat" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/appveyor/trim_path.bat" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/install_opencv.sh" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/install_opencv.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/pre_release_test.sh" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/pre_release_test.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/py2_test_env.lis" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/py2_test_env.lis" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/py35_test_env.lis" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/py35_test_env.lis" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/misc/travis_conda_test.sh" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/misc/travis_conda_test.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/pytest.ini" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/pytest.ini" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/setup.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/setup.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EQcorrscan/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/../EQcorrscan/setup.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/.idea/obspyck.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/obspyck.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/CHANGELOG.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/CHANGELOG.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/LICENSE.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/LICENSE.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/MANIFEST.in" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/MANIFEST.in" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/Makefile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/TODO" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/TODO" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/hoppch_surf.obspyckrc17" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/hoppch_surf.obspyckrc17" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/event_helper.py" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/event_helper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/example.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/example.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/obspyck.gif" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/obspyck.gif" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/obspyck_16x16.gif" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/obspyck_16x16.gif" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/obspyck_24x24.gif" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/obspyck_24x24.gif" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/obspyck_32x32.gif" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/obspyck_32x32.gif" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/obspyck_48x48.gif" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/obspyck_48x48.gif" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/qt_designer.py" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/qt_designer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/rotate_to_zne.py" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/rotate_to_zne.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/obspyck/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/obspyck/util.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/plugin_dir/focmec/focmec.P.stdin" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/plugin_dir/focmec/focmec.P.stdin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/plugin_dir/focmec/focmec.P_SH.stdin" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/plugin_dir/focmec/focmec.P_SH.stdin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/plugin_dir/nlloc/locate_CASSM_3D.nlloc" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/plugin_dir/nlloc/locate_CASSM_3D.nlloc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/plugin_dir/nlloc/locate_GENERIC.nlloc" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/plugin_dir/nlloc/locate_GENERIC.nlloc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/plugin_dir/nlloc/locate_GENERIC_scaled.nlloc" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/plugin_dir/nlloc/locate_GENERIC_scaled.nlloc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/qt_designer.ui" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/qt_designer.ui" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/setup.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180523160016018998" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180523160016018998" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180523160536134399" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180523160536134399" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180524223615317504" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180524223615317504" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180524224314857509" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180524224314857509" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180524224356514984" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180524224356514984" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180525205754698728" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180525205754698728" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180525205927035603" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180525205927035603" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180525210926628828" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180525210926628828" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180525212559594195" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180525212559594195" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180525231125427521" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180525231125427521" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625175426417586" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625175426417586" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625192634976801" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625192634976801" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625200453270642" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625200453270642" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625200734634145" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625200734634145" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625200845385223" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625200845385223" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625200849324167" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625200849324167" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625200853593867" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625200853593867" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625200854091254" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625200854091254" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625200854255160" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625200854255160" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625200856340171" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625200856340171" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202225254886" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202225254886" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202225426964" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202225426964" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202225936841" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202225936841" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202231478500" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202231478500" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202235600826" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202235600826" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202235667480" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202235667480" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202235771556" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202235771556" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202235830054" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202235830054" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202235896693" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202235896693" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202235961104" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202235961104" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202236024600" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202236024600" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202238599168" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202238599168" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202238679018" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202238679018" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202238914779" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202238914779" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202239349760" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202239349760" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202240070122" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202240070122" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202240355012" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202240355012" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202240750880" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202240750880" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202335592015" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202335592015" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202335660886" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202335660886" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202539429054" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202539429054" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202719903890" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202719903890" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202731929537" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202731929537" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202828748510" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202828748510" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625202930500544" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625202930500544" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625203803612389" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625203803612389" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625204313852507" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625204313852507" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20180625204328567706" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20180625204328567706" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165752591647" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165752591647" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165753503535" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165753503535" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165754031570" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165754031570" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220165758801800" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" beforeDir="false" afterPath="$PROJECT_DIR$/../obspyck/tmp/20181220183302029065" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/plotting.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -528,9 +35,6 @@
   </component>
   <component name="CreatePatchCommitExecutor">
     <option name="PATCH_PATH" value="" />
-  </component>
-  <component name="FavoritesManager">
-    <favorites_list name="scripts" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -554,15 +58,16 @@
   </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
-    <option name="showExcludedFiles" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../DUG-Seis-master" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="settings.editor.selected.configurable" value="preferences.sourceCode" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -678,6 +183,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_keywords" value="&quot;&quot;" />
+      <option name="_new_parameters" value="&quot;&quot;" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
       <option name="_new_target" value="&quot;.&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
@@ -694,18 +200,7 @@
       </list>
     </recent_temporary>
   </component>
-  <component name="ServiceViewManager">
-    <option name="viewStates">
-      <list>
-        <serviceView>
-          <treeState>
-            <expand />
-            <select />
-          </treeState>
-        </serviceView>
-      </list>
-    </option>
-  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="SvnConfiguration">
     <configuration />
   </component>
@@ -758,18 +253,17 @@
         </entry>
         <entry key="MAIN">
           <value>
-            <State>
-              <option name="COLUMN_ORDER" />
-            </State>
+            <State />
           </value>
         </entry>
       </map>
     </option>
-    <option name="OPEN_TABS">
-      <set>
-        <option value="1" />
-      </set>
+    <option name="OPEN_GENERIC_TABS">
+      <map>
+        <entry key="1" value="TOOL_WINDOW" />
+      </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="Vcs.Log.UiProperties">
     <option name="RECENTLY_FILTERED_USER_GROUPS">
@@ -780,34 +274,18 @@
     </option>
   </component>
   <component name="WindowStateProjectService">
-    <state x="3220" y="804" width="604" height="390" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1580425257740">
-      <screen x="2560" y="400" width="1920" height="1200" />
+    <state x="771" y="311" width="424" height="484" key="FileChooserDialogImpl" timestamp="1596122620279">
+      <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="3220" y="804" width="604" height="390" key="#com.intellij.fileTypes.FileTypeChooser/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1580425257740" />
-    <state x="352" y="373" width="1720" height="1002" key="DiffContextDialog" timestamp="1580754634187">
-      <screen x="67" y="27" width="2493" height="1573" />
+    <state x="771" y="311" width="424" height="484" key="FileChooserDialogImpl/67.27.1853.1053@67.27.1853.1053" timestamp="1596122620279" />
+    <state x="482" y="187" key="SettingsEditor" timestamp="1596122561524">
+      <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="352" y="373" width="1720" height="1002" key="DiffContextDialog/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1580754634187" />
-    <state x="2994" y="840" width="424" height="484" key="FileChooserDialogImpl" timestamp="1583283951679">
-      <screen x="2560" y="400" width="1920" height="1200" />
+    <state x="482" y="187" key="SettingsEditor/67.27.1853.1053@67.27.1853.1053" timestamp="1596122561524" />
+    <state x="683" y="161" width="620" height="783" key="find.popup" timestamp="1596122291045">
+      <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="2994" y="840" width="424" height="484" key="FileChooserDialogImpl/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1583283951679" />
-    <state x="3009" y="634" key="SettingsEditor" timestamp="1583283961338">
-      <screen x="2560" y="400" width="1920" height="1200" />
-    </state>
-    <state x="3009" y="634" key="SettingsEditor/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1583283961338" />
-    <state width="498" height="446" key="SwitcherDM" timestamp="1583282638085">
-      <screen x="2560" y="400" width="1920" height="1200" />
-    </state>
-    <state width="498" height="446" key="SwitcherDM/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1583282638085" />
-    <state x="3437" y="736" width="155" height="526" key="VcsDiffUtil.ChangesDialog" timestamp="1580754666998">
-      <screen x="2560" y="400" width="1920" height="1200" />
-    </state>
-    <state x="3437" y="736" width="155" height="526" key="VcsDiffUtil.ChangesDialog/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1580754666998" />
-    <state x="2724" y="688" width="707" height="804" key="find.popup" timestamp="1580768595881">
-      <screen x="2560" y="400" width="1920" height="1200" />
-    </state>
-    <state x="2724" y="688" width="707" height="804" key="find.popup/67.27.2493.1573/2560.400.1920.1200@2560.400.1920.1200" timestamp="1580768595881" />
+    <state x="683" y="161" width="620" height="783" key="find.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1596122291045" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

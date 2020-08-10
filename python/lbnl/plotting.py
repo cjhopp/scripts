@@ -3,9 +3,10 @@
 """
 Plotting functions for the lbnl module
 """
-
-import dxfgrabber
-
+try:
+    import dxfgrabber
+except ImportError:
+    print('Dont plot SURF dxf, dxfgrabber not installed')
 import numpy as np
 import colorlover as cl
 import seaborn as sns
@@ -49,6 +50,8 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
 
     # Try to go back to subplots?
     fig = go.Figure()
+    # Establish cycle of accelerometer traces
+    acc_cols = cycle(sns.color_palette().as_hex())
     # Fibers traces
     fig.add_trace(go.Scatter(x=DSS_dict['times'],
                              y=DSS_dict['DSS_median'] - DSS_dict['DSS_std'],
@@ -112,11 +115,13 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
                                        width=1.),
                              yaxis='y6'))
     # Now accelerometer behind the hydraulics
-    fig.add_trace(go.Scatter(x=accel_dict['times'],
-                             y=accel_dict['data'],
-                             name='Acceleration: OT16.XNX', mode='lines',
-                             line=dict(color='indigo', width=1.),
-                             yaxis='y7'))
+    for stachan, sc_dict in accel_dict.items():
+        fig.add_trace(go.Scatter(x=sc_dict['times'],
+                                 y=sc_dict['data'],
+                                 name='Acceleration: {}'.format(stachan),
+                                 mode='lines',
+                                 line=dict(color=next(acc_cols), width=2.),
+                                 yaxis='y7'))
     # SIMFIP
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Yates'],
                              name='E1-P Yates',
@@ -142,30 +147,30 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
                    spikedash='dot', domain=[0., 0.95], type='date',
                    anchor='y5'),
         yaxis=dict(title="$\mu\epsilon$", titlefont=dict(color="black"),
-                   tickfont=dict(color="black"), domain=[0.66, 1.0],
+                   tickfont=dict(color="black"), domain=[0.75, 1.0],
                    anchor='x', zeroline=False),
         yaxis2=dict(title=r"$\Delta{T}\;\text{[}^{\circ}\text{C]}$", titlefont=dict(color='#ee854a'),
                     tickfont=dict(color='#ee854a'), overlaying="y",
                     side="right", showgrid=False, anchor='x'),
         yaxis3=dict(title="Flow [L/min]", titlefont=dict(color="steelblue"),
                     tickfont=dict(color="steelblue"), side="left",
-                    rangemode='nonnegative', domain=[0.33, 0.66],
+                    rangemode='nonnegative', domain=[0.50, 0.75],
                     anchor='x'),
         yaxis4=dict(title="Pressure [MPa]", titlefont=dict(color="red"),
                     tickfont=dict(color="red"), overlaying="y3", side="right",
                     rangemode='nonnegative', anchor='x'),
         yaxis5=dict(title="Displacement [m]", titlefont=dict(color="black"),
-                    tickfont=dict(color="black"), domain=[0., 0.33],
+                    tickfont=dict(color="black"), domain=[0., 0.25],
                     anchor='x'),
         yaxis6=dict(title="Distance from 164-notch [m]",
                     titlefont=dict(color="black"),
-                    tickfont=dict(color="black"), domain=[0., 0.33],
+                    tickfont=dict(color="black"), domain=[0., 0.25],
                     anchor='x', side='right', overlaying='y5'),
-        yaxis7=dict(title="Acceleration [m/s^2]",
+        yaxis7=dict(title="Displacement [m]",
                     titlefont=dict(color="indigo"),
                     tickfont=dict(color="indigo"),
-                    anchor='x', side='right', overlaying='y3',
-                    position=0.9)
+                    anchor='x', side='right',
+                    domain=[0.25, 0.50])
     )
     fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
     fig.update_layout(template="ggplot2", legend=dict(traceorder='reversed'))
