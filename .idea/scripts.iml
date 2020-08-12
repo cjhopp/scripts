@@ -24,6 +24,8 @@
     <orderEntry type="module" module-name="obspyck" />
     <orderEntry type="module" module-name="PhasePApy" />
     <orderEntry type="module" module-name="DUG-Seis-master" />
+    <orderEntry type="module" module-name="SURF_SEIS" />
+    <orderEntry type="module" module-name="DUG-seis-lbl" />
   </component>
   <component name="TestRunnerService">
     <option name="PROJECT_TEST_RUNNER" value="Nosetests" />

@@ -23,9 +23,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/scripts.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/scripts.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/plotting.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -65,7 +66,7 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../DUG-seis-lbl" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
     <property name="settings.editor.selected.configurable" value="preferences.sourceCode" />
   </component>
@@ -274,18 +275,18 @@
     </option>
   </component>
   <component name="WindowStateProjectService">
-    <state x="771" y="311" width="424" height="484" key="FileChooserDialogImpl" timestamp="1596122620279">
+    <state x="771" y="311" width="424" height="484" key="FileChooserDialogImpl" timestamp="1597243882925">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="771" y="311" width="424" height="484" key="FileChooserDialogImpl/67.27.1853.1053@67.27.1853.1053" timestamp="1596122620279" />
+    <state x="771" y="311" width="424" height="484" key="FileChooserDialogImpl/67.27.1853.1053@67.27.1853.1053" timestamp="1597243882925" />
     <state x="482" y="187" key="SettingsEditor" timestamp="1596122561524">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
     <state x="482" y="187" key="SettingsEditor/67.27.1853.1053@67.27.1853.1053" timestamp="1596122561524" />
-    <state x="683" y="161" width="620" height="783" key="find.popup" timestamp="1596122291045">
+    <state x="683" y="161" width="620" height="783" key="find.popup" timestamp="1597170690504">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="683" y="161" width="620" height="783" key="find.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1596122291045" />
+    <state x="683" y="161" width="620" height="783" key="find.popup/67.27.1853.1053@67.27.1853.1053" timestamp="1597170690504" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

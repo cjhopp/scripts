@@ -7,6 +7,7 @@ import os
 import copy
 import scipy
 import itertools
+import yaml
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -464,14 +465,17 @@ def stack_CASSM_shots(st, length):
     return shots
 
 
-def SNR(signal, noise):
+def SNR(signal, noise, log=True):
     """
     Simple SNR calculation (in decibels)
     SNR = 20log10(RMS(sig) / RMS(noise))
     """
     sig_pow = np.sqrt(np.mean(signal ** 2))
     noise_pow = np.sqrt(np.mean(noise ** 2))
-    return 20 * np.log10(sig_pow / noise_pow)
+    if log:
+        return 20 * np.log10(sig_pow / noise_pow)
+    else:
+        return sig_pow / noise_pow
 
 
 def rotate_catalog_streams(catalog, wav_dir, inv, ncores=8, **kwargs):
@@ -1170,6 +1174,41 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
             ])
         group_cats.append(group_cat)
     return group_cats
+
+
+def vibbox_to_LP(files, outdir, param_file):
+    """
+    Convert a list of vibbox files to downsampled, lowpassed mseed
+    :param files: List of files to convert
+    :return:
+    """
+    # Load in the parameters
+    with open(param_file, 'r') as f:
+        param = yaml.load(f, Loader=yaml.FullLoader)
+    for afile in files:
+        name = os.path.join(
+            outdir, afile.split('/')[-2],
+            afile.split('/')[-1].replace('.dat', '_lowpass_1Hz.mseed'))
+        if not os.path.isdir(os.path.dirname(name)):
+            os.mkdir(os.path.dirname(name))
+        print('Writing {} to {}'.format(afile, name))
+        # Read raw
+        st = vibbox_read(afile, param)
+        # Downsample, demean, merge, then filter
+        st.resample(100.)
+        st.detrend(method='demean')
+        st.merge(fill_value=0.)
+        st.filter(method='lowpass', freq=1., corners=2)
+        st.resample(3.)
+        # Assume flat resp below 1 Hz, sens 1V/g
+        for tr in st:
+            # Convert to m/s**2
+            tr.data /= 9.8
+        # Double integral to DISP in m..?
+        st.integrate()
+        st.integrate()
+        st.write(name, format='MSEED')
+    return
 
 
 def make_accelerometer_LP_dict(streams):

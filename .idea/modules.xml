@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/../DUG-Seis-master/.idea/DUG-Seis-master.iml" filepath="$PROJECT_DIR$/../DUG-Seis-master/.idea/DUG-Seis-master.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../DUG-seis-lbl/.idea/DUG-seis-lbl.iml" filepath="$PROJECT_DIR$/../DUG-seis-lbl/.idea/DUG-seis-lbl.iml" />
       <module fileurl="file://$PROJECT_DIR$/../EQcorrscan/.idea/EQcorrscan.iml" filepath="$PROJECT_DIR$/../EQcorrscan/.idea/EQcorrscan.iml" />
       <module fileurl="file://$PROJECT_DIR$/../PhasePApy/.idea/PhasePApy.iml" filepath="$PROJECT_DIR$/../PhasePApy/.idea/PhasePApy.iml" />
       <module fileurl="file://$PROJECT_DIR$/../SURF_SEIS/.idea/SURF_SEIS.iml" filepath="$PROJECT_DIR$/../SURF_SEIS/.idea/SURF_SEIS.iml" />
