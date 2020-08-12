@@ -1198,7 +1198,7 @@ def vibbox_to_LP(files, outdir, param_file):
         st.resample(100.)
         st.detrend('demean')
         st.merge(fill_value=0.)
-        st.filter(method='lowpass', freq=1., corners=2)
+        st.filter(type='lowpass', freq=1., corners=2)
         st.resample(3.)
         # Assume flat resp below 1 Hz, sens 1V/g
         for tr in st:
