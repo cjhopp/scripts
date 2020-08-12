@@ -1196,7 +1196,7 @@ def vibbox_to_LP(files, outdir, param_file):
         st = vibbox_read(afile, param)
         # Downsample, demean, merge, then filter
         st.resample(100.)
-        st.detrend(method='demean')
+        st.detrend('demean')
         st.merge(fill_value=0.)
         st.filter(method='lowpass', freq=1., corners=2)
         st.resample(3.)
@@ -1242,7 +1242,8 @@ def make_accelerometer_LP_dict(streams):
 
 ########################## PLOTTING ######################################
 
-def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.'):
+def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
+                       log=False):
     """
     Plot signal comparison between SA-ULNs and Geophone (B3 and G2)
 
@@ -1293,10 +1294,10 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.'):
         pgc_noise = st_pgc.slice(endtime=pk_P.time - 0.25).copy()
         pgc_signal = st_pgc.slice(starttime=pk_P.time,
                                   endtime=pk_P.time + signal_len).copy()
-        g2_snr = SNR(g2_signal[0].data, g2_noise[0].data)
-        g1_snr = SNR(g1_signal[0].data, g1_noise[0].data)
-        b3_snr = SNR(b3_signal[0].data, b3_noise[0].data)
-        pgc_snr = SNR(pgc_signal[0].data, pgc_noise[0].data)
+        g2_snr = SNR(g2_signal[0].data, g2_noise[0].data, log=log)
+        g1_snr = SNR(g1_signal[0].data, g1_noise[0].data, log=log)
+        b3_snr = SNR(b3_signal[0].data, b3_noise[0].data, log=log)
+        pgc_snr = SNR(pgc_signal[0].data, pgc_noise[0].data, log=log)
         snrs[eid] = {'G1': g1_snr, 'G2': g2_snr, 'B3': b3_snr,
                      'PGC': pgc_snr, 'event': ev}
         g2_plot = st_g2.slice(starttime=pk_P.time - 5,
