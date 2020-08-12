@@ -1188,14 +1188,18 @@ def vibbox_to_LP(files, outdir, param_file):
     for afile in files:
         name = os.path.join(
             outdir, afile.split('/')[-2],
-            afile.split('/')[-1].replace('.dat', '_lowpass_1Hz.mseed'))
+            afile.split('/')[-1].replace('.dat', '_lowpass_1Hz_DISP.mseed'))
         if not os.path.isdir(os.path.dirname(name)):
             os.mkdir(os.path.dirname(name))
         print('Writing {} to {}'.format(afile, name))
         # Read raw
         st = vibbox_read(afile, param)
         # Downsample, demean, merge, then filter
-        st.resample(100.)
+        try:
+            st.resample(100.)
+        except AttributeError as e:
+            print(e)
+            continue
         st.detrend('demean')
         st.merge(fill_value=0.)
         st.filter(type='lowpass', freq=1., corners=2)
