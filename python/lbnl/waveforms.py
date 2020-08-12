@@ -1311,7 +1311,9 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
         b3_snr = SNR(b3_signal[0].data, b3_noise[0].data, log=log)
         pgc_snr = SNR(pgc_signal[0].data, pgc_noise[0].data, log=log)
         snrs[eid] = {'G1': g1_snr, 'G2': g2_snr, 'B3': b3_snr,
-                     'PGC': pgc_snr, 'event': ev, 'G1_amp':}
+                     'PGC': pgc_snr, 'event': ev, 'G1_amp': g1_amp,
+                     'G2_amp': g2_amp, 'B3_amp': b3_amp,
+                     'PGC_amp': pgc_amp}
         g2_plot = st_g2.slice(starttime=pk_P.time - 5,
                               endtime=pk_P.time + 10).copy()
         b3_plot = st_b3.slice(starttime=pk_P.time - 5,
