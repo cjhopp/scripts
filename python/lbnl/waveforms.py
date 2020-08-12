@@ -29,6 +29,7 @@ from eqcorrscan.core.template_gen import template_gen
 from eqcorrscan.utils.pre_processing import shortproc, _check_daylong, dayproc
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
+from eqcorrscan.utils.mag_calc import dist_calc
 from scipy.stats import special_ortho_group, median_absolute_deviation
 from scipy.signal import find_peaks
 from scipy.spatial.transform import Rotation
@@ -1188,29 +1189,31 @@ def vibbox_to_LP(files, outdir, param_file):
     for afile in files:
         name = os.path.join(
             outdir, afile.split('/')[-2],
-            afile.split('/')[-1].replace('.dat', '_lowpass_1Hz_DISP.mseed'))
+            afile.split('/')[-1].replace('.dat', '_accels_10Hz.mseed'))
         if not os.path.isdir(os.path.dirname(name)):
             os.mkdir(os.path.dirname(name))
         print('Writing {} to {}'.format(afile, name))
         # Read raw
         st = vibbox_read(afile, param)
+        # Select only accelerometers
+        st = Stream(traces=[tr for tr in st if tr.stats.station in three_comps])
         # Downsample, demean, merge, then filter
         try:
-            st.resample(100.)
+            st.resample(10.)
         except AttributeError as e:
             print(e)
             continue
-        st.detrend('demean')
-        st.merge(fill_value=0.)
-        st.filter(type='lowpass', freq=1., corners=2)
-        st.resample(3.)
-        # Assume flat resp below 1 Hz, sens 1V/g
-        for tr in st:
-            # Convert to m/s**2
-            tr.data /= 9.8
-        # Double integral to DISP in m..?
-        st.integrate()
-        st.integrate()
+        # st.detrend('demean')
+        # st.merge(fill_value=0.)
+        # st.filter(type='lowpass', freq=1., corners=2)
+        # st.resample(3.)
+        # # Assume flat resp below 1 Hz, sens 1V/g
+        # for tr in st:
+        #     # Convert to m/s**2
+        #     tr.data /= 9.8
+        # # Double integral to DISP in m..?
+        # st.integrate()
+        # st.integrate()
         st.write(name, format='MSEED')
     return
 
@@ -1298,12 +1301,17 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
         pgc_noise = st_pgc.slice(endtime=pk_P.time - 0.25).copy()
         pgc_signal = st_pgc.slice(starttime=pk_P.time,
                                   endtime=pk_P.time + signal_len).copy()
+        # Maximum amplitudes (displacement)
+        g2_amp = np.max(np.abs(g2_signal[0].copy().integrate().data))
+        g1_amp= np.max(np.abs(g1_signal[0].copy().integrate().data))
+        b3_amp= np.max(np.abs(b3_signal[0].copy().integrate().data))
+        pgc_amp= np.max(np.abs(pgc_signal[0].copy().integrate().data))
         g2_snr = SNR(g2_signal[0].data, g2_noise[0].data, log=log)
         g1_snr = SNR(g1_signal[0].data, g1_noise[0].data, log=log)
         b3_snr = SNR(b3_signal[0].data, b3_noise[0].data, log=log)
         pgc_snr = SNR(pgc_signal[0].data, pgc_noise[0].data, log=log)
         snrs[eid] = {'G1': g1_snr, 'G2': g2_snr, 'B3': b3_snr,
-                     'PGC': pgc_snr, 'event': ev}
+                     'PGC': pgc_snr, 'event': ev, 'G1_amp':}
         g2_plot = st_g2.slice(starttime=pk_P.time - 5,
                               endtime=pk_P.time + 10).copy()
         b3_plot = st_b3.slice(starttime=pk_P.time - 5,
@@ -1349,6 +1357,41 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
         plt.savefig(dpi=300, fname='{}/{}.png'.format(outdir, eid))
         plt.close()
     return snrs
+
+
+def plot_snr_w_dist(snrs, title=None, mag_correct=True):
+    """
+    Plot the snr with distance from output of above func
+
+    :param snrs:
+    :return:
+    """
+    loc_b3 = (48.65, -123.45, 0.3)
+    dists = [dist_calc(loc_b3, (d['event'].origins[-1].latitude,
+                                d['event'].origins[-1].longitude,
+                                d['event'].origins[-1].depth / 1000.))
+             for eid, d in snrs.items()]
+    mags_correction = np.array([10**d['event'].magnitudes[-1].mag
+                                for eid, d in snrs.items()])
+    b3_snrs = np.array([d['B3'] for eid, d in snrs.items()])
+    g2_snrs = np.array([d['G2'] for eid, d in snrs.items()])
+    if mag_correct:
+        b3_snrs /= mags_correction
+        g2_snrs /= mags_correction
+    fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(6, 8))
+    axes[0].scatter(dists, b3_snrs, alpha=0.5, label='SA-ULN: B3', color='r',
+                    s=5)
+    axes[1].scatter(dists, g2_snrs, alpha=0.5, label='Geophone: G2',
+                    color='steelblue', s=5)
+    axes[0].legend()
+    axes[1].legend()
+    axes[1].set_xlim([0, 250])
+    axes[1].set_xlabel('Event-Station distance [km]', fontsize=14)
+    axes[0].set_ylabel('SNR [dB]', fontsize=14)
+    axes[1].set_ylabel('SNR [dB]', fontsize=14)
+    axes[0].set_title(title, fontsize=18)
+    plt.show()
+    return
 
 
 def plot_pick_corrections(catalog, stream_dir, plotdir):
