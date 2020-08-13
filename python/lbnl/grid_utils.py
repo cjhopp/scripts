@@ -91,7 +91,7 @@ def write_simul2000(dataset, outfile):
                 row_vals = (vp.isel(depth=i, Northing=j) /
                             vs.isel(depth=i, Northing=j)).values[::-1]
                 row_vals = row_vals.reshape(1, row_vals.shape[0])
-                row_vals[row_vals == np.inf] = 0.0
+                row_vals[row_vals == np.inf] = 0.01
                 np.savetxt(f, row_vals, fmt='%4.2f')
     return
 
