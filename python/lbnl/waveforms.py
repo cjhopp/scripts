@@ -1196,13 +1196,14 @@ def vibbox_to_LP(files, outdir, param_file):
         # Read raw
         st = vibbox_read(afile, param)
         # Select only accelerometers
-        st = Stream(traces=[tr for tr in st if tr.stats.station in three_comps])
-        # Downsample, demean, merge, then filter
         try:
-            st.resample(10.)
-        except AttributeError as e:
+            st = Stream(traces=[tr for tr in st
+                                if tr.stats.station in three_comps])
+        except TypeError as e:
             print(e)
             continue
+        # Downsample, demean, merge, then filter
+        st.resample(10.)
         # st.detrend('demean')
         # st.merge(fill_value=0.)
         # st.filter(type='lowpass', freq=1., corners=2)
@@ -1279,6 +1280,8 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
         # Remove response
         st = st.select(station='[NP]*C')
         st.remove_response(inventory=inv, output='VEL')
+        st.detrend()
+        st.filter(type='bandpass', freqmin=0.1, freqmax=24, corners=3)
         try:
             pk_P = [pk for pk in ev.picks if pk.waveform_id.location_code
                     in ['B3', 'G2', 'G1'] and pk.phase_hint == 'P'][0]
@@ -1361,7 +1364,7 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
     return snrs
 
 
-def plot_snr_w_dist(snrs, title=None, mag_correct=True):
+def plot_signal_w_dist(snrs, measure='snr', title=None, mag_correct=True):
     """
     Plot the snr with distance from output of above func
 
@@ -1375,22 +1378,33 @@ def plot_snr_w_dist(snrs, title=None, mag_correct=True):
              for eid, d in snrs.items()]
     mags_correction = np.array([10**d['event'].magnitudes[-1].mag
                                 for eid, d in snrs.items()])
-    b3_snrs = np.array([d['B3'] for eid, d in snrs.items()])
-    g2_snrs = np.array([d['G2'] for eid, d in snrs.items()])
+    if measure == 'snr':
+        ylab = 'SNR [dB]'
+        b3 = np.array([d['B3'] for eid, d in snrs.items()])
+        g2 = np.array([d['G2'] for eid, d in snrs.items()])
+    elif measure == 'amp':
+        ylab = 'Max amplitude [m/s]'
+        b3 = np.array([d['B3_amp'] for eid, d in snrs.items()])
+        g2 = np.array([d['G2_amp'] for eid, d in snrs.items()])
+    else:
+        print('Only supported measures: amp, snr')
+        return
     if mag_correct:
-        b3_snrs /= mags_correction
-        g2_snrs /= mags_correction
-    fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(6, 8))
-    axes[0].scatter(dists, b3_snrs, alpha=0.5, label='SA-ULN: B3', color='r',
+        ylab = ylab.replace('[', '/ $10^{Ml}$ [')
+        b3 /= mags_correction
+        g2 /= mags_correction
+    fig, axes = plt.subplots(nrows=2, sharex='col', sharey='col',
+                             figsize=(6, 8))
+    axes[0].scatter(dists, b3, alpha=0.5, label='SA-ULN: B3', color='r',
                     s=5)
-    axes[1].scatter(dists, g2_snrs, alpha=0.5, label='Geophone: G2',
+    axes[1].scatter(dists, g2, alpha=0.5, label='Geophone: G2',
                     color='steelblue', s=5)
     axes[0].legend()
     axes[1].legend()
     axes[1].set_xlim([0, 250])
     axes[1].set_xlabel('Event-Station distance [km]', fontsize=14)
-    axes[0].set_ylabel('SNR [dB]', fontsize=14)
-    axes[1].set_ylabel('SNR [dB]', fontsize=14)
+    axes[0].set_ylabel(ylab, fontsize=14)
+    axes[1].set_ylabel(ylab, fontsize=14)
     axes[0].set_title(title, fontsize=18)
     plt.show()
     return
