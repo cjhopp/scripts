@@ -84,7 +84,7 @@ def write_simul2000(dataset, outfile):
             for j, y in enumerate(vp.coords['Northing']):
                 row_vals = vp.isel(depth=i, Northing=j).values[::-1] / 1000.
                 row_vals = row_vals.reshape(1, row_vals.shape[0])
-                np.savetxt(f, row_vals, fmt='%5.2f')
+                np.savetxt(f, row_vals, fmt='%4.2f')
         # Finally Vp/Vs ratio
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
@@ -92,7 +92,7 @@ def write_simul2000(dataset, outfile):
                             vs.isel(depth=i, Northing=j)).values[::-1]
                 row_vals = row_vals.reshape(1, row_vals.shape[0])
                 row_vals[row_vals == np.inf] = 0.0
-                np.savetxt(f, row_vals, fmt='%5.2f')
+                np.savetxt(f, row_vals, fmt='%4.2f')
     return
 
 
