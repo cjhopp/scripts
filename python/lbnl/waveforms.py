@@ -1190,6 +1190,9 @@ def vibbox_to_LP(files, outdir, param_file):
         name = os.path.join(
             outdir, afile.split('/')[-2],
             afile.split('/')[-1].replace('.dat', '_accels_10Hz.mseed'))
+        if os.path.exists(name):
+            print('File already written')
+            continue
         if not os.path.isdir(os.path.dirname(name)):
             os.mkdir(os.path.dirname(name))
         print('Writing {} to {}'.format(afile, name))
