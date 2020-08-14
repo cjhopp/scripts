@@ -74,11 +74,11 @@ def write_simul2000(dataset, outfile):
             vp.coords['Northing'].size,
             vp.coords['depth'].size))
         np.savetxt(f, utm_grid[0][0, :].reshape(
-            1, utm_grid[0].shape[1]) / 1000., fmt='%5.0f.')
+            1, utm_grid[0].shape[1]) / 1000., fmt='%4.0f.')
         np.savetxt(f, utm_grid[1][:, 0].reshape(
-            1, utm_grid[0].shape[0]) / 1000., fmt='%5.0f.')
+            1, utm_grid[0].shape[0]) / 1000., fmt='%4.0f.')
         np.savetxt(f, (new_dc_p / 1000.).reshape(
-            1, new_dc_p.shape[0]), fmt='%5.0f.')
+            1, new_dc_p.shape[0]), fmt='%4.0f.')
         f.write('  0  0  0\n\n')  # Whatever these are...
         for i, z in enumerate(vp.coords['depth']):
             for j, y in enumerate(vp.coords['Northing']):
