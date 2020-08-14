@@ -9,6 +9,8 @@ import pyproj
 import numpy as np
 import xarray as xr
 
+from pyproj import Proj
+
 
 def read_array(path):
     arr = xr.open_dataset(path)
@@ -39,24 +41,33 @@ def write_simul2000(dataset, outfile):
     vp = xr.concat([vp, vp.isel(Easting=-1)], dim='Easting')
     vs = xr.concat([vs, vs.isel(Easting=-1)], dim='Easting')
     # Edit coordinates for the periphery planes
+    orig = (np.median(vp.coords['Easting'].values),
+            np.median(vp.coords['Northing'].values),
+            np.median(vp.coords['depth'].values))
     new_dc_p = vp.coords['depth'].values
-    new_dc_p[0] = -2000
-    new_dc_p[-1] = 600000
+    new_dc_p -= np.median(new_dc_p)
+    new_dc_p[0] = -20
+    new_dc_p[-1] = 999
     new_east_p = vp.coords['Easting'].values
-    new_east_p[0] = -100800
-    new_east_p[-1] = 900800
+    new_dc_p -= np.median(new_east_p)
+    new_east_p[0] = -999
+    new_east_p[-1] = 999
     new_north_p = vp.coords['Northing'].values
-    new_north_p[0] = 4800300
-    new_north_p[-1] = 5800300
+    new_dc_p -= np.median(new_north_p)
+    new_north_p[0] = -999
+    new_north_p[-1] = 999
     new_dc_s = vs.coords['depth'].values
-    new_dc_s[0] = -2000
-    new_dc_s[-1] = 600000
+    new_dc_p -= np.median(new_dc_s)
+    new_dc_s[0] = -20
+    new_dc_s[-1] = 999
     new_east_s = vs.coords['Easting'].values
-    new_east_s[0] = -100800
-    new_east_s[-1] = 900800
+    new_dc_p -= np.median(new_east_s)
+    new_east_s[0] = -999
+    new_east_s[-1] = 999
     new_north_s = vs.coords['Northing'].values
-    new_north_s[0] = 4800300
-    new_north_s[-1] = 5800300
+    new_dc_p -= np.median(new_north_s)
+    new_north_s[0] = -999
+    new_north_s[-1] = 999
     vp.assign_coords(Easting=new_east_p, Northing=new_north_p, depth=new_dc_p)
     vs.assign_coords(Easting=new_east_s, Northing=new_north_s, depth=new_dc_s)
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
@@ -98,7 +109,9 @@ def write_simul2000(dataset, outfile):
                 row_vals[row_vals == np.inf] = 1.78
                 np.savetxt(f, row_vals, fmt='%5.3f',
                            delimiter=' ')
-    return
+    # Return grid origin
+    p = Proj(init="EPSG:32610")
+    return p(orig[0], orig[1], inverse=True), orig[-1]
 
 
 def write_NLLoc_grid(dataset, outdir):
