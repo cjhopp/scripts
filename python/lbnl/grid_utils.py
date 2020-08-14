@@ -17,7 +17,7 @@ def read_array(path):
     return arr
 
 
-def write_simul2000(dataset, outfile):
+def write_simul2000(dataset, outfile, resample_factor=2):
     """
     Write a simul2000-formatted file from cascadia xarray for hypoDD 2.1b
 
@@ -25,9 +25,10 @@ def write_simul2000(dataset, outfile):
     :param outfile: Path to model file
     :return:
     """
+    rf = resample_factor
     # Hardcoded
-    vp = dataset['Vp'][1300:, 500:, :].copy()
-    vs = dataset['Vs'][1300:, 500:, :].copy()
+    vp = dataset['Vp'][1300::rf, 500::rf, 0::rf].copy()
+    vs = dataset['Vs'][1300::rf, 500::rf, 0::rf].copy()
     # Add far-field planes to models (6 faces, 2 models)
     vp = xr.concat([vp.isel(depth=0), vp], dim='depth')
     vs = xr.concat([vs.isel(depth=0), vs], dim='depth')
