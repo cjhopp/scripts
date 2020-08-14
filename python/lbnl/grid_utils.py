@@ -66,6 +66,7 @@ def write_simul2000(dataset, outfile):
     new_north_s -= np.median(new_north_s).astype(np.int64)
     new_north_s[0] = -999
     new_north_s[-1] = 999
+    print(new_north_s)
     vp.assign_coords(Easting=new_east_p, Northing=new_north_p, depth=new_dc_p)
     vs.assign_coords(Easting=new_east_s, Northing=new_north_s, depth=new_dc_s)
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
