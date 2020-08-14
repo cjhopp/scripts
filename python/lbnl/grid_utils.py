@@ -45,7 +45,7 @@ def write_simul2000(dataset, outfile):
             np.median(vp.coords['Northing'].values),
             np.median(vp.coords['depth'].values))
     new_dc_p = vp.coords['depth'].values
-    new_dc_p[0] = -20
+    new_dc_p[0] = -20000
     new_dc_p[-1] = 999000
     new_east_p = vp.coords['Easting'].values
     new_east_p -= np.median(new_east_p).astype(np.int64)
@@ -56,7 +56,7 @@ def write_simul2000(dataset, outfile):
     new_north_p[0] = -999000
     new_north_p[-1] = 999000
     new_dc_s = vs.coords['depth'].values
-    new_dc_s[0] = -20
+    new_dc_s[0] = -20000
     new_dc_s[-1] = 999000
     new_east_s = vs.coords['Easting'].values
     new_east_s -= np.median(new_east_s).astype(np.int64)
