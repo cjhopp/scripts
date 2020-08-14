@@ -82,7 +82,7 @@ def write_simul2000(dataset, outfile, resample_factor=2):
     # Now write the file
     # Loop over Y inside Z with X (cartesian) varying along file row
     with open(outfile, 'w') as f:
-        f.write('{:4.1f}{:3d}{:3d}{:3d}\n'.format(
+        f.write('{:4.1f} {:3d} {:3d} {:3d}\n'.format(
             1.0, vp.coords['Easting'].size,
             vp.coords['Northing'].size,
             vp.coords['depth'].size))
