@@ -67,15 +67,17 @@ def write_simul2000(dataset, outfile):
     new_north_s[0] = -999000
     new_north_s[-1] = 999000
     print(new_north_s)
-    vp.assign_coords(Easting=new_east_p, Northing=new_north_p, depth=new_dc_p)
-    vs.assign_coords(Easting=new_east_s, Northing=new_north_s, depth=new_dc_s)
+    vp.assign_coords(Easting=new_east_p[::-1],
+                     Northing=new_north_p[::-1],
+                     depth=new_dc_p[::-1])
+    vs.assign_coords(Easting=new_east_s[::-1],
+                     Northing=new_north_s[::-1],
+                     depth=new_dc_s[::-1])
     # With above indexing, SW vertex is: (-126.3779, 46.1593, -2.5)
     # SE vertex (considered origin in simul) is: (-121.1441, 46.1593, -2.5)
     # Make origin 0, 0, 0 at SE corner (and West is positive!!)
-    utm_grid = np.meshgrid((vp.coords['Easting'].values[-1] -
-                            vp.coords['Easting'].values)[::-1],
-                           (vp.coords['Northing'].values -
-                            vp.coords['Northing'].values[0]))
+    utm_grid = np.meshgrid(vp.coords['Easting'].values,
+                           vp.coords['Northing'].values)
     # Now write the file
     # Loop over Y inside Z with X (cartesian) varying along file row
     with open(outfile, 'w') as f:
