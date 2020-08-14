@@ -26,8 +26,9 @@ def write_simul2000(dataset, outfile):
     :return:
     """
     # Hardcoded
-    vp = dataset['Vp'][1300::80, 500::80, 0::10].copy()
-    vs = dataset['Vs'][1300::80, 500::80, 0::10].copy()
+    vp = dataset['Vp'][1300:, 500:, :].copy()
+    vs = dataset['Vs'][1300:, 500:, :].copy()
+    # Add far-field planes to models (6 faces, 2 models)
     vp = xr.concat([vp.isel(depth=0), vp], dim='depth')
     vs = xr.concat([vs.isel(depth=0), vs], dim='depth')
     vp = xr.concat([vp.isel(Northing=0), vp], dim='Northing')
@@ -66,7 +67,6 @@ def write_simul2000(dataset, outfile):
     new_north_s -= np.median(new_north_s).astype(np.int64)
     new_north_s[0] = -999000
     new_north_s[-1] = 999000
-    print(new_north_s)
     vp.assign_coords(Easting=new_east_p[::-1],
                      Northing=new_north_p[::-1],
                      depth=new_dc_p[::-1])
