@@ -45,27 +45,25 @@ def write_simul2000(dataset, outfile):
             np.median(vp.coords['Northing'].values),
             np.median(vp.coords['depth'].values))
     new_dc_p = vp.coords['depth'].values
-    new_dc_p -= np.median(new_dc_p).astype(np.int64)
     new_dc_p[0] = -20
     new_dc_p[-1] = 999
     new_east_p = vp.coords['Easting'].values
-    new_dc_p -= np.median(new_east_p).astype(np.int64)
+    new_east_p -= np.median(new_east_p).astype(np.int64)
     new_east_p[0] = -999
     new_east_p[-1] = 999
     new_north_p = vp.coords['Northing'].values
-    new_dc_p -= np.median(new_north_p).astype(np.int64)
+    new_north_p -= np.median(new_north_p).astype(np.int64)
     new_north_p[0] = -999
     new_north_p[-1] = 999
     new_dc_s = vs.coords['depth'].values
-    new_dc_p -= np.median(new_dc_s).astype(np.int64)
     new_dc_s[0] = -20
     new_dc_s[-1] = 999
     new_east_s = vs.coords['Easting'].values
-    new_dc_p -= np.median(new_east_s).astype(np.int64)
+    new_east_s -= np.median(new_east_s).astype(np.int64)
     new_east_s[0] = -999
     new_east_s[-1] = 999
     new_north_s = vs.coords['Northing'].values
-    new_dc_p -= np.median(new_north_s).astype(np.int64)
+    new_north_s -= np.median(new_north_s).astype(np.int64)
     new_north_s[0] = -999
     new_north_s[-1] = 999
     vp.assign_coords(Easting=new_east_p, Northing=new_north_p, depth=new_dc_p)
