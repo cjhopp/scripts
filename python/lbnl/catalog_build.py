@@ -23,12 +23,16 @@ from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
 from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc, _check_daylong, shortproc
-from phasepapy.phasepicker import aicdpicker, ktpicker
-from phasepapy.associator import tables3D
-from phasepapy.associator.assoc3D import LocalAssociator, PickModified
-from phasepapy.associator.tables3D import Associated
-from phasepapy.associator.tt_stations_3D import BaseTT3D, TTtable3D, SourceGrids
-from phasepapy.associator.tt_stations_3D import Station3D
+try:
+    from phasepapy.phasepicker import aicdpicker, ktpicker
+    from phasepapy.associator import tables3D
+    from phasepapy.associator.assoc3D import LocalAssociator, PickModified
+    from phasepapy.associator.tables3D import Associated
+    from phasepapy.associator.tt_stations_3D import BaseTT3D, TTtable3D
+    from phasepapy.associator.tt_stations_3D import SourceGrids
+    from phasepapy.associator.tt_stations_3D import Station3D
+except ImportError:
+    print('No PhasePApy on this machine/env')
 
 import obspy.taup as taup
 
