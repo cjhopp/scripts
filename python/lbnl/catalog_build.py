@@ -657,7 +657,7 @@ def write_station(inventory):
                 staloc = '{}.{}'.format(station.code, channel.location_code)
                 if staloc not in used_staloc and staloc in unique_staloc:
                     station_strings.append(
-                        "{:<7s} {:6.3f} {:6.3f} {:5d}".format(
+                        "{:<7s} {:6.3f} {:6.3f} {:5.0f}".format(
                             station.code, station.latitude, station.longitude,
                             station.elevation - channel.depth))
                     used_staloc.append(staloc)
