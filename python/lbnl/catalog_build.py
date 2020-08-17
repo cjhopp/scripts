@@ -652,14 +652,16 @@ def write_station(inventory):
         for station in network:
             for channel in station:
                 if channel.location_code in casc_dd_map:
-                    new_sta = '{}{}'.format(
+                    write_sta = '{}{}'.format(
                         station.code[:-1], casc_dd_map[channel.location_code])
+                else:
+                    write_sta = station.code
                 staloc = '{}.{}'.format(station.code,
                                         channel.location_code)
                 if staloc not in used_staloc and staloc in unique_staloc:
                     station_strings.append(
                         "{:<7s} {:6.3f} {:6.3f} {:5.0f}".format(
-                            new_sta or station.code, station.latitude,
+                            write_sta, station.latitude,
                             station.longitude,
                             station.elevation - channel.depth))
                     used_staloc.append(staloc)
