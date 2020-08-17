@@ -652,8 +652,8 @@ def write_station(inventory):
         for station in network:
             for channel in station:
                 if channel.location_code in casc_dd_map:
-                    station = '{}{}'.format(station.code[:-1],
-                                          casc_dd_map[channel.location_code])
+                    station.code = '{}{}'.format(
+                        station.code[:-1], casc_dd_map[channel.location_code])
                 staloc = '{}.{}'.format(station.code, channel.location_code)
                 if staloc not in used_staloc and staloc in unique_staloc:
                     station_strings.append(
