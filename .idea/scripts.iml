@@ -26,6 +26,7 @@
     <orderEntry type="module" module-name="DUG-Seis-master" />
     <orderEntry type="module" module-name="SURF_SEIS" />
     <orderEntry type="module" module-name="DUG-seis-lbl" />
+    <orderEntry type="module" module-name="EQcorrscan" />
   </component>
   <component name="TestRunnerService">
     <option name="PROJECT_TEST_RUNNER" value="Nosetests" />

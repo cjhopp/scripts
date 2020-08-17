@@ -621,6 +621,63 @@ def picker(param_file):
                 name=os.path.basename(trig_f).split('_')[-1].split('.')[0])
     return cat
 
+### HypoDD helpers to deal with NSMTC ###
+
+casc_dd_map = {'G1': 'a', 'B1': 'b', 'B2': 'c', 'B3': 'd', 'G2': 'e'}
+
+
+def modify_catalog(catalog):
+    """Modify a catalog so that picks reflect new names for NSMTC"""
+    for ev in catalog:
+        for pk in ev.picks:
+            wid = pk.waveform_id
+            if wid.location_code in casc_dd_map:
+                pk.waveform_id.station_code = 'NSMT{}'.format(
+                    casc_dd_map[wid.location_code])
+    return catalog
+
+
+def write_station(inventory):
+    """Modified from EQcorrscan.utils.catalog_to_dd"""
+    station_strings = []
+    unique_staloc = list(set(['{}.{}'.format(sta.code, chan.location_code)
+                              for net in inventory for sta in net
+                              for chan in sta]))
+    used_staloc = []
+    for network in inventory:
+        for station in network:
+            for channel in station:
+                if channel.location_code in casc_dd_map:
+                    station = '{}{}'.format(station.code[:-1],
+                                          casc_dd_map[channel.location_code])
+                staloc = '{}.{}'.format(station.code, channel.location_code)
+                if staloc not in used_staloc and staloc in unique_staloc:
+                    station_strings.append(
+                        "{:<7s} {:6.3f} {:6.3f} {:5d}".format(
+                            station.code, station.latitude, station.longitude,
+                            station.elevation - channel.depth))
+                    used_staloc.append(staloc)
+    with open("station.dat", "w") as f:
+        f.write("\n".join(station_strings))
+
+
+def make_stream_dict(catalog, wav_dir):
+    stream_dict = {}
+    for ev in catalog:
+        eid = ev.resource_id.id.split('/')[-1]
+        if len(eid.split('=')) > 1:
+            # For FDSN pulled events from USGS
+            eid = ev.resource_id.id.split('=')[-2].split('&')[0]
+            st = read('{}/Event_{}.ms'.format(wav_dir, eid))
+            # Edit trace header for nsmtc
+            for tr in st:
+                if tr.stats.location in casc_dd_map:
+                    tr.stats.station = 'NSMT{}'.format(
+                        casc_dd_map[tr.stats.location])
+            stream_dict[ev.resource_id.id] = st
+    return stream_dict
+
+
 ## Plotting ##
 
 def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):
