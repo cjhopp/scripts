@@ -673,18 +673,30 @@ def make_stream_dict(catalog, wav_dir):
     stream_dict = {}
     for ev in catalog:
         eid = ev.resource_id.id.split('/')[-1]
+        # TODO This needs to allow the Canada events!!
         if len(eid.split('=')) > 1:
             # For FDSN pulled events from USGS
             eid = ev.resource_id.id.split('=')[-2].split('&')[0]
-            st = read('{}/Event_{}.ms'.format(wav_dir, eid))
-            # Edit trace header for nsmtc
-            for tr in st:
-                if tr.stats.location in casc_dd_map:
-                    tr.stats.station = 'NSMT{}'.format(
-                        casc_dd_map[tr.stats.location])
-            stream_dict[ev.resource_id.id] = st
+        st = read('{}/Event_{}.ms'.format(wav_dir, eid))
+        # Edit trace header for nsmtc
+        for tr in st:
+            if tr.stats.location in casc_dd_map:
+                tr.stats.station = 'NSMT{}'.format(
+                    casc_dd_map[tr.stats.location])
+        stream_dict[ev.resource_id.id] = st
     return stream_dict
 
+
+def read_dd_to_cat(ev_id_map, cat, dd_outfile):
+    """
+    Read dd output back into obspy Catalog as new origin
+
+    :param ev_id_map:
+    :param cat:
+    :param dd_outfile:
+    :return:
+    """
+    return
 
 ## Plotting ##
 
