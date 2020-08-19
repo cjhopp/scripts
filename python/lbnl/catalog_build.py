@@ -711,14 +711,15 @@ def read_dd_to_cat(ev_id_map, cat, dd_outfile):
                             second=int(fields[15].split('.')[0]),
                             microsecond=int(fields[15].split('.')[1]) * 1000)
             o.time = t
-            try:
-                dd_loc_dict[int(fields[0])] = o
-            except KeyError as e:
-                print(e)
+            dd_loc_dict[int(fields[0])] = o
     # Now loop the catalog and add the events
     for ev in cat:
         eid = ev.resource_id.id
-        ev.origins.append(dd_loc_dict[ev_id_map[eid]])
+        try:
+            ev.origins.append(dd_loc_dict[ev_id_map[eid]])
+        except KeyError as e:
+            print(e)
+            continue
     return cat
 
 ## Plotting ##
