@@ -20,7 +20,7 @@ from matplotlib.gridspec import GridSpec
 from joblib import Parallel, delayed
 from obspy import UTCDateTime, read, Stream, Catalog, read_inventory, read_events
 from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
-from obspy.core.event import Origin
+from obspy.core.event import Origin, ResourceIdentifier
 from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc, _check_daylong, shortproc
@@ -697,6 +697,7 @@ def read_dd_to_cat(ev_id_map, cat, dd_outfile):
     :param dd_outfile:
     :return:
     """
+    cat_new = cat.copy()
     dd_loc_dict = {}
     with open(dd_outfile, 'r') as f:
         for ln in f:
@@ -711,16 +712,22 @@ def read_dd_to_cat(ev_id_map, cat, dd_outfile):
                             second=int(fields[15].split('.')[0]),
                             microsecond=int(fields[15].split('.')[1]) * 1000)
             o.time = t
+            o.method_id = ResourceIdentifier(
+                id="smi:de.erdbeben-in-bayern/location_method/hypoDD/2.1b")
+            o.earth_model_id = ResourceIdentifier(
+                id="smi:de.erdbeben-in-bayern/earth_model/Cascadia_slow_len")
             dd_loc_dict[int(fields[0])] = o
     # Now loop the catalog and add the events
     for ev in cat:
         eid = ev.resource_id.id
         try:
-            ev.origins.append(dd_loc_dict[ev_id_map[eid]])
+            dd_o = dd_loc_dict[ev_id_map[eid]]
+            ev.origins.append(dd_o)
+            ev.preferred_origin_id = dd_o.resource_id.id
         except KeyError as e:
             print(e)
             continue
-    return cat
+    return cat_new
 
 ## Plotting ##
 
