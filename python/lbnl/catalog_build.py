@@ -20,6 +20,7 @@ from matplotlib.gridspec import GridSpec
 from joblib import Parallel, delayed
 from obspy import UTCDateTime, read, Stream, Catalog, read_inventory, read_events
 from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
+from obspy.core.event import Origin
 from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc, _check_daylong, shortproc
@@ -696,7 +697,26 @@ def read_dd_to_cat(ev_id_map, cat, dd_outfile):
     :param dd_outfile:
     :return:
     """
-    return
+    dd_loc_dict = {}
+    with open(dd_outfile, 'r') as f:
+        for ln in f:
+            fields = ln.split()
+            o = Origin()
+            o.latitude = float(fields[1])
+            o.longitude = float(fields[2])
+            o.depth = float(fields[3]) / 1000.
+            t = UTCDateTime(year=int(fields[10]), month=int(fields[11]),
+                            day=int(fields[12]), hour=int(fields[13]),
+                            minute=int(fields[14]),
+                            second=int(fields[15].split('.')[0]),
+                            microsecond=int(fields[15].split('.')[1]) * 1000)
+            o.time = t
+            dd_loc_dict[int(fields[0])] = o
+    # Now loop the catalog and add the events
+    for ev in cat:
+        eid = ev.resource_id.id
+        ev.origins.append(dd_loc_dict[ev_id_map[eid]])
+    return cat
 
 ## Plotting ##
 

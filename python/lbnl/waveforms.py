@@ -1229,8 +1229,6 @@ def make_accelerometer_LP_dict(streams):
     :param streams: List of Stream objects in chronological order
     """
     accel_dict = {}
-    times = []
-    data = np.array([])
     dt = streams[0][0].stats.delta
     for st in streams:
         for tr in st:
@@ -1250,6 +1248,43 @@ def make_accelerometer_LP_dict(streams):
                 accel_dict[stachan]['data'] = np.append(
                     accel_dict[stachan]['data'], tmp_data)
     return accel_dict
+
+
+def geores_read(fname):
+    """Martins GEORES read func"""
+    stations = ('OT01', 'OT02', 'OT03', 'OT04', 'OT05', 'OT06', 'OT07', 'OT08', 'OT09', 'OT10', 'OT11', 'OT12',
+                'PDB01', 'PDB02', 'PDB03', 'PDB04', 'PDB05', 'PDB06', 'PDB07', 'PDB08', 'PDB09', 'PDB10', 'PDB11', 'PDB12',
+                'PSB8','PSB8','PSB8','PSB7', 'PSB7', 'PSB7', 'PDB6', 'PDB6', 'PDB6', 'PDT5', 'PDT5', 'PDT5',
+                'PDB4', 'PDB4', 'PDB4', 'PDB3', 'PDB3', 'PDB3', 'PDT2', 'PDT2', 'PDT2',  'PDT1', 'PDT1', 'PDT1',
+                'OT16', 'OT16', 'OT16', 'OB15', 'OB15', 'OB15', 'OB14', 'OB14', 'OB14', 'OB13', 'OB13', 'OB13',
+                'PST12', 'PST12', 'PST12', 'PST11', 'PST11', 'PST11', 'PST10', 'PST10', 'PST10', 'PSB9', 'PSB9', 'PSB9',
+                'PPS', 'CMon', 'CEnc','CTrig', 'NC1', 'NC2', 'W4', 'W4', 'W4', 'W3', 'W3', 'W3', 'W2', 'W2', 'W2', 'W1', 'W1', 'W1',
+                'OT18', 'OT18', 'OT18', 'OT17', 'OT17', 'OT17')
+    location = ('', '', '', '', '', '', '', '', '', '', '', '',
+                '', '', '', '', '', '', '', '', '', '', '', '',
+                '', '', '', '', '', '', '', '', '', '', '', '',
+                '', '', '', '', '', '', '', '', '', '', '', '',
+                '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+                '', '', '', '', '', '', '', '', '', '', '', '',
+                '', '', '', '', '', '', '', '', '', '', '', '',
+                '', '', '', '', '', '', '', '', '')
+    channel = ('XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1',
+               'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1', 'XN1',
+               'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ',
+               'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ',
+               'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ',
+               'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ',
+               '', '', '', '', '', '', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ',
+               'XNY', 'XNX', 'XNZ', 'XNY', 'XNX', 'XNZ')
+    channels=96
+    st = read(fname)
+    for ii in range(channels):
+        st[ii].stats.network = 'SV'
+        st[ii].stats.station = stations[ii]
+        st[ii].stats.location = location[ii]
+        st[ii].stats.channel = channel[ii]
+    return st
+
 
 ########################## PLOTTING ######################################
 
@@ -1413,11 +1448,18 @@ def plot_signal_w_dist(snrs, measure='snr', title=None, mag_correct=True):
     return
 
 
-def plot_pick_corrections(catalog, stream_dir, plotdir):
+def plot_pick_corrections(catalog, stream_dir, t_before, t_after,
+                          max_lag, ccc_thresh, plotdir):
     """
-    Hard coded wrapper on xcorr pick correction to be fixed on Monday 10-21
+    Hard coded wrapper on xcorr_pick_correction
+
+    Used for cascadia hypodd cc testing
+
     :param catalog: Catalog of events to generate plots for
     :param stream_dir: Path to directory of *raw.mseed files
+    :param t_before:
+    :param t_after:
+    :param max_lag:
     :param plotdir: Path to root directory for plots
 
     :return:
@@ -1425,36 +1467,47 @@ def plot_pick_corrections(catalog, stream_dir, plotdir):
     for ev1, ev2 in itertools.combinations(catalog, r=2):
         eid1 = ev1.resource_id.id.split('/')[-1]
         eid2 = ev2.resource_id.id.split('/')[-1]
+        # For FDSN pulled events from USGS
+        if len(eid1.split('=')) > 1:
+            eid1 = ev1.resource_id.id.split('=')[-2].split('&')[0]
+        if len(eid2.split('=')) > 1:
+            eid2 = ev2.resource_id.id.split('=')[-2].split('&')[0]
+        try:
+            st1 = read('{}/Event_{}.ms'.format(stream_dir, eid1))
+        except FileNotFoundError as e:
+            print(e)
+            continue
         for pk1 in ev1.picks:
-            sta = pk1.waveform_id.station_code
-            chan = pk1.waveform_id.channel_code
-            stachandir = '{}/{}.{}'.format(plotdir, sta, chan)
-            if not os.path.isdir(stachandir):
-                os.mkdir(stachandir)
+            seed_id = pk1.waveform_id.get_seed_string()
+            seeddir = '{}/{}'.format(plotdir, seed_id)
+            if not os.path.isdir(seeddir):
+                os.mkdir(seeddir)
             try:
-                st1 = read('{}/{}_raw.mseed'.format(stream_dir, eid1))
-                st2 = read('{}/{}_raw.mseed'.format(stream_dir, eid2))
+                st2 = read('{}/Event_{}.ms'.format(stream_dir, eid2))
             except FileNotFoundError as e:
                 print(e)
                 continue
-            tr1 = st1.select(station=sta, channel=chan)
-            tr2 = st2.select(station=sta, channel=chan)
+            tr1 = st1.select(id=seed_id)
+            tr2 = st2.select(id=seed_id)
             pk2 = [pk for pk in ev2.picks
-                   if pk.waveform_id.station_code == sta
-                   and pk.waveform_id.channel_code == chan]
+                   if pk.waveform_id.get_seed_string() == seed_id]
             if len(pk2) > 0 and len(tr2) > 0:
+                fname = '{}/{}/{}_{}_{}.pdf'.format(
+                    plotdir, seed_id, eid1, eid2, seed_id)
                 try:
-                    xcorr_pick_correction(
+                    ct, mccc = xcorr_pick_correction(
                         pk1.time, tr1[0], pk2[0].time, tr2[0],
-                        t_before=0.00003, t_after=0.00015,
-                        cc_maxlag=0.0001, plot=True,
+                        t_before=t_before, t_after=t_after,
+                        cc_maxlag=max_lag, plot=True,
                         filter='bandpass',
-                        filter_options={'corners': 5,
-                                        'freqmax': 42000.,
-                                        'freqmin': 2000.},
-                        filename='{}/{}.{}/{}_{}_{}.{}.pdf'.format(
-                            plotdir, sta, chan, eid1, eid2,
-                            sta, chan))
+                        filter_options={'corners': 3,
+                                        'freqmax': 15.,
+                                        'freqmin': 1.},
+                        filename='{}/{}/{}_{}_{}.pdf'.format(
+                            plotdir, seed_id, eid1, eid2, seed_id))
+                    if mccc < ccc_thresh:
+                        # Remove this plot
+                        os.remove(fname)
                 except Exception as e:
                     print(e)
                     continue
