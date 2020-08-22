@@ -718,7 +718,7 @@ def read_dd_to_cat(ev_id_map, cat, dd_outfile):
                 id="smi:de.erdbeben-in-bayern/earth_model/Cascadia_slow_len")
             dd_loc_dict[int(fields[0])] = o
     # Now loop the catalog and add the events
-    for ev in cat:
+    for ev in cat_new:
         eid = ev.resource_id.id
         try:
             dd_o = dd_loc_dict[ev_id_map[eid]]
