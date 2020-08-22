@@ -705,7 +705,7 @@ def read_dd_to_cat(ev_id_map, cat, dd_outfile):
             o = Origin()
             o.latitude = float(fields[1])
             o.longitude = float(fields[2])
-            o.depth = float(fields[3]) / 1000.
+            o.depth = float(fields[3]) * 1000.
             t = UTCDateTime(year=int(fields[10]), month=int(fields[11]),
                             day=int(fields[12]), hour=int(fields[13]),
                             minute=int(fields[14]),
@@ -816,7 +816,7 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
     return
 
 
-def plot_locations(catalog, slab_file=None, title=None, filename=None):
+def plot_locations(catalog, slab_file, title='EQ Locations', filename=None):
     """
     Cartopy-based plotting function for map view and simple cross sections
 
@@ -824,14 +824,14 @@ def plot_locations(catalog, slab_file=None, title=None, filename=None):
     :param slab_file:
     :return:
     """
-    fig = plt.figure(figsize=(8, 8.5))
-    gs = GridSpec(ncols=12, nrows=12, figure=fig)
+    fig = plt.figure(figsize=(8., 8.5))
+    gs = GridSpec(ncols=11, nrows=11, figure=fig)
     crs = ccrs.UTM(10)
     lats = np.array([e.origins[0].latitude for e in catalog])
     lons = np.array([e.origins[0].longitude for e in catalog])
     axes_map = fig.add_subplot(gs[:7, :7], projection=crs)
-    axes_cs_lat = fig.add_subplot(gs[:7, 7:], sharey=axes_map)
-    axes_cs_lon = fig.add_subplot(gs[7:-1, :7])#, sharex=axes_map)
+    axes_cs_lat = fig.add_subplot(gs[:7, 7:10], sharey=axes_map)
+    axes_cs_lon = fig.add_subplot(gs[7:10, :7], sharex=axes_map)
     axes_map.coastlines(resolution='50m', color='black', linewidth=0.5)
     axes_map.add_feature(cfeature.NaturalEarthFeature(
         'physical', 'ocean', '50m', edgecolor='face',
@@ -839,27 +839,34 @@ def plot_locations(catalog, slab_file=None, title=None, filename=None):
     pts = crs.transform_points(ccrs.Geodetic(), lons, lats)
     x = pts[:, 0]
     y = pts[:, 1]
-    axes_map.scatter(x, y, s=[e.magnitudes[0].mag**2 for e in catalog],
-                     marker='o', facecolors='none', edgecolors='k',
+    cols = {'2.1b': 'r', '7': 'k'}
+    try:
+        colors = [cols[ev.origins[-1].method_id.id.split('/')[-1]]
+                  for ev in catalog]
+    except AttributeError as e:
+        colors = 'k'
+    axes_map.scatter(x, y, s=[2 * e.magnitudes[0].mag**2 for e in catalog],
+                     marker='o', facecolors='none', edgecolors=colors,
                      linewidths=0.5)
     axes_cs_lat.scatter(
         [e.origins[0].depth / 1000. for e in catalog], y,
-        s=[e.magnitudes[0].mag**2 for e in catalog],
-        marker='o', facecolors='none', edgecolors='k',
+        s=[2 * e.magnitudes[0].mag**2 for e in catalog],
+        marker='o', facecolors='none', edgecolors=colors,
         linewidths=0.5)
     axes_cs_lon.scatter(
         x, [e.origins[0].depth / 1000. for e in catalog],
-        s=[e.magnitudes[0].mag**2 for e in catalog],
-        marker='o', facecolors='none', edgecolors='k',
+        s=[2 * e.magnitudes[0].mag**2 for e in catalog],
+        marker='o', facecolors='none', edgecolors=colors,
         linewidths=0.5)
     # Plot rough slab interface
     slab_grd = read_slab_model(slab_file)
     # Take single latitude for now
-    line_pts = slab_grd[np.where(slab_grd[:, 1] == 45.9282994)]
+    line_pts = slab_grd[np.where(slab_grd[:, 1] == 47.9274994)]
     pts_trans = crs.transform_points(ccrs.Geodetic(), line_pts[:, 0],
                                      line_pts[:, 1])
     axes_cs_lon.plot(pts_trans[:, 0], -line_pts[:, 2], linewidth=0.75,
-                     color='b')
+                     color='b', label='Modeled slab depth')
+    axes_cs_lon.legend()
     # Formatting
     axes_cs_lon.invert_yaxis()
     axes_cs_lat.yaxis.set_ticks_position('right')
@@ -870,11 +877,17 @@ def plot_locations(catalog, slab_file=None, title=None, filename=None):
     axes_cs_lon.set_ylabel('Depth [km]')
     axes_cs_lat.set_ylabel('Northing [m]')
     axes_cs_lon.set_xlabel('Easting [m]')
+    axes_cs_lat.set_xlim([0, 60])
+    axes_cs_lon.set_ylim([60, 0])
     axes_map.margins(0, 0)
     axes_cs_lon.margins(0, 0)
     axes_cs_lat.margins(0, 0)
+    axes_cs_lon.ticklabel_format(axis='both', style='scientific',
+                                 scilimits=(-5, 5))
+    axes_cs_lat.ticklabel_format(axis='both', style='scientific',
+                                 scilimits=(-5, 5))
     if title:
-        plt.suptitle(title)
+        plt.suptitle(title, fontsize=18)
     if filename:
         plt.savefig('{}.png'.format(filename))
         plt.savefig('{}.pdf'.format(filename))
