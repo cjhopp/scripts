@@ -8,6 +8,7 @@ import os
 import yaml
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -16,6 +17,7 @@ from glob import glob
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from matplotlib.gridspec import GridSpec
+from matplotlib.collections import LineCollection
 
 from joblib import Parallel, delayed
 from obspy import UTCDateTime, read, Stream, Catalog, read_inventory, read_events
@@ -39,6 +41,17 @@ import obspy.taup as taup
 
 sidney_stas = ['NSMTC', 'B009', 'B010', 'B011', 'PGC']
 olympic_bhs = ['B005', 'B006', 'B007']
+
+
+def read_tremor(path, lats=(46.5, 50.), lons=(-126.5, -121.5)):
+    """Read in a tremor catalog from PNSN"""
+    trems = pd.read_csv(path, parse_dates=[3])
+    trems.index = pd.to_datetime(trems['time'])
+    del trems['time']
+    trems.sort_index()
+    trems = trems.loc[((50 > trems['lat']) & (trems['lat'] > 46.5)
+                       & (trems['lon'] > -126.5) & (trems['lon'] < -121.5))]
+    return trems.index.values, trems['lat'].values, trems['lon'].values, trems['depth'].values
 
 
 def read_slab_model(slab_mod_path):
@@ -816,7 +829,38 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
     return
 
 
-def plot_locations(catalog, slab_file, title='EQ Locations', filename=None):
+def make_shift_lines(catalog):
+    """
+    Helper to make three line collections for eq location shift viz
+
+    :param catalog:
+    :return:
+    """
+    crs = ccrs.UTM(10)
+    lats_dd = np.array([ev.origins[-1].latitude for ev in catalog])
+    lats_nll = np.array([ev.origins[-2].latitude for ev in catalog])
+    lons_dd = np.array([ev.origins[-1].longitude for ev in catalog])
+    lons_nll = np.array([ev.origins[-2].longitude for ev in catalog])
+    pts_dd = crs.transform_points(ccrs.Geodetic(), lons_dd, lats_dd)
+    pts_nll = crs.transform_points(ccrs.Geodetic(), lons_nll, lats_nll)
+    lines_map = [[pt[:2], pts_dd[i][:2]] for i, pt in enumerate(pts_nll)]
+    lines_lat_xc = [[(catalog[i].origins[-1].depth / 1000, pt[1]),
+                     (catalog[i].origins[-2].depth / 1000, pts_dd[i][1])]
+                    for i, pt in enumerate(pts_nll)]
+    lines_lon_xc = [[(pt[0], catalog[i].origins[-1].depth / 1000),
+                     (pts_dd[i][0], catalog[i].origins[-2].depth / 1000)]
+                    for i, pt in enumerate(pts_nll)]
+    lc_map = LineCollection(lines_map, color='purple', linewidths=0.5,
+                            alpha=0.3)
+    lc_lat = LineCollection(lines_lat_xc, color='purple', linewidths=0.5,
+                            alpha=0.7)
+    lc_lon = LineCollection(lines_lon_xc, color='purple', linewidths=0.5,
+                            alpha=0.7)
+    return lc_map, lc_lat, lc_lon
+
+
+def plot_locations(catalog, slab_file, title='EQ Locations', filename=None,
+                   preferred_origins=True, show_shift=False, plot_tremor=True):
     """
     Cartopy-based plotting function for map view and simple cross sections
 
@@ -824,11 +868,34 @@ def plot_locations(catalog, slab_file, title='EQ Locations', filename=None):
     :param slab_file:
     :return:
     """
+    cols = {'2.1b': 'b', '7': 'k'}
     fig = plt.figure(figsize=(8., 8.5))
     gs = GridSpec(ncols=11, nrows=11, figure=fig)
     crs = ccrs.UTM(10)
-    lats = np.array([e.origins[0].latitude for e in catalog])
-    lons = np.array([e.origins[0].longitude for e in catalog])
+    if preferred_origins:
+        cat_pref = Catalog(events=[ev for ev in catalog
+                                   if ev.preferred_origin()])
+        lats = np.array([e.preferred_origin().latitude for e in cat_pref])
+        lons = np.array([e.preferred_origin().longitude for e in cat_pref])
+        mags = np.array([4 * e.magnitudes[0].mag**2 for e in cat_pref])
+        depths = np.array([e.preferred_origin().depth / 1000 for e in cat_pref])
+        try:
+            colors = [cols[ev.preferred_origin().method_id.id.split('/')[-1]]
+                      for ev in catalog]
+        except:
+            colors = 'k'
+        if show_shift:
+            lc_map, lc_lat, lc_lon = make_shift_lines(cat_pref)
+    else:
+        lats = np.array([e.origins[-1].latitude for e in catalog])
+        lons = np.array([e.origins[-1].longitude for e in catalog])
+        mags = np.array([4 * e.magnitudes[0].mag**2 for e in catalog])
+        depths = np.array([e.origins[-1].depth / 1000 for e in catalog])
+        try:
+            colors = [cols[ev.origins[-1].method_id.id.split('/')[-1]]
+                      for ev in catalog]
+        except:
+            colors = 'k'
     axes_map = fig.add_subplot(gs[:7, :7], projection=crs)
     axes_cs_lat = fig.add_subplot(gs[:7, 7:10], sharey=axes_map)
     axes_cs_lon = fig.add_subplot(gs[7:10, :7], sharex=axes_map)
@@ -836,28 +903,31 @@ def plot_locations(catalog, slab_file, title='EQ Locations', filename=None):
     axes_map.add_feature(cfeature.NaturalEarthFeature(
         'physical', 'ocean', '50m', edgecolor='face',
         facecolor=cfeature.COLORS['water']), alpha=0.7, zorder=0)
+    if plot_tremor:
+        t_times, t_lat, t_lon, t_dep = read_tremor(plot_tremor)
+        t_pts = crs.transform_points(ccrs.Geodetic(), t_lon, t_lat)
+        axes_map.scatter(t_pts[:, 0], t_pts[:, 1], marker='s', s=0.25,
+                         alpha=0.3, facecolors='none', edgecolors='r',
+                         linewidths=0.75)
+        axes_cs_lat.scatter(t_dep, t_pts[:, 1], marker='s', s=0.25,
+                            alpha=0.3, facecolors='none', edgecolors='r',
+                            linewidths=0.75)
+        axes_cs_lon.scatter(t_pts[:, 0], t_dep, marker='s', s=0.25,
+                            alpha=0.3, facecolors='none', edgecolors='r',
+                            linewidths=0.75)
+    if show_shift and preferred_origins:
+        axes_map.add_collection(lc_map)
+        axes_cs_lon.add_collection(lc_lon)
+        axes_cs_lat.add_collection(lc_lat)
     pts = crs.transform_points(ccrs.Geodetic(), lons, lats)
     x = pts[:, 0]
     y = pts[:, 1]
-    cols = {'2.1b': 'r', '7': 'k'}
-    try:
-        colors = [cols[ev.origins[-1].method_id.id.split('/')[-1]]
-                  for ev in catalog]
-    except AttributeError as e:
-        colors = 'k'
-    axes_map.scatter(x, y, s=[2 * e.magnitudes[0].mag**2 for e in catalog],
-                     marker='o', facecolors='none', edgecolors=colors,
-                     linewidths=0.5)
-    axes_cs_lat.scatter(
-        [e.origins[0].depth / 1000. for e in catalog], y,
-        s=[2 * e.magnitudes[0].mag**2 for e in catalog],
-        marker='o', facecolors='none', edgecolors=colors,
-        linewidths=0.5)
-    axes_cs_lon.scatter(
-        x, [e.origins[0].depth / 1000. for e in catalog],
-        s=[2 * e.magnitudes[0].mag**2 for e in catalog],
-        marker='o', facecolors='none', edgecolors=colors,
-        linewidths=0.5)
+    axes_map.scatter(x, y, s=mags, marker='o', facecolors='none',
+                     edgecolors=colors, linewidths=0.5)
+    axes_cs_lat.scatter(depths, y, s=mags, marker='o', facecolors='none',
+                        edgecolors=colors, linewidths=0.5)
+    axes_cs_lon.scatter(x, depths, s=mags, marker='o', facecolors='none',
+                        edgecolors=colors, linewidths=0.5)
     # Plot rough slab interface
     slab_grd = read_slab_model(slab_file)
     # Take single latitude for now
