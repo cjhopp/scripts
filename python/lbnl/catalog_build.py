@@ -886,7 +886,7 @@ def add_coastlines():
     # Clipping polygon
     box = Polygon([[-126.5, 46.5], [-126.5, 50.],
                    [-121.5, 50.], [-121.5, 46.5]])
-    coasts = cfeature.NaturalEarthFeature('physical', 'coastline', '50m')
+    coasts = cfeature.NaturalEarthFeature('physical', 'coastline', '10m')
     for geo in coasts.geometries():
         clipped = geo.intersection(box)
         if type(clipped) == MultiLineString:
@@ -901,7 +901,7 @@ def add_coastlines():
                 z = np.array([0. for x in easts])
                 coast = go.Scatter3d(
                     x=easts, y=norths, z=z,
-                    marker=dict(line=dict(color='black')),
+                    marker=dict(color='black', line=dict(color='black')),
                     name='Coastlines',
                     mode='lines',
                     opacity=1.,
@@ -915,11 +915,10 @@ def add_coastlines():
                                        coords[:, 1])
             easts = pts[:, 0]
             norths = pts[:, 1]
-            print(easts)
-            z = np.array([-10. for x in easts])
+            z = np.array([0. for x in easts])
             coast = go.Scatter3d(
                 x=easts, y=norths, z=z,
-                marker=dict(line=dict(color='black')),
+                marker=dict(color='black', line=dict(color='black')),
                 name='Coastlines',
                 mode='lines',
                 opacity=1.,
@@ -953,27 +952,23 @@ def plot_cascadia_3D(slab_file, catalog, outfile):
     lims_y = (np.min(cat['y']), np.max(cat['y']))
     # Add cartopy coastlines
     coasts = add_coastlines()
-    print(cat)
-    print(slab)
-    print(coasts)
     data = [cat, slab]
-    print(data)
     data.extend(coasts)
-    print(data)
     # Start figure
     fig = go.Figure(data=data)
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Easting (m)')#,
-                                # range=lims_x)
+                                zerolinewidth=2, title='Easting (m)',
+                                range=lims_x, showline=True, mirror=True,
+                                linecolor='black', linewidth=2.)
     yax = go.layout.scene.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Northing (m)')#,
-                                # range=lims_y)
+                                zerolinewidth=2, title='Northing (m)',
+                                range=lims_y, showline=True, mirror=True,
+                                linecolor='black', linewidth=2.)
     zax = go.layout.scene.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Elevation (m)')#,
-                                # range=(-60000., 2000.))
+                                zerolinewidth=2, title='Elevation (m)')
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
                                   xaxis_showspikes=False,
                                   yaxis_showspikes=False,
