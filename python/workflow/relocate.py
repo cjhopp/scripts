@@ -101,7 +101,10 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
                 try:
                     pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
                 except TypeError as e:
-                    pk.time_errors.uncertainty = pick_uncertainty
+                    try:
+                        pk.time_errors.uncertainty = pick_uncertainty[pk.phase_hint]
+                    except TypeError as e:
+                        pk.time_errors.uncertainty = pick_uncertainty
             # For cases of specific P or S phases, just convert to P or S
             if pk.phase_hint not in ['P', 'S']:
                 pk.phase_hint = pk.phase_hint[0]
