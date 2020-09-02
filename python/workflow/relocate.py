@@ -93,9 +93,9 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
                 ev.resource_id.id))
             continue
         for pk in ev.picks:
-            # Assign arrival time uncertainties
+            # Assign arrival time uncertainties if mapping provided
             if (not pk.time_errors.upper_uncertainty
-                and not pk.time_errors.uncertainty):
+                and not pk.time_errors.uncertainty) or pick_uncertainty:
                 sta = pk.waveform_id.station_code[:2]
                 chan = pk.waveform_id.channel_code[-1]
                 try:
