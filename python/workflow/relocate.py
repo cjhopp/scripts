@@ -100,10 +100,10 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
                 chan = pk.waveform_id.channel_code[-1]
                 try:
                     pk.time_errors.uncertainty = pick_uncertainty[sta][chan]
-                except TypeError as e:
+                except (TypeError, KeyError) as e:
                     try:
                         pk.time_errors.uncertainty = pick_uncertainty[pk.phase_hint[0]]
-                    except TypeError as e:
+                    except (TypeError, KeyError) as e:
                         pk.time_errors.uncertainty = pick_uncertainty
             # For cases of specific P or S phases, just convert to P or S
             if pk.phase_hint not in ['P', 'S']:
