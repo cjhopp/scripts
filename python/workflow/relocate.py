@@ -6,6 +6,7 @@ Script to handle pick refinement/removal and relocation of catalog earthquakes.
 
 import os
 import locale
+import warnings
 
 import numpy as np
 
@@ -374,35 +375,37 @@ def loadNLLocOutput(ev, infile, location):
         print(err)
         return
     line = line.split()
-    # read in the error ellipsoid representation of the location error.
-    # this is given as azimuth/dip/length of axis 1 and 2 and as length
-    # of axis 3.
-    azim1 = float(line[20])
-    dip1 = float(line[22])
-    len1 = float(line[24])
-    azim2 = float(line[26])
-    dip2 = float(line[28])
-    len2 = float(line[30])
-    len3 = float(line[32])
-
-    # XXX TODO save original nlloc error ellipse?!
-    errX, errY, errZ = errorEllipsoid2CartesianErrors(azim1, dip1, len1,
-                                                      azim2, dip2, len2,
-                                                      len3)
-
-    # XXX
-    # NLLOC uses error ellipsoid for 68% confidence interval relating to
-    # one standard deviation in the normal distribution.
-    # We multiply all errors by 2 to approximately get the 95% confidence
-    # level (two standard deviations)...
-    errX *= 2
-    errY *= 2
-    errZ *= 2
-    if location == 'SURF':
-        # CJH Now descale to correct dimensions
-        errX /= 100
-        errY /= 100
-        errZ /= 100
+    # # read in the error ellipsoid representation of the location error.
+    # # this is given as azimuth/dip/length of axis 1 and 2 and as length
+    # # of axis 3.
+    # azim1 = float(line[20])
+    # dip1 = float(line[22])
+    # len1 = float(line[24])
+    # azim2 = float(line[26])
+    # dip2 = float(line[28])
+    # len2 = float(line[30])
+    # len3 = float(line[32])
+    #
+    # # XXX TODO save original nlloc error ellipse?!
+    # # errX, errY, errZ = errorEllipsoid2CartesianErrors(azim1, dip1, len1,
+    # #                                                   azim2, dip2, len2,
+    # #                                                   len3)
+    # # NLLOC uses error ellipsoid for 68% confidence interval relating to
+    # # one standard deviation in the normal distribution.
+    # # We multiply all errors by 2 to approximately get the 95% confidence
+    # # level (two standard deviations)...
+    # errX *= 2
+    # errY *= 2
+    # errZ *= 2
+    # if location == 'SURF':
+    #     # CJH Now descale to correct dimensions
+    #     errX /= 100
+    #     errY /= 100
+    #     errZ /= 100
+    # Take covariance approach from obspy
+    covariance_xx = float(line[7])
+    covariance_yy = float(line[13])
+    covariance_zz = float(line[17])
     # determine which model was used:
     # XXX handling of path extremely hackish! to be improved!!
     dirname = os.path.dirname(infile)
@@ -457,18 +460,44 @@ def loadNLLocOutput(ev, infile, location):
     o.quality = OriginQuality()
     ou = o.origin_uncertainty
     oq = o.quality
-    if errY > errX:
-        ou.azimuth_max_horizontal_uncertainty = 0
-    else:
-        ou.azimuth_max_horizontal_uncertainty = 90
-    ou.min_horizontal_uncertainty, \
-            ou.max_horizontal_uncertainty = \
-            sorted([errX * 1e3, errY * 1e3])
-    ou.preferred_description = "uncertainty ellipse"
-    o.depth_errors.uncertainty = errZ * 1e3
+    # negative values can appear on diagonal of covariance matrix due to a
+    # precision problem in NLLoc implementation when location coordinates are
+    # large compared to the covariances.
+    try:
+        o.longitude_errors.uncertainty = kilometer2degrees(np.sqrt(covariance_xx))
+    except ValueError:
+        if covariance_xx < 0:
+            msg = ("Negative value in XX value of covariance matrix, not "
+                   "setting longitude error (epicentral uncertainties will "
+                   "still be set in origin uncertainty).")
+            warnings.warn(msg)
+        else:
+            raise
+    try:
+        o.latitude_errors.uncertainty = kilometer2degrees(np.sqrt(covariance_yy))
+    except ValueError:
+        if covariance_yy < 0:
+            msg = ("Negative value in YY value of covariance matrix, not "
+                   "setting longitude error (epicentral uncertainties will "
+                   "still be set in origin uncertainty).")
+            warnings.warn(msg)
+        else:
+            raise
+    o.depth_errors.uncertainty = np.sqrt(covariance_zz) * 1e3  # meters!
+    o.depth_errors.confidence_level = 68
+    o.depth_type = str("from location")
+    # if errY > errX:
+    #     ou.azimuth_max_horizontal_uncertainty = 0
+    # else:
+    #     ou.azimuth_max_horizontal_uncertainty = 90
+    # ou.min_horizontal_uncertainty, \
+    #         ou.max_horizontal_uncertainty = \
+    #         sorted([errX * 1e3, errY * 1e3])
+    # ou.preferred_description = "uncertainty ellipse"
+    # o.depth_errors.uncertainty = errZ * 1e3
     oq.standard_error = rms #XXX stimmt diese Zuordnung!!!?!
     oq.azimuthal_gap = gap
-    o.depth_type = "from location"
+    # o.depth_type = "from location"
     o.earth_model_id = "%s/earth_model/%s" % ("smi:de.erdbeben-in-bayern",
                                               model)
     o.time = time
