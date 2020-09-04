@@ -403,9 +403,9 @@ def loadNLLocOutput(ev, infile, location):
     #     errY /= 100
     #     errZ /= 100
     # Take covariance approach from obspy
-    covariance_xx = float(line[7])
-    covariance_yy = float(line[13])
-    covariance_zz = float(line[17])
+    covariance_xx = float(line[8])
+    covariance_yy = float(line[14])
+    covariance_zz = float(line[18])
     # determine which model was used:
     # XXX handling of path extremely hackish! to be improved!!
     dirname = os.path.dirname(infile)

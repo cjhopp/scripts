@@ -149,7 +149,8 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
         yaxis=dict(title="$\mu\epsilon$", titlefont=dict(color="black"),
                    tickfont=dict(color="black"), domain=[0.75, 1.0],
                    anchor='x', zeroline=False),
-        yaxis2=dict(title=r"$\Delta{T}\;\text{[}^{\circ}\text{C]}$", titlefont=dict(color='#ee854a'),
+        yaxis2=dict(title=r"$\Delta{T}\;\text{[}^{\circ}\text{C]}$",
+                    titlefont=dict(color='#ee854a'),
                     tickfont=dict(color='#ee854a'), overlaying="y",
                     side="right", showgrid=False, anchor='x'),
         yaxis3=dict(title="Flow [L/min]", titlefont=dict(color="steelblue"),
@@ -174,7 +175,7 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
     )
     fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
     fig.update_layout(template="ggplot2", legend=dict(traceorder='reversed'))
-    fig.show()
+    fig.show(renderer='firefox')
     return
 
 

@@ -24,7 +24,7 @@
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/workflow/relocate.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/relocate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/plotting.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
