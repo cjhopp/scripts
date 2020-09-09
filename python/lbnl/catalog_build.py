@@ -34,6 +34,7 @@ from obspy.core.event import Origin, ResourceIdentifier
 from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc, _check_daylong, shortproc
+from eqcorrscan.utils.mag_calc import dist_calc
 try:
     from phasepapy.phasepicker import aicdpicker, ktpicker
     from phasepapy.associator import tables3D
@@ -72,6 +73,12 @@ def read_slab_model(slab_mod_path):
             line = line.split(',')
             slab_grd.append((float(line[0]), float(line[1]), float(line[2])))
     return np.array(slab_grd)
+
+
+def distance_to_slab(event, slab_array):
+    o = (event.preferred_origin() or event.origins[-1])
+    ev_tup = (o.latitude, o.longitude, o.depth / 1000.)
+    return np.min([dist_calc(ev_tup, (s[1], s[0], -s[2])) for s in slab_array])
 
 
 def date_generator(start_date, end_date):
