@@ -30,6 +30,7 @@ from matplotlib.dates import num2date, date2num
 from matplotlib.colors import ListedColormap, Normalize
 from matplotlib.gridspec import GridSpec
 from matplotlib.cm import ScalarMappable
+from matplotlib.ticker import MultipleLocator
 from matplotlib.collections import LineCollection
 
 # Local imports
@@ -108,6 +109,14 @@ chan_map_co2_5612 = {'D5': 96.42,
 # Loop 3, 4
 chan_map_co2_34 = {'D3': 79.62,
                    'D4': 170.43}
+
+chan_map_august = {'D3': 108.,
+                   'D4': 199.,
+                   'D5': 391.88,
+                   'D6': 482.,
+                   'D2': 568.33,
+                   'D1': 649.16}
+
 # Anchor point mapping (depth in hole)
 D1_anchor_map = {'seg3': (12.97, 15.37),
                  'seg2': (15.37, 17.17),
@@ -150,6 +159,7 @@ mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                 'co2_injection': {'CSD3': chan_map_co2_34,
                                   'CSD5': chan_map_co2_5612,
                                   'FSB': chan_map_fsb},
+                'august_pulse': {'CSD1': chan_map_august},
                 'surf': chan_map_surf}
 
 well_fiber_map = {'D1': 'CSD5', 'D2': 'CSD5', 'D3': 'CSD3', 'D4': 'CSD3',
@@ -425,9 +435,14 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 print('{} not in mapping'.format(well))
                 continue
             if location == 'fsb':
-                depth = fiber_data[well_fiber_map[well]]['depth']
-                data = fiber_data[well_fiber_map[well]]['data']
-                times = fiber_data[well_fiber_map[well]]['times']
+                try:
+                    depth = fiber_data[well_fiber_map[well]]['depth']
+                    data = fiber_data[well_fiber_map[well]]['data']
+                    times = fiber_data[well_fiber_map[well]]['times']
+                except KeyError as e:
+                    depth = fiber_data['CSD1']['depth']
+                    data = fiber_data['CSD1']['data']
+                    times = fiber_data['CSD1']['times']
             elif location == 'surf':
                 depth = fiber_data['surf']['depth']
                 data = fiber_data['surf']['data']
@@ -867,6 +882,27 @@ def get_well_piercepoint(wells):
     return pierce_dict
 
 ################  Plotting  Funcs  ############################################
+
+def plot_fiber_mapping(well_data, fiber, mapping, title='Fiber mapping'):
+    fig, axes = plt.subplots(figsize=(18, 5))
+    cols = cycle(sns.color_palette())
+    # Just plot first time sample
+    axes.plot(well_data[fiber]['depth'], well_data[fiber]['data'][:, 0],
+              color='k', label='Data')
+    for well, depth in mapping.items():
+        c = next(cols)
+        axes.axvline(depth, label=well, color=c)
+        axes.axvline(depth - fiber_depths[well], color=c, linestyle='--')
+        axes.axvline(depth + fiber_depths[well], color=c, linestyle='--')
+    fig.suptitle(title, fontsize=16)
+    axes.legend()
+    axes.set_xlabel('Meters along fiber')
+    axes.set_ylabel('Absolute Freq [GHz]')
+    axes.xaxis.set_minor_locator(MultipleLocator(10))
+    plt.grid(True, which='minor')
+    plt.tight_layout()
+    return
+
 
 def plot_temp_removal(well_data, well, vmin=-50, vmax=50):
     # Plot images of temperature removal at different stages
