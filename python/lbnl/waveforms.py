@@ -300,7 +300,8 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
         format specified above
     :param param_dict: Dictionary containing all necessary parameters for
         template creation e.g. {'highcut': , 'lowcut': , 'corners': ,
-                                'sampling_rate': , 'prepick': , 'length': }
+                                'samp_rate': , 'prepick': , 'length': ,
+                                'filt_order': , }
     :param single_station: Flag to tell function to make a Template for each
         single station for each event.
     :param stations: 'all' or a list of station names to include in templates.
@@ -341,6 +342,11 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                 if type(stations) == list:
                     ev.picks = [pk for pk in ev.picks
                                 if pk.waveform_id.station_code in stations]
+                    if len(ev.picks) == 0:
+                        print('No waveforms for any picks in {}'.format(
+                            ev.resource_id.id
+                        ))
+                        continue
                 trb = Tribe().construct(method='from_meta_file', st=daylong,
                                         meta_file=Catalog(events=[ev]),
                                         **param_dict)
