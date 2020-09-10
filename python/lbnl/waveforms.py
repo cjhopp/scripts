@@ -321,16 +321,16 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
         sch_str_end = 'time <= {}'.format((dto + 86400))
         tmp_cat = catalog.filter(sch_str_start, sch_str_end)
         jday = dto.julday
-        net_sta_loc_chans = [(pk.waveform_id.network_code,
-                              pk.waveform_id.station_code,
-                              pk.waveform_id.location_code,
-                              pk.waveform_id.channel_code)
+        seeds = [pk.waveform_id.get_seed_string()
                              for ev in tmp_cat for pk in ev.picks]
-        wav_files = [glob('{}/**/{}.{}.{}.{}.{}.ms'.format(wav_dir, nslc[0],
-                                                           nslc[1], nslc[2],
-                                                           nslc[3], jday,),
-                          recursive=True)[0]
-                     for nslc in net_sta_loc_chans]
+        wav_files = []
+        for seed in seeds:
+            try:
+                wav_files.append(glob('{}/**/{}.{}.ms'.format(
+                    wav_dir, seed, jday), recursive=True)[0])
+            except IndexError:
+                print('{} not in wavform directory'.format(seed))
+                continue
         daylong = Stream()
         for wav_file in wav_files:
             daylong += read(wav_file)
