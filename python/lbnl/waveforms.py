@@ -335,6 +335,7 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
         daylong = Stream()
         for wav_file in wav_files:
             daylong += read(wav_file)
+        print(daylong)
         for ev in tmp_cat:
             name = ev.resource_id.id.split('&')[-2].split('=')[-1]
             if not single_station:
