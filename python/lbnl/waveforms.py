@@ -323,12 +323,12 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
         tmp_cat = catalog.filter(sch_str_start, sch_str_end)
         jday = dto.julday
         seeds = [pk.waveform_id.get_seed_string()
-                             for ev in tmp_cat for pk in ev.picks]
+                 for ev in tmp_cat for pk in ev.picks]
         wav_files = []
         for seed in seeds:
             try:
-                wav_files.append(glob('{}/**/{}.{}.ms'.format(
-                    wav_dir, seed, jday), recursive=True)[0])
+                wav_files.append(glob('{}/**/{}.{}.{}.ms'.format(
+                    wav_dir, seed, date.year, jday), recursive=True)[0])
             except IndexError:
                 print('{} not in wavform directory'.format(seed))
                 continue
