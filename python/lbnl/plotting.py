@@ -14,11 +14,14 @@ import pandas as pd
 import plotly
 import chart_studio.plotly as py
 import plotly.graph_objs as go
+import shapely.geometry as geometry
 
 from itertools import cycle
 from glob import glob
 from datetime import datetime
 from scipy.linalg import lstsq
+from shapely.ops import cascaded_union, polygonize
+from scipy.spatial import Delaunay
 from obspy import Trace
 from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
@@ -502,6 +505,20 @@ def add_DSS(DSS_picks, objects, well_dict):
     return objects
 
 
+def read_mesh(fsb_mesh_file):
+    """Helper to read verts and triangles from gocad formatted mesh files"""
+    mesh = pd.read_csv(fsb_mesh_file, header=None, delimiter=' ')
+    vertices = mesh[mesh.iloc[:, 0] == 'VRTX']
+    triangles = mesh[mesh.iloc[:, 0] == 'TRGL']
+    X = vertices.iloc[:, 1].values
+    Y = vertices.iloc[:, 2].values
+    Z = vertices.iloc[:, 3].values
+    I = triangles.iloc[:, 1].values - 1
+    J = triangles.iloc[:, 2].values - 1
+    K = triangles.iloc[:, 3].values - 1
+    return X, Y, Z, I, J, K
+
+
 def add_meshes(meshes, objects):
     fault_colors = cycle(sns.xkcd_palette(['tan', 'light brown']).as_hex())
     other_colors = cycle(sns.xkcd_palette(['pale purple']).as_hex())
@@ -514,15 +531,7 @@ def add_meshes(meshes, objects):
         if mesh_file.endswith(".dxf"):
             dxf_to_xyz(mesh_file, mesh_name, objects)
         else:
-            mesh = pd.read_csv(mesh_file, header=None, delimiter=' ')
-            vertices = mesh[mesh.iloc[:, 0] == 'VRTX']
-            triangles = mesh[mesh.iloc[:, 0] == 'TRGL']
-            X = vertices.iloc[:, 1].values
-            Y = vertices.iloc[:, 2].values
-            Z = vertices.iloc[:, 3].values
-            I = triangles.iloc[:, 1].values - 1
-            J = triangles.iloc[:, 2].values - 1
-            K = triangles.iloc[:, 3].values - 1
+            X, Y, Z, I, J, K = read_mesh(mesh_file)
             objects.append(go.Mesh3d(
                 x=X, y=Y, z=Z, i=I, j=J, k=K,
                 name=mesh_name,
@@ -878,3 +887,39 @@ def ellipsoid_to_pts(center, radii, evecs):
             [X[i, j], Y[i, j], Z[i, j]] = np.dot([X[i, j], Y[i, j], Z[i, j]],
                                                  evecs) + center
     return X.flatten(), Y.flatten(), Z.flatten()
+
+
+def alpha_shape(points, alpha):
+    """
+    Stolen: https://gist.github.com/dwyerk/10561690
+
+    Compute the alpha shape (concave hull) of a set
+    of points.
+    @param points: Iterable container of points.
+    @param alpha: alpha value to influence the
+        gooeyness of the border. Smaller numbers
+        don't fall inward as much as larger numbers.
+        Too large, and you lose everything!
+    """
+    if len(points) < 4:
+        # When you have a triangle, there is no sense
+        # in computing an alpha shape.
+        return geometry.MultiPoint(list(points)).convex_hull
+
+    coords = np.array([point.coords[0] for point in points])
+    tri = Delaunay(coords)
+    triangles = coords[tri.simplices]
+    a = ((triangles[:,0,0] - triangles[:,1,0]) ** 2 + (triangles[:,0,1] - triangles[:,1,1]) ** 2) ** 0.5
+    b = ((triangles[:,1,0] - triangles[:,2,0]) ** 2 + (triangles[:,1,1] - triangles[:,2,1]) ** 2) ** 0.5
+    c = ((triangles[:,2,0] - triangles[:,0,0]) ** 2 + (triangles[:,2,1] - triangles[:,0,1]) ** 2) ** 0.5
+    s = ( a + b + c ) / 2.0
+    areas = (s*(s-a)*(s-b)*(s-c)) ** 0.5
+    circums = a * b * c / (4.0 * areas)
+    filtered = triangles[circums < (1.0 / alpha)]
+    edge1 = filtered[:,(0,1)]
+    edge2 = filtered[:,(1,2)]
+    edge3 = filtered[:,(2,0)]
+    edge_points = np.unique(np.concatenate((edge1,edge2,edge3)), axis = 0).tolist()
+    m = geometry.MultiLineString(edge_points)
+    triangles = list(polygonize(m))
+    return cascaded_union(triangles), edge_points

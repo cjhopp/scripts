@@ -7,6 +7,7 @@ import pandas as pd
 
 from matplotlib.dates import date2num
 from nptdms import TdmsFile
+from glob import glob
 from datetime import datetime
 
 def read_collab_hydro(path):
@@ -44,22 +45,27 @@ def read_packer_pressures(path):
     return df
 
 
-def read_csd_hydro(path):
+def read_csd_hydro(root_path):
     """
     Stolen from Antonio for reading CSD pump data (LabView)
     :param path: File path
 
     :return:
     """
-    tdms_file = TdmsFile(path)
-    pump_df = tdms_file['Channels'].as_dataframe()
-    pump_df = pump_df.set_index('Time')
-    pump_df.rename(columns={'Interval pressure': 'Pressure',
-                            'Pump flow': 'Flow'},
-                   inplace=True)
-    pump_df = pump_df.sort_index()
-    pump_df.index = pump_df.index.tz_localize('Etc/GMT+1')
-    pump_df.index = pump_df.index.tz_convert('UTC')
-    pump_df.index = pump_df.index.tz_convert(None)
-    pump_df['Pressure'] /= 145.  # To MPa from psi
-    return pump_df
+    frames = []
+    for f in glob('{}/*.tdms'.format(root_path)):
+        tdms_file = TdmsFile(f)
+        pump_df = tdms_file['Channels'].as_dataframe()
+        pump_df = pump_df.set_index('Time')
+        pump_df.rename(columns={'Interval pressure': 'Pressure',
+                                'Pump flow': 'Flow'},
+                       inplace=True)
+        pump_df = pump_df.sort_index()
+        pump_df.index = pump_df.index.tz_localize('Etc/GMT+1')
+        pump_df.index = pump_df.index.tz_convert('UTC')
+        pump_df.index = pump_df.index.tz_convert(None)
+        pump_df['Pressure'] /= 1000.  # To MPa from kPa
+        frames.append(pump_df)
+    all_df = pd.concat(frames)
+    all_df = all_df.sort_index()
+    return all_df

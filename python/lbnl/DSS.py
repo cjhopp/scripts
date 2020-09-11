@@ -260,6 +260,34 @@ def read_potentiometer_co2(root_path):
     return df_dict
 
 
+def read_potentiometer_raw(root_path):
+    """
+    Yet another parsing function for the raw data format **.DAT
+    :return:
+    """
+    frames = []
+    for f in glob('{}/*.DAT'.format(root_path)):
+        parser = lambda x, y: datetime.strptime(x + y, '%d.%m.%Y%H:%M:%S')
+        df_temp = pd.read_csv(f, encoding='ISO-8859-1', delimiter='\s+',
+                              header=1, skiprows=[2, 3, 4],
+                              parse_dates={'datetime': [0, 1]},
+                              date_parser=parser)
+        df_temp = df_temp.set_index('datetime')
+        df_temp = df_temp[['D_B5_EXT{:02d}'.format(d + 1) for d in range(12)]]
+        mapper = lambda x: x.split('_')[-1]
+        df_temp = df_temp.rename(mapper=mapper, axis=1)
+        # Scale the measures to pot length and convert to microns
+        for pot_nm, endpts in potentiometer_depths.items():
+            scale = endpts[2] - endpts[0]
+            name = 'EXT{:02d}'.format(int(pot_nm))
+            df_temp[name] = df_temp[name] / (scale * 0.001)
+        frames.append(df_temp)
+    df_pot = pd.concat(frames)
+    df_pot = df_pot.sort_index()
+    df_pot = df_pot - df_pot.iloc[0]
+    return df_pot
+
+
 def datetime_parse(t, fmt, location):
     # Parse the date format of the DSS headers; return as UTC for fsb
     if location == 'fsb':
@@ -765,7 +793,10 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
     well_d = well_data[well]
     depths = well_d['depth'] - well_d['depth'][0]
     data = well_d['data']
-    temp = well_d['interp_temp']
+    try:
+        temp = well_d['interp_temp']
+    except KeyError as e:
+        temp = np.zeros(data.shape)
     times = well_d['times']
     data_median = rolling_stats(data, times, depths, window, stat='median')
     data_std = rolling_stats(data, times, depths, window, stat='std')
