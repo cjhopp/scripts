@@ -339,27 +339,12 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
         if len(daylong.traces) == 0:
             print('No waveforms for any picks in day catalog')
             continue
-        for ev in tmp_cat:
-            try:
-                name = ev.resource_id.id.split('&')[-2].split('=')[-1]
-            except IndexError:
-                name = ev.resource_id.id.split('/')[-1]
-            if not single_station:
-                # Eliminate unwanted picks
-                if type(stations) == list:
-                    ev.picks = [pk for pk in ev.picks
-                                if pk.waveform_id.station_code in stations]
-                    if len(ev.picks) == 0:
-                        print('No waveforms for any picks in {}'.format(
-                            ev.resource_id.id
-                        ))
-                        continue
-                trb = Tribe().construct(method='from_meta_file', st=daylong,
-                                        meta_file=Catalog(events=[ev]),
-                                        **param_dict)
-                trb.templates[0].name = name
-                tribe += trb
-            else:
+        if single_station:
+            for ev in tmp_cat:
+                try:
+                    name = ev.resource_id.id.split('&')[-2].split('=')[-1]
+                except IndexError:
+                    name = ev.resource_id.id.split('/')[-1]
                 # Otherwise, make a stand-alone template for each station
                 # with P pick (S will get included as well)
                 netstalocs = [(pk.waveform_id.network_code,
@@ -381,6 +366,20 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                                             meta_file=tmp_ev, **param_dict)
                     trb.templates[0].name = t_nm
                     tribe += trb
+        else:
+            # Eliminate unwanted picks
+            if type(stations) == list:
+                for ev in tmp_cat:
+                    ev.picks = [pk for pk in ev.picks
+                                if pk.waveform_id.station_code in stations]
+                    if len(ev.picks) == 0:
+                        print('No waveforms for any picks in {}'.format(
+                            ev.resource_id.id))
+                        continue
+            trb = Tribe().construct(method='from_meta_file', st=daylong,
+                                    meta_file=tmp_cat,
+                                    **param_dict)
+            tribe += trb
     return tribe
 
 

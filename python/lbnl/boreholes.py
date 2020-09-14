@@ -8,10 +8,12 @@ import os
 import numpy as np
 import seaborn as sns
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from itertools import cycle
 from glob import glob
 from pathlib import Path
+from matplotlib.dates import date2num, num2date
 
 
 def depth_to_xyz(well_dict, well, depth):
@@ -29,6 +31,65 @@ def depth_to_xyz(well_dict, well, depth):
     y = norths[np.argmin(dists)][0]
     z = zs[np.argmin(dists)][0]
     return (x, y, z)
+
+
+def distance_to_borehole(well_dict, well, depth, gallery_pts,
+                         excavation_times):
+    """
+    Calculate distance, x, y, azimuth and dip to SIMFIP from Gallery excavation
+    front at Mont Terri
+
+    :param well_dict: Output of parse_FSB_wells
+    :param well: String of well to calculate distance to
+    :param depth: Depth in well to calculate distances to
+    :param gallery_pts: Path to file with 1-m spacing gallery distances
+    :param excavation_times: Path to file with times and distances along gallery
+        for G18 excavation
+    :return:
+    """
+    borehole_xyz = depth_to_xyz(well_dict, well, depth)
+    df_gallery = read_gallery_distances(gallery_pts)
+    gallery_dist = df_gallery['distance']
+    df_excavation = read_gallery_excavation(excavation_times).copy()
+    exc_dist = df_excavation['distance [m]']
+    # Calculate value of closest point along my line to measured dist
+    dists_along = np.array([gallery_dist[np.argmin(np.abs(gallery_dist - d))]
+                            for d in exc_dist])
+    # Get X, Y, Z as array for each of these distances
+    pts_along = np.vstack([df_gallery.loc[df_gallery['distance'] == d].values[0]
+                           for d in dists_along])
+    # Pythagoras dance
+    bh_dx = borehole_xyz[0] - pts_along[:, 0]
+    bh_dy = borehole_xyz[1] - pts_along[:, 1]
+    bh_dz = borehole_xyz[2] - pts_along[:, 2]
+    bh_dists = np.sqrt(bh_dx**2 + bh_dy**2 + bh_dz**2)
+    bh_az = np.rad2deg(np.arctan(bh_dx / bh_dy))
+    bh_plunge = np.rad2deg(np.arcsin(bh_dz / bh_dists))
+    # Put back into DataFrame
+    df_excavation.insert(0, 'dx', bh_dx)
+    df_excavation.insert(0, 'dy', bh_dy)
+    df_excavation.insert(0, 'dz', bh_dz)
+    df_excavation.insert(0, 'Distance to SIMFIP', bh_dists)
+    df_excavation.insert(0, 'Azimuth to SIMFIP', bh_az)
+    df_excavation.insert(0, 'Plunge to SIMFIP', bh_plunge)
+    df_excavation = df_excavation.rename(
+        mapper={'distance [m]': 'Excavation distance [m]'}, axis='columns')
+    return df_excavation
+
+
+def read_gallery_excavation(path):
+    """Parse gallery excavation progress"""
+    df = pd.read_csv(path, parse_dates=[0])
+    df = df.set_index('time')
+    return df
+
+
+def read_gallery_distances(path):
+    """Helper to read points along gallery"""
+    df = pd.read_csv(path)
+    # Call elevation of center of gallery ~517m
+    df.insert(2, 'Z', np.ones(df['X'].values.shape[0]) * 517.)
+    return df[['X', 'Y', 'Z', 'distance']]
 
 
 def calc_mesh_area(X, Y, Z):
@@ -175,10 +236,14 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
     """
     if not os.path.isdir(asbuilt_dir):
         asbuilt_dir = '/media/chet/hdd/seismic/chet_FS-B/wells/'
+    if not os.path.isdir(asbuilt_dir):
+        asbuilt_dir = 'data/chet-FS-B/wells'
     excel_asbuilts = glob('{}/**/*Gamma_Deviation.xlsx'.format(asbuilt_dir))
     well_dict = {}
     if not os.path.isdir(gocad_dir):
         gocad_dir = '/media/chet/hdd/seismic/chet_FS-B/Mont_Terri_model'
+    if not os.path.isdir(gocad_dir):
+        gocad_dir = 'data/chet-FS-B/Mont_Terri_model'
     gocad_asbuilts =  glob('{}/*.wl'.format(gocad_dir))
     for gocad_f in gocad_asbuilts:
         name = str(gocad_f).split('-')[-1].split('.')[0]
@@ -247,4 +312,33 @@ def wells_4850_to_gmt(outfile):
             f.write('>-W1.0,{} -L{}\n'.format(col_str, key))
             for pt in pts:
                 f.write('{} {}\n'.format(pt[0], pt[1]))
+    return
+
+# Plotting
+
+def plot_excavation_vector(df_excavation):
+    """Plot excavation progress with time and lower hemi projection"""
+    fig = plt.figure(figsize=(7, 10))
+    ax1 = fig.add_subplot(211)
+    df_excavation[['Distance to SIMFIP', 'Excavation distance [m]',
+                   'dx', 'dy']].plot(ax=ax1)
+    ax1.set_ylabel('Distance [m]')
+    ax2 = fig.add_subplot(212, projection='polar')
+    ax2.set_theta_zero_location('N')
+    ax2.set_theta_direction(-1)
+    times = df_excavation.index.values
+    colors = date2num(times)
+    dots = ax2.scatter(
+        np.deg2rad(df_excavation['Azimuth to SIMFIP']),
+        df_excavation['Plunge to SIMFIP'],
+        c=colors)
+    ticks = np.linspace(np.nanmin(colors),
+                        np.nanmax(colors), 5)
+    cax = plt.colorbar(dots, ax=ax2, ticks=ticks)
+    ticklabs = [num2date(t).strftime('%b-%d') for t in ticks]
+    cax.ax.set_yticklabels(ticklabs)
+    ax2.set_ylim([-90., 0])
+    ax2.set_yticklabels([])
+    plt.subplots_adjust(hspace=0.4, wspace=0.6)
+    plt.show()
     return
