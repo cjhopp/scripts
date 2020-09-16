@@ -830,7 +830,7 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
     return times, strains, strain_median, strain_std, temps
 
 
-def extract_strains(well_data, date, wells):
+def extract_strains(well_data, date, wells, average=True):
     """
     For a given datetime, extract the strain along the borehole (averaged
     between down and upgoing legs...?)
@@ -838,6 +838,7 @@ def extract_strains(well_data, date, wells):
     :param well_data: Output of extract_wells
     :param date: Datetime object to extract
     :param wells: List of well names
+    :param average: Bool for averaging up and down, or returning both separately
     :return:
     """
     pick_dict = {}
@@ -857,9 +858,13 @@ def extract_strains(well_data, date, wells):
             up_d = np.insert(up_d, 0, down_d[-1])
             up_data = np.insert(up_data, 0, down_data[-1])
         # Flip up_data to align
-        avg_data = (down_data + up_data[::-1]) / 2.
+        if average:
+            avg_data = (down_data + up_data[::-1]) / 2.
+            pick_dict[well]['strains'] = avg_data
+        else:
+            pick_dict[well]['up_data'] = up_data[::-1]
+            pick_dict[well]['down_data'] = down_data
         pick_dict[well]['depths'] = down_d
-        pick_dict[well]['strains'] = avg_data
     return pick_dict
 
 
@@ -2238,3 +2243,91 @@ def plot_potentiometer(data, depths, times, colors=None, axes=None,
         plt.setp(axes1.get_xticklabels(), visible=False)
     plt.tight_layout()
     return fig
+
+
+def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
+                       strain_range=(-170, 170)):
+    """
+    Plot D5 data with depth including DSS, fracture logs and potentiometer
+
+    :param well_data: output from extract_wells
+    :param time: Datetime object specifying time slice to pull from pot/DSS
+    :param tv_picks: Path to excel file with optical televiewer picks
+    :param pot_df: DataFrame of potentiometer data
+    :param leg: Either 'up_data' or 'down_data'
+    :param strain_range:
+    :return:
+    """
+    fig, axes = plt.subplots(ncols=3, figsize=(4, 10), sharey='row')
+    dss_dict = extract_strains(well_data, date=time, wells=['D5'],
+                               average=False)
+    frac_dict = read_frac_cores(tv_picks, 'D5')
+    for frac_type, dens in frac_dict.items():
+        if not frac_type.startswith('sed'):
+            axes[0].plot(dens[:, 1], dens[:, 0],
+                         color=frac_cols[frac_type],
+                         label=frac_type)
+    pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
+    top_anchors = [d[0] for nm, d in potentiometer_depths.items()]
+    top_anchors.sort()
+    top_anchors = top_anchors[::-1]
+    # Make depth series for potentiometer
+    data = pot_d.T[(np.abs(pot_times - time)).argmin(), :]
+    data = np.squeeze(data)
+    # Divide by two for microns (flip for extension)
+    data *= -0.5
+    axes[1].step(data, top_anchors, label='Potentiometer', color='r',
+                 where='post')
+    # Plot anchors as lil black dots
+    axes[1].scatter(data, top_anchors, c='k', s=2., zorder=101)
+    # Lastly, DSS data
+    axes[2].plot(dss_dict['D5'][leg], dss_dict['D5']['depths'],
+                 label='DSS', color='purple')
+    axes[0].invert_yaxis()
+    axes[0].set_ylabel('Depth [m]')
+    axes[0].set_xlabel('Fractures per m')
+    axes[1].set_xlabel('Microns')
+    axes[2].set_xlabel('Microns')
+    axes[1].set_xlim(strain_range)
+    axes[2].set_xlim(strain_range)
+    # Zero line for DSS and potentiometer
+    axes[1].axvline(0, linestyle=':', linewidth=0.5, color='k')
+    axes[2].axvline(0, linestyle=':', linewidth=0.5, color='k')
+    for i, ax in enumerate(axes):
+        # Resin plug
+        if i == 0:
+            label = 'Main Fault'
+        else:
+            label = ''
+            # Fill between resin plug
+            ax.fill_between(
+                x=np.array([-500, 500]), y1=resin_depths['D5'][0],
+                y2=resin_depths['D5'][1], hatch='/',
+                alpha=0.5, color='bisque')
+        ax.axhline(fault_depths['D5'][0], linestyle='--',
+                   linewidth=1., color='k')
+        ax.axhline(fault_depths['D5'][1],
+                   linestyle='--', label=label,
+                   linewidth=1., color='k')
+        ax.set_facecolor('lightgray')
+        ax.set_ylim(top=0, bottom=fiber_depths['D5'])
+    fig.text(0.1, 0.95, time.date(), ha="left", va="bottom", fontsize=14,
+             bbox=dict(boxstyle="round",
+                       ec='k', fc='white'))
+    fig.legend()
+    plt.show()
+    return
+
+
+def plot_D5_with_time(well_data, pot_data, depth, simfip):
+    """Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)"""
+    fig, axes = plt.subplots()
+    pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
+    pot_strains = pot_d[(np.abs(pot_depths - depth)).argmin(), :]
+    times, dss_strains, _, _, _ = extract_channel_timeseries(well_data, 'D5',
+                                                             depth=depth,
+                                                             direction='up')
+    axes.plot(pot_times, pot_strains, color='r')
+    axes.plot(times, dss_strains, color='purple')
+    plt.show()
+    return

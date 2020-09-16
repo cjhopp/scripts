@@ -339,6 +339,11 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
         if len(daylong.traces) == 0:
             print('No waveforms for any picks in day catalog')
             continue
+        # Deal with shitty CN sampling rates
+        for tr in daylong:
+            if not ((1 / tr.stats.delta).is_integer() and
+                    tr.stats.sampling_rate.is_integer()):
+                tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         if single_station:
             for ev in tmp_cat:
                 try:

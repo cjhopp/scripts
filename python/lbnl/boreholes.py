@@ -182,6 +182,7 @@ def read_frac_cores(path, well):
     Return dictionary of {well: {'fracture type': fracture density array}}
 
     :param path: Path to core fracture density excel file
+        Fracture_Density_Core.xlsx
     :return: dict
     """
     well_dict = {'All fractures': {}}

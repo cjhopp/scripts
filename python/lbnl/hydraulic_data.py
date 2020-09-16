@@ -4,8 +4,9 @@
 Parsing and plotting hydraulic data
 """
 import pandas as pd
+import matplotlib.pyplot as plt
 
-from matplotlib.dates import date2num
+from matplotlib.dates import DateFormatter
 from nptdms import TdmsFile
 from glob import glob
 from datetime import datetime
@@ -69,3 +70,22 @@ def read_csd_hydro(root_path):
     all_df = pd.concat(frames)
     all_df = all_df.sort_index()
     return all_df
+
+
+def plot_csd_hydro(df_hydro, title='Flow and Pressure'):
+    """Simple Flow and Press plot"""
+    fig, ax = plt.subplots()
+    ax2 = ax.twinx()
+    df_hydro['Flow'].plot(ax=ax, color='steelblue', label='Flow')
+    ax.set_ylim(bottom=0)
+    df_hydro['Pressure'].plot(ax=ax2, color='firebrick', label='Pressure')
+    ax2.set_ylim(bottom=0)
+    ax2.set_ylabel('MPa')
+    ax.set_ylabel('ml/min')
+    if (df_hydro.index[-1] - df_hydro.index[0]).days == 0:
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+        ax.set_xlabel('Time on {}'.format(df_hydro.index.date[0]))
+    fig.legend()
+    fig.suptitle(title, fontsize=16)
+    plt.show()
+    return
