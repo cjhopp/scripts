@@ -104,8 +104,8 @@ chan_map_excav_34 = {'D3': 76.61,
 # Loop 5, 6
 chan_map_co2_5612 = {'D5': 96.42,
                      'D6': 186.74,
-                     'D1': 354.14,
-                     'D2': 273.41}
+                     'D1': 354.577,
+                     'D2': 272.39}
 # Loop 3, 4
 chan_map_co2_34 = {'D3': 79.62,
                    'D4': 170.43}
@@ -136,6 +136,9 @@ fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
 fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
                 'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
                 'D7': (22.46, 25.54)}
+
+resin_depths = {'D3': (2.5, 3.), 'D4': (9., 10.), 'D5': (17., 18.),
+                'D6': (12., 14.)}
 
 potentiometer_depths = {'1': (2., 6.5, 11.), '2': (11., 15., 19.),
                         '3': (19., 19.25, 19.5), '4': (19.5, 19.75, 20.),
@@ -1298,6 +1301,7 @@ def plot_wells_over_time(well_data, wells,
     for well, well_dict in well_data.items():
         times.extend(list(well_dict['times']))
     times = list(set(times))
+    times.sort()
     times = [t for t in times if date_range[0] < t < date_range[1]]
     time_labs = [t.strftime('%m-%d') for t in times]
     # Initialize the figure
@@ -1309,6 +1313,7 @@ def plot_wells_over_time(well_data, wells,
     # Cmap
     cmap = sns.cubehelix_palette(start=.5, rot=-.75, as_cmap=True)
     for i, t in enumerate(times):
+        print(t)
         pick_col = cmap(float(i) / len(times[::2]))
         if frames:
             pick_col = 'k'
@@ -1427,8 +1432,13 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
             old_down, old_up = np.array_split(old_vects, 2)
             if old_down.shape[0] != old_up.shape[0]:
                 old_up = np.append(old_up, old_down[-1]).reshape(old_down.shape)
-            ax1.plot(old_down, down_d[:, None], color='grey', alpha=alpha,
-                     linewidth=0.5)
+            try:
+                ax1.plot(old_down, down_d[:, None], color='grey', alpha=alpha,
+                         linewidth=0.5)
+            except ZeroDivisionError as e:
+                print('Trying to plot old timeslices that dont exist')
+                print('Pick a later start date')
+                return
             ax2.plot(old_up, up_d_flip[:, None], color='grey', alpha=alpha,
                      linewidth=0.5)
         # Plot two traces for downgoing and upgoing trace at user-
@@ -1473,6 +1483,29 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
             ax1.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
             ax1.set_title('Down')
             ax2.set_title('Up')
+            try:
+                # Plot fault extents and resin plug, if CSD
+                ax1.axhline(fault_depths[well][0], linestyle='--',
+                            linewidth=1., color='k')
+                ax1.axhline(fault_depths[well][1],
+                            linestyle='--', label='Main Fault',
+                            linewidth=1., color='k')
+                ax2.axhline(fault_depths[well][0], linestyle='--',
+                            linewidth=1., color='k')
+                ax2.axhline(fault_depths[well][1],
+                            linestyle='--',
+                            linewidth=1., color='k')
+                # Fill between resin plug
+                ax1.fill_between(
+                    x=np.array([-500, 500]), y1=resin_depths[well][0],
+                    y2=resin_depths[well][1], hatch='/',
+                    alpha=0.5, color='bisque')
+                ax2.fill_between(
+                    x=np.array([-500, 500]), y1=resin_depths[well][0],
+                    y2=resin_depths[well][1], hatch='/',
+                    alpha=0.5, color='bisque', label='Resin plug')
+            except KeyError as e:
+                continue
         # Always increment, obviously
         i += 2
     if formater:
@@ -1495,10 +1528,10 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
                      fontsize=22)
     if frame:
         # Put the date on the plot if animating
-        fig.text(0.7, 0.2, date, ha="center", va="center", fontsize=20,
+        fig.text(0.05, 0.02, date, ha="left", va="bottom", fontsize=20,
                  bbox=dict(boxstyle="round",
                            ec='k', fc='white'))
-        fig.savefig('frame_{}.png'.format(date))
+        fig.savefig('frame_{}.pdf'.format(date))
         plt.close('all')
     return fig
 
@@ -1959,6 +1992,15 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                             self.figure.axes[i].axhline(fault_depths[well][1],
                                                         linestyle='--',
                                                         linewidth=1., color='k')
+                            # Fill between resin plug
+                            self.figure.axes[i].fill_between(
+                                x=np.array([-500, 500]), y1=resin_depths[well][0],
+                                y2=resin_depths[well][1], hatch='/',
+                                alpha=0.5, color='bisque')
+                            self.figure.axes[i].fill_between(
+                                x=np.array([-500, 500]), y1=resin_depths[well][0],
+                                y2=resin_depths[well][1], hatch='/',
+                                alpha=0.5, color='bisque', label='Resin plug')
                     except IndexError as e:
                         print(e)
                 self.figure.axes[-4].legend(

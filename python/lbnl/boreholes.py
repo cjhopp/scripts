@@ -66,8 +66,7 @@ def distance_to_borehole(well_dict, well, depth, gallery_pts,
     bh_az = np.rad2deg(np.arctan(bh_dx / bh_dy))
     bh_plunge = np.rad2deg(np.arcsin(bh_dz / bh_dists))
     # Put back into DataFrame
-    df_excavation.insert(0, 'dx', bh_dx)
-    df_excavation.insert(0, 'dy', bh_dy)
+    df_excavation.insert(0, 'dh', np.sqrt(bh_dx**2 + bh_dy**2))
     df_excavation.insert(0, 'dz', bh_dz)
     df_excavation.insert(0, 'Distance to SIMFIP', bh_dists)
     df_excavation.insert(0, 'Azimuth to SIMFIP', bh_az)
@@ -321,7 +320,7 @@ def plot_excavation_vector(df_excavation):
     fig = plt.figure(figsize=(7, 10))
     ax1 = fig.add_subplot(211)
     df_excavation[['Distance to SIMFIP', 'Excavation distance [m]',
-                   'dx', 'dy']].plot(ax=ax1)
+                   'dh', 'dz']].plot(ax=ax1)
     ax1.set_ylabel('Distance [m]')
     ax2 = fig.add_subplot(212, projection='polar')
     ax2.set_theta_zero_location('N')
