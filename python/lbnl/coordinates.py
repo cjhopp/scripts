@@ -8,6 +8,16 @@ import numpy as np
 from pyproj import Proj
 
 
+def sdr_to_normal(strike, dip):
+    dip_rad = np.deg2rad(dip)
+    strike_rad = np.deg2rad(strike)
+    # Normal to plane
+    a = np.sin(dip_rad) * np.cos(strike_rad)  # East
+    b = -np.sin(dip_rad) * np.sin(strike_rad)  # North
+    c = np.cos(dip_rad)
+    return np.array([a, b, c])
+
+
 def cartesian_distance(pt1, pt2):
     """Helper distance calculation between two pts (x, y, z) in meters"""
     dx = pt1[0] - pt2[0]

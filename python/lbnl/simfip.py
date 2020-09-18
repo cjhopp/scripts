@@ -158,6 +158,27 @@ def remove_clamps(df, angles):
     df['Zc'] = df['Z'] - U_correction[2]
     return df
 
+
+def rotate_fsb_to_fault(df, strike=52, dip=57):
+    """Rotate FSB SIMFIP data into fault coordinates"""
+    rotz = np.deg2rad(90 - strike)
+    rotx = np.deg2rad(dip)
+    # Passive rotation matrices (soord system moves about axes)
+    matz = np.array([[np.cos(rotz), np.sin(rotz), 0],
+                     [-np.sin(rotz), np.cos(rotz), 0],
+                     [0, 0, 1]])
+    matx = np.array([[1, 0, 0],
+                     [0, np.cos(rotx), np.sin(rotx)],
+                     [0, -np.sin(rotx), np.cos(rotx)]])
+    simfip_mat = df[['Xc', 'Yc', 'Zc']].values.T
+    rotated_simfip = np.matmul(matz, simfip_mat)
+    rotated_simfip = np.matmul(matx, rotated_simfip)
+    df['Xf'] = rotated_simfip[0, :]
+    df['Yf'] = rotated_simfip[1, :]
+    df['Zf'] = rotated_simfip[2, :]
+    return df
+
+
 def read_excavation(path):
     """
     Read excavation displacement data for SIMFIP, tiltmeters, borehole
@@ -179,7 +200,8 @@ def read_excavation(path):
     df.index = df.index.tz_convert('UTC')
     df.index = df.index.tz_convert(None)
     # Assuming these data are corrected for clamp effects now??
-    df.rename(columns={'dispE': 'Xc', 'dispN': 'Yc', 'dispUp': 'Zc'}, inplace=True)
+    df.rename(columns={'dispE': 'Xc', 'dispN': 'Yc', 'dispUp': 'Zc'},
+              inplace=True)
     return df
 
 

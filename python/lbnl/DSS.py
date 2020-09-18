@@ -26,7 +26,7 @@ from scipy.signal import detrend, welch, find_peaks, zpk2sos, sosfilt, iirfilter
 from scipy.stats import median_absolute_deviation
 from datetime import datetime, timedelta
 from itertools import cycle
-from matplotlib.dates import num2date, date2num
+from matplotlib.dates import num2date, date2num, DateFormatter
 from matplotlib.colors import ListedColormap, Normalize
 from matplotlib.gridspec import GridSpec
 from matplotlib.cm import ScalarMappable
@@ -38,7 +38,8 @@ from lbnl.coordinates import cartesian_distance
 from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
     calculate_frac_density, read_frac_cores, depth_to_xyz
 from lbnl.DTS import read_struct
-from lbnl.simfip import read_excavation, plot_displacement_components, read_collab
+from lbnl.simfip import read_excavation, plot_displacement_components, \
+    read_collab, rotate_fsb_to_fault
 from lbnl.hydraulic_data import read_collab_hydro, read_csd_hydro
 
 
@@ -368,6 +369,32 @@ def integrate_anchors(data, depth, well):
         data[up_chans[0]:up_chans[1] + 1, :] = intg_up * np.abs(depth[1] - depth[0])
         data[down_chans[0]:down_chans[1] + 1, :] = intg_down * np.abs(depth[1] - depth[0])
     return data
+
+
+def integrate_depth_interval(well_data, depths, well, leg):
+    """
+    Return timeseries of channels integrated over a depth range
+
+    :param data: data array for well loop
+    :param depths: [shallow, deep] range to integrate over
+    :param well: Well name
+    :param leg: Down or up
+    :return:
+    """
+    data = well_data[well]['data']
+    depth = well_data[well]['depth']
+    depth -= depth[0]
+    if leg == 'down':
+        chans = (np.argmin(np.abs(depth - depths[0])),
+                 np.argmin(np.abs(depth - depths[1])))
+    elif leg == 'up':
+        chans = (np.argmin(np.abs(depth - (depth[-1] - depths[1]))),
+                 np.argmin(np.abs(depth - (depth[-1] - depths[0]))))
+    else:
+        print('Only up or down leg, hoss')
+        return
+    integral = trapz(data[chans[0]:chans[1] + 1, :], axis=0)
+    return integral
 
 
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
@@ -2321,13 +2348,59 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
 
 def plot_D5_with_time(well_data, pot_data, depth, simfip):
     """Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)"""
-    fig, axes = plt.subplots()
+    fig, axes = plt.subplots(nrows=2, figsize=(8, 10), sharex='col')
     pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
     pot_strains = pot_d[(np.abs(pot_depths - depth)).argmin(), :]
-    times, dss_strains, _, _, _ = extract_channel_timeseries(well_data, 'D5',
-                                                             depth=depth,
-                                                             direction='up')
-    axes.plot(pot_times, pot_strains, color='r')
-    axes.plot(times, dss_strains, color='purple')
+    dss_times, dss_strains, _, _, _ = extract_channel_timeseries(
+        well_data, 'D5', depth=depth, direction='up')
+    indices = np.where((pot_times > dss_times[0]) &
+                       (pot_times < dss_times[-1]))
+    pot_times = pot_times[indices]
+    pot_d = pot_d[:, indices].squeeze()
+    pot_strains = pot_strains[indices]
+    # Relative to start of plot
+    pot_strains = pot_strains - pot_strains[0]
+    axes[0].plot(pot_times, -0.5 * pot_strains, color='r',
+                 label='Potentiometer')
+    axes[0].plot(dss_times, dss_strains, color='purple',
+                 label='DSS')
+    # Now simfip plot
+    # Integrate DSS and Pot
+    integrated_strain = integrate_depth_interval(well_data, depths=(20., 23.),
+                                                 well='D5', leg='up')
+    # Sum potentiometer
+    interval = np.where((pot_depths < 23.) & (pot_depths > 20.))
+    integrated_pot = np.sum(-0.5 * pot_d[interval, :].squeeze(), axis=0)
+    # Scale the integrated traces to sampling interval
+    integrated_strain *= 0.255
+    integrated_pot *= 0.5
+    axes[1].plot(dss_times, integrated_strain, color='mediumorchid',
+                 label='DSS')
+    axes[1].plot(pot_times, integrated_pot - integrated_pot[0],
+                 color='firebrick', label='Potentiometer')
+    df_simfip = read_excavation(simfip)
+    df_simfip = df_simfip.loc[((df_simfip.index < dss_times[-1])
+                               & (df_simfip.index > dss_times[0]))]
+    df_simfip = rotate_fsb_to_fault(df_simfip)
+    df_simfip['Zf'] = df_simfip['Zf'] - df_simfip['Zf'][0]
+    df_simfip['Yf'] = df_simfip['Yf'] - df_simfip['Yf'][0]
+    df_simfip['Xf'] = df_simfip['Xf'] - df_simfip['Xf'][0]
+    df_simfip['Sf'] = np.sqrt(df_simfip['Xf']**2 + df_simfip['Yf']**2)
+    df_simfip['Zf'].plot(ax=axes[1], color='steelblue',
+                         label='SIMFIP: Opening')
+    df_simfip['Sf'].plot(ax=axes[1], color='lightseagreen',
+                         label='SIMFIP: Shear')
+    for ax in axes:
+        ax.set_facecolor('lightgray')
+        ax.set_ylabel('Microns', fontsize=14)
+        ax.axvline(date2num(datetime(2019, 5, 27)), linestyle='--',
+                   color='gray', label='Breakthrough')
+        ax.legend()
+    axes[1].xaxis.set_major_formatter(DateFormatter('%m-%d'))
+    axes[1].set_xlabel(pot_times[0].year, fontsize=14)
+    axes[0].set_title('DSS vs Potentiometer: {} m'.format(depth),
+                      fontsize=16)
+    axes[1].set_title('DSS, SIMFIP, and Potentiometer: Main Fault Interval',
+                      fontsize=16)
     plt.show()
     return
