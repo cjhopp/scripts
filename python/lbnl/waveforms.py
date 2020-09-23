@@ -174,7 +174,9 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
                 print('Failed to add {}'.format(f))
                 continue
             lil_ppsd.save_npz('{}/ppsds/{}.npz'.format(outdir, root_name))
-            lil_ppsd.plot(filename='{}/plots/{}.png'.format(outdir, root_name))
+            lil_ppsd.plot(filename='{}/plots/{}.png'.format(outdir, root_name),
+                          show_earthquakes=(0, 1.5, 10), xaxis_frequency=True,
+                          show_noise_models=False)
     return
 
 
@@ -1319,14 +1321,16 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
     """
     Plot signal comparison between SA-ULNs and Geophone (B3 and G2)
 
-    :param file_dict: Dict {id: path}
+    :param wav_files: List of extracted event files
     :param cat: Catalog with the picks
     :param inv: Inventory with response info
     :param signal_len: Length of signal for SNR calcs
-    :param noise_len: Length of noise window for SNR
+    :param outdir: Output directory for plots
+    :param log: Log SNR or not?
 
     :return:
     """
+    inv = modify_SAULN_inventory(inv)
     snrs = {}
     for wav_file in wav_files:
         eid = wav_file.split('_')[-1].rstrip('.ms')
@@ -1338,14 +1342,23 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
             ev = [ev for ev in cat
                   if ev.resource_id.id[-25:-15] == eid][0]
         except IndexError:
-            ev = [ev for ev in cat
-                  if ev.resource_id.id.split('/')[-1] == eid][0]
+            try:
+                ev = [ev for ev in cat
+                      if ev.resource_id.id.split('/')[-1] == eid][0]
+            except IndexError:
+                print('{} not in wav archive'.format(eid))
+                continue
         st = read(wav_file)
         # Remove response
         st = st.select(station='[NP]*C')
-        st.remove_response(inventory=inv, output='VEL')
         st.detrend()
-        st.filter(type='bandpass', freqmin=0.1, freqmax=24, corners=3)
+        st.detrend('demean')
+        st.taper(0.05)
+        st.remove_response(inventory=inv, output='VEL', water_level=80)
+        st.detrend()
+        st.detrend('demean')
+        st.taper(0.05)
+        st.filter(type='bandpass', freqmin=2., freqmax=15, corners=3)
         try:
             pk_P = [pk for pk in ev.picks if pk.waveform_id.location_code
                     in ['B3', 'G2', 'G1'] and pk.phase_hint == 'P'][0]
@@ -1356,16 +1369,20 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
         st_g2 = st.select(location='G2', channel='*Z')
         st_g1 = st.select(location='G1', channel='*Z')
         st_pgc = st.select(station='PGC', channel='*Z')
-        b3_noise = st_b3.slice(endtime=pk_P.time - 0.25).copy()
+        b3_noise = st_b3.slice(starttime=pk_P.time - 7,
+                               endtime=pk_P.time - 0.25).copy()
         b3_signal = st_b3.slice(starttime=pk_P.time,
                                 endtime=pk_P.time + signal_len).copy()
-        g2_noise = st_g2.slice(endtime=pk_P.time - 0.25).copy()
+        g2_noise = st_g2.slice(starttime=pk_P.time - 7,
+                               endtime=pk_P.time - 0.25).copy()
         g2_signal = st_g2.slice(starttime=pk_P.time,
                                 endtime=pk_P.time + signal_len).copy()
-        g1_noise = st_g1.slice(endtime=pk_P.time - 0.25).copy()
+        g1_noise = st_g1.slice(starttime=pk_P.time - 7,
+                               endtime=pk_P.time - 0.25).copy()
         g1_signal = st_g1.slice(starttime=pk_P.time,
                                 endtime=pk_P.time + signal_len).copy()
-        pgc_noise = st_pgc.slice(endtime=pk_P.time - 0.25).copy()
+        pgc_noise = st_pgc.slice(starttime=pk_P.time - 7,
+                                 endtime=pk_P.time - 0.25).copy()
         pgc_signal = st_pgc.slice(starttime=pk_P.time,
                                   endtime=pk_P.time + signal_len).copy()
         # Maximum amplitudes (displacement)
