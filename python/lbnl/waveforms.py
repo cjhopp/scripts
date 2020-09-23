@@ -147,8 +147,9 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
     """
     # Get the raw inventory and then modify the resp information
     cli = Client('IRIS')
-    bulk = [tuple(n.split('.').extend(list(date_range)))
-            for n in netstalocchans]
+    bulk = [n.split('.') for n in netstalocchans]
+    for b in bulk:
+        b.extend(list(date_range))
     inventory = cli.get_stations_bulk(bulk)
     inventory = modify_SAULN_inventory(inventory)
     for nsl in netstalocchans:
