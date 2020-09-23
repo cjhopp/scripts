@@ -13,6 +13,7 @@ import obspy
 
 import numpy as np
 import pandas as pd
+import math as M
 
 from lbnl.coordinates import SURF_converter, FSB_converter
 from lbnl.boreholes import create_FSB_boreholes
@@ -336,3 +337,52 @@ def consolidate_inv_channels(inventory):
         new_chans.append(nc)
     inventory[0][0].channels = new_chans
     return inventory
+
+
+def update_G2(inv):
+    """Helper to modify response for G2 borehole geophone"""
+    G_mod3 = 81.82  # V/m/s
+    fc_mod3 = 8.0  # corner frequency
+    damp_mod3 = 0.70  # damping
+    # pole & zero
+    poles_mod3 = [-(damp_mod3 + M.sqrt(1 - damp_mod3 ** 2) * 1j) *
+                  2 * np.pi * fc_mod3,
+                  -(damp_mod3 - M.sqrt(1 - damp_mod3 ** 2) * 1j) *
+                  2 * np.pi * fc_mod3]
+    for net in inv:
+        for sta in net:
+            if sta.code == 'NSMTC':
+                for chan in sta:
+                    if chan.location_code == 'G2':
+                        # update pole & zero
+                        chan.response.response_stages[0]._poles = poles_mod3
+                        # update sensitivity value
+                        # also x -1 to polarity flip for Z comp
+                        if chan.code == 'CHZ':
+                            chan.response.response_stages[0].stage_gain = (
+                                    G_mod3 * -1)
+                        else:
+                            chan.response.response_stages[0].stage_gain = G_mod3
+                        # # Normalization factor
+                        # chan.response.response_stages[0].normalization_factor = 0.9998924742191032
+                    if chan.location_code == 'G1' and chan.code[-1] == 'Z':
+                        chan.response.response_stages[0].stage_gain *= -1.
+    return inv
+
+
+def update_BX(inv):
+    """Helper for modifying the B* channels"""
+    for net in inv:
+        for sta in net:
+            for chan in sta:
+                if sta.code == 'NSMTC' and chan.code == 'CNZ':
+                    chan.response.response_stages[0].stage_gain = (40.0 / 9.80665) * -1
+                elif sta.code == 'NSMTC' and chan.code in ['CN2', 'CN1']:
+                    chan.response.response_stages[0].stage_gain = (40.0 / 9.80665)
+    return inv
+
+
+def modify_SAULN_inventory(inv):
+    inv = update_BX(inv)
+    inv = update_G2(inv)
+    return inv

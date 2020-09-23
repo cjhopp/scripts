@@ -42,6 +42,8 @@ try:
 except:
     print('No surf_seis on this machine')
 
+from lbnl.instruments import modify_SAULN_inventory
+
 extra_stas = ['CMon', 'CTrig', 'CEnc', 'PPS']
 
 three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
@@ -129,29 +131,33 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     return st
 
 
-def calculate_ppsds(netstalocchans, wav_dir, inventory, outdir):
+def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
     """
     Crawl a waveform directory structure and calculate ppsds for each file.
 
-    In this case, the files are daylong. We'll make a PPSD for each and also
-    compile a full-dataset PPSD (if memory allows)
+    In this case, the files are daylong. We'll make a PPSD for each and
+    save the matrices as well
 
-    :param netstalocs: List of net.sta.loc for
+    :param netstalocchans: List of net.sta.loc.chan for
     :param wav_dir: Path to root waveform directory
-    :param inventory: Obspy Inventory object for stations of interest
+    :param date_range: (start, end)
     :param outdir: Output directory for both numpy arrays of PPSD and plots
 
     :return:
     """
+    # Get the raw inventory and then modify the resp information
+    cli = Client('IRIS')
+    bulk = [tuple(n.split('.').extend(list(date_range)))
+            for n in netstalocchans]
+    inventory = cli.get_stations_bulk(bulk)
+    inventory = modify_SAULN_inventory(inventory)
     for nsl in netstalocchans:
         print('Running station {}'.format(nsl))
         nsl_split = nsl.split('.')
-        wav_files = glob('{}/**/{}.{}.{}.{}*.ms'.format(
-            wav_dir, nsl_split[0], nsl_split[1], nsl_split[2], nsl_split[3]),
-            recursive=True)
-        wav_files.sort()
-        big_ppsd = PPSD(read(wav_files[0])[0].stats, inventory)
-        for f in wav_files:
+        for date in date_generator(**date_range):
+            f = glob('{}/{}/**/{}.{}.{}.{}.{}.ms'.format(
+                wav_dir, date.year(), nsl_split[0], nsl_split[1], nsl_split[2],
+                nsl_split[3], UTCDateTime(date).julday), recursive=True)
             print('Adding {}'.format(f))
             root_name = os.path.basename(f).rstrip('.ms')
             st = read(f)
@@ -160,12 +166,8 @@ def calculate_ppsds(netstalocchans, wav_dir, inventory, outdir):
             if not flag:
                 print('Failed to add {}'.format(f))
                 continue
-            big_ppsd.add(st)
             lil_ppsd.save_npz('{}/ppsds/{}.npz'.format(outdir, root_name))
             lil_ppsd.plot(filename='{}/plots/{}.png'.format(outdir, root_name))
-        big_root = '.'.join(root_name.split('.')[:-2])
-        big_ppsd.save_npz('{}/ppsds/{}_all.npz'.format(outdir, big_root))
-        big_ppsd.plot(filename='{}/plots/{}_all.png'.format(outdir, big_root))
     return
 
 
