@@ -152,21 +152,22 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
         b.extend([UTCDateTime(date_range[0]), UTCDateTime(date_range[1])])
     inventory = cli.get_stations_bulk(bulk, level='response')
     inventory = modify_SAULN_inventory(inventory)
-    print(inventory)
     for nsl in netstalocchans:
         print('Running station {}'.format(nsl))
         nsl_split = nsl.split('.')
         for date in date_generator(date_range[0], date_range[1]):
-            print(UTCDateTime(date).julday)
             f = '{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
                     wav_dir, date.year, nsl_split[0], nsl_split[1],
                     nsl_split[3], nsl_split[0], nsl_split[1],
                     nsl_split[2], nsl_split[3], date.year,
                     UTCDateTime(date).julday)
-            print(f)
             print('Calculating {}'.format(f))
             root_name = os.path.basename(f).rstrip('.ms')
-            st = read(f)
+            try:
+                st = read(f)
+            except FileNotFoundError:
+                print('{} doesnt exist'.format(f))
+                continue
             lil_ppsd = PPSD(st[0].stats, inventory)
             flag = lil_ppsd.add(st)
             if not flag:
