@@ -152,6 +152,7 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
         b.extend([UTCDateTime(date_range[0]), UTCDateTime(date_range[1])])
     inventory = cli.get_stations_bulk(bulk)
     inventory = modify_SAULN_inventory(inventory)
+    print(inventory)
     for nsl in netstalocchans:
         print('Running station {}'.format(nsl))
         nsl_split = nsl.split('.')
