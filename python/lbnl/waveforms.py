@@ -155,7 +155,7 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
     for nsl in netstalocchans:
         print('Running station {}'.format(nsl))
         nsl_split = nsl.split('.')
-        for date in date_generator(**date_range):
+        for date in date_generator(date_range[0], date_range[1]):
             try:
                 f = glob('{}/{}/**/{}.{}.{}.{}.{}.ms'.format(
                     wav_dir, date.year(), nsl_split[0], nsl_split[1],
