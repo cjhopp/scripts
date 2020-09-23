@@ -156,16 +156,14 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
         print('Running station {}'.format(nsl))
         nsl_split = nsl.split('.')
         for date in date_generator(date_range[0], date_range[1]):
-            print(date)
-            try:
-                f = glob('{}/{}/**/{}.{}.{}.{}.{}.{}.ms'.format(
+            print(UTCDateTime(date).julday)
+            f = '{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{}.ms'.format(
                     wav_dir, date.year, nsl_split[0], nsl_split[1],
+                    nsl_split[3], nsl_split[0], nsl_split[1],
                     nsl_split[2], nsl_split[3], date.year,
-                    UTCDateTime(date).julday), recursive=True)[0]
-            except:
-                print('Cant find wave file')
-                continue
-            print('Adding {}'.format(f))
+                    UTCDateTime(date).julday)
+            print(f)
+            print('Calculating {}'.format(f))
             root_name = os.path.basename(f).rstrip('.ms')
             st = read(f)
             lil_ppsd = PPSD(st[0].stats, inventory)
