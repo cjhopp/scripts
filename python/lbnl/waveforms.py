@@ -158,7 +158,7 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
         for date in date_generator(date_range[0], date_range[1]):
             try:
                 f = glob('{}/{}/**/{}.{}.{}.{}.{}.ms'.format(
-                    wav_dir, date.year(), nsl_split[0], nsl_split[1],
+                    wav_dir, date.year, nsl_split[0], nsl_split[1],
                     nsl_split[2], nsl_split[3], UTCDateTime(date).julday),
                     recursive=True)[0]
             except:
