@@ -149,7 +149,7 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
     cli = Client('IRIS')
     bulk = [n.split('.') for n in netstalocchans]
     for b in bulk:
-        b.extend(list(date_range))
+        b.extend([UTCDateTime(date_range[0]), UTCDateTime(date_range[1])])
     inventory = cli.get_stations_bulk(bulk)
     inventory = modify_SAULN_inventory(inventory)
     for nsl in netstalocchans:
