@@ -786,6 +786,7 @@ def dxf_to_xyz(mesh_file, mesh_name, datas):
                 showlegend=False))
     return datas
 
+
 def pts_to_plane(x, y, z, method='lstsq'):
     # Create a grid over the desired area
     # Here just define it over the x and y range of the cluster (100 pts)
@@ -813,6 +814,7 @@ def pts_to_plane(x, y, z, method='lstsq'):
     pt3 = (X[0][0], Y[0][0], Z[0][0])
     strike, dip = strike_dip_from_pts(pt1, pt2, pt3)
     return X.flatten(), Y.flatten(), Z.flatten(), strike, dip
+
 
 def pts_to_ellipsoid(x, y, z):
     # Function from:
@@ -842,6 +844,7 @@ def pts_to_ellipsoid(x, y, z):
     radii = np.sqrt(1. / np.abs(evals)) # Absolute value to eliminate imaginaries?
     return center, radii, evecs, v
 
+
 def strike_dip_from_pts(pt1, pt2, pt3):
     # Take the output from the best fit plane and calculate strike and dip
     vec_1 = np.array(pt3) - np.array(pt1)
@@ -864,6 +867,7 @@ def strike_dip_from_pts(pt1, pt2, pt3):
     part2_dip = np.sqrt(part1_dip**2 + U[2]**2)
     dip = np.rad2deg(np.arcsin(part1_dip / part2_dip))
     return strike, dip
+
 
 def ellipsoid_to_pts(center, radii, evecs):
     """
@@ -923,3 +927,13 @@ def alpha_shape(points, alpha):
     m = geometry.MultiLineString(edge_points)
     triangles = list(polygonize(m))
     return cascaded_union(triangles), edge_points
+
+
+def plot_lab_2D():
+    """
+    TODO Function to plot Niche 8 in map view and cross section
+    to illustrate positioning of instrumentation
+
+    :return:
+    """
+    return

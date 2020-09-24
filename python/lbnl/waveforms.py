@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from glob import glob
+from copy import deepcopy
 from datetime import timedelta
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
@@ -1616,20 +1617,75 @@ def plot_raw_spectra(st, ev, inv=None, savefig=None):
     return axes
 
 
-def family_stack_plot(event_list, wavs, station, channel, selfs,
+def plot_arrivals(st, ev, pre_pick, post_pick):
+    """
+    Simple plot of arrivals for showing polarities
+
+    :param st: Stream containing arrivals
+    :param ev: Event with pick information
+    :param pre_pick:
+    :param post_pick:
+    :return:
+    """
+    plot_st = Stream()
+    for pk in ev.picks:
+        sta = pk.waveform_id.station_code
+        chan = pk.waveform_id.channel_code
+        if pk.polarity and len(st.select(station=sta, channel=chan)) != 0:
+            tr = st.select(station=sta, channel=chan)[0]
+            tr.trim(starttime=pk.time - pre_pick, endtime=pk.time + post_pick)
+            plot_st += tr
+    plot_st.plot(equal_scale=False)
+    return
+
+
+def plot_station_rot_stats(sta_dict, title='Station orientaton stats'):
+    """
+    Plot the statistics of the station dictionary output by
+    rotate_catalog_streams()
+
+    :param sta_dict: Nested dictionary with keys 'az-dip', 'borehole angle'
+    :return:
+    """
+    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 12))#,
+                             #subplot_kw=dict(polar=True))
+    for sta, d in sta_dict.items():
+        az, dip = zip(*d['orientation'])
+        sns.distplot(d['bh angle'], label=sta, ax=axes[2],
+                     hist=False, rug=True)
+        sns.distplot(az, label=sta, ax=axes[0], hist=False, rug=True)
+        sns.distplot(dip, label=sta, ax=axes[1], hist=False, rug=True)
+        axes[0].legend()
+        axes[0].set_title('Channel azimuth')
+        # axes[0].set_theta_zero_location('N')
+        # axes[0].set_theta_direction(-1)
+        axes[1].legend()
+        axes[1].set_title('Channel dip (from horizontal)')
+        # axes[1].set_theta_zero_location('E')
+        # axes[1].set_theta_direction(-1)
+        axes[2].legend()
+        axes[2].set_title('Channel angle with borehole axis')
+        # axes[1].set_theta_zero_location('N')
+        # axes[1].set_theta_direction(-1)
+        plt.suptitle(title, fontsize=20)
+    return axes
+
+
+def family_stack_plot(family, wav_files, seed_id, selfs,
                       title='Detections', shift=True, shift_len=0.3,
                       pre_pick_plot=1., post_pick_plot=5., pre_pick_corr=0.05,
-                      post_pick_corr=0.5, cc_thresh=0.5, spacing_param=2,
+                      post_pick_corr=0.5, cc_thresh=0.7, spacing_param=2,
                       normalize=True, plot_mags=False, figsize=(6, 15),
                       savefig=None):
     """
     Plot list of traces for a stachan one just above the other (modified from
     subspace_util.stack_plot()
 
+    Modified from workflow.util.plot_detections.family_stack_plot 9-23-2020
+
     :param events: List of events from which we'll extract picks for aligning
-    :param wavs: List of files for above events
-    :param station: Station to plot
-    :param channel: channel to plot
+    :param wav_dirs: List of directories containing SAC files for above events
+    :param seed_id: Net.Sta.Loc.Chan seed string for selecting picks/wavs
     :param selfs: List of self detection ids for coloring the template
     :param title: Plot title
     :param shift: Whether to allow alignment of the wavs
@@ -1652,29 +1708,42 @@ def family_stack_plot(event_list, wavs, station, channel, selfs,
     """
     streams = [] # List of tup: (Stream, name string)
     rm_evs = []
-    events = copy.deepcopy(event_list)
-    for i, wav in enumerate(wavs):
+    events = [d.event for d in family.detections]
+    temp_freqmax = family.template.highcut
+    temp_freqmin = family.template.lowcut
+    temp_samp_rate = family.template.samp_rate
+    temp_order = family.template.filt_order
+    for i, ev in enumerate(events):
+        eid = ev.resource_id.id
+        eid = eid.split('_')
+        if len(eid) == 3:
+            eid = '{}_{}T{}.{}'.format(eid[0], eid[1], eid[2][:-6], eid[2][-6:])
+        elif len(eid) == 4:
+            eid = '{}_{}_{}T{}.{}'.format(eid[0], eid[1], eid[2], eid[3][:-6],
+                                          eid[3][-6:])
+        det_file = [f for f in wav_files
+                    if f.split('/')[-1].rstrip('.ms') == eid]
         try:
-            streams.append(read(wav))
-        except Exception: # If this directory doesn't exist, remove event
-            print('{} doesnt exist'.format(wav))
+            streams.append(read(det_file[0]))
+        except IndexError: # If this directory doesn't exist, remove event
+            print('{} doesnt exist'.format(eid))
             rm_evs.append(events[i])
     for rm in rm_evs:
         events.remove(rm)
     print('Have {} streams and {} events'.format(len(streams), len(events)))
     # Select all traces
     traces = []
+    pk_offsets = []
     tr_evs = []
     colors = []  # Plotting colors
     for i, (st, ev) in enumerate(zip(streams, events)):
-        if len(st.select(station=station, channel=channel)) == 1:
-            st1 = shortproc(st=st, lowcut=3000., highcut=42000.,
-                            filt_order=3, samp_rate=100000.)
-            tr = st1.select(station=station, channel=channel)[0]
+        if len(st.select(id=seed_id)) == 1:
+            st1 = shortproc(st=st, lowcut=temp_freqmin, highcut=temp_freqmax,
+                            filt_order=temp_order, samp_rate=temp_samp_rate)
+            tr = st1.select(id=seed_id)[0]
             try:
                 pk = [pk for pk in ev.picks
-                      if pk.waveform_id.station_code == station
-                      and pk.waveform_id.channel_code == channel][0]
+                      if pk.waveform_id.get_seed_string() == tr.id][0]
             except:
                 print('No pick for this event')
                 continue
@@ -1683,12 +1752,12 @@ def family_stack_plot(event_list, wavs, station, channel, selfs,
             if ev.resource_id.id.split('/')[-1] in selfs:
                 colors.append('red')
                 master_trace = tr
+                pk_offsets.append(0.0)
             else:
-                amps = [np.max(np.abs(tr.data) for tr in traces)]
-                master_trace = traces[amps.index(max(amps))]
                 colors.append('k')
+                pk_offsets.append(0.1) #  Deal with template pick offset
         else:
-            print('No trace in stream for {}.{}'.format(station, channel))
+            print('No trace in stream for {}'.format(seed_id))
     # Normalize traces, demean and make dates vect
     date_labels = []
     print('{} traces found'.format(len(traces)))
@@ -1702,11 +1771,10 @@ def family_stack_plot(event_list, wavs, station, channel, selfs,
     fig, ax = plt.subplots(figsize=figsize)
     shift_samp = int(shift_len * traces[0].stats.sampling_rate)
     pks = []
-    for ev in tr_evs:
-        pks.append([pk.time for pk in ev.picks
-                    if pk.waveform_id.station_code == station and
-                    pk.waveform_id.channel_code == channel][0])
-    mags = [ev.magnitudes[0].mag for ev in tr_evs]
+    for ev, pk_offset in zip(tr_evs, pk_offsets):
+        pks.append([pk.time + pk_offset for pk in ev.picks
+                    if pk.waveform_id.get_seed_string() == tr.id][0])
+    mags = [ev.preferred_magnitude().mag for ev in tr_evs]
     # Copy these out of the way for safe keeping
     if shift:
         cut_traces = [tr.copy().trim(starttime=p_time - pre_pick_corr,
@@ -1784,20 +1852,21 @@ def family_stack_plot(event_list, wavs, station, channel, selfs,
     data_stack -= np.mean(data_stack)
     data_stack /= np.max(data_stack)
     # Plot using last datetime vector from loop above for convenience
-    ax.plot(dt_vects[-1], data_stack * 2 - vert_steps[-1],
+    ax.plot(dt_vects[-1], (data_stack * 2) - vert_steps[2],
             color='b')
     # Have to suss out average pick time tho
     av_p_time = (arb_dt).datetime + (np.mean(pk_samples) * td)
-    ax.vlines(x=av_p_time, ymin=-vert_steps[-1] - (spacing_param * 2),
-              ymax=-vert_steps[-1] + (spacing_param * 2),
+    ax.vlines(x=av_p_time, ymin=-vert_steps[2] - (spacing_param * 2),
+              ymax=-vert_steps[2] + (spacing_param * 2),
               color='green')
     ax.set_xlabel('Seconds', fontsize=19)
+    fig.autofmt_xdate()
     ax.set_ylabel('Date', fontsize=19)
     # Change y labels to dates
     ax.yaxis.set_ticks(vert_steps)
     date_labels[1::3] = ['' for d in date_labels[1::3]]
     date_labels[2::3] = ['' for d in date_labels[2::3]]
-    ax.set_yticklabels(date_labels[::-1], fontsize=16)
+    ax.set_yticklabels(date_labels[::-1], fontsize=16, rotation=30)
     ax.set_title(title, fontsize=19)
     if savefig:
         fig.tight_layout()
@@ -1807,56 +1876,3 @@ def family_stack_plot(event_list, wavs, station, channel, selfs,
         fig.tight_layout()
         plt.show()
     return
-
-def plot_arrivals(st, ev, pre_pick, post_pick):
-    """
-    Simple plot of arrivals for showing polarities
-
-    :param st: Stream containing arrivals
-    :param ev: Event with pick information
-    :param pre_pick:
-    :param post_pick:
-    :return:
-    """
-    plot_st = Stream()
-    for pk in ev.picks:
-        sta = pk.waveform_id.station_code
-        chan = pk.waveform_id.channel_code
-        if pk.polarity and len(st.select(station=sta, channel=chan)) != 0:
-            tr = st.select(station=sta, channel=chan)[0]
-            tr.trim(starttime=pk.time - pre_pick, endtime=pk.time + post_pick)
-            plot_st += tr
-    plot_st.plot(equal_scale=False)
-    return
-
-
-def plot_station_rot_stats(sta_dict, title='Station orientaton stats'):
-    """
-    Plot the statistics of the station dictionary output by
-    rotate_catalog_streams()
-
-    :param sta_dict: Nested dictionary with keys 'az-dip', 'borehole angle'
-    :return:
-    """
-    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 12))#,
-                             #subplot_kw=dict(polar=True))
-    for sta, d in sta_dict.items():
-        az, dip = zip(*d['orientation'])
-        sns.distplot(d['bh angle'], label=sta, ax=axes[2],
-                     hist=False, rug=True)
-        sns.distplot(az, label=sta, ax=axes[0], hist=False, rug=True)
-        sns.distplot(dip, label=sta, ax=axes[1], hist=False, rug=True)
-        axes[0].legend()
-        axes[0].set_title('Channel azimuth')
-        # axes[0].set_theta_zero_location('N')
-        # axes[0].set_theta_direction(-1)
-        axes[1].legend()
-        axes[1].set_title('Channel dip (from horizontal)')
-        # axes[1].set_theta_zero_location('E')
-        # axes[1].set_theta_direction(-1)
-        axes[2].legend()
-        axes[2].set_title('Channel angle with borehole axis')
-        # axes[1].set_theta_zero_location('N')
-        # axes[1].set_theta_direction(-1)
-        plt.suptitle(title, fontsize=20)
-    return axes

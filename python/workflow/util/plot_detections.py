@@ -527,8 +527,8 @@ def plot_detection_wavs(family, tribe, wav_dirs, start=None, end=None,
         stream = grab_day_wavs(wav_ds, dto, stachans)
         print('Preprocessing')
         st1 = pre_processing.dayproc(stream, temp.lowcut, temp.highcut,
-                                        temp.filt_order, temp.samp_rate,
-                                        starttime=dto, num_cores=3)
+                                     temp.filt_order, temp.samp_rate,
+                                     starttime=dto, num_cores=3)
         for det in dets:
             det_st = st1.slice(starttime=det.detect_time - 3,
                                endtime=det.detect_time + 7).copy()
