@@ -1577,30 +1577,29 @@ def plot_raw_spectra(st, ev, inv=None, savefig=None):
             # Only use Z comps for now
             continue
         pick = [pk for pk in ev.picks
-                if pk.waveform_id.station_code == sta
-                and pk.waveform_id.channel_code == chan]
+                if pk.waveform_id.get_seed_string() == tr.id]
         if len(pick) == 0:
             continue
         else:
             pick = pick[0]
         if inv:
-            pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
-                       'GEONET': [0.2, 1.1, 40., 49.]}
-            if sta.endswith('Z'):
-                prefilt = pf_dict['GEONET']
-            else:
-                prefilt = pf_dict['MERC']
-            tr.remove_response(inventory=inv, pre_filt=prefilt,
-                               water_level=20, output='DISP')
+            # pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
+            #            'GEONET': [0.2, 1.1, 40., 49.]}
+            # if sta.endswith('Z'):
+            #     prefilt = pf_dict['GEONET']
+            # else:
+            #     prefilt = pf_dict['MERC']
+            tr.remove_response(inventory=inv,
+                               water_level=60, output='DISP')
         else:
             print('No instrument response to remove. Raw spectrum only.')
         # Hard coded for CASSM sources atm
-        tr.trim(starttime=pick.time - 0.00005, endtime=pick.time + 0.005)
+        tr.trim(starttime=pick.time - 1, endtime=pick.time + 15)
         axes[0].plot(tr.data)
         N = len(tr.data)
         print(N)
         T = 1.0 / tr.stats.sampling_rate
-        xf = np.linspace(0.0, 1.0 / (2.0 * T), N / 2)
+        xf = np.linspace(0.0, 1.0 / (2.0 * T), N // 2)
         yf = scipy.fft(tr.data)
         axes[1].loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]), label=sta)
         axes[1].set_xlabel('Frequency (Hz)')
