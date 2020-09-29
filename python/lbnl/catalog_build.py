@@ -757,6 +757,7 @@ def read_dd_to_cat(ev_id_map, cat, dd_outfile):
             continue
     return cat_new
 
+
 ## Plotting ##
 
 def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):

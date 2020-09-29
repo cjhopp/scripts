@@ -34,7 +34,6 @@ def read_collab_hydro(path):
     df['dt'] = pd.to_datetime(df['date'], format='%Y-%m-%d %H:%M:%S')
     df = df.set_index('dt')
     df = df.drop(['date'], axis=1)
-    df = df.drop(['datetime'], axis=1)
     df.rename(columns={'injection_Lpm': 'Flow', 'pressure_MPa': 'Pressure'},
               inplace=True)
     # Resample this shiz to shrink the dataset

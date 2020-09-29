@@ -1761,11 +1761,6 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     # Normalize traces, demean and make dates vect
     date_labels = []
     print('{} traces found'.format(len(traces)))
-    # for tr in traces:
-    #     date_labels.append(str(tr.stats.starttime.date))
-    #     tr.data -= np.mean(tr.data)
-    #     if normalize:
-    #         tr.data /= max(tr.data)
     # Vertical space array
     vert_steps = np.linspace(0, len(traces) * spacing_param, len(traces))
     fig, ax = plt.subplots(figsize=figsize)
@@ -1774,7 +1769,12 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     for ev, pk_offset in zip(tr_evs, pk_offsets):
         pks.append([pk.time + pk_offset for pk in ev.picks
                     if pk.waveform_id.get_seed_string() == tr.id][0])
-    mags = [ev.preferred_magnitude().mag for ev in tr_evs]
+    mags = []
+    for ev in tr_evs:
+        try:
+            mags.append(ev.preferred_magnitude().mag)
+        except AttributeError:
+            mags.append('')
     # Copy these out of the way for safe keeping
     if shift:
         cut_traces = [tr.copy().trim(starttime=p_time - pre_pick_corr,
@@ -1836,7 +1836,10 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
                       ymax=vert_step + spacing_param / 2., linestyle='--',
                       color='red')
         # Magnitude text
-        mag_text = 'M$_L$={:0.2f}'.format(mag)
+        try:
+            mag_text = 'M$_L$={:0.2f}'.format(mag)
+        except ValueError:
+            mag_text = 'n/a'
         if shift:
             mag_x = (arb_dt + post_pick_plot + max(shifts)).datetime
         else:

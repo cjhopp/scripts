@@ -8,14 +8,16 @@ import csv
 import copy
 import scipy
 import numpy as np
+import matplotlib.pyplot as plt
 
 from glob import glob
+from collections import Counter
 from obspy import Stream, read, Catalog
 from obspy.core.event import Magnitude, Comment
 from eqcorrscan.utils import stacking
 from eqcorrscan.utils.mag_calc import svd_moments
 from eqcorrscan.utils.pre_processing import shortproc
-from eqcorrscan.utils.clustering import cross_chan_coherence, svd
+from eqcorrscan.utils.clustering import cross_chan_correlation, svd
 
 
 def CUSP_to_SC3_rel_mags(det_cat, temp_cat, selfs):
@@ -120,145 +122,124 @@ def remove_outliers(M, ev_out, m=4):
             new_evs.append(ev_out[i])
     return np.array(new_M), new_evs
 
-def cc_coh_dets(streams, length, wav_prepick, corr_prepick, shift):
-    # Loop over detections and return list of cc_coh with template
+def cc_coh_dets(streams, detections, length, corr_prepick, shift):
+    # Loop over detections and return list of ccc with template
     # Trim all wavs to desired length
     # Assumes the first entry is template
-    for st in streams:
+    for i, st in enumerate(streams):
+        det = detections[i]
         for tr in st:
-            strt = tr.stats.starttime + wav_prepick - corr_prepick - (shift / 2.)
-            tr.trim(starttime=strt, endtime=strt + length + (shift / 2.))
-    cccohs = []
-    for stream in streams[1:]:
-        coh, i = cross_chan_coherence(st1=streams[0], st2=stream,
-                                      allow_shift=True, shift_len=shift)
-        cccohs.append(coh)
-    return cccohs
+            pk = [pk for pk in det.event.picks
+                  if pk.waveform_id.get_seed_string() == tr.id][0]
+            strt = pk.time - corr_prepick - (shift / 2.)
+            tr.trim(starttime=strt, endtime=strt + length + (shift / 2.),
+                    nearest_sample=True)
+    # Clean out traces of different lengths
+    len = Counter([(tr.id, tr.stats.npts)
+                   for st in streams for tr in st]).most_common(1)[0][0][1]
+    for st in streams:
+        rms = [tr for tr in st if tr.stats.npts != len]
+        for rm in rms:
+            st.traces.remove(rm)
+    coh, i = cross_chan_correlation(st1=streams[0], streams=streams[1:],
+                                    shift_len=shift)
+    return coh
+
 
 def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
-                        reject, sac_dir, min_amps, calibrate=False,
-                        method='PCA'):
+                        reject, wav_dir, min_amps, calibrate=False,
+                        method='PCA', plot_svd=False):
     """
     Calculate the relative moments for detections in a Family using
     mag_calc.svd_moments()
 
     :param party: Party of detections
+    :param self_files: List of self-detection wav files (in order of families)
     :param shift_len: Maximum shift length used in waveform alignment
     :param align_len: Length of waveform used for correlation in alignment
     :param svd_len: Length of waveform used in relative amplitude calc
     :param reject: Min cc threshold for accepted measurement
-    :param sac_dir: Root directory of waveforms
+    :param wav_dir: Root directory of waveforms
     :param min_amps: Minimum number of relative measurements per pair
     :param calibrate: Flag for calibration to a priori Ml's
     :param method: 'PCA' or 'LSQR'
+    :param plot_svd: Bool to plot results of svd relative amplitude calcs
     :return:
     """
-
-    # First read-in self detection names
-    selfs = []
-    for self_file in self_files:
-        with open(self_file, 'r') as f:
-            rdr = csv.reader(f)
-            for row in rdr:
-                selfs.append(str(row[0]))
-    for fam in party.families:
+    pty = party.copy()
+    for i, fam in enumerate(pty.families):
         print('Starting work on family %s' % fam.template.name)
         if len(fam) == 1:
             print('Only self-detection. Moving on.')
             continue
         temp = fam.template
         prepick = temp.prepick
-        events = [det.event for det in fam.detections]
         # Here we'll read in the waveforms and trim from stefan's directory
         # of SAC files so as not to duplicate data
-        ev_dirs = ['%s%s' % (sac_dir, str(ev.resource_id).split('/')[-1])
-                   for ev in events]
+        ev_files = glob('{}/*'.format(wav_dir))
+        ev_files.sort()
         streams = []
-        if len([i for i, ev_dir in enumerate(ev_dirs)
-                    if ev_dir.split('/')[-1] in selfs]) == 0:
-            print('Family %s has no self detection. Investigate'
-                  % fam.template.name)
-            continue
-        self_ind = [i for i, ev_dir in enumerate(ev_dirs)
-                    if ev_dir.split('/')[-1] in selfs][0]
+        self_ind = [j for j, ev_f in enumerate(ev_files)
+                    if ev_f == self_files[i]][0]
         # Read in Z components of events which we wrote for stefan
         # Many of these ev_dirs will not exist!
-        for i, ev_dir in enumerate(ev_dirs):
-            raw_st = Stream()
-            print('Reading %s' % ev_dir)
-            for wav_file in glob('%s/*Z.sac' % ev_dir):
-                print('...file %s' % wav_file)
-                raw_tr = read(wav_file)[0]
-                start = raw_tr.stats.starttime + raw_tr.stats.sac['a'] - 3.
-                end = start + 10
-                raw_tr.trim(starttime=start, endtime=end)
-                raw_st.traces.append(raw_tr)
-            streams.append(raw_st)
-        print('Moved self detection to top of list')
+        for ev_w in ev_files:
+            print('Reading %s' % ev_w)
+            streams.append(read(ev_w))
+        print('Moving self detection to top of list')
         # Move the self detection to the first element
         streams.insert(0, streams.pop(self_ind))
         print('Template Stream: %s' % str(streams[0]))
         if len(streams[0]) == 0:
-            print('Template %s waveforms did not get written to SAC.' %
+            print('Template %s waveforms did not get written. Investigate.' %
                   temp.name)
             continue
-        # Front/back clip hardcoded relative to wavs starting 3 s before pick
-        front_clip = 3.0 - shift_len - 0.05 - prepick
-        back_clip = front_clip + align_len + (2 * shift_len) + 0.05
-        wrk_streams = [] # For aligning
         # Process streams then copy to both ccc_streams and svd_streams
-        bad_streams = []
-        for i, st in enumerate(list(streams)):
-            try:
-                shortproc(st=streams[i], lowcut=temp.lowcut,
-                          highcut=temp.highcut, filt_order=temp.filt_order,
-                          samp_rate=temp.samp_rate)
-                wrk_streams.append(st.copy())
-            except ValueError as e:
-                print('ValueError reads:')
-                print(str(e))
-                print('Attempting to remove bad trace at {}'.format(
-                    str(e).split(' ')[-1]))
-                bad_tr = str(e).split(' ')[-1][:-1] # Eliminate trailing "'"
-                print('Sta and chan names: {}'.format(bad_tr.split('.')))
+        print('Shortproc-ing streams')
+        for st in streams:
+            rms = [tr for tr in st if tr.stats.sampling_rate < temp.samp_rate]
+            for rm in rms:
+                st.traces.remove(rm)
+            shortproc(st=st, lowcut=temp.lowcut,
+                      highcut=temp.highcut, filt_order=temp.filt_order,
+                      samp_rate=temp.samp_rate)
+        # Remove all traces with no picks before copying
+        for str_ind, st in enumerate(streams):
+            det = fam.detections[str_ind]
+            rms = []
+            for tr in st:
                 try:
-                    tr = streams[i].select(station=bad_tr.split('.')[0],
-                                           channel=bad_tr.split('.')[1])[0]
-                    streams[i].traces.remove(tr)
-                    shortproc(st=streams[i], lowcut=temp.lowcut,
-                              highcut=temp.highcut,
-                              filt_order=temp.filt_order,
-                              samp_rate=temp.samp_rate)
-                    wrk_streams.append(st.copy())
-                except IndexError as e:
-                    print(str(e))
-                    print('Funkyness. Removing entire stream')
-                    bad_streams.append(st)
-        if len(bad_streams) > 0:
-            for bst in bad_streams:
-                streams.remove(bst)
+                    [pk for pk in det.event.picks
+                     if pk.waveform_id.get_seed_string() == tr.id][0]
+                except IndexError:
+                    rms.append(tr)
+            for rm in rms:
+                st.traces.remove(rm)
+        print('Copying streams')
+        wrk_streams = copy.deepcopy(streams)
         svd_streams = copy.deepcopy(streams) # For svd
         ccc_streams = copy.deepcopy(streams)
         # work out cccoh for each event with template
-        cccohs = cc_coh_dets(streams=ccc_streams, shift=shift_len,
-                             length=svd_len, wav_prepick=3.,
-                             corr_prepick=0.05)
-        for st in wrk_streams:
+        cccohs = cc_coh_dets(streams=ccc_streams, detections=fam.detections,
+                             length=svd_len, corr_prepick=prepick,
+                             shift=shift_len)
+        for eind, st in enumerate(wrk_streams):
+            det = fam.detections[eind]
             for tr in st:
-                tr.trim(starttime=tr.stats.starttime + front_clip,
-                        endtime=tr.stats.starttime + back_clip)
-        st_chans = list(set([(tr.stats.station, tr.stats.channel)
-                             for st in wrk_streams for tr in st]))
-        st_chans.sort()
+                pk = [pk for pk in det.event.picks
+                      if pk.waveform_id.get_seed_string() == tr.id][0]
+                tr.trim(starttime=pk.time - prepick - shift_len,
+                        endtime=pk.time + shift_len + align_len)
+        st_seeds = list(set([tr.id for st in wrk_streams for tr in st]))
+        st_seeds.sort()
         # Align streams with just P arrivals, then use longer st for svd
         print('Now aligning svd_streams')
         shift_inds = int(shift_len * fam.template.samp_rate)
-        for st_chan in st_chans:
+        for st_seed in st_seeds:
             trs = []
             for i, st in enumerate(wrk_streams):
-                if len(st.select(station=st_chan[0], channel=st_chan[-1])) > 0:
-                    trs.append((i, st.select(station=st_chan[0],
-                                             channel=st_chan[-1])[0]))
+                if len(st.select(id=st_seed)) > 0:
+                    trs.append((i, st.select(id=st_seed)[0]))
             inds, traces = zip(*trs)
             shifts, ccs = stacking.align_traces(trace_list=list(traces),
                                                 shift_len=shift_inds,
@@ -268,26 +249,23 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             # larger wavs for svd
             for j, shift in enumerate(shifts):
                 st = svd_streams[inds[j]]
+                det = fam.detections[inds[j]]
                 if ccs[j] < reject:
-                    svd_streams[inds[j]].remove(st.select(
-                        station=st_chan[0], channel=st_chan[-1])[0])
+                    svd_streams[inds[j]].remove(st.select(id=st_seed)[0])
                     print('Removing trace due to low cc value: %s' % ccs[j])
                     continue
-                strt_tr = st.select(
-                    station=st_chan[0], channel=st_chan[-1])[0].stats.starttime
-                strt_tr += (3.0 - prepick - shift)
-                st.select(station=st_chan[0],
-                          channel=st_chan[-1])[0].trim(strt_tr,strt_tr
-                                                       + svd_len)
+                pk = [pk for pk in det.event.picks
+                      if pk.waveform_id.get_seed_string() == st_seed][0]
+                strt_tr = pk.time - prepick - shift
+                st.select(id=st_seed)[0].trim(strt_tr, strt_tr + svd_len)
         if method == 'LSQR':
             print('Using least-squares method')
             event_list = []
-            for stachan in st_chans:
+            for st_id in st_seeds:
                 st_list = []
-                for i, st in enumerate(svd_streams):
-                    if len(st.select(station=stachan[0],
-                                     channel=stachan[-1])) > 0:
-                        st_list.append(i)
+                for stind, st in enumerate(svd_streams):
+                    if len(st.select(id=st_id)) > 0:
+                        st_list.append(stind)
                 event_list.append(st_list)
             # event_list = np.asarray(event_list).tolist()
             u, sigma, v, sta_chans = svd(stream_list=svd_streams, full=True)
@@ -295,37 +273,14 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 M, events_out = svd_moments(u, sigma, v, sta_chans, event_list)
             except IOError as e:
                 print('Family %s raised error %s' % (fam.template.name, e))
-                continue
+                return
         elif method == 'PCA':
             print('Using principal component method')
-            # Now loop over all detections and do svd for each matching
-            # chan with temp
-            events_out = []
-            template = svd_streams[0]
-            M = []
-            for i, st in enumerate(svd_streams):
-                if len(st) == 0:
-                    print('Event not located, skipping')
-                    continue
-                ev_r_amps = []
-                # For each pair of template:detection (including temp:temp)
-                for tr in template:
-                    if len(st.select(station=tr.stats.station,
-                                     channel=tr.stats.channel)) > 0:
-                        det_tr = st.select(station=tr.stats.station,
-                                           channel=tr.stats.channel)[0]
-                        # Convoluted way of getting two 'vert' vectors
-                        data_mat = np.vstack((tr.data, det_tr.data)).T
-                        U, sig, Vt = scipy.linalg.svd(data_mat,
-                                                      full_matrices=True)
-                        # Vt is 2x2 for two events
-                        # Per Shelly et al., 2016 eq. 4
-                        ev_r_amps.append(Vt[0][1] / Vt[0][0])
-                if len(ev_r_amps) < min_amps:
-                    print('Fewer than 4 amplitude picks, skipping.')
-                    continue
-                M.append(np.median(ev_r_amps))
-                events_out.append(i)
+            M, events_out = svd_relative_amps(fam, svd_streams, min_amps,
+                                              plot=plot_svd)
+        else:
+            print('{} not valid argument for mag calc method'.format(method))
+            return
         # If we have a Mag for template, calibrate moments
         if calibrate and len(fam.template.event.magnitudes) > 0:
             # Convert the template magnitude to seismic moment
@@ -339,17 +294,82 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             moments = np.multiply(M, norm_mo)
             # Now convert to Mw
             Mw = [2.0 / 3.0 * (np.log10(m) - 9.0) for m in moments]
-            Mw2, evs2 = remove_outliers(Mw, events_out)
+            # Mw2, evs2 = remove_outliers(Mw, events_out)
             # Convert to local
-            Ml = [0.88 * m + 0.73 for m in Mw2]
+            Ml = [0.88 * m + 0.73 for m in Mw]
             #Normalize moments to template mag
             # Add calibrated mags to detection events
-            for i, eind in enumerate(evs2):
-                fam.detections[eind-1].event.magnitudes = [
-                    Magnitude(mag=Mw2[i], magnitude_type='Mw')]
-                fam.detections[eind-1].event.comments.append(
-                    Comment(text=str(cccohs[eind-1])))
-                fam.detections[eind-1].event.magnitudes.append(
-                    Magnitude(mag=Ml[i], magnitude_type='ML'))
-            fam.catalog = Catalog(events=[det.event for det in fam.detections])
+            for jabba, eind in enumerate(events_out):
+                fam.detections[eind].event.magnitudes = [
+                    Magnitude(mag=Mw[jabba], magnitude_type='Mw')]
+                fam.detections[eind].event.comments.append(
+                    Comment(text=str(cccohs[eind])))
+                fam.detections[eind].event.magnitudes.append(
+                    Magnitude(mag=Ml[jabba], magnitude_type='ML'))
+                fam.detections[eind].event.preferred_magnitude_id = (
+                    fam.detections[eind].event.magnitudes[-1].resource_id.id)
     return party, cccohs
+
+
+def svd_relative_amps(fam, streams, min_amps, plot):
+    """
+    Calculate the relative amplitudes using svd between template and detections
+
+    :param streams: List of streams with first being the template
+        These need to be prepared beforehand
+    :return:
+    """
+    template = streams[0]
+    M = []
+    events_out = []
+    for svd_ind, st in enumerate(streams):
+        if len(st) == 0:
+            print('Event not located, skipping')
+            continue
+        ev_r_amps = []
+        # For each pair of template:detection (including temp:temp)
+        if plot:
+            fig, ax = plt.subplots(nrows=len(template * 2),
+                                   figsize=(5, 20))
+        for tr_ind, tr in enumerate(template):
+            if len(st.select(id=tr.id)) > 0:
+                det_tr = st.select(id=tr.id)[0]
+                # Convoluted way of getting two 'vert' vectors
+                data_mat = np.vstack((tr.data, det_tr.data)).T
+                U, sig, Vt = scipy.linalg.svd(data_mat,
+                                              full_matrices=True)
+                print(Vt[0])
+                # Vt is 2x2 for two events
+                # Per Shelly et al., 2016 eq. 4
+                ev_r_amps.append(Vt[0][1] / Vt[0][0])
+                if plot:
+                    ax_i = tr_ind * 2
+                    # Plot em for debug
+                    ax[ax_i].plot(tr.data, color='r',
+                                  label='Template' if tr_ind == 0 else "")
+                    ax[ax_i].plot(det_tr.data, color='b',
+                                  label='Detection' if tr_ind == 0 else "")
+                    ax[ax_i].annotate(xy=(0.03, 0.7), text=tr.id, fontsize=8,
+                                        xycoords='axes fraction')
+                    ax[ax_i + 1].plot(tr.data / np.linalg.norm(tr.data),
+                                      color='k')
+                    ax[ax_i + 1].plot(det_tr.data / np.linalg.norm(det_tr.data),
+                                      color='steelblue')
+                    ax[ax_i + 1].plot(U[0] * Vt[0][0], color='goldenrod',
+                                      label='1st SV' if tr_ind == 0 else "")
+        if len(ev_r_amps) < min_amps:
+            print('Fewer than {} amp picks, skipping.'.format(min_amps))
+            if plot:
+                plt.close('all')
+            continue
+        M.append(np.median(ev_r_amps))
+        events_out.append(svd_ind)
+        if plot:
+            fig.legend()
+            fig.suptitle('{}: {}'.format(
+                fam.detections[svd_ind].detect_time,
+                np.median(ev_r_amps)))
+            p_nm = '{}_svd_plot.png'.format(fam.detections[svd_ind].detect_time)
+            plt.savefig(p_nm, dip=200)
+    return M, events_out
+

@@ -53,7 +53,8 @@ chan_map_feet = {'OT': (6287., 291., 356.), 'OB': (411., 470.5, 530.),
 
 # Jonathan mapping from scripts (Source ??)
 chan_map_surf = {#'OT': (226., 291., 356.), ORIGINAL
-                 'OT': (226., 286., 346.),
+                 # 'OT': (226., 286., 346.),
+                 'OT': (225.25, 286., 346.75),
                  'OB': (411., 470.5, 530.),
                  'PST': (695., 737.5, 780.), 'PSB': (827., 886.5, 946.),
                  'PDT': (1179., 1238., 1297.), 'PDB': (995., 1054.5, 1114.)}
@@ -519,6 +520,8 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             # Find the closest integer channel to meter mapping
             data_tmp = data[np.argmin(start_chan):np.argmin(end_chan), :]
             depth_tmp = depth[np.argmin(start_chan):np.argmin(end_chan)]
+            if location == 'surf' and well == 'OT':
+                depth_tmp *= 0.9775  # "Stretch factor"
             noise = estimate_noise(data_tmp, method=noise_method)
             well_data[well] = {'times': times, 'mode': mode,
                                'type': type_m}
@@ -957,15 +960,20 @@ def plot_fiber_mapping(well_data, fiber, mapping, title='Fiber mapping'):
               color='k', label='Data')
     for well, depth in mapping.items():
         c = next(cols)
-        axes.axvline(depth, label=well, color=c)
-        axes.axvline(depth - fiber_depths[well], color=c, linestyle='--')
-        axes.axvline(depth + fiber_depths[well], color=c, linestyle='--')
+        if len(depth) == 3:
+            axes.axvline(depth[1], label=well, color=c)
+            axes.axvline(depth[0], color=c, linestyle='--')
+            axes.axvline(depth[2], color=c, linestyle='--')
+        else:
+            axes.axvline(depth, label=well, color=c)
+            axes.axvline(depth - fiber_depths[well], color=c, linestyle='--')
+            axes.axvline(depth + fiber_depths[well], color=c, linestyle='--')
     fig.suptitle(title, fontsize=16)
     axes.legend()
     axes.set_xlabel('Meters along fiber')
     axes.set_ylabel('Absolute Freq [GHz]')
     axes.xaxis.set_minor_locator(MultipleLocator(10))
-    plt.grid(True, which='minor')
+    plt.grid(True, which='both')
     plt.tight_layout()
     return
 
