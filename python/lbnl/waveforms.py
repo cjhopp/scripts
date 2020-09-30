@@ -11,10 +11,12 @@ import yaml
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import seaborn as sns
 
 from glob import glob
 from copy import deepcopy
+from itertools import cycle
 from datetime import timedelta
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
@@ -33,6 +35,7 @@ from eqcorrscan.utils import clustering
 from eqcorrscan.utils.mag_calc import dist_calc
 from scipy.stats import special_ortho_group, median_absolute_deviation
 from scipy.signal import find_peaks
+from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
@@ -1675,7 +1678,7 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
                       title='Detections', shift=True, shift_len=0.3,
                       pre_pick_plot=1., post_pick_plot=5., pre_pick_corr=0.05,
                       post_pick_corr=0.5, cc_thresh=0.7, spacing_param=2,
-                      normalize=True, plot_mags=False, figsize=(6, 15),
+                      normalize=True, plot_mags=False, figsize=(8, 15),
                       savefig=None):
     """
     Plot list of traces for a stachan one just above the other (modified from
@@ -1713,6 +1716,7 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     temp_freqmin = family.template.lowcut
     temp_samp_rate = family.template.samp_rate
     temp_order = family.template.filt_order
+    prepick = family.template.prepick
     for i, ev in enumerate(events):
         eid = ev.resource_id.id
         eid = eid.split('_')
@@ -1839,15 +1843,16 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
         try:
             mag_text = 'M$_L$={:0.2f}'.format(mag)
         except ValueError:
-            mag_text = 'n/a'
+            mag_text = ''
         if shift:
             mag_x = (arb_dt + post_pick_plot + max(shifts)).datetime
         else:
-            mag_x = (arb_dt + post_pick_plot).datetime
+            mag_x = (arb_dt + post_pick_plot + 1).datetime
         if plot_mags:
-            ax.text(mag_x, vert_step + spacing_param / 2., mag_text, fontsize=14,
+            ax.text(mag_x, vert_step, mag_text, fontsize=14,
                     verticalalignment='center', horizontalalignment='left',
-                    bbox=dict(ec='k', fc='w'))
+                    bbox=dict(boxstyle="round,pad=0.2", fc="white",
+                              ec="k", lw=1))
     # Plot the stack of all the waveforms (maybe with mean pick and then AIC
     # pick following Rowe et al. 2004 JVGR)
     data_stack = np.sum(np.array([tr.data for tr in traces]), axis=0)
@@ -1858,12 +1863,14 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     ax.plot(dt_vects[-1], (data_stack * 2) - vert_steps[2],
             color='b')
     # Have to suss out average pick time tho
-    av_p_time = (arb_dt).datetime + (np.mean(pk_samples) * td)
+    av_p_time = (arb_dt - prepick).datetime + (np.mean(pk_samples) * td)
     ax.vlines(x=av_p_time, ymin=-vert_steps[2] - (spacing_param * 2),
               ymax=-vert_steps[2] + (spacing_param * 2),
               color='green')
     ax.set_xlabel('Seconds', fontsize=19)
-    fig.autofmt_xdate()
+    # Second locator
+    formatter = mdates.DateFormatter('%S')
+    ax.xaxis.set_major_formatter(formatter)
     ax.set_ylabel('Date', fontsize=19)
     # Change y labels to dates
     ax.yaxis.set_ticks(vert_steps)
@@ -1878,4 +1885,59 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     else:
         fig.tight_layout()
         plt.show()
+    return
+
+
+def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ'):
+    """
+    Take pre-computed ppsds and plot the means and diffs for all specified
+    channels
+
+    :param psd_dir: Root dir with the .npz files
+    :param seeds: list of full seed ids
+    :param datetime: Datetime for date we want (will only use year and julday)
+    :return:
+    """
+    cols = cycle(sns.color_palette('muted'))
+    next(cols)  # Skip first blue-ish one
+    B_cols = cycle(sns.color_palette('Blues', 3))
+    npz_files = glob('{}/*'.format(psd_dir))
+    day_str = '{}.{:03d}'.format(datetime.year, UTCDateTime(datetime).julday)
+    ppsds = {}
+    for seed in seeds:
+        try:
+            ppsds[seed] = PPSD.load_npz(
+                [f for f in npz_files
+                 if f[:-4].endswith('.'.join([seed, day_str]))][0])
+        except IndexError:
+            print('No file for {}.{}'.format(seed, day_str))
+            continue
+    # Plot em
+    fig, axes = plt.subplots(ncols=2, sharex='row', figsize=(15, 5))
+    refx, refy = ppsds[reference_seed].get_mean()
+    for seed, ppsd in ppsds.items():
+        if seed.split('.')[2] in ['B1', 'B2', 'B3']:
+            c = next(B_cols)
+        else:
+            c = next(cols)
+        xs, ys = ppsd.get_mean()
+        try:
+            diffx, diffy = ys - refy
+        except ValueError:  # Case of lower samp rate data
+            # Interpolate onto reference freqs
+            f = interp1d(xs, ys, bounds_error=False, fill_value=np.nan)
+            diffx = refx
+            diffy = f(refx) - refy
+        # Plot vs frequency
+        axes[0].plot(1 / xs, ys, label=seed, color=c)
+        axes[1].plot(1 / diffx, diffy, color=c)
+    axes[0].set_xscale('log')
+    axes[0].set_xlabel('Freq [Hz]', fontsize=12)
+    axes[1].set_xlabel('Freq [Hz]', fontsize=12)
+    axes[0].set_ylabel('Amplitude [dB]', fontsize=12)
+    axes[1].set_ylabel('Relative amplitude [dB]', fontsize=12)
+    axes[0].set_facecolor('whitesmoke')
+    axes[1].set_facecolor('whitesmoke')
+    fig.legend()
+    plt.show()
     return

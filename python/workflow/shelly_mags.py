@@ -278,11 +278,13 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             print('Using principal component method')
             M, events_out = svd_relative_amps(fam, svd_streams, min_amps,
                                               plot=plot_svd)
+            print(M, events_out)
         else:
             print('{} not valid argument for mag calc method'.format(method))
             return
         # If we have a Mag for template, calibrate moments
         if calibrate and len(fam.template.event.magnitudes) > 0:
+            print('Converting relative amps to magniutdes')
             # Convert the template magnitude to seismic moment
             temp_mag = fam.template.event.magnitudes[-1].mag
             temp_mo = local_to_moment(temp_mag)
@@ -308,7 +310,7 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                     Magnitude(mag=Ml[jabba], magnitude_type='ML'))
                 fam.detections[eind].event.preferred_magnitude_id = (
                     fam.detections[eind].event.magnitudes[-1].resource_id.id)
-    return party, cccohs
+    return pty, cccohs
 
 
 def svd_relative_amps(fam, streams, min_amps, plot):
@@ -329,8 +331,10 @@ def svd_relative_amps(fam, streams, min_amps, plot):
         ev_r_amps = []
         # For each pair of template:detection (including temp:temp)
         if plot:
-            fig, ax = plt.subplots(nrows=len(template * 2),
-                                   figsize=(5, 20))
+            subplots = len([t for t in template if len(st.select(id=t.id)) > 0])
+            fig, ax = plt.subplots(nrows=subplots * 2,
+                                   figsize=(5, 15), sharex='col')
+        ctr = 0  # Axes incrementer
         for tr_ind, tr in enumerate(template):
             if len(st.select(id=tr.id)) > 0:
                 det_tr = st.select(id=tr.id)[0]
@@ -338,25 +342,29 @@ def svd_relative_amps(fam, streams, min_amps, plot):
                 data_mat = np.vstack((tr.data, det_tr.data)).T
                 U, sig, Vt = scipy.linalg.svd(data_mat,
                                               full_matrices=True)
-                print(Vt[0])
                 # Vt is 2x2 for two events
                 # Per Shelly et al., 2016 eq. 4
                 ev_r_amps.append(Vt[0][1] / Vt[0][0])
                 if plot:
-                    ax_i = tr_ind * 2
-                    # Plot em for debug
-                    ax[ax_i].plot(tr.data, color='r',
+                    ax_i = ctr
+                    # Time vector
+                    time = np.arange(tr.data.shape[0]) * tr.stats.delta
+                    ax[ax_i].plot(time, tr.data, color='r',
                                   label='Template' if tr_ind == 0 else "")
-                    ax[ax_i].plot(det_tr.data, color='b',
+                    ax[ax_i].plot(time, det_tr.data, color='b',
                                   label='Detection' if tr_ind == 0 else "")
                     ax[ax_i].annotate(xy=(0.03, 0.7), text=tr.id, fontsize=8,
                                         xycoords='axes fraction')
-                    ax[ax_i + 1].plot(tr.data / np.linalg.norm(tr.data),
+                    ax[ax_i + 1].plot(time, tr.data / np.linalg.norm(tr.data),
                                       color='k')
-                    ax[ax_i + 1].plot(det_tr.data / np.linalg.norm(det_tr.data),
+                    ax[ax_i + 1].plot(time,
+                                      det_tr.data / np.linalg.norm(det_tr.data),
                                       color='steelblue')
-                    ax[ax_i + 1].plot(U[0] * Vt[0][0], color='goldenrod',
+                    ax[ax_i + 1].plot(time, U[0] * Vt[0][0], color='goldenrod',
                                       label='1st SV' if tr_ind == 0 else "")
+                    ax[ax_i].set_yticklabels([])
+                    ax[ax_i + 1].set_yticklabels([])
+                    ctr += 2
         if len(ev_r_amps) < min_amps:
             print('Fewer than {} amp picks, skipping.'.format(min_amps))
             if plot:
@@ -366,10 +374,13 @@ def svd_relative_amps(fam, streams, min_amps, plot):
         events_out.append(svd_ind)
         if plot:
             fig.legend()
-            fig.suptitle('{}: {}'.format(
-                fam.detections[svd_ind].detect_time,
+            fig.suptitle('{}: {:0.3f}'.format(
+                fam.detections[svd_ind].detect_time.strftime(
+                    '%Y/%m/%dT%H:%M:%S'),
                 np.median(ev_r_amps)))
             p_nm = '{}_svd_plot.png'.format(fam.detections[svd_ind].detect_time)
-            plt.savefig(p_nm, dip=200)
+            ax[-1].set_xlabel('Time [sec]')
+            ax[-1].margins(x=0)
+            plt.savefig(p_nm, dpi=300)
     return M, events_out
 
