@@ -30,7 +30,8 @@ from scipy.signal import resample, detrend
 
 # Local imports (assumed to be in python path)
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
-                            structures_to_planes, depth_to_xyz)
+                            structures_to_planes, depth_to_xyz,
+                            distance_to_borehole)
 from lbnl.coordinates import SURF_converter
 from lbnl.DSS import interpolate_picks, extract_channel_timeseries
 
@@ -183,10 +184,11 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
 
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
-                title=None, offline=True, dd_only=False, surface='plane',
-                DSS_picks=None, structures=None, meshes=None,
-                xrange=(2579250, 2579400), yrange=(1247500, 1247650),
-                zrange=(450, 500), sampling=0.5):
+                wells=None, title=None, offline=True, dd_only=False,
+                surface='plane', DSS_picks=None, structures=None, meshes=None,
+                line=None, simfip=None, xrange=(2579250, 2579400),
+                yrange=(1247500, 1247650), zrange=(450, 500), sampling=0.5,
+                eye=None):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -195,10 +197,8 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param catalog: Optional catalog of seismicity
     :param inventory: Optional inventory for monitoring network
     :param well_file: If field == 'surf', must provide well (x, y, z) file
-    :param wells: Boolean for whether to plot the wells
-    :param video: Deprecated because it's impossible to deal with
-    :param animation: (See above)
-    :param title: Plot title
+    :param wells: List of wells to plot
+    :param title: Title of plot
     :param offline: Boolean for whether to plot to plotly account (online)
         or to local disk (offline)
     :param dd_only: Are we only plotting dd locations?
@@ -211,6 +211,8 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param meshes: list of tup (Layer name, path) for files containing xyz
         vertices for mesh (only used for FSB Gallery at the moment; can be
         expanded)
+    :param line: Bool to add excavation progress at Mont Terri
+    :param simfip: Dict of {well name: (top packer depth, bottom packer depth)}
     :param xrange: List of min and max x of volume to interpolate DSS over
     :param yrange: List of min and max y of volume to interpolate DSS over
     :param zrange: List of min and max z of volume to interpolate DSS over
@@ -230,7 +232,8 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     else:
         print('Location {} not supported'.format(location))
         return
-    datas = add_wells(well_dict, objects=datas, structures=structures)
+    datas = add_wells(well_dict, objects=datas, structures=structures,
+                      wells=wells)
     if inventory:
         datas = add_inventory(inventory=inventory, location=location,
                               objects=datas)
@@ -253,6 +256,11 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     if catalog:
         datas = add_catalog(catalog=catalog, dd_only=dd_only, objects=datas,
                             surface=surface)
+    if line:
+        add_time_colored_line(objects=datas)
+    if simfip:
+        for wl, deps in simfip.items():
+            add_fsb_simfip(datas, wl, deps)
     # Start figure
     fig = go.Figure(data=datas)
     # Manually find the data limits, and scale appropriately
@@ -269,6 +277,8 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     else:
         zmin = np.min(all_z)
     zrange = np.abs(np.max(all_z) - zmin)
+    if not eye:
+        eye = (1.25, 1.25, 1.25)
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
                                 zerolinewidth=2, title='Easting (m)',
@@ -287,7 +297,9 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                   aspectmode='manual',
                                   aspectratio=dict(x=1, y=yrange / xrange,
                                                    z=zrange / xrange),
-                                  bgcolor="rgb(244, 244, 248)"),
+                                  bgcolor="rgb(244, 244, 248)",
+                                  camera=dict(eye=dict(x=eye[0], y=eye[1],
+                                                       z=eye[2]))),
                        autosize=True,
                        title=title,
                        legend=dict(title=dict(text='Legend',
@@ -365,6 +377,58 @@ def get_strain(volume, gridz, planez):
     return strains
 
 
+def add_time_colored_line(objects):
+    """
+    Helper to create a colored line object for excavation progress at Mont Terri
+    :return:
+    """
+    well_dict_fsb = create_FSB_boreholes()
+    df_excavation = distance_to_borehole(
+        well_dict_fsb, 'D7', depth=20.,
+        gallery_pts='data/chet-FS-B/excavation/points_along_excavation.csv',
+        excavation_times='data/chet-FS-B/excavation/G18excavationdistance.txt')
+    df_excavation = df_excavation.loc[df_excavation.index.dropna()]
+    pts = df_excavation[['X', 'Y', 'Z']].values
+    ts = df_excavation.index
+    cyan_inds = np.where(ts < datetime(2019, 5, 13))
+    blue_inds = np.where((ts >= datetime(2019, 5, 13)) &
+                         (ts < datetime(2019, 5, 17)))
+    red_inds = np.where(ts >= datetime(2019, 5, 17))
+    labs = ['Before 13 June', '13 June -- 17 June', 'After 17 June']
+    for i, (col_inds, col) in enumerate([(cyan_inds, 'rgba(0, 191, 191, 1.)'),
+                                         (blue_inds, 'rgba(0, 0, 255, 1.)'),
+                                         (red_inds, 'rgba(255, 0, 0, 1.)')]):
+        x = np.squeeze(pts[col_inds, 0])
+        y = np.squeeze(pts[col_inds, 1])
+        z = np.squeeze(pts[col_inds, 2])
+        c = np.array([col for i in range(x.shape[0])])
+        # Make the scatter obj
+        scat = go.Scatter3d(x=x, y=y, z=z, mode='lines',
+                            line=dict(color=col, width=10),
+                            name=labs[i])
+        objects.append(scat)
+    return
+
+
+def add_fsb_simfip(objects, well, depth_range):
+    """
+    Add symbol for a simfip
+
+    :param objects: List of plotly objects to add to
+    :param well: Which well is it in?
+    :param depth_range: Top and bottom packer depths
+    """
+    well_dict = create_FSB_boreholes()
+    well = well_dict[well]
+    pts = well[np.where((well[:, -1] > depth_range[0]) &
+                        (well[:, -1] < depth_range[1]))]
+    scat = go.Scatter3d(x=pts[:, 0], y=pts[:, 1], z=pts[:, 2], mode='lines',
+                        line=dict(color='black', width=12),
+                        name='SIMFIP')
+    objects.append(scat)
+    return
+
+
 def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling,
                           clims=(-100, 100)):
     """
@@ -417,14 +481,17 @@ def add_DSS_volume_slices(objects, pick_dict, xrange, yrange, zrange, sampling,
     return objects
 
 
-def add_wells(well_dict, objects, structures):
+def add_wells(well_dict, objects, structures, wells):
     well_colors = cycle(sns.color_palette().as_hex())
     for i, (key, pts) in enumerate(well_dict.items()):
-        try:
-            x, y, z = zip(*pts)
-        except ValueError:
-            x, y, z, d = zip(*pts)
-        if structures:
+        if key in wells or wells == 'all':
+            try:
+                x, y, z = zip(*pts)
+            except ValueError:
+                x, y, z, d = zip(*pts)
+        else:
+            continue
+        if structures or wells != 'all':
             col = 'gray'
         else:
             col = next(well_colors)

@@ -39,7 +39,7 @@ from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
     calculate_frac_density, read_frac_cores, depth_to_xyz
 from lbnl.DTS import read_struct
 from lbnl.simfip import read_excavation, plot_displacement_components, \
-    read_collab, rotate_fsb_to_fault
+    read_collab, rotate_fsb_to_fault, rotate_fsb_to_borehole
 from lbnl.hydraulic_data import read_collab_hydro, read_csd_hydro
 
 
@@ -54,7 +54,7 @@ chan_map_feet = {'OT': (6287., 291., 356.), 'OB': (411., 470.5, 530.),
 # Jonathan mapping from scripts (Source ??)
 chan_map_surf = {#'OT': (226., 291., 356.), ORIGINAL
                  # 'OT': (226., 286., 346.),
-                 'OT': (225.25, 286., 346.75),
+                 'OT': (224.5, 286., 347.5),
                  'OB': (411., 470.5, 530.),
                  'PST': (695., 737.5, 780.), 'PSB': (827., 886.5, 946.),
                  'PDT': (1179., 1238., 1297.), 'PDB': (995., 1054.5, 1114.)}
@@ -372,7 +372,7 @@ def integrate_anchors(data, depth, well):
     return data
 
 
-def integrate_depth_interval(well_data, depths, well, leg):
+def integrate_depth_interval(well_data, depths, well, leg, dates=None):
     """
     Return timeseries of channels integrated over a depth range
 
@@ -394,7 +394,19 @@ def integrate_depth_interval(well_data, depths, well, leg):
     else:
         print('Only up or down leg, hoss')
         return
-    integral = trapz(data[chans[0]:chans[1] + 1, :], axis=0)
+    if not dates:
+        int_data = data[chans[0]:chans[1] + 1, :]
+        # Relative to first sample
+        int_data = int_data - int_data[:, 0]
+        integral = trapz(int_data, axis=0)
+    else:
+        d_inds = np.where((dates[0] <= well_data[well]['times']) &
+                           (dates[1] > well_data[well]['times']))
+        int_data = np.squeeze(data[chans[0]:chans[1] + 1, d_inds])
+        # Relative to first sample
+        int_data = int_data - int_data[:, 0, np.newaxis]
+        integral = trapz(int_data, axis=0)
+        integral = np.squeeze(integral)
     return integral
 
 
@@ -521,7 +533,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             data_tmp = data[np.argmin(start_chan):np.argmin(end_chan), :]
             depth_tmp = depth[np.argmin(start_chan):np.argmin(end_chan)]
             if location == 'surf' and well == 'OT':
-                depth_tmp *= 0.9775  # "Stretch factor"
+                depth_tmp *= 0.9642  # "Stretch factor"
             noise = estimate_noise(data_tmp, method=noise_method)
             well_data[well] = {'times': times, 'mode': mode,
                                'type': type_m}
@@ -2354,13 +2366,19 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
     return
 
 
-def plot_D5_with_time(well_data, pot_data, depth, simfip):
+def plot_D5_with_time(well_data, pot_data, depth, simfip,
+                      dates=None, angle=90):
     """Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)"""
     fig, axes = plt.subplots(nrows=2, figsize=(8, 10), sharex='col')
     pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
     pot_strains = pot_d[(np.abs(pot_depths - depth)).argmin(), :]
     dss_times, dss_strains, _, _, _ = extract_channel_timeseries(
         well_data, 'D5', depth=depth, direction='up')
+    if dates:
+        date_inds = np.where((dates[0] <= dss_times) &
+                             (dates[1] > dss_times))
+        dss_times = dss_times[date_inds]
+        dss_strains = dss_strains[date_inds]
     indices = np.where((pot_times > dss_times[0]) &
                        (pot_times < dss_times[-1]))
     pot_times = pot_times[indices]
@@ -2368,6 +2386,7 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip):
     pot_strains = pot_strains[indices]
     # Relative to start of plot
     pot_strains = pot_strains - pot_strains[0]
+    dss_strains = dss_strains - dss_strains[0]
     axes[0].plot(pot_times, -0.5 * pot_strains, color='r',
                  label='Potentiometer')
     axes[0].plot(dss_times, dss_strains, color='purple',
@@ -2375,7 +2394,8 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip):
     # Now simfip plot
     # Integrate DSS and Pot
     integrated_strain = integrate_depth_interval(well_data, depths=(20., 23.),
-                                                 well='D5', leg='up')
+                                                 well='D5', leg='up',
+                                                 dates=dates)
     # Sum potentiometer
     interval = np.where((pot_depths < 23.) & (pot_depths > 20.))
     integrated_pot = np.sum(-0.5 * pot_d[interval, :].squeeze(), axis=0)
@@ -2389,20 +2409,31 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip):
     df_simfip = read_excavation(simfip)
     df_simfip = df_simfip.loc[((df_simfip.index < dss_times[-1])
                                & (df_simfip.index > dss_times[0]))]
-    df_simfip = rotate_fsb_to_fault(df_simfip)
+    # Rotate simfip onto BCS-D5
+    df_simfip = rotate_fsb_to_borehole(df_simfip, 'D5')
     df_simfip['Zf'] = df_simfip['Zf'] - df_simfip['Zf'][0]
     df_simfip['Yf'] = df_simfip['Yf'] - df_simfip['Yf'][0]
     df_simfip['Xf'] = df_simfip['Xf'] - df_simfip['Xf'][0]
     df_simfip['Sf'] = np.sqrt(df_simfip['Xf']**2 + df_simfip['Yf']**2)
+    # Convert to shear strain
+    df_simfip['ESf'] = df_simfip['Sf'] / 6.3
+    # Theoretical arc length effect of SIMFIP shear as seen on DSS
+    # assuming 6.3 m (SIMFIP interval) strained length
+    df_simfip['Arc'] = (df_simfip['ESf'] / 6.3)**2 / 2
+    df_simfip['Synthetic DSS'] = ((df_simfip['Zf'] / 6.3) +
+                                  df_simfip['Arc']) * 6.3
     df_simfip['Zf'].plot(ax=axes[1], color='steelblue',
                          label='SIMFIP: Opening')
     df_simfip['Sf'].plot(ax=axes[1], color='lightseagreen',
                          label='SIMFIP: Shear')
-    for ax in axes:
+    df_simfip['Synthetic DSS'].plot(ax=axes[1], color='blue',
+                                    label='Synthetic DSS')
+    for i, ax in enumerate(axes):
         ax.set_facecolor('lightgray')
         ax.set_ylabel('Microns', fontsize=14)
-        ax.axvline(date2num(datetime(2019, 5, 27)), linestyle='--',
-                   color='gray', label='Breakthrough')
+        if i == 0:
+            ax.axvline(date2num(datetime(2019, 5, 27)), linestyle='--',
+                       color='gray', label='Breakthrough')
         ax.legend()
     axes[1].xaxis.set_major_formatter(DateFormatter('%m-%d'))
     axes[1].set_xlabel(pot_times[0].year, fontsize=14)

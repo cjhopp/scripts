@@ -36,6 +36,11 @@ CO1 = np.array([0.001196667, 0, 3.375e-07, 0, 0.0023775, 0, 0, 0.001197333, 0,
                 0.000114744, 0, 7.56304e-07, 0, 0.001628276, 0, 0, -7.63944e-7,
                 0, -0.000139802, 0, 0.02293582]).reshape((6, 6))
 
+# Borehole inclination and azimuth
+csd_boreholes = {'D6': (90.0, 0.0), 'D3': (48.0, 324.0), 'D5': (49.7, 316.9),
+                 'D2': (90.0, 0.0), 'D4': (48.0, 324.0), 'D7': (90.0, 0.0),
+                 'D1': (90.0, 0.0)}
+
 
 def raw_simfip_correction(files, angles, clamps=False, resample='S'):
     """
@@ -163,7 +168,28 @@ def rotate_fsb_to_fault(df, strike=52, dip=57):
     """Rotate FSB SIMFIP data into fault coordinates"""
     rotz = np.deg2rad(90 - strike)
     rotx = np.deg2rad(dip)
-    # Passive rotation matrices (soord system moves about axes)
+    # Passive rotation matrices (coord system moves about axes)
+    matz = np.array([[np.cos(rotz), np.sin(rotz), 0],
+                     [-np.sin(rotz), np.cos(rotz), 0],
+                     [0, 0, 1]])
+    matx = np.array([[1, 0, 0],
+                     [0, np.cos(rotx), np.sin(rotx)],
+                     [0, -np.sin(rotx), np.cos(rotx)]])
+    simfip_mat = df[['Xc', 'Yc', 'Zc']].values.T
+    rotated_simfip = np.matmul(matz, simfip_mat)
+    rotated_simfip = np.matmul(matx, rotated_simfip)
+    df['Xf'] = rotated_simfip[0, :]
+    df['Yf'] = rotated_simfip[1, :]
+    df['Zf'] = rotated_simfip[2, :]
+    return df
+
+
+def rotate_fsb_to_borehole(df, well):
+    """Rotate FSB SIMFIP data into borehole coordinates"""
+    plunge, trend = csd_boreholes[well]
+    rotz = np.deg2rad(np.abs(trend - 360))
+    rotx = np.deg2rad(90 - plunge)
+    # Passive rotation matrices (coord system moves about axes)
     matz = np.array([[np.cos(rotz), np.sin(rotz), 0],
                      [-np.sin(rotz), np.cos(rotz), 0],
                      [0, 0, 1]])

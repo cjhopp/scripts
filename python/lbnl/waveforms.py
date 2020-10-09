@@ -12,6 +12,7 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import pandas as pd
 import seaborn as sns
 
 from glob import glob
@@ -35,6 +36,7 @@ from eqcorrscan.utils import clustering
 from eqcorrscan.utils.mag_calc import dist_calc
 from scipy.stats import special_ortho_group, median_absolute_deviation
 from scipy.signal import find_peaks
+from scipy import fftpack
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
@@ -52,10 +54,15 @@ extra_stas = ['CMon', 'CTrig', 'CEnc', 'PPS']
 
 three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
                'PSB7', 'PSB9', 'PST10', 'PST12']
+
 # Rough +/- 1 degree borehole orientations
 borehole_dict = {'OB': [356., 62.5], 'OT': [359., 83.], 'PDB': [259., 67.],
                  'PDT': [263., 85.4], 'PSB': [260., 67.], 'PST': [265., 87.]}
 
+cascadia_colors = {'NSMTC.B1': '#c6dbef', 'NSMTC.B2': '#6aaed6',
+                   'NSMTC.B3': '#2070b4', 'NSMTC.G1': '#956cb4',
+                   'NSMTC.G2': '#d65f5f', 'PGC.': '#ee854a',
+                   'B011.': '#6acc64'}
 
 def date_generator(start_date, end_date):
     # Generator for date looping
@@ -1352,6 +1359,12 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
             except IndexError:
                 print('{} not in wav archive'.format(eid))
                 continue
+        o = ev.origins[-1]
+        sta = inv.select(station='NSMTC')[0][0]
+        dist = dist_calc((o.latitude, o.longitude, o.depth / 1000.),
+                         (sta.latitude, sta.longitude, 0.))
+        if dist > 100:
+            continue
         st = read(wav_file)
         # Remove response
         st = st.select(station='[NP]*C')
@@ -1403,50 +1416,100 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
                      'G2_amp': g2_amp, 'B3_amp': b3_amp,
                      'PGC_amp': pgc_amp}
         g2_plot = st_g2.slice(starttime=pk_P.time - 5,
-                              endtime=pk_P.time + 10).copy()
+                              endtime=pk_P.time + 15).copy()
         b3_plot = st_b3.slice(starttime=pk_P.time - 5,
-                              endtime=pk_P.time + 10).copy()
+                              endtime=pk_P.time + 15).copy()
         g1_plot = st_g1.slice(starttime=pk_P.time - 5,
-                              endtime=pk_P.time + 10).copy()
+                              endtime=pk_P.time + 15).copy()
         pgc_plot = st_pgc.slice(starttime=pk_P.time - 5,
-                                endtime=pk_P.time + 10).copy()
+                                endtime=pk_P.time + 15).copy()
         fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(8, 10))
         start = g2_plot[0].stats.starttime.datetime
         dt = g2_plot[0].stats.delta
         time_vect = [start + timedelta(seconds=dt * i)
                      for i in range(g2_plot[0].data.shape[0])]
-        axes[0].plot(time_vect, g1_plot[0].data, color='green',
-                     alpha=0.6, linewidth=1.5, label='Geophone (surface)')
-        axes[0].plot(time_vect, pgc_plot[0].data, color='purple',
+        axes[0].plot(time_vect, g1_plot[0].data,
+                     color=cascadia_colors['NSMTC.G1'], alpha=0.6,
+                     linewidth=1.5, label='Geophone (surface)')
+        axes[0].plot(time_vect, pgc_plot[0].data, color=cascadia_colors['PGC.'],
                      alpha=0.6, linewidth=1.5, label='Broadband')
-        axes[1].plot(time_vect, g2_plot[0].data, color='steelblue',
+        axes[1].plot(time_vect, g2_plot[0].data,
+                     color=cascadia_colors['NSMTC.G2'],
                      alpha=0.6, linewidth=1.5, label='Geophone (borehole)')
-        axes[1].plot(time_vect, b3_plot[0].data, color='red',
+        axes[1].plot(time_vect, b3_plot[0].data,
+                     color=cascadia_colors['NSMTC.B3'],
                      alpha=0.6, linewidth=1.5, label='SA-ULN')
         props = dict(boxstyle='round', facecolor='whitesmoke', alpha=0.5)
         axes[0].annotate(xy=(0.7, 0.9), text='SNR: {:0.2f} dB'.format(pgc_snr),
-                      color='purple', xycoords='axes fraction',
-                      fontsize=12, bbox=props)
+                      color=cascadia_colors['PGC.'], xycoords='axes fraction',
+                      fontsize=16, bbox=props)
         axes[0].annotate(xy=(0.7, 0.8), text='SNR: {:0.2f} dB'.format(g1_snr),
-                      color='green', xycoords='axes fraction',
-                      fontsize=12, bbox=props)
+                         color=cascadia_colors['NSMTC.G1'],
+                         xycoords='axes fraction', fontsize=16, bbox=props)
         axes[1].annotate(xy=(0.7, 0.9), text='SNR: {:0.2f} dB'.format(g2_snr),
-                      color='steelblue', xycoords='axes fraction',
-                      fontsize=12, bbox=props)
+                         color=cascadia_colors['NSMTC.G2'],
+                         xycoords='axes fraction', fontsize=16, bbox=props)
         axes[1].annotate(xy=(0.7, 0.8), text='SNR: {:0.2f} dB'.format(b3_snr),
-                      color='red', xycoords='axes fraction', fontsize=12,
-                      bbox=props)
+                         color=cascadia_colors['NSMTC.B3'],
+                         xycoords='axes fraction', fontsize=16, bbox=props)
         axes[1].xaxis_date()
-        axes[0].legend(loc=2)
-        axes[1].legend(loc=2)
-        axes[0].set_ylabel('Velocity [m/s]', fontsize=12)
-        axes[1].set_ylabel('Velocity [m/s]', fontsize=12)
-        fig.suptitle('{}'.format(eid), fontsize=16)
+        axes[0].legend(loc=2, fontsize=16)
+        axes[1].legend(loc=2, fontsize=16)
+        axes[0].set_ylabel('Velocity [m/s]', fontsize=16)
+        axes[1].set_ylabel('Velocity [m/s]', fontsize=16)
+        mag = ev.magnitudes[-1].mag
+        fig.suptitle('M$_L$ {:0.2f} at {:0.2f} km'.format(mag, dist),
+                     fontsize=18)
         fig.autofmt_xdate()
         plt.tight_layout()
         plt.savefig(dpi=300, fname='{}/{}.png'.format(outdir, eid))
         plt.close()
     return snrs
+
+
+def plot_snr_distribution(snrs):
+    g1_snrs = [d['G1'] for eid, d in snrs.items()]
+    g2_snrs = [d['G2'] for eid, d in snrs.items()]
+    b3_snrs = [d['B3'] for eid, d in snrs.items()]
+    pgc_snrs = [d['PGC'] for eid, d in snrs.items()]
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.distplot(g1_snrs, hist=False, color=cascadia_colors['NSMTC.G1'], ax=ax,
+                 label='Surface geophone')
+    sns.distplot(g2_snrs, hist=False, color=cascadia_colors['NSMTC.G2'], ax=ax,
+                 label='Geophone: 308 m')
+    sns.distplot(b3_snrs, hist=False, color=cascadia_colors['NSMTC.B3'], ax=ax,
+                 label='SA-ULN: 305 m')
+    sns.distplot(pgc_snrs, hist=False, color=cascadia_colors['PGC.'], ax=ax,
+                 label='Broadband')
+    ax.set_ylabel('Kernel density', fontsize=16)
+    ax.set_xlabel('SNR [dB]', fontsize=16)
+    ax.legend(fontsize=14)
+    ax.axvline(x=np.median(g1_snrs), color=cascadia_colors['NSMTC.G1'],
+               linestyle='--', linewidth=1.5)
+    ax.axvline(x=np.median(g2_snrs), color=cascadia_colors['NSMTC.G2'],
+               linestyle='--', linewidth=1.5)
+    ax.axvline(x=np.median(b3_snrs), color=cascadia_colors['NSMTC.B3'],
+               linestyle='--', linewidth=1.5)
+    ax.axvline(x=np.nanmedian(pgc_snrs), color=cascadia_colors['PGC.'],
+               linestyle='--', linewidth=1.5)
+    ax.annotate(text='Median SNR'.format(np.median(g1_snrs)),
+                xy=(.8, 0.58), xycoords='axes fraction', weight='bold',
+                ha='center', fontsize=14, color='k')
+    ax.annotate(text='Geophone: {:0.2f}'.format(np.median(g1_snrs)),
+                xy=(.8, 0.5), xycoords='axes fraction',
+                ha='center', fontsize=14, color=cascadia_colors['NSMTC.G1'])
+    ax.annotate(text='Geophone 308 m: {:0.2f}'.format(np.median(g2_snrs)),
+                xy=(.8, 0.34), xycoords='axes fraction',
+                ha='center', fontsize=14, color=cascadia_colors['NSMTC.G2'])
+    ax.annotate(text='SA-ULN 305 m: {:0.2f}'.format(np.median(b3_snrs)),
+                xy=(.8, 0.26), xycoords='axes fraction',
+                ha='center', fontsize=14, color=cascadia_colors['NSMTC.B3'])
+    ax.annotate(text='Broadband: {:0.2f}'.format(np.nanmedian(pgc_snrs)),
+                xy=(.8, 0.42), xycoords='axes fraction',
+                ha='center', fontsize=14, color=cascadia_colors['PGC.'])
+    fig.suptitle('Regional seismicity SNR', fontsize=18)
+    plt.show()
+    return
 
 
 def plot_signal_w_dist(snrs, measure='snr', title=None, mag_correct=True):
@@ -1561,12 +1624,13 @@ def plot_pick_corrections(catalog, stream_dir, t_before, t_after,
     return
 
 
-def plot_raw_spectra(st, ev, inv=None, savefig=None):
+def plot_raw_spectra(st, ev, seed_ids, inv=None, savefig=None):
     """
     Simple function to plot the displacement spectra of a trace
 
-    :param tr: obspy.core.trace.Trace
+    :param st: obspy.core.trace.Stream
     :param ev: obspy.core.event.Event
+    :param seed_ids: List of net.sta.loc to plot
     :param inv: Inventory if we want to remove response
 
     :return:
@@ -1574,40 +1638,41 @@ def plot_raw_spectra(st, ev, inv=None, savefig=None):
     fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(4, 8))
     eid = str(ev.resource_id).split('/')[-1]
     for trace in st:
+        print(trace.id)
         tr = trace.copy()
-        sta = tr.stats.station
         chan = tr.stats.channel
+        staloc = '.'.join(tr.id.split('.')[:-1])
+        if (staloc not in seed_ids or tr.stats.channel[-1] in ['2', 'E'] or
+            '{}.{}'.format(tr.stats.station, tr.stats.channel[1]) == 'PGC.N'):
+            continue
         if not chan.endswith(('1', 'Z')):
             # Only use Z comps for now
             continue
         pick = [pk for pk in ev.picks
-                if pk.waveform_id.get_seed_string() == tr.id]
+                if pk.waveform_id.get_seed_string() == tr.id
+                and tr.stats.channel[-1] == 'Z']
         if len(pick) == 0:
+            print('No pick for {}'.format(tr.id))
             continue
         else:
             pick = pick[0]
         if inv:
-            # pf_dict = {'MERC': [0.5, 3.5, 40., 49.],
-            #            'GEONET': [0.2, 1.1, 40., 49.]}
-            # if sta.endswith('Z'):
-            #     prefilt = pf_dict['GEONET']
-            # else:
-            #     prefilt = pf_dict['MERC']
             tr.remove_response(inventory=inv,
                                water_level=60, output='DISP')
         else:
             print('No instrument response to remove. Raw spectrum only.')
+        c = cascadia_colors['.'.join(tr.id.split('.')[1:-1])]
         # Hard coded for CASSM sources atm
-        tr.trim(starttime=pick.time - 1, endtime=pick.time + 15)
-        axes[0].plot(tr.data)
-        N = len(tr.data)
-        print(N)
+        tr.trim(starttime=pick.time - 0.5, endtime=pick.time + 5)
+        axes[0].plot(tr.data, color=c)
+        N = fftpack.next_fast_len(tr.stats.npts)
         T = 1.0 / tr.stats.sampling_rate
-        xf = np.linspace(0.0, 1.0 / (2.0 * T), N // 2)
-        yf = scipy.fft(tr.data)
-        axes[1].loglog(xf[1:N//2], 2.0 / N * np.abs(yf[1:N//2]), label=sta)
+        frequencies = np.linspace(0.0, 1.0 / (2.0 * T), N // 2)
+        fft = fftpack.rfft(tr.data, N)
+        axes[1].loglog(frequencies, 2.0 / N * np.abs(fft[0: N // 2]),
+                       'r', label=tr.id, color=c)
         axes[1].set_xlabel('Frequency (Hz)')
-        axes[1].set_ylabel('Displacement (m/Hz)')
+        axes[1].set_ylabel('Amplitude')
         axes[1].legend()
         axes[1].set_title('{}: Displacement Spectra'.format(eid))
     if savefig:
@@ -1834,7 +1899,6 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
                                                        vert_steps)),
                                                    dt_vects, colors, pk_xs,
                                                    mags):
-        ax.plot(dt_v, tr.data + vert_step, color=col)
         if shift:
             ax.vlines(x=pk_x, ymin=vert_step - spacing_param / 2.,
                       ymax=vert_step + spacing_param / 2., linestyle='--',
@@ -1848,6 +1912,10 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
             mag_x = (arb_dt + post_pick_plot + max(shifts)).datetime
         else:
             mag_x = (arb_dt + post_pick_plot + 1).datetime
+        if not plot_mags or mag_text != '':
+            ax.plot(dt_v, tr.data + vert_step, color=col)
+        elif mag_text == '':
+            ax.plot(dt_v, tr.data + vert_step, color='k', alpha=0.2)
         if plot_mags:
             ax.text(mag_x, vert_step, mag_text, fontsize=14,
                     verticalalignment='center', horizontalalignment='left',
@@ -1888,7 +1956,8 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     return
 
 
-def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ'):
+def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ',
+              eq_psd=None):
     """
     Take pre-computed ppsds and plot the means and diffs for all specified
     channels
@@ -1896,6 +1965,8 @@ def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ'):
     :param psd_dir: Root dir with the .npz files
     :param seeds: list of full seed ids
     :param datetime: Datetime for date we want (will only use year and julday)
+    :param eq_psd: Path to file with periods and pds values for an event
+        or set of events
     :return:
     """
     cols = cycle(sns.color_palette('muted'))
@@ -1931,6 +2002,17 @@ def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ'):
         # Plot vs frequency
         axes[0].plot(1 / xs, ys, label=seed, color=c)
         axes[1].plot(1 / diffx, diffy, color=c)
+    if eq_psd:
+        df = pd.read_csv(eq_psd)
+        pds = df['periods']
+        psds = df['psd']
+        axes[0].plot(1 / pds, psds, color='gray', linestyle=':')
+        # Interpolate onto reference freqs
+        f = interp1d(pds, psds, bounds_error=False, fill_value=np.nan)
+        diffx = refx
+        diffy = f(refx) - refy
+        axes[1].plot(1 / diffx, diffy, label='MEQ', color='gray',
+                     linestyle=':')
     axes[0].set_xscale('log')
     axes[0].set_xlabel('Freq [Hz]', fontsize=12)
     axes[1].set_xlabel('Freq [Hz]', fontsize=12)
@@ -1940,4 +2022,72 @@ def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ'):
     axes[1].set_facecolor('whitesmoke')
     fig.legend()
     plt.show()
+    return
+
+
+def compare_detection_wavs(mseeds, events, template, seed_ids,
+                           prepick_plot=3., postpick_plot=7.):
+    """
+    Plot waveforms for the same detections at specified stations
+    :param mseeds: List of wav files for detections
+    :param events: List of events for each detection, in order of mseeds
+    :param seed_ids: List of net.sta.loc for each station you want to plot
+    :return:
+    """
+    cols = cycle(sns.color_palette('muted'))
+    # Grab only the seed ids we want
+    streams = []
+    for ms in mseeds:
+        st = read(ms)
+        rms = []
+        for tr in st:
+            staloc = '.'.join(tr.id.split('.')[:-1])
+            if (staloc not in seed_ids or tr.stats.channel[-1] in ['2', 'E'] or
+                '{}.{}'.format(tr.stats.station, tr.stats.channel[1]) == 'PGC.N'):
+                rms.append(tr)
+        for rm in rms:
+            st.traces.remove(rm)
+        streams.append(st)
+    for i, (st, ev) in enumerate(zip(streams, events)):
+        fig, axes = plt.subplots(figsize=(15, 5))
+        labs = []
+        t_cols = []
+        st1 = shortproc(st=st, lowcut=template.lowcut,
+                        highcut=49.,
+                        filt_order=template.filt_order,
+                        samp_rate=100.)
+        for j, sid in enumerate(seed_ids):
+            seed_pts = sid.split('.')
+            tmp_st = st1.select(station=seed_pts[1], location=seed_pts[2])
+            pk = [pk for pk in ev.picks
+                  if pk.waveform_id.location_code == seed_pts[2]
+                  and pk.waveform_id.station_code == seed_pts[1]
+                  and pk.waveform_id.channel_code[-1] == "Z"][0]
+            tmp_st.trim(starttime=pk.time - prepick_plot,
+                        endtime=pk.time + postpick_plot)
+            for tr in tmp_st:
+                if tr.stats.channel[-1] == 'Z':
+                    alpha = 0.7
+                else:
+                    alpha = 0.4
+                tr_data = tr.data / np.max(tr.data)
+                c = cascadia_colors['.'.join(sid.split('.')[1:])]
+                times = np.arange(tr_data.shape[0]) * tr.stats.delta
+                axes.plot(times, tr_data + (j * 1.7),
+                          color=c, label=tr.id, alpha=alpha)
+            t_cols.append(c)
+            labs.append(sid)
+        # P and S times
+        axes.axvline(prepick_plot, linestyle='--', color='firebrick',
+                     label='P-pick', linewidth=1., alpha=0.4)
+        plt.yticks(np.arange(len(labs)) * 1.7, labs)
+        [t.set_color(t_cols[i]) for i, t in enumerate(axes.get_yticklabels())]
+        axes.set_xlabel('Seconds', fontsize=14)
+        axes.annotate(s='$M_L$ {:0.2f}'.format(ev.preferred_magnitude().mag),
+                      xy=(0.1, 1.), xycoords='axes fraction',
+                      bbox=dict(boxstyle="round,pad=0.2", fc="white",
+                                ec="k", lw=1),
+                      ha='center', fontsize=18)
+        fig.suptitle(ev.resource_id.id)
+        plt.show()
     return

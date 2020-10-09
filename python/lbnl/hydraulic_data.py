@@ -128,7 +128,7 @@ def martin_cumulative_vols(df_early):
         (datetime(2018, 12, 21, 18, 30, 00), datetime(2018, 12, 21, 23, 30, 00))]  #Triplex
     for stim in stims:
         # Stim name
-        name = '{}'.format(stim[0].date())
+        name = '{}'.format(stim[0])
         fig, ax = plt.subplots(figsize=(10, 7))
         ax2 = ax.twinx()
         stim_df = df_early[stim[0]:stim[1]]

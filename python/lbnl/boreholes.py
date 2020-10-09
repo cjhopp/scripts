@@ -58,6 +58,9 @@ def distance_to_borehole(well_dict, well, depth, gallery_pts,
     # Get X, Y, Z as array for each of these distances
     pts_along = np.vstack([df_gallery.loc[df_gallery['distance'] == d].values[0]
                            for d in dists_along])
+    df_excavation['X'] = pts_along[:, 0]
+    df_excavation['Y'] = pts_along[:, 1]
+    df_excavation['Z'] = pts_along[:, 2]
     # Pythagoras dance
     bh_dx = borehole_xyz[0] - pts_along[:, 0]
     bh_dy = borehole_xyz[1] - pts_along[:, 1]
@@ -86,8 +89,8 @@ def read_gallery_excavation(path):
 def read_gallery_distances(path):
     """Helper to read points along gallery"""
     df = pd.read_csv(path)
-    # Call elevation of center of gallery ~517m
-    df.insert(2, 'Z', np.ones(df['X'].values.shape[0]) * 517.)
+    # Call elevation of center of gallery ~513m
+    df.insert(2, 'Z', np.ones(df['X'].values.shape[0]) * 515.)
     return df[['X', 'Y', 'Z', 'distance']]
 
 
