@@ -112,6 +112,14 @@ chan_map_co2_5612 = {'D5': 96.42,
 chan_map_co2_34 = {'D3': 79.62,
                    'D4': 170.43}
 
+# 0.5 m resolution results in -0.25 m shift in measurements
+chan_map_co2_34_pt1 = {'D3': 79.37,
+                       'D4': 170.18}
+chan_map_co2_5612_pt1 = {'D5': 96.17,
+                         'D6': 186.49,
+                         'D1': 354.327,
+                         'D2': 272.14}
+
 chan_map_august = {'D3': 108.,
                    'D4': 199.,
                    'D5': 391.88,
@@ -164,6 +172,9 @@ mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                 'co2_injection': {'CSD3': chan_map_co2_34,
                                   'CSD5': chan_map_co2_5612,
                                   'FSB': chan_map_fsb},
+                'co2_injection_pt1': {'CSD3': chan_map_co2_34_pt1,
+                                      'CSD5': chan_map_co2_5612_pt1,
+                                      'FSB': chan_map_fsb},
                 'august_pulse': {'CSD1': chan_map_august},
                 'surf': chan_map_surf}
 
@@ -410,6 +421,12 @@ def integrate_depth_interval(well_data, depths, well, leg, dates=None):
     return integral
 
 
+def scale_to_gain(data, gain, offset_samps):
+    """Scale measure relative to starting gain"""
+    gain /= gain[:, 0:offset_samps, np.newaxis].mean(axis=1)
+    return data / gain
+
+
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='majdabadi', convert_freq=False,
                   DTS=None, DTS_interp='linear'):
@@ -444,12 +461,12 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     if location == 'fsb':
         chan_map = {}
         data_files = glob('{}/*{}.txt'.format(root, measure))
+        gain_files = glob('{}/*Absolute_Gain.txt'.format(root))
         for f in data_files:
             if f.split('/')[-1].startswith('FSB-SMF-1'):
                 # Skip fiber 1
                 continue
             file_root = f.split('/')[-1].split('-')[0]
-            print(file_root)
             fiber_data[file_root] = {}
             if fibers:
                 if file_root not in fibers:
@@ -457,7 +474,14 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                     continue
             data = read_ascii(f)
             times = read_times(f)
-            # Take first column as the length along the fiber and remove from data
+            try:  # Grab absolute gain file and try to correct
+                gain_file = [g for g in gain_files if file_root in g][0]
+                gain = read_ascii(gain_file)
+                gain = gain[:, :-1]
+                fiber_data[file_root]['gain'] = gain
+            except IndexError:
+                continue
+            # Take first column as the length along the fiber and remove
             depth = data[:, -1]
             data = data[:, :-1]
             fiber_data[file_root]['data'] = data
@@ -510,10 +534,12 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                     depth = fiber_data[well_fiber_map[well]]['depth']
                     data = fiber_data[well_fiber_map[well]]['data']
                     times = fiber_data[well_fiber_map[well]]['times']
+                    gain = fiber_data[well_fiber_map[well]]['gain']
                 except KeyError as e:
                     depth = fiber_data['CSD1']['depth']
                     data = fiber_data['CSD1']['data']
                     times = fiber_data['CSD1']['times']
+                    gain = fiber_data['CSD1']['gain']
             elif location == 'surf':
                 depth = fiber_data['surf']['depth']
                 data = fiber_data['surf']['data']
@@ -532,6 +558,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             # Find the closest integer channel to meter mapping
             data_tmp = data[np.argmin(start_chan):np.argmin(end_chan), :]
             depth_tmp = depth[np.argmin(start_chan):np.argmin(end_chan)]
+            gain_tmp = gain[np.argmin(start_chan):np.argmin(end_chan), :]
             if location == 'surf' and well == 'OT':
                 depth_tmp *= 0.9642  # "Stretch factor"
             noise = estimate_noise(data_tmp, method=noise_method)
@@ -575,7 +602,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 # For microstrain, factor is 5790
                 data_tmp *= 5790.
             well_data[well].update({'data': data_tmp, 'depth': depth_tmp,
-                                    'noise': noise})
+                                    'noise': noise, 'gain': gain_tmp})
     elif fibers:
         for fiber in fibers:
             if location != 'surf':
@@ -843,6 +870,11 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
     except KeyError as e:
         temp = np.zeros(data.shape)
     times = well_d['times']
+    try:
+        gain = well_d['gain']
+    except KeyError:
+        print('No gain correction')
+        gain = None
     data_median = rolling_stats(data, times, depths, window, stat='median')
     data_std = rolling_stats(data, times, depths, window, stat='std')
     if direction == 'up':
@@ -851,6 +883,7 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
         down_median, up_median = np.array_split(data_median, 2)
         down_std, up_std = np.array_split(data_std, 2)
         down_temp, up_temp = np.array_split(temp, 2)
+        down_gain, up_gain = np.array_split(gain, 2)
         if down_d.shape[0] != up_d.shape[0]:
             # prepend last element of down to up if unequal lengths by 1
             up_d = np.insert(up_d, 0, down_d[-1])
@@ -858,18 +891,21 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
             up_median = np.insert(up_median, 0, down_median[-1, :], axis=0)
             up_std = np.insert(up_std, 0, down_std[-1, :], axis=0)
             up_temp = np.insert(up_temp, 0, down_temp[-1, :], axis=0)
+            up_gain = np.insert(up_gain, 0, down_gain[-1, :], axis=0)
         depths = np.abs(up_d - up_d[-1])
         data = up_data
         data_median = up_median
         data_std = up_std
         temp = up_temp
+        gain = up_gain
     # Find closest channel
     chan = np.argmin(np.abs(depth - depths))
     strains = data[chan, :]
     strain_median = data_median[chan, :]
     strain_std = data_std[chan, :]
     temps = temp[chan, :]
-    return times, strains, strain_median, strain_std, temps
+    gain = gain[chan, :]
+    return times, strains, strain_median, strain_std, temps, gain
 
 
 def extract_strains(well_data, date, wells, average=True):
@@ -1043,8 +1079,8 @@ def plot_channel_timeseries(well_data, well, depths):
     for depth in depths:
         print(depth)
         col = next(cmap)
-        times, data = extract_channel_timeseries(well_data, well, depth[0],
-                                                 direction=depth[1])
+        times, data, _, _, _, _ = extract_channel_timeseries(
+            well_data, well, depth[0], direction=depth[1])
         data_norm = data / np.max(np.abs(data))
         axes[0].plot(times, data, color=col,
                      label='{}: {} m'.format(well, depth[0]))
@@ -1594,7 +1630,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              denoise_method=None, window='2h', vrange=(-60, 60), title=None,
              tv_picks=None, prominence=30., pot_data=None, hydro_data=None,
              offset_samps=120, filter_params=None, plot_stack=False,
-             integrate_anchor_segs=True):
+             integrate_anchor_segs=True, gain_correction=False):
     """
     Plot a colormap of DSS data
 
@@ -1622,6 +1658,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         manual pick.
     :param integrate_anchor_segs: For CSD boreholes D1-D2, integrate strain signal
         over the anchored segments?
+    :param gain_correction: Scale to shifts in gain?
 
     :return:
     """
@@ -1706,6 +1743,10 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     # Get just the channels from the well in question
     times = well_data[well]['times']
     data = well_data[well]['data'].copy()
+    try:
+        gain = well_data[well]['gain'].copy()
+    except KeyError:
+        print('No gain correction')
     depth_vect = well_data[well]['depth']
     if well_data[well]['noise'][1] is None:
         noise = well_data[well]['noise'][0]
@@ -1716,8 +1757,11 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
-        data = data[:, indices]
-        data = np.squeeze(data)
+        data = np.squeeze(data[:, indices])
+        if 'gain' in well_data[well].keys():
+            gain = np.squeeze(gain[:, indices])
+            if gain_correction:
+                data = scale_to_gain(data, gain, offset_samps)
     mpl_times = mdates.date2num(times)
     # Denoise methods are not mature yet
     if denoise_method:
@@ -2053,7 +2097,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                                 x=np.array([-500, 500]), y1=resin_depths[well][0],
                                 y2=resin_depths[well][1], hatch='/',
                                 alpha=0.5, color='bisque', label='Resin plug')
-                    except IndexError as e:
+                    except (IndexError, KeyError) as e:
                         print(e)
                 self.figure.axes[-4].legend(
                     loc=2, fontsize=12, bbox_to_anchor=(0.5, 1.13),
@@ -2367,12 +2411,12 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
 
 
 def plot_D5_with_time(well_data, pot_data, depth, simfip,
-                      dates=None, angle=90):
+                      dates=None):
     """Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)"""
     fig, axes = plt.subplots(nrows=2, figsize=(8, 10), sharex='col')
     pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
     pot_strains = pot_d[(np.abs(pot_depths - depth)).argmin(), :]
-    dss_times, dss_strains, _, _, _ = extract_channel_timeseries(
+    dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
         well_data, 'D5', depth=depth, direction='up')
     if dates:
         date_inds = np.where((dates[0] <= dss_times) &
@@ -2441,5 +2485,38 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip,
                       fontsize=16)
     axes[1].set_title('DSS, SIMFIP, and Potentiometer: Main Fault Interval',
                       fontsize=16)
+    plt.show()
+    return
+
+
+def plot_D1_D2_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
+                          strain_range=(-170, 170)):
+    return
+
+
+def plot_D1_D2_with_time(well_data, pot_data, depth, simfip,
+                         dates=None):
+    return
+
+
+def plot_strain_gain(well_data, well, depth, direction, title=''):
+    """Compare strain and gain timeseries"""
+    dss_times, dss_strains, _, _, _, dss_gain = extract_channel_timeseries(
+        well_data, well, depth=depth, direction=direction)
+    fig, ax = plt.subplots()
+    ax2 = ax.twinx()
+    print()
+    gain_correct = dss_gain / dss_gain[0]
+    corrected_gain = dss_strains / gain_correct
+    ax.plot(dss_times, dss_strains, label='Strain: {} m'.format(depth),
+            color='steelblue')
+    ax.plot(dss_times, corrected_gain, label='Scaled strain',
+            color='dodgerblue')
+    ax2.plot(dss_times, dss_gain, label='Gain', color='firebrick')
+    fig.legend()
+    fig.autofmt_xdate()
+    ax.set_ylabel(r'$\mu\epsilon$')
+    ax2.set_ylabel('Gain [%]')
+    fig.suptitle(title)
     plt.show()
     return

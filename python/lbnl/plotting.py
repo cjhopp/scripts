@@ -15,13 +15,18 @@ import plotly
 import chart_studio.plotly as py
 import plotly.graph_objs as go
 import shapely.geometry as geometry
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from itertools import cycle
 from glob import glob
 from datetime import datetime
-from scipy.linalg import lstsq
+from scipy.io import loadmat
+from scipy.linalg import lstsq, norm
+from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from shapely.ops import cascaded_union, polygonize
 from scipy.spatial import Delaunay
+from scipy.spatial.transform import Rotation as R
 from obspy import Trace
 from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
@@ -33,7 +38,12 @@ from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             structures_to_planes, depth_to_xyz,
                             distance_to_borehole)
 from lbnl.coordinates import SURF_converter
-from lbnl.DSS import interpolate_picks, extract_channel_timeseries
+from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
+                      get_well_piercepoint)
+
+
+csd_well_colors = {'D1': 'blue', 'D2': 'blue', 'D3': 'green',
+                   'D4': 'green', 'D5': 'green', 'D6': 'green', 'D7': 'black'}
 
 
 def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
@@ -188,7 +198,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 surface='plane', DSS_picks=None, structures=None, meshes=None,
                 line=None, simfip=None, xrange=(2579250, 2579400),
                 yrange=(1247500, 1247650), zrange=(450, 500), sampling=0.5,
-                eye=None):
+                eye=None, export=False):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -217,6 +227,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param yrange: List of min and max y of volume to interpolate DSS over
     :param zrange: List of min and max z of volume to interpolate DSS over
     :param sampling: Sampling interval for ranges above (meters)
+    :param export: Bool to just return fig object for manual export
 
     :return:
     """
@@ -315,11 +326,240 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                    borderwidth=1,
                                    tracegroupgap=3))
     fig.update_layout(layout)
+    if export:
+        return fig
     if offline:
         plotly.offline.iplot(fig, filename='{}.html'.format(outfile))
     else:
         py.plot(fig, filename=outfile)
     return fig
+
+
+def plot_lab_2D(autocad_path, strike=305.,
+                origin=np.array([2579325., 1247565., 514.])):
+    """
+    Plot the Mont Terri lab in a combination of 3D, map view, and cross section
+
+    :param autocad_path: Path to file with arcs and lines etc
+    :param strike: Strike of main fault to project piercepoints onto
+    :param origin: Origin point for the cross section
+
+    :return:
+    """
+    fig = plt.figure(figsize=(12, 12))
+    spec = gridspec.GridSpec(ncols=8, nrows=8, figure=fig)
+    ax3d = fig.add_subplot(spec[:4, :4], projection='3d')
+    ax_x = fig.add_subplot(spec[:4, 4:])
+    ax_map = fig.add_subplot(spec[4:, :4])
+    ax_fault = fig.add_subplot(spec[4:, 4:])
+    well_dict = create_FSB_boreholes()
+    # Cross section plane (strike 320)
+    r = np.deg2rad(360 - strike)
+    normal = np.array([-np.sin(r), -np.cos(r), 0.])
+    normal /= norm(normal)
+    new_strk = np.array([np.sin(r), -np.cos(r), 0.])
+    new_strk /= norm(new_strk)
+    change_b_mat = np.array([new_strk, [0, 0, 1], normal])
+    for afile in glob('{}/*.csv'.format(autocad_path)):
+        if 'FSB' in afile:
+            continue
+        df_cad = pd.read_csv(afile)
+        lines = df_cad.loc[df_cad['Name'] == 'Line']
+        arcs = df_cad.loc[df_cad['Name'] == 'Arc']
+        for i, line in lines.iterrows():
+            xs = np.array([line['Start X'], line['End X']])
+            ys = np.array([line['Start Y'], line['End Y']])
+            zs = np.array([line['Start Z'], line['End Z']])
+            # Proj
+            pts = np.column_stack([xs, ys, zs])
+            proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+            proj_pts = pts - origin - proj_pts
+            proj_pts = np.matmul(change_b_mat, proj_pts.T)
+            ax3d.plot(xs, ys, zs, color='darkgray')
+            ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray')
+            ax_map.plot(xs, ys, color='darkgray')
+        for i, arc in arcs.iterrows():
+            # Stolen math from Melchior
+            if not np.isnan(arc['Extrusion Direction X']):
+                rotaxang = [arc['Extrusion Direction X'],
+                            arc['Extrusion Direction Y'],
+                            arc['Extrusion Direction Z'],
+                            arc['Total Angle']]
+                rad = np.linspace(arc['Start Angle'], arc['Start Angle'] +
+                                  arc['Total Angle'])
+                dx = np.sin(np.deg2rad(rad)) * arc['Radius']
+                dy = np.cos(np.deg2rad(rad)) * arc['Radius']
+                dz = np.zeros(dx.shape[0])
+                phi1 = -np.arctan2(
+                    norm(np.cross(np.array([rotaxang[0], rotaxang[1], rotaxang[2]]),
+                                  np.array([0, 0, 1]))),
+                    np.dot(np.array([rotaxang[0], rotaxang[1], rotaxang[2]]),
+                           np.array([0, 0, 1])))
+                DX = dx * np.cos(phi1) + dz * np.sin(phi1)
+                DY = dy
+                DZ = dz * np.cos(phi1) - dx * np.sin(phi1)
+                # ax.plot(DX, DY, DZ, color='r')
+                phi2 = np.arctan(rotaxang[1] / rotaxang[0])
+                fdx = (DX * np.cos(phi2)) - (DY * np.sin(phi2))
+                fdy = (DX * np.sin(phi2)) + (DY * np.cos(phi2))
+                fdz = DZ
+                x = fdx + arc['Center X']
+                y = fdy + arc['Center Y']
+                z = fdz + arc['Center Z']
+                # projected pts
+                pts = np.column_stack([x, y, z])
+                proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+                proj_pts = pts - origin - proj_pts
+                proj_pts = np.matmul(change_b_mat, proj_pts.T)
+                ax3d.plot(x, y, z, color='darkgray')
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray')
+                ax_map.plot(x, y, color='darkgray')
+            elif not np.isnan(arc['Start X']):
+                v1 = -1. * np.array([arc['Center X'] - arc['Start X'],
+                                     arc['Center Y'] - arc['Start Y'],
+                                     arc['Center Z'] - arc['Start Z']])
+                v2 = -1. * np.array([arc['Center X'] - arc['End X'],
+                                     arc['Center Y'] - arc['End Y'],
+                                     arc['Center Z'] - arc['End Z']])
+                rad = np.linspace(0, np.deg2rad(arc['Total Angle']), 50)
+                # get rotation vector (norm is rotation angle)
+                rotvec = np.cross(v2, v1)
+                rotvec /= norm(rotvec)
+                rotvec = rotvec[:, np.newaxis] * rad[np.newaxis, :]
+                Rs = R.from_rotvec(rotvec.T)
+                pt = np.matmul(v1, Rs.as_matrix())
+                # Projected pts
+                x = arc['Center X'] + pt[:, 0]
+                y = arc['Center Y'] + pt[:, 1]
+                z = arc['Center Z'] + pt[:, 2]
+                pts = np.column_stack([x, y, z])
+                proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+                proj_pts = pts - origin - proj_pts
+                proj_pts = np.matmul(change_b_mat, proj_pts.T)
+                ax3d.plot(x, y, z, color='darkgray')
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray')
+                ax_map.plot(x, y, color='darkgray')
+    # Fault model
+    fault_mod = '{}/faultmod.mat'.format(autocad_path)
+    faultmod = loadmat(fault_mod, simplify_cells=True)['faultmod']
+    x = faultmod['xq']
+    y = faultmod['yq']
+    zt = faultmod['zq_top']
+    zb = faultmod['zq_bot']
+    ax3d.plot_surface(x, y, zt, color='bisque', alpha=.5)
+    ax3d.plot_surface(x, y, zb, color='bisque', alpha=.5)
+    # Proj
+    pts_t = np.column_stack([x.flatten(), y.flatten(), zt.flatten()])
+    proj_pts_t = np.dot(pts_t - origin, normal)[:, None] * normal
+    proj_pts_t = pts_t - origin - proj_pts_t
+    proj_pts_t = np.matmul(change_b_mat, proj_pts_t.T)
+    pts_b = np.column_stack([x.flatten(), y.flatten(), zb.flatten()])
+    proj_pts_b = np.dot(pts_b - origin, normal)[:, None] * normal
+    proj_pts_b = pts_b - origin - proj_pts_b
+    proj_pts_b = np.matmul(change_b_mat, proj_pts_b.T)
+    ax_x.fill(proj_pts_t[0, :], proj_pts_t[1, :], color='bisque', alpha=0.7,
+              label='Main Fault')
+    ax_x.fill(proj_pts_b[0, :], proj_pts_b[1, :], color='bisque', alpha=0.7)
+    for well, pts in well_dict.items():
+        if well[0] != 'D':
+            continue
+        col = csd_well_colors[well]
+        # Proj
+        pts = pts[:, :3]
+        proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+        proj_pts = pts - origin - proj_pts
+        proj_pts = np.matmul(change_b_mat, proj_pts.T)
+        ax3d.plot(pts[:, 0], pts[:, 1], pts[:, 2], color=col,
+                  linewidth=1.5)
+        ax_x.plot(proj_pts[0, :], proj_pts[1, :], color=col)
+        ax_map.scatter(pts[:, 0][0], pts[:, 1][0], color=col, s=15.)
+        ax_map.annotate(text=well, xy=(pts[:, 0][0], pts[:, 1][1]), fontsize=10,
+                    weight='bold', xytext=(3, 0), textcoords="offset points",
+                    color=col)
+
+    # Plot fault coords and piercepoints
+    plot_pierce_points(x, y, zt, strike=47, dip=57, ax=ax_fault)
+    # Formatting
+    ax3d.set_xlim([2579305, 2579330])
+    ax3d.set_ylim([1247565, 1247590])
+    ax3d.set_zlim([495, 520])
+    ax3d.view_init(elev=30., azim=-112)
+    ax3d.margins(0.)
+    # ax3d.set_xticks([])
+    ax3d.set_xticklabels([])
+    # ax3d.set_yticks([])
+    ax3d.set_yticklabels([])
+    # ax3d.set_zticks([])
+    ax3d.set_zticklabels([])
+    # Overview map
+    ax_map.axis('equal')
+    ax_map.axis('off')
+    ax_map.set_xlim([2579310, 2579328])
+    ax_map.set_ylim([1247560, 1247582])
+    # Fault map
+    ax_fault.axis('equal')
+    ax_fault.spines['top'].set_visible(False)
+    ax_fault.spines['left'].set_visible(False)
+    ax_fault.spines['right'].set_visible(False)
+    ax_fault.spines['bottom'].set_bounds(-5, 5)
+    ax_fault.tick_params(direction='in', left=False, labelleft=False)
+    ax_fault.set_xticks([-5, 0, 5])
+    ax_fault.set_xticklabels(['0', '5', '10'])
+    ax_fault.set_xlabel('Meters')
+    # Cross section
+    ax_x.set_xlim([-30, 5])
+    ax_x.axis('equal')
+    ax_x.spines['top'].set_visible(False)
+    ax_x.spines['bottom'].set_visible(False)
+    ax_x.spines['left'].set_visible(False)
+    ax_x.yaxis.set_ticks_position('right')
+    ax_x.tick_params(direction='in', bottom=False, labelbottom=False)
+    ax_x.set_yticks([-30, -20, -10, 0])
+    ax_x.set_yticklabels(['30', '20', '10', '0'])
+    ax_x.set_ylabel('Meters', labelpad=15)
+    ax_x.yaxis.set_label_position("right")
+    ax_x.spines['right'].set_bounds(0, -30)
+    fig.legend()
+    plt.show()
+    return
+
+
+def plot_pierce_points(x, y, z, strike, dip, ax):
+    s = np.deg2rad(strike)
+    d = np.deg2rad(dip)
+    x = x.flatten()
+    y = y.flatten()
+    z = z.flatten()
+    origin = np.array((np.nanmean(x), np.nanmean(y), np.nanmean(z)))
+    normal = np.array((np.sin(d) * np.cos(s), -np.sin(d) * np.sin(s),
+                       np.cos(d)))
+    strike_new = np.array([np.sin(s), np.cos(s), 0])
+    up_dip = np.array([-np.cos(s) * np.cos(d), np.sin(s) * np.cos(d), np.sin(d)])
+    change_B_mat = np.array([strike_new, up_dip, normal])
+    grid_pts = np.subtract(np.column_stack([x, y, z]), origin)
+    newx, newy, newz = change_B_mat.dot(grid_pts.T)
+    newx = newx[~np.isnan(newx)]
+    newy = newy[~np.isnan(newy)]
+    pts = np.column_stack([newx, newy])
+    hull = ConvexHull(pts)
+    ax.fill(pts[hull.vertices, 0], pts[hull.vertices, 1], color='bisque',
+            alpha=0.7)
+    pierce_points = get_well_piercepoint(['D1', 'D2', 'D3', 'D4', 'D5',
+                                          'D6', 'D7'])
+    # Plot well pierce points
+    for well, pts in pierce_points.items():
+        col = csd_well_colors[well]
+        p = np.array(pts['top'])
+        # Project onto plane in question
+        proj_pt = p - (normal.dot(p - origin)) * normal
+        trans_pt = proj_pt - origin
+        new_pt = change_B_mat.dot(trans_pt.T)
+        ax.scatter(new_pt[0], new_pt[1], marker='+', color='k', s=20.,
+                   zorder=103)
+        ax.annotate(text=well, xy=(new_pt[0], new_pt[1]), fontsize=10,
+                    weight='bold', xytext=(3, 0),
+                    textcoords="offset points", color=col)
+    return
 
 ###### Adding various objects to the plotly figure #######
 
@@ -994,13 +1234,3 @@ def alpha_shape(points, alpha):
     m = geometry.MultiLineString(edge_points)
     triangles = list(polygonize(m))
     return cascaded_union(triangles), edge_points
-
-
-def plot_lab_2D():
-    """
-    TODO Function to plot Niche 8 in map view and cross section
-    to illustrate positioning of instrumentation
-
-    :return:
-    """
-    return
