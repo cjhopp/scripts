@@ -15,6 +15,7 @@ import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 
 from glob import glob
+from copy import deepcopy
 from obspy import Stream, Trace
 from pytz import timezone
 from eqcorrscan.core.match_filter import normxcorr2
@@ -35,12 +36,15 @@ from matplotlib.collections import LineCollection
 
 # Local imports
 from lbnl.coordinates import cartesian_distance
-from lbnl.boreholes import parse_surf_boreholes, create_FSB_boreholes,\
-    calculate_frac_density, read_frac_cores, depth_to_xyz
+from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
+                            calculate_frac_density, read_frac_cores,
+                            depth_to_xyz)
 from lbnl.DTS import read_struct
-from lbnl.simfip import read_excavation, plot_displacement_components, \
-    read_collab, rotate_fsb_to_fault, rotate_fsb_to_borehole
-from lbnl.hydraulic_data import read_collab_hydro, read_csd_hydro
+from lbnl.simfip import (read_excavation, plot_displacement_components,
+                         read_collab, rotate_fsb_to_fault,
+                         rotate_fsb_to_borehole)
+from lbnl.hydraulic_data import (read_collab_hydro, read_csd_hydro,
+                                 plot_csd_hydro)
 
 
 ######### SURF CHANNEL MAPPING ############
@@ -192,6 +196,10 @@ frac_cols = {'All fractures': 'black',
              'uncertain type': 'orange',
              'lithology change': 'yellow'}
 
+csd_well_colors = {'D1': 'dodgerblue', 'D2': 'lightseagreen',
+                   'D3': 'firebrick', 'D4': 'firebrick',
+                   'D5': 'blueviolet', 'D6': 'firebrick',
+                   'D7': 'k'}
 
 def date_generator(start_date, end_date, frequency='day'):
     # Generator for date looping
@@ -2489,13 +2497,176 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip,
     return
 
 
-def plot_D1_D2_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
-                          strain_range=(-170, 170)):
+def plot_co2_injection(well_data_1, well_data_2, time,
+                       depths, dates=None, leg='up_data',
+                       strain_range=(-170, 170)):
+    """
+    Plot final figure for co2 injection period at CSD
+
+    :param well_data1: Well data from 0.5 m resolution
+    :param well_data2: well data from 1.0 m resolution
+    :param time: Time point to plot the well traces
+    :param depths: Depth at which to plot timeseries {well: depth}
+    :param dates: Date range if clipping
+    :param leg: 'up' or 'down'
+    :param strain_range: Strain range for full-well traces
+    :return:
+    """
+    # Copy out of the way
+    well_data1 = deepcopy(well_data_1)
+    well_data2 = deepcopy(well_data_2)
+    fig = plt.figure(figsize=(11, 9))
+    spec = GridSpec(ncols=7, nrows=6, figure=fig, wspace=0.13, hspace=0.1)
+    ax5pot = fig.add_subplot(spec[:, 0])
+    ax5dss = fig.add_subplot(spec[:, 1], sharey=ax5pot, sharex=ax5pot)
+    ax1dss = fig.add_subplot(spec[:, 2], sharey=ax5pot, sharex=ax5pot)
+    ax2dss = fig.add_subplot(spec[:, 3], sharey=ax5pot, sharex=ax5pot)
+    ax_time = fig.add_subplot(spec[:3, 4:])
+    ax_hydro = fig.add_subplot(spec[3:, 4:], sharex=ax_time)
+    pot_data = 'data/chet-FS-B/potentiometer/CO2_injection/dataGEOMONITOR'
+    pot_df = read_potentiometer_raw(pot_data)
+    pot_d = pot_df.values.T
+    pot_times = pd.to_datetime(pot_df.index)
+    dt = timedelta(hours=1)
+    pot_times -= dt  # One hour ahead of UTC
+    pot_depths = [d[1] for i, d in potentiometer_depths.items()]
+    pot_depths.sort(reverse=True)
+    pot_strains = pot_d[(np.abs(np.array(pot_depths) -
+                                depths['D5'])).argmin(), :]
+    # Integrate D1 and D2 over anchor intervals
+    well_data1['D1']['data'] = integrate_anchors(well_data1['D1']['data'],
+                                                 well_data1['D1']['depth'],
+                                                 'D1')
+    well_data2['D1']['data'] = integrate_anchors(well_data2['D1']['data'],
+                                                 well_data2['D1']['depth'],
+                                                 'D1')
+    well_data1['D2']['data'] = integrate_anchors(well_data1['D2']['data'],
+                                                 well_data1['D2']['depth'],
+                                                 'D2')
+    well_data2['D2']['data'] = integrate_anchors(well_data2['D2']['data'],
+                                                 well_data2['D2']['depth'],
+                                                 'D2')
+    # Make dict of DSS timeseries for each well
+    dss_time_dict = {}
+    for well in ['D5', 'D1', 'D2']:
+        dep = depths[well]
+        dss_times1, dss_strains1, _, _, _, _ = extract_channel_timeseries(
+            well_data1, well, depth=dep, direction='up')
+        dss_times2, dss_strains2, _, _, _, _ = extract_channel_timeseries(
+            well_data2, well, depth=dep, direction='up')
+        if dates:
+            date_inds1 = np.where((dates[0] <= dss_times1) &
+                                 (dates[1] > dss_times1))
+            dss_times1 = dss_times1[date_inds1]
+            dss_strains1 = dss_strains1[date_inds1]
+            date_inds2 = np.where((dates[0] <= dss_times2) &
+                                 (dates[1] > dss_times2))
+            dss_times2 = dss_times2[date_inds2]
+            dss_strains2 = dss_strains2[date_inds2]
+        dss_times1 -= dt  # One hour ahead of UTC
+        dss_times2 -= dt
+        dss_strains1 = dss_strains1 - dss_strains1[0]
+        # Coreful here, we're cookin. Setting start of data2 to end of data1
+        dss_strains2 = dss_strains2 + dss_strains1[-1]
+        dss_time_dict[well] = {'1': [dss_times1, dss_strains1],
+                               '2': [dss_times2, dss_strains2]}
+    # Time series for potentiometer
+    indices = np.where((pot_times > dss_times1[0]) &
+                       (pot_times < dss_times2[-1]))
+    pot_times = pot_times[indices]
+    pot_d = pot_d[:, indices].squeeze()
+    pot_strains = pot_strains[indices]
+    # Relative to start of plot
+    pot_strains = pot_strains - pot_strains[0]
+    # Depth series for DSS
+    dss_depth_dict = extract_strains(well_data2, date=time,
+                                     wells=['D5', 'D1', 'D2'], average=False)
+    # Depth series for potentiometer
+    top_anchors = [d[0] for nm, d in potentiometer_depths.items()]
+    top_anchors.sort()
+    top_anchors = top_anchors[::-1]
+    # Make depth series for potentiometer
+    pot_depth_data = pot_d.T[(np.abs(pot_times - time)).argmin(), :]
+    pot_depth_data = np.squeeze(pot_depth_data)
+    # Divide by two for microns (flip for extension)
+    pot_depth_data *= -0.5
+    # Now plot everything
+    ax5pot.step(pot_depth_data, top_anchors, color='r', where='post')
+    ax5dss.plot(dss_depth_dict['D5'][leg], dss_depth_dict['D5']['depths'],
+                color=csd_well_colors['D5'])
+    ax1dss.plot(dss_depth_dict['D1'][leg], dss_depth_dict['D1']['depths'],
+                color=csd_well_colors['D1'])
+    ax2dss.plot(dss_depth_dict['D2'][leg], dss_depth_dict['D2']['depths'],
+                color=csd_well_colors['D2'])
+    # Resin plugs and fault depths
+    for well, ax in zip(['D5', 'D5', 'D1', 'D2'], [ax5pot, ax5dss,
+                                                   ax1dss, ax2dss]):
+        ax.axhline(fault_depths[well][0], linestyle='--',
+                    linewidth=1., color='k')
+        ax.axhline(fault_depths[well][1],
+                    linestyle='--',
+                    linewidth=1., color='k')
+        ax.set_title(well, fontsize=18, weight='bold')
+        # Zero reference line
+        ax.axvline(0., linestyle=':', color='gray')
+        # Fill between resin plug
+        try:
+            ax.fill_between(
+                x=np.array([-500, 500]), y1=resin_depths[well][0],
+                y2=resin_depths[well][1], hatch='/',
+                alpha=0.5, color='bisque')
+        except KeyError:
+            continue
+    # Time series plotting
+    ax_time.plot(pot_times, -0.5 * pot_strains, color='r',
+                 label='Potentiometer')
+    for w in ['D1', 'D2', 'D5']:
+        ax_time.plot(dss_time_dict[w]['1'][0], dss_time_dict[w]['1'][1],
+                     color=csd_well_colors[w],
+                     label='{} m'.format(fault_depths[w][0]))
+        ax_time.plot(dss_time_dict[w]['2'][0], dss_time_dict[w]['2'][1],
+                     color=csd_well_colors[w])
+    # Finally the hydraulic data
+    df_hydro = read_csd_hydro('data/chet-FS-B/pump/CO2_injection/dataDCAM')
+    plot_csd_hydro(df_hydro, axes=ax_hydro)
+    # Formatting
+    ax5pot.invert_yaxis()
+    ax5pot.set_xlim(strain_range)
+    ax_time.set_ylim(strain_range)
+    ax_time.fill_between(
+        x=np.array([dss_time_dict[w]['1'][0][0],
+                    dss_time_dict[w]['1'][0][-1]]),
+        y1=1000, y2=-1000, color='lightgray')
+    ax_time.axvline(datetime(2019, 6, 12, 15, 11), linestyle=':', color='k',
+                    linewidth=1.5)
+    for a in fig.axes:
+        a.set_facecolor('whitesmoke')
+        a.margins(0.)
+    ax_time.yaxis.set_ticks_position('right')
+    ax_time.yaxis.set_label_position('right')
+    ax_time.set_ylabel(r'$\mu\epsilon$', fontsize=16)
+    ax_time.tick_params(labelright=True)
+    ax5pot.set_ylabel('Depth [m]', fontsize=16)
+    ax_hydro.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax_hydro.set_xlabel('Time on {}'.format(df_hydro.index.date[0]),
+                        fontsize=14, labelpad=10)
+    ax_hydro.axvline(datetime(2019, 6, 12, 15, 11), linestyle=':', color='k',
+                     linewidth=1.5, label='FOP reached')
+    plt.setp(ax_hydro.xaxis.get_majorticklabels(), rotation=-30,
+             horizontalalignment='left')
+    ax_hydro.tick_params(which='minor', length=0.)
+    ax_time.tick_params(which='minor', length=0.)
+    ax_time.legend(loc='lower left')
+    ax_hydro.legend()
+    ax5dss.annotate(text=r'$\mu\epsilon$', xy=(.95, -0.11),
+                    xycoords='axes fraction',
+                    ha='left', fontsize=22)
+    plt.show()
     return
 
 
-def plot_D1_D2_with_time(well_data, pot_data, depth, simfip,
-                         dates=None):
+def plot_august_pulse(well_data, pot_data, depth, simfip,
+                      dates=None):
     return
 
 
