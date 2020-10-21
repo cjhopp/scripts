@@ -38,7 +38,7 @@ from matplotlib.collections import LineCollection
 from lbnl.coordinates import cartesian_distance
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             calculate_frac_density, read_frac_cores,
-                            depth_to_xyz)
+                            depth_to_xyz, distance_to_borehole)
 from lbnl.DTS import read_struct
 from lbnl.simfip import (read_excavation, plot_displacement_components,
                          read_collab, rotate_fsb_to_fault,
@@ -436,7 +436,7 @@ def scale_to_gain(data, gain, offset_samps):
 
 
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
-                  location=None, noise_method='majdabadi', convert_freq=False,
+                  location=None, noise_method='madjdabadi', convert_freq=False,
                   DTS=None, DTS_interp='linear'):
     """
     Helper to extract only the channels in specific wells
@@ -628,7 +628,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                         noise = estimate_noise(data_tmp, method=noise_method)
                         well_data[fiber].update({'data': data_tmp,
                                                  'depth': depth_tmp,
-                                                'noise': noise})
+                                                 'noise': noise})
             else:  # Case of surf
                 data = fiber_data['surf']['data']
                 depth = fiber_data['surf']['depth']
@@ -659,7 +659,7 @@ def madjdabadi_realign(data):
     return np.min(compare, axis=2)
 
 
-def estimate_noise(data, method='majdabadi'):
+def estimate_noise(data, method='madjdabadi'):
     """
     Calculate the average MAD for all channels similar to Madjdabadi 2016,
     but replacing std with MAD
@@ -670,9 +670,10 @@ def estimate_noise(data, method='majdabadi'):
     :param data: Numpy array of DSS data
     :return:
     """
-    if method == 'majdabadi':
+    if method == 'madjdabadi':
         # Take MAD of each channel time series, then average
-        return np.mean(median_absolute_deviation(data, axis=1)), None
+        return np.mean(3 * np.std(data, axis=1)), None
+        # return np.mean(median_absolute_deviation(data, axis=1)), None
     elif method == 'Krietsch':
         return np.mean(np.percentile(data, q=[10, 90], axis=1), axis=1)
     elif method == 'by_channel':
@@ -792,17 +793,16 @@ def DSS_spectrum(path, well='all', domain='time'):
 
 
 def calculate_leg_deviation(well_data):
-    """Helper to calculate the deviation between down and upgoing legs"""
+    """Helper to calculate the difference between down and upgoing legs"""
     for well, w_dict in well_data.items():
         data = w_dict['data']
         down_data, up_data = np.array_split(data, 2)
         if down_data.shape[0] != up_data.shape[0]:
             up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
-        percent_diff = np.divide(down_data, np.flip(up_data, axis=0),
-                                 out=np.zeros_like(down_data),
-                                 where=down_data!=0)
-        avg_percent = np.nanmedian(percent_diff, axis=1)
-        w_dict['deviation'] = avg_percent
+        diff = np.ma.subtract(down_data, np.flip(up_data, axis=0),
+                              out=np.zeros_like(down_data),
+                              where=down_data!=0)
+        w_dict['leg_difference'] = diff
     return well_data
 
 
@@ -1026,15 +1026,17 @@ def get_well_piercepoint(wells):
 
 ################  Plotting  Funcs  ############################################
 
-def plot_fiber_mapping(well_data, fiber, mapping, title='Fiber mapping'):
-    fig, axes = plt.subplots(figsize=(18, 5))
+def plot_fiber_mapping(well_data, fiber, mapping, title='Fiber mapping',
+                       xlims=None):
+    fig, axes = plt.subplots(figsize=(10, 3))
     cols = cycle(sns.color_palette())
     # Just plot first time sample
     axes.plot(well_data[fiber]['depth'], well_data[fiber]['data'][:, 0],
               color='k', label='Data')
+    mapping = mapping_dict[mapping][fiber]
     for well, depth in mapping.items():
         c = next(cols)
-        if len(depth) == 3:
+        if type(depth) == tuple:
             axes.axvline(depth[1], label=well, color=c)
             axes.axvline(depth[0], color=c, linestyle='--')
             axes.axvline(depth[2], color=c, linestyle='--')
@@ -1043,12 +1045,15 @@ def plot_fiber_mapping(well_data, fiber, mapping, title='Fiber mapping'):
             axes.axvline(depth - fiber_depths[well], color=c, linestyle='--')
             axes.axvline(depth + fiber_depths[well], color=c, linestyle='--')
     fig.suptitle(title, fontsize=16)
-    axes.legend()
+    fig.legend(ncol=4)
     axes.set_xlabel('Meters along fiber')
     axes.set_ylabel('Absolute Freq [GHz]')
     axes.xaxis.set_minor_locator(MultipleLocator(10))
-    plt.grid(True, which='both')
+    plt.grid(True, which='both', axis='x')
+    if xlims:
+        axes.set_xlim(xlims)
     plt.tight_layout()
+    plt.show()
     return
 
 
@@ -1456,7 +1461,8 @@ def plot_wells_over_time(well_data, wells,
 def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
                          vrange=(-40, 40), pick_dict=None, fig=None,
                          pick_col=None, alpha=None, plot_noise=False,
-                         formater=True, frame=False):
+                         formater=True, frame=False,
+                         plot_preceding_times=None):
     """
     Plot a time slice up and down each specified well
 
@@ -1473,6 +1479,7 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
     :param plot_noise: Plot noise estimate or not
     :param formater: On the first pass, do the formatting, otherwise skip it
     :param frame: Save as frame of animation?
+    :param plot_preceding_times: int for plotting the preceding time slices
 
     :return:
     """
@@ -1540,9 +1547,9 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
         time_int = np.argmin(dts)
         # Grab along-fiber vector
         fiber_vect = data[:, time_int]
-        # If frame for animation, keep last 10 time samples too
-        if frame:
-            old_vects = data[:, time_int - 20:time_int]
+        # If frame for animation, keep last 20 time samples too
+        if frame and plot_preceding_times:
+            old_vects = data[:, time_int - plot_preceding_times:time_int]
             old_down, old_up = np.array_split(old_vects, 2)
             if old_down.shape[0] != old_up.shape[0]:
                 old_up = np.append(old_up, old_down[-1]).reshape(old_down.shape)
@@ -1609,6 +1616,10 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
                 ax2.axhline(fault_depths[well][1],
                             linestyle='--',
                             linewidth=1., color='k')
+            except KeyError:
+                i += 2
+                continue
+            try:
                 # Fill between resin plug
                 ax1.fill_between(
                     x=np.array([-500, 500]), y1=resin_depths[well][0],
@@ -1619,6 +1630,7 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
                     y2=resin_depths[well][1], hatch='/',
                     alpha=0.5, color='bisque', label='Resin plug')
             except KeyError as e:
+                i += 2
                 continue
         # Always increment, obviously
         i += 2
@@ -1626,7 +1638,8 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
         if frame:
             lab_y = 0.04
         else:
-            lab_y = 0.19
+            lab_y = 0.04
+            # lab_y = 0.19
         label = r'$\mu\varepsilon$'
         fig.text(0.5, lab_y, label, ha='center', fontsize=20)  # Commmon xlabel
         ax1.invert_yaxis()
@@ -2438,7 +2451,15 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
 
 def plot_D5_with_time(well_data, pot_data, depth, simfip,
                       dates=None):
-    """Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)"""
+    """
+    Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)
+
+    :param well_data: Output of extract_wells
+    :param pot_data: Path to potentiometer file
+    :param depth: Depth in well to plot
+    :param simfip: Path to SIMFIP data
+    :param dates: Date range to plot
+    """
     fig, axes = plt.subplots(nrows=2, figsize=(8, 10), sharex='col')
     pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
     pot_strains = pot_d[(np.abs(pot_depths - depth)).argmin(), :]
@@ -2502,15 +2523,36 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip,
         ax.set_facecolor('lightgray')
         ax.set_ylabel('Microns', fontsize=14)
         if i == 0:
-            ax.axvline(date2num(datetime(2019, 5, 27)), linestyle='--',
+            ax.axvline(date2num(datetime(2019, 5, 27, 17)), linestyle='--',
                        color='gray', label='Breakthrough')
-        ax.legend()
+        else:
+            ax.axvline(date2num(datetime(2019, 5, 27, 17)), linestyle='--',
+                       color='gray')
     axes[1].xaxis.set_major_formatter(DateFormatter('%m-%d'))
     axes[1].set_xlabel(pot_times[0].year, fontsize=14)
     axes[0].set_title('DSS vs Potentiometer: {} m'.format(depth),
                       fontsize=16)
     axes[1].set_title('DSS, SIMFIP, and Potentiometer: Main Fault Interval',
                       fontsize=16)
+    ax_ex = axes[0].twinx()
+    df_excavation = distance_to_borehole(
+        create_FSB_boreholes(), well='D5', depth=20.,
+        gallery_pts='data/chet-FS-B/excavation/points_along_excavation.csv',
+        excavation_times='data/chet-FS-B/excavation/G18excavationdistance.txt')
+    exc_hand, = ax_ex.plot(
+        df_excavation.index.values, df_excavation['Distance to SIMFIP'],
+        label='Excavation front', color='k', linestyle='dotted')
+    leg_hand, leg_lab = axes[0].get_legend_handles_labels()
+    print(leg_hand, exc_hand)
+    axes[0].legend()
+    ax_ex.legend(loc='lower right')
+    axes[1].legend()
+    ax_ex.set_ylabel('Distance to fault [m]', fontsize=14)
+    ax_ex.set_ylim((24.5, 27.))
+    axes[0].margins(0.)
+    axes[1].margins(0.)
+    if dates:
+        axes[0].set_xlim(dates)
     plt.show()
     return
 
