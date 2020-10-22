@@ -437,7 +437,8 @@ def scale_to_gain(data, gain, offset_samps):
 
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='madjdabadi', convert_freq=False,
-                  DTS=None, DTS_interp='linear'):
+                  DTS=None, DTS_interp='linear', gain_thresh=0.015,
+                  correct_gain=False, debug=0):
     """
     Helper to extract only the channels in specific wells
 
@@ -454,8 +455,15 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     :param fibers: Optionally specify individual fiber loops (FSB, CSD3 or CSD5)
     :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
         'majdabadi' returns scalar, 'by_channel' an array
+    :param convert_freq:
+    :param DTS: Path to DTS data
+    :param DTS_interp: Method of interpolation for DTS to DSS grid
+    :param gain_thresh: Threshold for removal of changes from bulk gain shifts
+        Unit is percent.
+    :param correct_gain: bool to apply correction at gain jumps
+    :param debug: Flag for plotting
 
-    :returns: dict {well name: {'data':, 'depth':, 'noise':}
+    :returns: dict {well name: {'data':, 'depth':, 'noise':, ...}
     """
     if not fibers and not wells:
         print('Must specify either fibers or wells')
@@ -643,6 +651,13 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                                          'noise': noise})
     # Calculate deviation between legs in each well
     calculate_leg_deviation(well_data)
+    # Gain correction
+    if correct_gain:
+        try:
+            gain_correction(well_data, gain_thresh, debug=debug)
+        except KeyError as e:
+            print(e)
+            pass
     return well_data
 
 
@@ -806,6 +821,66 @@ def calculate_leg_deviation(well_data):
     return well_data
 
 
+def gain_correction(well_data, gain_thresh=0.015, debug=0):
+    """
+    Correct data for jumps in gain that produce freq shift
+
+    :param well_data: well_data dict
+    :param gain_thresh: Threshold above which to remove measurement contribution
+    :param debug: Debug flag for plotting
+
+    :return:
+    """
+    for well, wdict in well_data.items():
+        # Absolute diff along time axis
+        g_prime = np.abs(np.diff(wdict['gain'], axis=1, append=0.))
+        d_prime = np.diff(wdict['data'], axis=1, append=0.)
+        offenders = np.where(g_prime > gain_thresh)
+        new_data = wdict['data'].copy()
+        for i, (row, col) in enumerate(np.c_[offenders]):
+            new_data[row, col:] -= d_prime[row, col-1]
+            try:
+                # If next sample not in col but d_prime large, remove it
+                if (np.abs(d_prime[row, col]) >= 5 and
+                    offenders[1][i+1] != col + 1):
+                    new_data[row, col+1:] -= d_prime[row, col]
+            except IndexError:
+                continue  # Skip final sample
+        if debug > 0 and well in ['D5', 'D1', 'D2']:
+            fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(10, 7))
+            fig.suptitle('Gain shift correction', fontsize=18, x=0.3, y=0.95,
+                         weight='bold')
+            ind = np.argmin(np.abs(wdict['depth'] - wdict['depth'][-1] +
+                                   fault_depths[well][0]))
+            axes[0].plot(wdict['times'], wdict['gain'][ind, :], color='r',
+                      label='Gain')
+            ax1 = axes[0].twinx()
+            ax1.plot(wdict['times'], wdict['data'][ind, :], color='b',
+                     label='Data')
+            ax1.plot(wdict['times'], new_data[ind, :] - new_data[ind, :][0],
+                     color='steelblue', label='Corrected data')
+            axes[1].plot(wdict['times'], g_prime[ind, :], color='k',
+                         label=r'$\Delta$Gain')
+            ax4 = axes[1].twinx()
+            ax4.plot(wdict['times'], d_prime[ind, :], color='g',
+                     label=r'$\Delta$Strain')
+            axes[1].axhline(gain_thresh, color='darkgray', linestyle=':',
+                            label='Correction threshold')
+            fig.legend(ncol=3)
+            fig.autofmt_xdate()
+            axes[0].set_ylabel('Gain [%]', fontsize=14, color='r')
+            axes[0].set_ylim(bottom=0, top=1)
+            ax1.set_ylabel(r'Strain [$\mu\epsilon$]', fontsize=14, color='b')
+            axes[1].set_ylabel(r'Gain change [$\%$]', fontsize=14)
+            ax4.set_ylabel(r'Strain change [$\mu\epsilon$]', fontsize=14,
+                           color='g')
+            # axes[0].set_xlim(right=datetime(2019, 6, 3))
+            plt.show()
+        # Assign to new key
+        wdict['data'] = new_data
+    return
+
+
 def pick_anomalies(data, noise_mean, noise_mad, thresh=1., prominence=30.):
     """
     Pick every point where the data exceeds the noise and return the width and
@@ -934,7 +1009,7 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
     return times, strains, strain_median, strain_std, temps, gain
 
 
-def extract_strains(well_data, date, wells, average=True):
+def extract_strains(well_data, date, wells, average=True, reference_time=None):
     """
     For a given datetime, extract the strain along the borehole (averaged
     between down and upgoing legs...?)
@@ -948,6 +1023,12 @@ def extract_strains(well_data, date, wells, average=True):
     pick_dict = {}
     for well, well_dict in well_data.items():
         date_col = np.argmin(np.abs(well_dict['times'] - date))
+        if reference_time:
+            ref_col = np.argmin(np.abs(well_dict['times'] - reference_time))
+        else:
+            ref_col = 0
+        print(ref_col)
+        data_mat = well_dict['data'] - well_dict['data'][:, ref_col, np.newaxis]
         if well not in wells:
             continue
         pick_dict[well] = {}
@@ -955,7 +1036,7 @@ def extract_strains(well_data, date, wells, average=True):
         deps = well_dict['depth'] - well_dict['depth'][0]
         down_d, up_d = np.array_split(deps, 2)
         # Same for data array
-        data = well_dict['data'][:, date_col]
+        data = data_mat[:, date_col]
         down_data, up_data = np.array_split(data, 2)
         if down_d.shape[0] != up_d.shape[0]:
             # prepend last element of down to up if unequal lengths by 1
@@ -2376,21 +2457,21 @@ def plot_potentiometer(data, depths, times, colors=None, axes=None,
 
 
 def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
-                       strain_range=(-170, 170)):
+                       strain_range=(-170, 170), reference_time=None):
     """
     Plot D5 data with depth including DSS, fracture logs and potentiometer
 
     :param well_data: output from extract_wells
     :param time: Datetime object specifying time slice to pull from pot/DSS
     :param tv_picks: Path to excel file with optical televiewer picks
-    :param pot_df: DataFrame of potentiometer data
+    :param pot_data: Path to potentiometer data
     :param leg: Either 'up_data' or 'down_data'
     :param strain_range:
     :return:
     """
     fig, axes = plt.subplots(ncols=3, figsize=(4, 10), sharey='row')
     dss_dict = extract_strains(well_data, date=time, wells=['D5'],
-                               average=False)
+                               average=False, reference_time=reference_time)
     frac_dict = read_frac_cores(tv_picks, 'D5')
     for frac_type, dens in frac_dict.items():
         if not frac_type.startswith('sed'):
@@ -2406,8 +2487,8 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
     data = np.squeeze(data)
     # Divide by two for microns (flip for extension)
     data *= -0.5
-    axes[1].step(data, top_anchors, label='Potentiometer', color='r',
-                 where='post')
+    axes[1].step(data, top_anchors, label='Potentiometer',
+                 color='r', where='post')
     # Plot anchors as lil black dots
     axes[1].scatter(data, top_anchors, c='k', s=2., zorder=101)
     # Lastly, DSS data
@@ -2462,7 +2543,10 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip,
     """
     fig, axes = plt.subplots(nrows=2, figsize=(8, 10), sharex='col')
     pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
-    pot_strains = pot_d[(np.abs(pot_depths - depth)).argmin(), :]
+    # Which pot?
+    pind = (np.abs(pot_depths - depth)).argmin()
+    # Take 3 elements (1.5 m), sum and scale
+    pot_strains = pot_d[pind-1:pind+2, :].sum(axis=0) / 1.5
     dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
         well_data, 'D5', depth=depth, direction='up')
     if dates:
