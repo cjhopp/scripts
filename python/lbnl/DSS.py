@@ -438,7 +438,7 @@ def scale_to_gain(data, gain, offset_samps):
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='madjdabadi', convert_freq=False,
                   DTS=None, DTS_interp='linear', gain_thresh=0.015,
-                  correct_gain=False, debug=0):
+                  correct_gain='mask', debug=0):
     """
     Helper to extract only the channels in specific wells
 
@@ -654,7 +654,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     # Gain correction
     if correct_gain:
         try:
-            gain_correction(well_data, gain_thresh, debug=debug)
+            gain_correction(well_data, correct_gain, gain_thresh, debug=debug)
         except KeyError as e:
             print(e)
             pass
@@ -821,11 +821,12 @@ def calculate_leg_deviation(well_data):
     return well_data
 
 
-def gain_correction(well_data, gain_thresh=0.015, debug=0):
+def gain_correction(well_data, method='correct', gain_thresh=0.015, debug=0):
     """
     Correct data for jumps in gain that produce freq shift
 
     :param well_data: well_data dict
+    :param method: 'correct' or 'mask'
     :param gain_thresh: Threshold above which to remove measurement contribution
     :param debug: Debug flag for plotting
 
@@ -837,15 +838,18 @@ def gain_correction(well_data, gain_thresh=0.015, debug=0):
         d_prime = np.diff(wdict['data'], axis=1, append=0.)
         offenders = np.where(g_prime > gain_thresh)
         new_data = wdict['data'].copy()
-        for i, (row, col) in enumerate(np.c_[offenders]):
-            new_data[row, col:] -= d_prime[row, col-1]
-            try:
-                # If next sample not in col but d_prime large, remove it
-                if (np.abs(d_prime[row, col]) >= 5 and
-                    offenders[1][i+1] != col + 1):
-                    new_data[row, col+1:] -= d_prime[row, col]
-            except IndexError:
-                continue  # Skip final sample
+        if method == 'correct':
+            for i, (row, col) in enumerate(np.c_[offenders]):
+                new_data[row, col:] -= d_prime[row, col-1]
+                try:
+                    # If next sample not in col but d_prime large, remove it
+                    if (np.abs(d_prime[row, col]) >= 5 and
+                        offenders[1][i+1] != col + 1):
+                        new_data[row, col+1:] -= d_prime[row, col]
+                except IndexError:
+                    continue  # Skip final sample
+        elif method == 'mask':
+            new_data = np.ma.masked_where(g_prime > gain_thresh, new_data)
         if debug > 0 and well in ['D5', 'D1', 'D2']:
             fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(10, 7))
             fig.suptitle('Gain shift correction', fontsize=18, x=0.3, y=0.95,
@@ -1027,7 +1031,6 @@ def extract_strains(well_data, date, wells, average=True, reference_time=None):
             ref_col = np.argmin(np.abs(well_dict['times'] - reference_time))
         else:
             ref_col = 0
-        print(ref_col)
         data_mat = well_dict['data'] - well_dict['data'][:, ref_col, np.newaxis]
         if well not in wells:
             continue
@@ -2566,6 +2569,7 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip,
                  label='Potentiometer')
     axes[0].plot(dss_times, dss_strains, color='purple',
                  label='DSS')
+    print(normxcorr2(dss_strains, pot_strains * -0.5))
     # Now simfip plot
     # Integrate DSS and Pot
     integrated_strain = integrate_depth_interval(well_data, depths=(20., 23.),
@@ -2659,6 +2663,9 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
 
     :return:
     """
+    # Mask values
+    mask_measures = np.array([datetime(2019, 6, 12, 16, 25, 11),
+                              datetime(2019, 6, 12, 16, 35, 11)])
     # Copy out of the way
     well_data1 = deepcopy(well_data_1)
     if well_data_2:
@@ -2680,6 +2687,12 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     pot_times = pd.to_datetime(pot_df.index)
     dt = timedelta(hours=1)
     pot_times -= dt  # One hour ahead of UTC
+    # Change this at outset for all DSS times
+    for w, wd in well_data1.items():
+        wd['times'] = wd['times'] - dt
+    if well_data_2:
+        for w2, wd2 in well_data2.items():
+            wd2['times'] = wd2['times'] - dt
     pot_depths = [d[1] for i, d in potentiometer_depths.items()]
     pot_depths.sort(reverse=True)
     pot_strains = pot_d[(np.abs(np.array(pot_depths) -
@@ -2709,7 +2722,7 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
                 well_data2, well, depth=dep, direction='up', window=window)
         if dates:
             date_inds1 = np.where((dates[0] <= dss_times1) &
-                                 (dates[1] > dss_times1))
+                                  (dates[1] > dss_times1))
             dss_times1 = dss_times1[date_inds1]
             dss_strains1 = dss_strains1[date_inds1]
             dss_med1 = dss_med1[date_inds1]
@@ -2719,11 +2732,9 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
                                      (dates[1] > dss_times2))
                 dss_times2 = dss_times2[date_inds2]
                 dss_strains2 = dss_strains2[date_inds2]
-        dss_times1 -= dt  # One hour ahead of UTC
         dss_strains1 = dss_strains1 - dss_strains1[0]
         dss_med1 = dss_med1 - dss_med1[0]
         if well_data_2:
-            dss_times2 -= dt
             dss_strains2 = dss_strains2 + dss_strains1[-1]
             # Coreful here, we're cookin. Setting start of data2 to end of data1
             dss_time_dict[well] = {'1': [dss_times1, dss_strains1],
@@ -2743,13 +2754,19 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     pot_strains = pot_strains - pot_strains[0]
     # Depth series for DSS
     if well_data_2:
-        dss_depth_dict = extract_strains(well_data2, date=time,
-                                         wells=['D5', 'D1', 'D2'],
-                                         average=False)
+        dep_d_1 = extract_strains(
+            well_data1, date=datetime(2019, 6, 12, 15, 6, 6),
+            wells=['D5', 'D1', 'D2'], average=False)
+        dss_depth_dict = extract_strains(
+            well_data2, date=time, wells=['D5', 'D1', 'D2'], average=False)
+        # Add final value of dd1 to dd2
+        for w, dd in dss_depth_dict.items():
+            dd[leg] += dep_d_1[w][leg]
     else:
         dss_depth_dict = extract_strains(well_data1, date=time,
                                          wells=['D5', 'D1', 'D2'],
-                                         average=False)
+                                         average=False,
+                                         reference_time=dates[0])
     # Depth series for potentiometer
     top_anchors = [d[0] for nm, d in potentiometer_depths.items()]
     top_anchors.sort()
@@ -2790,11 +2807,18 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     ax_time.plot(pot_times, -0.5 * pot_strains, color='r',
                  label='Potentiometer')
     for w in ['D1', 'D2', 'D5']:
+        plot_strains1 = np.ma.masked_where(
+            np.isin(dss_time_dict[w]['1'][0], mask_measures),
+            dss_time_dict[w]['1'][1])
         if well_data_2:
-            ax_time.plot(dss_time_dict[w]['1'][0], dss_time_dict[w]['1'][1],
+            print()
+            plot_strains2 = np.ma.masked_where(
+                np.isin(dss_time_dict[w]['2'][0], mask_measures),
+                dss_time_dict[w]['2'][1])
+            ax_time.plot(dss_time_dict[w]['1'][0], plot_strains1,
                          color=csd_well_colors[w],
                          label='{} m'.format(depths[w]))
-            ax_time.plot(dss_time_dict[w]['2'][0], dss_time_dict[w]['2'][1],
+            ax_time.plot(dss_time_dict[w]['2'][0], plot_strains2,
                          color=csd_well_colors[w])
         else:
             ax_time.plot(dss_time_dict[w]['1'][0], dss_time_dict[w]['1'][2],
