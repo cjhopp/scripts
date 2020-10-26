@@ -2776,6 +2776,8 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     pot_depth_data = np.squeeze(pot_depth_data)
     # Divide by two for microns (flip for extension)
     pot_depth_data *= -0.5
+    if time.year == 2020:
+        pot_depth_data[9] = np.nan
     # Now plot everything
     ax5pot.step(pot_depth_data, top_anchors, color='r', where='post')
     ax5dss.plot(dss_depth_dict['D5'][leg], dss_depth_dict['D5']['depths'],
