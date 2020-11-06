@@ -428,11 +428,7 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                                         meta_file=tmp_cat,
                                         **param_dict)
             except ValueError as e:
-                # Try to remove perpetrating
-                perp = e.args[-1][0].split()[-1].split('.')
-                for tr in daylong:
-
-                print(perp)
+                print(e)
                 continue
             tribe += trb
     return tribe
