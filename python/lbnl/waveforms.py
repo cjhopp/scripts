@@ -97,6 +97,22 @@ def _check_dir(path):
     return
 
 
+def clean_daylong(stream):
+    """
+    Convenience func to clean out traces that will raise Exceptions in
+    EQcorrscan preprocessing functions (e.g. too many zeros and too short)
+    :return:
+    """
+    rmtrs = []
+    for tr in stream:
+        if (len(np.nonzero(tr.data)[0]) < 0.5 * len(tr.data) or
+            tr.stats.endtime - tr.stats.starttime < 0.8 * 86400):
+            rmtrs.append(tr)
+    for rt in rmtrs:
+        stream.traces.remove(rt)
+    return
+
+
 def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     """
     Loop a list of miniseed files, downsample, and save to new files.
@@ -366,6 +382,10 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
             if not ((1 / tr.stats.delta).is_integer() and
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+        # Clean out stream of Exception traces
+        clean_daylong(daylong)
+        if len(daylong.traces) == 0:  # Run away if we've removed them all
+            continue
         if single_station:
             for ev in tmp_cat:
                 try:
@@ -408,7 +428,10 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                                         meta_file=tmp_cat,
                                         **param_dict)
             except ValueError as e:
+                # Try to remove perpetrating
                 perp = e.args[-1][0].split()[-1].split('.')
+                for tr in daylong:
+
                 print(perp)
                 continue
             tribe += trb
