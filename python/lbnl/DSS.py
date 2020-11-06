@@ -4,9 +4,11 @@ Functions for processing and plotting DSS data
 """
 
 import os
+import json
 
 import numpy as np
 import pytz
+import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -20,6 +22,7 @@ from obspy import Stream, Trace
 from pytz import timezone
 from eqcorrscan.core.match_filter import normxcorr2
 from pandas.errors import ParserError
+from scipy.io import savemat
 from scipy.integrate import trapz
 from scipy.interpolate import griddata, interp2d
 from scipy.ndimage import gaussian_filter, median_filter
@@ -435,10 +438,38 @@ def scale_to_gain(data, gain, offset_samps):
     return data / gain
 
 
+def write_wells(well_data):
+    """
+    Write a JSON file for each well. This will read in as a dict with the
+    following fields: 'times', 'down_data', 'up_data', 'depth'
+    :param well_data: Output of extract wells
+    :return:
+    """
+
+    for well, w_dict in well_data.items():
+        # Split the data and depth in half
+        down_data, up_data = np.array_split(w_dict['data'], 2)
+        depth, up_dep = np.array_split(w_dict['depth'] - w_dict['depth'][0], 2)
+        if down_data.shape[0] != up_data.shape[0]:
+            up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+            up_data = np.flip(up_data, axis=0)
+        # Populate xarray DataSet
+        ds = xr.Dataset(
+            {"up_data": (["depth", "time"], up_data),
+             "down_data": (["depth", "time"], down_data)},
+            coords={"time": w_dict['times'], "depth": depth},
+            attrs={'units': 'microstrain'})
+        ds['up_data'].coords['depth'].attrs['units'] = 'meters'
+        ds['down_data'].coords['depth'].attrs['units'] = 'meters'
+        ds.to_netcdf('{}_DSS.nc'.format(well))
+        ds.close()
+    return
+
+
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='madjdabadi', convert_freq=False,
                   DTS=None, DTS_interp='linear', gain_thresh=0.015,
-                  correct_gain='mask', debug=0):
+                  correct_gain=False, debug=0):
     """
     Helper to extract only the channels in specific wells
 
@@ -455,12 +486,12 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     :param fibers: Optionally specify individual fiber loops (FSB, CSD3 or CSD5)
     :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
         'majdabadi' returns scalar, 'by_channel' an array
-    :param convert_freq:
+    :param convert_freq: Convert Absolute Freq to Relative strain?
     :param DTS: Path to DTS data
     :param DTS_interp: Method of interpolation for DTS to DSS grid
     :param gain_thresh: Threshold for removal of changes from bulk gain shifts
         Unit is percent.
-    :param correct_gain: bool to apply correction at gain jumps
+    :param correct_gain: bool to apply correction at gain jumps or method to use
     :param debug: Flag for plotting
 
     :returns: dict {well name: {'data':, 'depth':, 'noise':, ...}
@@ -575,8 +606,11 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             # Find the closest integer channel to meter mapping
             data_tmp = data[np.argmin(start_chan):np.argmin(end_chan), :]
             depth_tmp = depth[np.argmin(start_chan):np.argmin(end_chan)]
-            gain_tmp = gain[np.argmin(start_chan):np.argmin(end_chan), :]
-            if location == 'surf' and well == 'OT':
+            try:
+                gain_tmp = gain[np.argmin(start_chan):np.argmin(end_chan), :]
+            except UnboundLocalError:
+                print('Not doing gain correction')
+            if location == 'surf':  # and well == 'OT':
                 depth_tmp *= 0.9642  # "Stretch factor"
             noise = estimate_noise(data_tmp, method=noise_method)
             well_data[well] = {'times': times, 'mode': mode,
@@ -618,8 +652,12 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 # Use conversion factor 0.579 GHz shift per 1% strain
                 # For microstrain, factor is 5790
                 data_tmp *= 5790.
-            well_data[well].update({'data': data_tmp, 'depth': depth_tmp,
-                                    'noise': noise, 'gain': gain_tmp})
+            if correct_gain:
+                well_data[well].update({'data': data_tmp, 'depth': depth_tmp,
+                                        'noise': noise, 'gain': gain_tmp})
+            else:
+                well_data[well].update({'data': data_tmp, 'depth': depth_tmp,
+                                        'noise': noise})
     elif fibers:
         for fiber in fibers:
             if location != 'surf':
