@@ -403,9 +403,14 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                         print('No waveforms for any picks in {}'.format(
                             ev.resource_id.id))
                         continue
-            trb = Tribe().construct(method='from_meta_file', st=daylong,
-                                    meta_file=tmp_cat,
-                                    **param_dict)
+            try:
+                trb = Tribe().construct(method='from_meta_file', st=daylong,
+                                        meta_file=tmp_cat,
+                                        **param_dict)
+            except ValueError as e:
+                perp = e.args[-1].split()[-1].split('.')
+                print(perp)
+                continue
             tribe += trb
     return tribe
 
