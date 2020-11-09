@@ -190,6 +190,11 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
                     UTCDateTime(date).julday)
             print('Calculating {}'.format(f))
             root_name = os.path.basename(f).rstrip('.ms')
+            # Check if output file exists
+            out_file = '{}/ppsds/{}.npz'.format(outdir, root_name)
+            if os.path.isfile(out_file):
+                print('{} already exists. Skipping'.format(out_file))
+                continue
             try:
                 st = read(f)
             except FileNotFoundError:
@@ -464,11 +469,13 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                 recursive=True))
         daylong = Stream()
         for wav_file in wav_files:
-            st = read(wav_file)
-            # Ensure not simply zeros or less than 0.8 * day length
-            if (_check_daylong(st[0]) and
-                    st[0].stats.endtime - st[0].stats.starttime >= 69120.):
-                daylong += st
+            daylong += read(wav_file)
+        # Deal with shitty CN sampling rates
+        for tr in daylong:
+            if not ((1 / tr.stats.delta).is_integer() and
+                    tr.stats.sampling_rate.is_integer()):
+                tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+        clean_daylong(daylong)
         party += tribe.detect(stream=daylong.merge(), **param_dict)
     return party
 

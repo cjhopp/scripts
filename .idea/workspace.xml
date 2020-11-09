@@ -23,6 +23,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -303,10 +304,10 @@
     </state>
     <state x="0" y="125" width="1920" height="855" key="VCS.FileHistoryDialog/0.27.3840.1053@0.27.3840.1053" timestamp="1600116740258" />
     <state x="167" y="125" width="1653" height="855" key="VCS.FileHistoryDialog/67.27.1853.1053@67.27.1853.1053" timestamp="1597670741156" />
-    <state x="665" y="154" width="621" height="804" key="find.popup" timestamp="1604699994760">
+    <state x="665" y="154" width="621" height="804" key="find.popup" timestamp="1604702128354">
       <screen x="67" y="0" width="1853" height="1080" />
     </state>
-    <state x="665" y="154" width="621" height="804" key="find.popup/0.1080.1920.1080/67.0.1853.1080@67.0.1853.1080" timestamp="1604699994760" />
+    <state x="665" y="154" width="621" height="804" key="find.popup/0.1080.1920.1080/67.0.1853.1080@67.0.1853.1080" timestamp="1604702128354" />
     <state x="531" y="135" width="643" height="783" key="find.popup/1920.0.1920.1080/0.27.1920.1053@0.27.1920.1053" timestamp="1601507007572" />
     <state x="683" y="161" width="620" height="783" key="find.popup/1920.0.1920.1080/67.27.1853.1053@67.27.1853.1053" timestamp="1599149655294" />
     <state x="649" y="133" width="621" height="1608" key="find.popup/67.0.1853.2160@67.0.1853.2160" timestamp="1602696594299" />
