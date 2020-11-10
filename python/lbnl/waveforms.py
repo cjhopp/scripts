@@ -173,8 +173,8 @@ def combine_ppsds(npz_dir, netstalocchans):
     inventory = cli.get_stations_bulk(bulk, level='response')
     inventory = modify_SAULN_inventory(inventory)
     for nsl in netstalocchans:
-        npzs = glob('{}/{}*.npz'.format(npz_dir, nsl))
-        ppsd = PPSD.load_npz(npzs)
+        # npzs = glob('{}/{}*.npz'.format(npz_dir, nsl))
+        ppsd = PPSD.load_npz('{}/{}*.npz'.format(npz_dir, nsl))
     return
 
 
