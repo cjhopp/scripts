@@ -158,7 +158,7 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     return st
 
 
-def combine_ppsds(npz_dir, netstalocchans):
+def combine_ppsds(npz_dir, netstalocchans, outdir):
     """
     Combine a number of npz files (daylong) into one large one
 
@@ -177,8 +177,20 @@ def combine_ppsds(npz_dir, netstalocchans):
             '/bear0-data/GMF_1/Cascadia/Chet/mseed/**/{}*.ms'.format(nsl),
             recursive=True)
         st = read(wavs[-1])
+        # Deal with shitty CN sampling rates
+        for tr in st:
+            if not ((1 / tr.stats.delta).is_integer() and
+                    tr.stats.sampling_rate.is_integer()):
+                tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         ppsd = PPSD(stats=st[0].stats, metadata=inventory).add_npz(
             filename='{}/{}*.npz'.format(npz_dir, nsl))
+        if not os.path.isdir(outdir):
+            os.makedirs(os.path.join(outdir, 'ppsds'))
+            os.makedirs(os.path.join(outdir, 'plots'))
+        ppsd.save_npz('{}/ppsds/{}_FEB_MAR.npz'.format(outdir, nsl))
+        ppsd.plot(filename='{}/plots/{}_FEB_MAR.png'.format(outdir, nsl),
+                  show_earthquakes=(0, 1.5, 10), xaxis_frequency=True,
+                  show_noise_models=False)
     return
 
 
