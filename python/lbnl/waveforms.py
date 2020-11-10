@@ -526,6 +526,7 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         clean_daylong(daylong)
+        print(daylong)
         print('Running detect')
         party += tribe.detect(stream=daylong.merge(), **param_dict)
     return party
