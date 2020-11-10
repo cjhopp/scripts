@@ -174,7 +174,7 @@ def combine_ppsds(npz_dir, netstalocchans):
     inventory = modify_SAULN_inventory(inventory)
     for nsl in netstalocchans:
         # npzs = glob('{}/{}*.npz'.format(npz_dir, nsl))
-        ppsd = PPSD.add_npz(filename='{}/{}*.npz'.format(npz_dir, nsl))
+        ppsd = PPSD().add_npz(filename='{}/{}*.npz'.format(npz_dir, nsl))
     return
 
 
