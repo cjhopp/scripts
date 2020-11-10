@@ -173,9 +173,11 @@ def combine_ppsds(npz_dir, netstalocchans, outdir):
     inventory = cli.get_stations_bulk(bulk, level='response')
     inventory = modify_SAULN_inventory(inventory)
     for nsl in netstalocchans:
+        print(nsl)
         wavs = glob(
             '/bear0-data/GMF_1/Cascadia/Chet/mseed/**/{}*.ms'.format(nsl),
             recursive=True)
+        print(wavs[-1])
         st = read(wavs[-1])
         # Deal with shitty CN sampling rates
         for tr in st:
