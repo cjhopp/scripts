@@ -173,7 +173,9 @@ def combine_ppsds(npz_dir, netstalocchans):
     inventory = cli.get_stations_bulk(bulk, level='response')
     inventory = modify_SAULN_inventory(inventory)
     for nsl in netstalocchans:
-        wavs = glob('/bear0-data/GMF_1/Cascadia/Chet/mseed/{}*.ms'.format(nsl))
+        wavs = glob(
+            '/bear0-data/GMF_1/Cascadia/Chet/mseed/**/{}*.ms'.format(nsl),
+            recursive=True)
         st = read(wavs[-1])
         ppsd = PPSD(stats=st[0].stats, metadata=inventory).add_npz(
             filename='{}/{}*.npz'.format(npz_dir, nsl))
