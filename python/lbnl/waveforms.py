@@ -188,8 +188,8 @@ def combine_ppsds(npz_dir, netstalocchans, outdir):
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         try:
-            ppsd = PPSD(stats=st[0].stats, metadata=inventory).add_npz(
-                filename='{}/{}*.npz'.format(npz_dir, nsl))
+            ppsd = PPSD(stats=st[0].stats, metadata=inventory)
+            ppsd.add_npz(filename='{}/{}*.npz'.format(npz_dir, nsl))
         except AssertionError as e:
             print(e)
             continue
