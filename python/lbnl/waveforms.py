@@ -509,6 +509,7 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                                   for pk in temp.event.picks]))
     for date in date_generator(start.datetime, end.datetime):
         dto = UTCDateTime(date)
+        print('Running {}'.format(dto))
         jday = dto.julday
         wav_files = []
         for nslc in net_sta_loc_chans:
@@ -516,6 +517,7 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                 wav_dir, nslc[0], nslc[1], nslc[2], nslc[3], jday),
                 recursive=True))
         daylong = Stream()
+        print('Reading wavs')
         for wav_file in wav_files:
             daylong += read(wav_file)
         # Deal with shitty CN sampling rates
@@ -524,6 +526,7 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         clean_daylong(daylong)
+        print('Running detect')
         party += tribe.detect(stream=daylong.merge(), **param_dict)
     return party
 
