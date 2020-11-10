@@ -515,8 +515,8 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
         print(jday)
         wav_files = []
         for nslc in net_sta_loc_chans:
-            wav_files.extend(glob('{}/**/{}.{}.{}.{}.{}.ms'.format(
-                wav_dir, nslc[0], nslc[1], nslc[2], nslc[3], jday),
+            wav_files.extend(glob('{}/**/{}.{}.{}.{}.{}.{}.ms'.format(
+                wav_dir, nslc[0], nslc[1], nslc[2], nslc[3], date.year, jday),
                 recursive=True))
         print(wav_files)
         daylong = Stream()
