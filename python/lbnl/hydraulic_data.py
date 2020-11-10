@@ -176,6 +176,33 @@ def martin_cumulative_vols(df_early):
 
 ###### Plotting #######
 
+def plot_collab_hydro(df_hydro):
+    """
+    DataFrame from read_collab_hydro
+
+    :param df_hydro: pandas DataFrame
+    :return:
+    """
+    fig, ax = plt.subplots(figsize=(13, 5))
+    ax2 = ax.twinx()
+    ax.plot(df_hydro['Flow'], color='steelblue')
+    ax2.plot(df_hydro['Pressure'], color='firebrick')
+    ax.set_ylim(bottom=0)
+    ax2.set_ylim(bottom=0)
+    ax.margins(0)
+    fig.autofmt_xdate()
+    ax.tick_params(axis='y', which='major', direction='out',
+                   labelcolor='steelblue', color='steelblue',
+                   length=6, width=1)
+    ax2.tick_params(axis='y', which='major', direction='out',
+                   labelcolor='firebrick', color='firebrick',
+                   labelright=True, length=6, width=1)
+    ax.set_ylabel('Flow [L/min]', fontsize=16, color='steelblue')
+    ax2.set_ylabel('Pressure [MPa]', fontsize=16, color='firebrick')
+    plt.show()
+    return
+
+
 def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None):
     """Simple Flow and Press plot"""
     if not axes:

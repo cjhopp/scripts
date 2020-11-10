@@ -158,6 +158,26 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     return st
 
 
+def combine_ppsds(npz_dir, netstalocchans):
+    """
+    Combine a number of npz files (daylong) into one large one
+
+    :param npz_dir: Root for npz files
+    :param netstalocchans: List of net.sta.loc.chan for get_stations()
+    :return:
+    """
+    cli = Client('IRIS')
+    bulk = [n.split('.') for n in netstalocchans]
+    for b in bulk:
+        b.extend([UTCDateTime(2019, 2, 1), UTCDateTime(2019, 3, 31)])
+    inventory = cli.get_stations_bulk(bulk, level='response')
+    inventory = modify_SAULN_inventory(inventory)
+    for nsl in netstalocchans:
+        npzs = glob('{}/{}*.npz'.format(npz_dir, nsl))
+        ppsd = PPSD.load_npz(npzs)
+    return
+
+
 def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
     """
     Crawl a waveform directory structure and calculate ppsds for each file.
