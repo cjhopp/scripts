@@ -182,8 +182,12 @@ def combine_ppsds(npz_dir, netstalocchans, outdir):
             if not ((1 / tr.stats.delta).is_integer() and
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
-        ppsd = PPSD(stats=st[0].stats, metadata=inventory).add_npz(
-            filename='{}/{}*.npz'.format(npz_dir, nsl))
+        try:
+            ppsd = PPSD(stats=st[0].stats, metadata=inventory).add_npz(
+                filename='{}/{}*.npz'.format(npz_dir, nsl))
+        except AssertionError as e:
+            print(e)
+            continue
         if not os.path.isdir(outdir):
             os.makedirs(os.path.join(outdir, 'ppsds'))
             os.makedirs(os.path.join(outdir, 'plots'))
