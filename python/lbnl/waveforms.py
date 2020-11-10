@@ -179,7 +179,9 @@ def combine_ppsds(npz_dir, netstalocchans, outdir):
             recursive=True)
         if len(wavs) == 0:
             continue
-        st = read(wavs[-1])
+        st = read(wavs[0])
+        print(st)
+        print(inventory)
         # Deal with shitty CN sampling rates
         for tr in st:
             if not ((1 / tr.stats.delta).is_integer() and
