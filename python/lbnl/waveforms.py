@@ -180,8 +180,6 @@ def combine_ppsds(npz_dir, netstalocchans, outdir):
         if len(wavs) == 0:
             continue
         st = read(wavs[0])
-        print(st)
-        print(inventory)
         # Deal with shitty CN sampling rates
         for tr in st:
             if not ((1 / tr.stats.delta).is_integer() and
@@ -245,6 +243,11 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
             except FileNotFoundError:
                 print('{} doesnt exist'.format(f))
                 continue
+            # Deal with shitty CN sampling rates
+            for tr in st:
+                if not ((1 / tr.stats.delta).is_integer() and
+                        tr.stats.sampling_rate.is_integer()):
+                    tr.stats.sampling_rate = round(tr.stats.sampling_rate)
             lil_ppsd = PPSD(st[0].stats, inventory)
             flag = lil_ppsd.add(st)
             if not flag:
