@@ -106,7 +106,9 @@ def clean_daylong(stream):
     rmtrs = []
     for tr in stream:
         if (len(np.nonzero(tr.data)[0]) < 0.5 * len(tr.data) or
-            tr.stats.endtime - tr.stats.starttime < 0.8 * 86400):
+            tr.stats.endtime - tr.stats.starttime < 0.8 * 86400 or
+            abs((tr.stats.sampling_rate * 86400) - tr.stats.npts) >
+                tr.stats.delta):
             rmtrs.append(tr)
     for rt in rmtrs:
         stream.traces.remove(rt)
@@ -2038,7 +2040,7 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     return
 
 
-def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ',
+def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
               eq_psd=None):
     """
     Take pre-computed ppsds and plot the means and diffs for all specified
@@ -2055,7 +2057,11 @@ def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ',
     next(cols)  # Skip first blue-ish one
     B_cols = cycle(sns.color_palette('Blues', 3))
     npz_files = glob('{}/*'.format(psd_dir))
-    day_str = '{}.{:03d}'.format(datetime.year, UTCDateTime(datetime).julday)
+    if datetime:
+        day_str = '{}.{:03d}'.format(datetime.year,
+                                     UTCDateTime(datetime).julday)
+    else:
+        day_str = 'FEB_MAR'
     ppsds = {}
     for seed in seeds:
         try:
@@ -2069,10 +2075,7 @@ def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ',
     fig, axes = plt.subplots(ncols=2, sharex='row', figsize=(15, 5))
     refx, refy = ppsds[reference_seed].get_mean()
     for seed, ppsd in ppsds.items():
-        if seed.split('.')[2] in ['B1', 'B2', 'B3']:
-            c = next(B_cols)
-        else:
-            c = next(cols)
+        c = cascadia_colors['.'.join(seed.split('.')[1:-1])]
         xs, ys = ppsd.get_mean()
         try:
             diffx, diffy = ys - refy
@@ -2084,6 +2087,9 @@ def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ',
         # Plot vs frequency
         axes[0].plot(1 / xs, ys, label=seed, color=c)
         axes[1].plot(1 / diffx, diffy, color=c)
+        if seed == reference_seed:
+            axes[0].fill_between(1 / xs, -180, ys, color='lightgray')
+            axes[1].fill_between(1 / diffx, -45, diffy, color='lightgray')
     if eq_psd:
         df = pd.read_csv(eq_psd)
         pds = df['periods']
@@ -2102,6 +2108,8 @@ def plot_psds(psd_dir, seeds, datetime, reference_seed='NV.NSMTC.B2.CNZ',
     axes[1].set_ylabel('Relative amplitude [dB]', fontsize=12)
     axes[0].set_facecolor('whitesmoke')
     axes[1].set_facecolor('whitesmoke')
+    axes[0].margins(0.)
+    axes[1].margins(0.)
     fig.legend()
     plt.show()
     return
