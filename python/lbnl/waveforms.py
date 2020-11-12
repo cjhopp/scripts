@@ -502,6 +502,12 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
     :param param_dict: Dict of parameters to pass to Tribe.detect()
     :return:
     """
+    import logging
+
+    logging.basicConfig(
+        level=logging.ERROR,
+        format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+
     party = Party()
     net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                    pk.waveform_id.station_code,
@@ -529,7 +535,11 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         clean_daylong(daylong)
         print('Running detect')
-        party += tribe.detect(stream=daylong.merge(), **param_dict)
+        try:
+            party += tribe.detect(stream=daylong.merge(), **param_dict)
+        except OSError as e:
+            print('Some weird mpl error with file handling...')
+            continue
     return party
 
 

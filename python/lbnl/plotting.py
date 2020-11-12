@@ -45,6 +45,8 @@ from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
 csd_well_colors = {'D1': 'blue', 'D2': 'blue', 'D3': 'green',
                    'D4': 'green', 'D5': 'green', 'D6': 'green', 'D7': 'black'}
 
+cols_4850 = {'PDT': 'black', 'PDB': 'black', 'PST': 'black', 'PSB': 'black',
+             'OT': 'black', 'OB': 'black', 'I': '#4682B4', 'P': '#B22222'}
 
 def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
                       accel_dict):
@@ -195,8 +197,8 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 wells=None, title=None, offline=True, dd_only=False,
-                surface='plane', DSS_picks=None, structures=None, meshes=None,
-                line=None, simfip=None, xrange=(2579250, 2579400),
+                surface=None, DSS_picks=None, structures=None, meshes=None,
+                line=None, simfip=None, fracs=False, xrange=(2579250, 2579400),
                 yrange=(1247500, 1247650), zrange=(450, 500), sampling=0.5,
                 eye=None, export=False):
     """
@@ -223,6 +225,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         expanded)
     :param line: Bool to add excavation progress at Mont Terri
     :param simfip: Dict of {well name: (top packer depth, bottom packer depth)}
+    :param fracs: bool plot fracture planes at surf or not
     :param xrange: List of min and max x of volume to interpolate DSS over
     :param yrange: List of min and max y of volume to interpolate DSS over
     :param zrange: List of min and max z of volume to interpolate DSS over
@@ -272,15 +275,20 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     if simfip:
         for wl, deps in simfip.items():
             add_fsb_simfip(datas, wl, deps)
+    if fracs:
+        add_4850_fracs(datas, well_file)
     # Start figure
     fig = go.Figure(data=datas)
     # Manually find the data limits, and scale appropriately
     all_x = np.ma.masked_invalid(np.concatenate(
-        [d['x'].flatten() for d in fig.data if type(d['y']) == np.ndarray]))
+        [d['x'].flatten() for d in fig.data if type(d['y']) == np.ndarray
+         and d.name != 'Drift']))
     all_y = np.ma.masked_invalid(np.concatenate(
-        [d['y'].flatten() for d in fig.data if type(d['y']) == np.ndarray]))
+        [d['y'].flatten() for d in fig.data if type(d['y']) == np.ndarray
+         and d.name != 'Drift']))
     all_z = np.ma.masked_invalid(np.concatenate(
-        [d['z'].flatten() for d in fig.data if type(d['z']) == np.ndarray]))
+        [d['z'].flatten() for d in fig.data if type(d['z']) == np.ndarray
+         and d.name != 'Drift']))
     xrange = np.abs(np.max(all_x) - np.min(all_x))
     yrange = np.abs(np.max(all_y) - np.min(all_y))
     if location == 'fsb':
@@ -333,6 +341,10 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     else:
         py.plot(fig, filename=outfile)
     return fig
+
+
+def plot_4850_2D():
+    return
 
 
 def plot_lab_2D(autocad_path, strike=305.,
@@ -563,6 +575,57 @@ def plot_pierce_points(x, y, z, strike, dip, ax):
 
 ###### Adding various objects to the plotly figure #######
 
+def add_frac_surf(strike, dip, center, radius, datas, name, color):
+    """
+    Add a circular plane for a fracture
+
+    :param strike: Strike in deg from N
+    :param dip: Dip in deg from horizontal
+    :param center: 3D point of center of plane
+    :param radius: Radius of the circle
+    :return:
+    """
+    s = np.deg2rad(strike)
+    d = np.deg2rad(dip)
+    # Define fault normal
+    n = np.array([np.sin(d) * np.cos(s),
+                  -np.sin(d) * np.sin(s),
+                  np.cos(d)])
+    u = np.array([np.sin(s), np.cos(s), 0])
+    # Equ from https://meshlogic.github.io/posts/jupyter/curve-fitting/fitting-a-circle-to-cluster-of-3d-points/
+    Pc = [(radius * np.cos(t) * u) +
+          (radius * np.sin(t) * np.cross(n, u)) + center
+          for t in np.linspace(0, 2 * np.pi, 50)]
+    Pc = np.array(Pc)
+    datas.append(go.Scatter3d(
+        x=Pc[:, 0], y=Pc[:, 1], z=Pc[:, 2], surfaceaxis=1, surfacecolor=color,
+        line=dict(color=color, width=4),
+        name=name, mode='lines', opacity=0.3))
+    return
+
+
+def add_4850_fracs(datas, well_file):
+    well_dict = parse_surf_boreholes(well_file)
+    fracs = {'OT-P Connector': {'strike': 150.9, 'dip': 87.5, 'radius': 10.,
+                                'center': depth_to_xyz(well_dict, 'P', 37.11),
+                                'color': 'gray'},
+             'W-S': {'strike': 77, 'dip': 79, 'radius': 5, 'color': '#3CB371',
+                     'center': depth_to_xyz(well_dict, 'OT', 45.)},
+             'W-N': {'strike': 72, 'dip': 81, 'radius': 5, 'color': '#CD5C5C',
+                     'center': depth_to_xyz(well_dict, 'OT', 46.4)},
+             'W-L': {'strike': 113, 'dip': 86, 'radius': 2.,
+                     'center': depth_to_xyz(well_dict, 'OT', 44.),
+                     'color': '#FF4500'},
+             'E-N': {'strike': 248, 'dip': 82, 'radius': 4, 'color': '#663399',
+                     'center': depth_to_xyz(well_dict, 'P', 42.)},
+             'E-S': {'strike': 60, 'dip': 88, 'radius': 4., 'color': '#1E90FF',
+                     'center': depth_to_xyz(well_dict, 'P', 39.6)}}
+    for frac, sd in fracs.items():
+        add_frac_surf(sd['strike'], sd['dip'], sd['center'], sd['radius'],
+                      datas, frac, sd['color'])
+    return
+
+
 def get_plane_z(X, Y, strike, dip, point):
     """
     Helper to return the Z values of a fault/frac on a grid defined by X, Y
@@ -731,7 +794,9 @@ def add_wells(well_dict, objects, structures, wells):
                 x, y, z, d = zip(*pts)
         else:
             continue
-        if structures or wells != 'all':
+        if key in cols_4850:
+            col = cols_4850[key]
+        elif structures or wells != 'all':
             col = 'gray'
         else:
             col = next(well_colors)
@@ -753,7 +818,7 @@ def add_wells(well_dict, objects, structures, wells):
                                     mode='lines',
                                     visible=viz,
                                     name='{}: {}'.format(group, key),
-                                    line=dict(color=col, width=4),
+                                    line=dict(color=col, width=6),
                                     hoverinfo='skip'))
     return objects
 
@@ -1002,8 +1067,8 @@ def add_catalog(catalog, dd_only, objects, surface):
         # z = -np.array(z)
         clust_col = next(colors)
         tickvals = np.linspace(min(t), max(t), 10)
-        ticktext = [datetime.fromtimestamp(t) for t in tickvals]
-        print(np.max(z))
+        ticktext = [datetime.fromtimestamp(t).strftime('%d %b %Y: %H:%M')
+                    for t in tickvals]
         scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=np.array(z),
                                 mode='markers',
                                 name='Seismic event',
@@ -1023,8 +1088,8 @@ def add_catalog(catalog, dd_only, objects, surface):
                                                 x=-0.2,
                                                 ticktext=ticktext,
                                                 tickvals=tickvals),
-                                            colorscale='Cividis',
-                                            opacity=0.5))
+                                            colorscale='Plotly3',
+                                            opacity=0.8))
         objects.append(scat_obj)
         if surface == 'plane':
             if len(x) <= 2:
@@ -1058,39 +1123,62 @@ def dxf_to_xyz(mesh_file, mesh_name, datas):
     """Helper for reading dxf files of surf levels to xyz"""
     # SURF CAD files
     dxf = dxfgrabber.readfile(mesh_file)
-    for obj in dxf.entities:
+    if dxf.entities[0].dxftype == '3DFACE':
         xs = []
         ys = []
         zs = []
-        if obj.dxftype == 'POLYLINE':
-            for pt in obj.points:
-                x, y, z = pt[:3]
-                xs.append(x)
-                ys.append(y)
-                zs.append(z)
-            datas.append(go.Scatter3d(
-                x=np.array(xs) / 3.28084, y=np.array(ys) / 3.28084,
-                z=np.array(zs) / 3.28084,
-                name=mesh_name,
-                mode='lines',
-                opacity=0.3,
-                showlegend=False))
-        elif obj.dxftype == 'LINE':
-            sx, sy, sz = obj.start[:3]
-            ex, ey, ez = obj.end[:3]
-            xs.append(sx)
-            ys.append(sy)
-            zs.append(sz)
-            xs.append(ex)
-            ys.append(ey)
-            zs.append(ez)
-            datas.append(go.Scatter3d(
-                x=np.array(xs) / 3.28084, y=np.array(ys) / 3.28084,
-                z=np.array(zs) / 3.28084,
-                name=mesh_name,
-                mode='lines',
-                opacity=0.3,
-                showlegend=False))
+        iz = []
+        jz = []
+        kz = []
+        for i, obj in enumerate(dxf.entities):
+            xs.extend([p[0] for p in obj.points[:-1]])
+            ys.extend([p[1] for p in obj.points[:-1]])
+            zs.extend([p[2] for p in obj.points[:-1]])
+            iz.append(i * 3)
+            jz.append((i * 3) + 1)
+            kz.append((i * 3) + 2)
+        datas.append(go.Mesh3d(x=np.array(xs) / 3.28084,
+                               y=np.array(ys) / 3.28084,
+                               z=np.array(zs) / 3.28084,
+                               i=iz, j=jz, k=kz,
+                               color='gray',
+                               name=mesh_name, opacity=0.5))
+    else:
+        for obj in dxf.entities:
+            xs = []
+            ys = []
+            zs = []
+            if obj.dxftype == 'POLYLINE':
+                for pt in obj.points:
+                    x, y, z = pt[:3]
+                    xs.append(x)
+                    ys.append(y)
+                    zs.append(z)
+                datas.append(go.Scatter3d(
+                    x=np.array(xs) / 3.28084, y=np.array(ys) / 3.28084,
+                    z=(np.array(zs) / 3.28084) - 2.,
+                    name=mesh_name,
+                    mode='lines',
+                    line={'color': 'black', 'width': 7.},
+                    opacity=1.,
+                    showlegend=False))
+            elif obj.dxftype == 'LINE':
+                sx, sy, sz = obj.start[:3]
+                ex, ey, ez = obj.end[:3]
+                xs.append(sx)
+                ys.append(sy)
+                zs.append(sz)
+                xs.append(ex)
+                ys.append(ey)
+                zs.append(ez)
+                datas.append(go.Scatter3d(
+                    x=np.array(xs) / 3.28084, y=np.array(ys) / 3.28084,
+                    z=np.array(zs) / 3.28084,
+                    name=mesh_name,
+                    mode='lines',
+                    opacity=1.,
+                    line={'color': 'black', 'width':7.},
+                    showlegend=False))
     return datas
 
 
@@ -1185,7 +1273,6 @@ def ellipsoid_to_pts(center, radii, evecs):
     :return:
     """
     center = center.flatten()
-    print(center)
     u = np.linspace(0.0, 2.0 * np.pi, 100)
     v = np.linspace(0.0, np.pi, 100)
     # cartesian coordinates that correspond to the spherical angles:
