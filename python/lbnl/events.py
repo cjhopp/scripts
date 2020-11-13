@@ -14,6 +14,7 @@ import os
 import shutil
 
 import numpy as np
+import pandas as pd
 
 from glob import glob
 from subprocess import call
@@ -141,6 +142,62 @@ def clean_cat_picks(cat, PS_one_chan=True):
                     pk.phase_hint))
                 pks.append(pk)
         ev.picks = pks
+    return cat
+
+
+def ORNL_events_to_cat(ornl_file):
+    """Make Catalog from ORNL locations"""
+    cat = Catalog()
+    loc_df = pd.read_csv(ornl_file, infer_datetime_format=True)
+    loc_df = loc_df.set_index('event_datetime')
+    eid = 0
+    for dt, row in loc_df.iterrows():
+        ot = UTCDateTime(dt)
+        hmc_east = row['x(m)']
+        hmc_north = row['y(m)']
+        hmc_elev = row['z(m)']
+        errX = row['error_x (m)']
+        errY = row['error_y (m)']
+        errZ = row['error_z (m)']
+        rms = row['rms (millisecond)']
+        converter = SURF_converter()
+        lon, lat, elev = converter.to_lonlat((hmc_east, hmc_north,
+                                              hmc_elev))
+        o = Origin(time=ot, latitude=lat, longitude=lon, depth=130 - elev)
+        o.origin_uncertainty = OriginUncertainty()
+        o.quality = OriginQuality()
+        ou = o.origin_uncertainty
+        oq = o.quality
+        ou.max_horizontal_uncertainty = np.max([errX, errY])
+        ou.min_horizontal_uncertainty = np.min([errX, errY])
+        o.depth_errors.uncertainty = errZ
+        oq.standard_error = rms * 1e3
+        extra = AttribDict({
+            'hmc_east': {
+                'value': hmc_east,
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_north': {
+                'value': hmc_north,
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_elev': {
+                'value': hmc_elev,
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_eid': {
+                'value': eid,
+                'namespace': 'smi:local/hmc'
+            }
+        })
+        o.extra = extra
+        rid = ResourceIdentifier(id=ot.strftime('%Y%m%d%H%M%S%f'))
+        # Dummy magnitude of 1. for all events until further notice
+        mag = Magnitude(mag=1., mag_errors=QuantityError(uncertainty=1.))
+        ev = Event(origins=[o], magnitudes=[mag], resource_id=rid)
+        ev.preferred_origin_id = o.resource_id.id
+        cat.events.append(ev)
+        eid += 1
     return cat
 
 
