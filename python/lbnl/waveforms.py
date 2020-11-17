@@ -523,14 +523,17 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                                   for pk in temp.event.picks]))
     for date in date_generator(start.datetime, end.datetime):
         dto = UTCDateTime(date)
-        print('Running {}'.format(dto))
         jday = dto.julday
+        print('Running {}\nJday: {}'.format(dto, jday))
         wav_files = []
+        print(net_sta_loc_chans)
         for nslc in net_sta_loc_chans:
-            wav_files.extend(glob('{}/{}/{}/{}/**/{}.{}.{}.{}.{}.{}.ms'.format(
+            day_wav_fs = glob('{}/{}/{}/{}/**/{}.{}.{}.{}.{}.{}.ms'.format(
                 wav_dir, date.year, nslc[0], nslc[1], nslc[0], nslc[1],
                 nslc[2], nslc[3], date.year, jday),
-                recursive=True))
+                              recursive=True)
+            print(day_wav_fs)
+            wav_files.extend(day_wav_fs)
         daylong = Stream()
         print('Reading wavs')
         print(wav_files)
