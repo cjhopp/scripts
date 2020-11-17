@@ -195,8 +195,8 @@ def plot_collab_hydro(df_hydro):
                    labelcolor='steelblue', color='steelblue',
                    length=6, width=1)
     ax2.tick_params(axis='y', which='major', direction='out',
-                   labelcolor='firebrick', color='firebrick',
-                   labelright=True, length=6, width=1)
+                    labelcolor='firebrick', color='firebrick',
+                    labelright=True, length=6, width=1)
     ax.set_ylabel('Flow [L/min]', fontsize=16, color='steelblue')
     ax2.set_ylabel('Pressure [MPa]', fontsize=16, color='firebrick')
     plt.show()

@@ -30,7 +30,7 @@ from scipy.spatial.transform import Rotation as R
 from obspy import Trace
 from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
-from matplotlib.colors import ListedColormap
+from matplotlib.patches import Circle
 from scipy.signal import resample, detrend
 
 # Local imports (assumed to be in python path)
@@ -39,7 +39,7 @@ from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             distance_to_borehole)
 from lbnl.coordinates import SURF_converter
 from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
-                      get_well_piercepoint)
+                      get_well_piercepoint, get_frac_piercepoint)
 
 
 csd_well_colors = {'D1': 'blue', 'D2': 'blue', 'D3': 'green',
@@ -343,7 +343,152 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     return fig
 
 
-def plot_4850_2D():
+def plot_4850_2D(autocad_path, strike=347.,
+                 origin=np.array((811.61, -1296.63, 105.28))):
+    """
+    Plot SURF 4850 in a combination of 3D, map view, and cross section
+
+    :param autocad_path: Path to file with arcs and lines etc
+    :param strike: Strike of main fault to project piercepoints onto
+    :param origin: Origin point for the cross section
+
+    :return:
+    """
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    fig = plt.figure(figsize=(12, 12))
+    spec = gridspec.GridSpec(ncols=8, nrows=8, figure=fig)
+    ax3d = fig.add_subplot(spec[:4, :4], projection='3d')
+    ax_x = fig.add_subplot(spec[:4, 4:])
+    ax_map = fig.add_subplot(spec[4:, :4])
+    ax_fault = fig.add_subplot(spec[4:, 4:])
+    well_dict = parse_surf_boreholes(
+        'data/chet-collab/boreholes/surf_4850_wells.csv')
+    # Cross section plane (strike 320)
+    r = np.deg2rad(360 - strike)
+    normal = np.array([-np.cos(r), -np.sin(r), 0.])
+    normal /= norm(normal)
+    new_strk = np.array([np.sin(r), -np.cos(r), 0.])
+    new_strk /= norm(new_strk)
+    change_b_mat = np.array([new_strk, [0, 0, 1], normal])
+    # Theoretical fracture
+    frac = {'strike': 77, 'dip': 79, 'radius': 15,
+            'center': depth_to_xyz(well_dict, 'I', 50.2),
+            'color': 'purple'}
+    s = np.deg2rad(frac['strike'])
+    d = np.deg2rad(frac['dip'])
+    # Define fault normal
+    n = np.array([np.sin(d) * np.cos(s),
+                  -np.sin(d) * np.sin(s),
+                  np.cos(d)])
+    u = np.array([np.sin(s), np.cos(s), 0])
+    # Equ from https://meshlogic.github.io/posts/jupyter/curve-fitting/fitting-a-circle-to-cluster-of-3d-points/
+    Pc = [(frac['radius'] * np.cos(t) * u) +
+          (frac['radius'] * np.sin(t) * np.cross(n, u)) + frac['center']
+          for t in np.linspace(0, 2 * np.pi, 50)]
+    Pc = np.array(Pc)
+    verts = [list(zip(Pc[:, 0], Pc[:, 1], Pc[:, 2]))]
+    poly = Poly3DCollection(verts, alpha=0.3, color='blue')
+    ax3d.add_collection3d(poly)
+    # Now drift mesh
+    Xs, Ys, Zs, tris = dxf_to_mpl(autocad_path)
+    ax3d.plot_trisurf(Xs, Ys, Zs, triangles=tris, color='gray', alpha=0.3)
+    # Proj
+    pts_t = np.column_stack([Pc[:, 0].flatten(), Pc[:, 1].flatten(),
+                             Pc[:, 2].flatten()])
+    proj_pts_t = np.dot(pts_t - origin, normal)[:, None] * normal
+    proj_pts_t = pts_t - origin - proj_pts_t
+    proj_pts_t = np.matmul(change_b_mat, proj_pts_t.T)
+    # 3D mesh with triangles
+    ax_map.fill(Pc[:, 0], Pc[:, 1], color='blue', alpha=0.3,
+                label='50 m fracture', edgecolor='b', linewidth=1.)
+    ax_x.fill(proj_pts_t[0, :], proj_pts_t[1, :], color='blue', alpha=0.3,
+              edgecolor='b', linewidth=1.)
+    # Convex hull in 2D views
+    map_pts = np.column_stack([Xs, Ys, Zs])
+    map_hull = ConvexHull(map_pts[:, :2])
+    ax_map.fill(map_pts[map_hull.vertices, 0],
+                map_pts[map_hull.vertices, 1], color='gray', alpha=0.3)
+    drift_proj = np.dot(map_pts - origin, normal)[:, None] * normal
+    drift_proj = map_pts - origin - drift_proj
+    drift_proj = np.matmul(change_b_mat, drift_proj.T)
+    drift_proj = drift_proj.T[:, :2]
+    x_hull = ConvexHull(drift_proj)
+    ax_x.fill(drift_proj[x_hull.vertices, 0],
+              drift_proj[x_hull.vertices, 1],
+              color='gray', alpha=0.3)
+    # Plot notch location
+    notch_pos = depth_to_xyz(well_dict, 'I', 50.2)
+    ax_map.scatter(notch_pos[0], notch_pos[1], marker='x',
+                   s=70, color='b', label='50-m notch')
+    ax_x.scatter(0, 0, marker='x', s=70, color='b')
+    ax3d.scatter(origin[0], origin[1], origin[2], marker='x', s=70, color='b')
+    for well, pts in well_dict.items():
+        if well.startswith('SW'):
+            continue
+        col = cols_4850[well]
+        # Proj
+        pts = pts[:, :3]
+        proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+        proj_pts = pts - origin - proj_pts
+        proj_pts = np.matmul(change_b_mat, proj_pts.T)
+        ax3d.plot(pts[:, 0], pts[:, 1], pts[:, 2], color=col,
+                  linewidth=1.5)
+        ax_x.plot(proj_pts[0, :], proj_pts[1, :], color=col)
+        ax_map.plot(pts[:, 0], pts[:, 1], color=col, linewidth=2.)
+        ax_map.scatter(pts[:, 0][0], pts[:, 1][0], color=col, s=15.)
+        ax_map.annotate(
+            text=well, xy=(pts[:, 0][0], pts[:, 1][1]), fontsize=10,
+            weight='bold', xytext=(3, 0), textcoords="offset points",
+            color=col)
+    # Plot fault coords and piercepoints
+    grdx, grdy = np.meshgrid(Pc[:, 0], Pc[:, 1])
+    grdz = ((-0.238 * grdx) + grdy + 1510.9) / 0.198
+    plot_pierce_points(grdx, grdy, grdz, strike=frac['strike'],
+                       dip=frac['dip'], ax=ax_fault, location='surf')
+    ax_fault.add_artist(Circle((0, 0), radius=frac['radius'],
+                               alpha=0.3, color='b'))
+    # Formatting
+    ax3d.set_xlim([790, 840])
+    ax3d.set_ylim([-1330, -1280])
+    ax3d.set_zlim([80, 130])
+    ax3d.view_init(elev=30., azim=-158)
+    ax3d.margins(0.)
+    ax3d.set_xticks([])
+    ax3d.set_xticklabels([])
+    ax3d.set_yticks([])
+    ax3d.set_yticklabels([])
+    ax3d.set_zticks([])
+    ax3d.set_zticklabels([])
+    # Overview map
+    ax_map.axis('equal')
+    ax_map.axis('off')
+    ax_map.set_xlim([780, 860])
+    ax_map.set_ylim([-1350, -1270])
+    # Fault map
+    ax_fault.axis('equal')
+    # ax_fault.spines['top'].set_visible(False)
+    # ax_fault.spines['left'].set_visible(False)
+    # ax_fault.spines['right'].set_visible(False)
+    # ax_fault.spines['bottom'].set_bounds(-10, 10)
+    ax_fault.tick_params(direction='in', left=False, labelleft=False)
+    ax_fault.set_xticks([-10, -5, 0, 5, 10])
+    ax_fault.set_xticklabels(['0', '5', '10', '15', '20'])
+    ax_fault.set_xlabel('Meters')
+    # Cross section
+    ax_x.set_xlim([-20, 50])
+    ax_x.axis('equal')
+    ax_x.spines['top'].set_visible(False)
+    ax_x.spines['bottom'].set_visible(False)
+    ax_x.spines['left'].set_visible(False)
+    ax_x.yaxis.set_ticks_position('right')
+    ax_x.tick_params(direction='in', bottom=False, labelbottom=False)
+    ax_x.set_yticks([-30, -20, -10, 0, 10, 20])
+    ax_x.set_yticklabels(['50', '40', '30', '20', '10', '0'])
+    ax_x.set_ylabel('Meters', labelpad=15)
+    ax_x.yaxis.set_label_position("right")
+    ax_x.spines['right'].set_bounds(-30, 20)
+    fig.legend()
+    plt.show()
     return
 
 
@@ -488,9 +633,8 @@ def plot_lab_2D(autocad_path, strike=305.,
         ax_map.annotate(text=well, xy=(pts[:, 0][0], pts[:, 1][1]), fontsize=10,
                     weight='bold', xytext=(3, 0), textcoords="offset points",
                     color=col)
-
     # Plot fault coords and piercepoints
-    plot_pierce_points(x, y, zt, strike=47, dip=57, ax=ax_fault)
+    plot_pierce_points(x, y, zt, strike=47, dip=57, ax=ax_fault, location='fsb')
     # Formatting
     ax3d.set_xlim([2579305, 2579330])
     ax3d.set_ylim([1247565, 1247590])
@@ -536,7 +680,7 @@ def plot_lab_2D(autocad_path, strike=305.,
     return
 
 
-def plot_pierce_points(x, y, z, strike, dip, ax):
+def plot_pierce_points(x, y, z, strike, dip, ax, location='fsb'):
     s = np.deg2rad(strike)
     d = np.deg2rad(dip)
     x = x.flatten()
@@ -554,21 +698,33 @@ def plot_pierce_points(x, y, z, strike, dip, ax):
     newy = newy[~np.isnan(newy)]
     pts = np.column_stack([newx, newy])
     hull = ConvexHull(pts)
-    ax.fill(pts[hull.vertices, 0], pts[hull.vertices, 1], color='bisque',
-            alpha=0.7)
-    pierce_points = get_well_piercepoint(['D1', 'D2', 'D3', 'D4', 'D5',
-                                          'D6', 'D7'])
+    if location == 'fsb':
+        pierce_points = get_well_piercepoint(['D1', 'D2', 'D3', 'D4', 'D5',
+                                              'D6', 'D7'])
+        ax.fill(pts[hull.vertices, 0], pts[hull.vertices, 1], color='bisque',
+                alpha=0.7)
+        size = 20.
+        fs = 10
+    elif location == 'surf':
+        pierce_points = get_frac_piercepoint(
+            ['I', 'OB', 'OT', 'P'],
+            well_file='data/chet-collab/boreholes/surf_4850_wells.csv')
+        size = 70.
+        fs = 12
     # Plot well pierce points
     for well, pts in pierce_points.items():
-        col = csd_well_colors[well]
+        try:
+            col = csd_well_colors[well]
+        except KeyError as e:
+            col = cols_4850[well]
         p = np.array(pts['top'])
         # Project onto plane in question
         proj_pt = p - (normal.dot(p - origin)) * normal
         trans_pt = proj_pt - origin
         new_pt = change_B_mat.dot(trans_pt.T)
-        ax.scatter(new_pt[0], new_pt[1], marker='+', color='k', s=20.,
+        ax.scatter(new_pt[0], new_pt[1], marker='+', color='k', s=size,
                    zorder=103)
-        ax.annotate(text=well, xy=(new_pt[0], new_pt[1]), fontsize=10,
+        ax.annotate(text=well, xy=(new_pt[0], new_pt[1]), fontsize=fs,
                     weight='bold', xytext=(3, 0),
                     textcoords="offset points", color=col)
     return
@@ -1117,6 +1273,30 @@ def add_catalog(catalog, dd_only, objects, surface):
         else:
             print('No surfaces fitted')
     return objects
+
+
+def dxf_to_mpl(path):
+    """Return xyz and triangles for mpl3d"""
+    dxf = dxfgrabber.readfile(path)
+    xs = []
+    ys = []
+    zs = []
+    tris = []
+    j = 0
+    for obj in dxf.entities:
+        x = np.array([p[0] / 3.28084 for p in obj.points[:-1]])
+        y = np.array([p[1] / 3.28084 for p in obj.points[:-1]])
+        z = np.array([p[2] / 3.28084 for p in obj.points[:-1]])
+        if  not (np.all((780 < x) & (x <= 860)) and
+                 np.all((-1350 < y) & (y <=-1270)) and
+                 np.all((60 < z) & (z <= 140))):
+            continue
+        xs.extend(x.tolist())
+        ys.extend(y.tolist())
+        zs.extend(z.tolist())
+        tris.append((j * 3, (j * 3) + 1, (j * 3) + 2))
+        j += 1
+    return xs, ys, zs, tris
 
 
 def dxf_to_xyz(mesh_file, mesh_name, datas):

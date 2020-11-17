@@ -538,7 +538,8 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
         try:
             party += tribe.detect(stream=daylong.merge(), **param_dict)
         except (OSError, IndexError) as e:
-            print('Some weird mpl error with file handling...')
+            print('Some weird mpl error with file handling..?')
+            print(e)
             continue
     return party
 

@@ -154,6 +154,9 @@ fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58)
                 'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
                 'D7': (22.46, 25.54)}
 
+# Depths of intersect for OB/P are guesses and assume propagation past OT-P con.
+frac_depths = {'I': 50.2, 'OT': 45., 'OB': 50., 'P': 40.}
+
 resin_depths = {'D3': (2.5, 3.), 'D4': (9., 10.), 'D5': (17., 18.),
                 'D6': (12., 14.)}
 
@@ -1145,6 +1148,17 @@ def get_well_piercepoint(wells):
         pierce_dict[well]['bottom'] = depth_to_xyz(well_dict, well,
                                                    fault_depths[well][1])
     return pierce_dict
+
+
+def get_frac_piercepoint(wells, well_file):
+    """SURF 4850 version of func above"""
+    well_dict = parse_surf_boreholes(well_file)
+    pierce_dict = {}
+    for well in wells:
+        pierce_dict[well] = {'top': depth_to_xyz(well_dict, well,
+                                                 frac_depths[well])}
+    return pierce_dict
+
 
 ################  Plotting  Funcs  ############################################
 
