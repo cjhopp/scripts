@@ -185,6 +185,7 @@ def plot_collab_hydro(df_hydro):
     """
     fig, ax = plt.subplots(figsize=(13, 5))
     ax2 = ax.twinx()
+    df_hydro = df_hydro[datetime(2018, 5, 22, 19):]
     ax.plot(df_hydro['Flow'], color='steelblue')
     ax2.plot(df_hydro['Pressure'], color='firebrick')
     ax.set_ylim(bottom=0)
