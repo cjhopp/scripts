@@ -527,13 +527,16 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
         jday = dto.julday
         wav_files = []
         for nslc in net_sta_loc_chans:
-            wav_files.extend(glob('{}/**/{}.{}.{}.{}.{}.{}.ms'.format(
-                wav_dir, nslc[0], nslc[1], nslc[2], nslc[3], date.year, jday),
+            wav_files.extend(glob('{}/{}/{}/{}/**/{}.{}.{}.{}.{}.{}.ms'.format(
+                wav_dir, date.year, nslc[0], nslc[1], nslc[0], nslc[1],
+                nslc[2], nslc[3], date.year, jday),
                 recursive=True))
         daylong = Stream()
         print('Reading wavs')
+        print(wav_files)
         for wav_file in wav_files:
             daylong += read(wav_file)
+        print(daylong)
         # Deal with shitty CN sampling rates
         for tr in daylong:
             if not ((1 / tr.stats.delta).is_integer() and
