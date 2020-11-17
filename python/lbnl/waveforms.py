@@ -105,10 +105,16 @@ def clean_daylong(stream):
     """
     rmtrs = []
     for tr in stream:
-        if ((len(np.nonzero(tr.data)[0]) < 0.5 * len(tr.data)) or
-            (tr.stats.endtime - tr.stats.starttime < 0.8 * 86400) or
-            (abs((tr.stats.sampling_rate * 86400) - tr.stats.npts) >
-             tr.stats.delta)):
+        if len(np.nonzero(tr.data)[0]) < 0.5 * len(tr.data):
+            print('{} mostly zeros. Removing'.format(tr.id))
+            rmtrs.append(tr)
+            continue
+        if tr.stats.endtime - tr.stats.starttime < 0.8 * 86400:
+            print('{} less than 80 percent daylong, removing'.format(tr.id))
+            continue
+        if abs((tr.stats.sampling_rate * 86400) -
+               tr.stats.npts) > tr.stats.delta:
+            print('{} no. points doesnt equal one day. Removing'.format(tr.id))
             rmtrs.append(tr)
     for rt in rmtrs:
         stream.traces.remove(rt)
