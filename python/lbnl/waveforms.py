@@ -532,7 +532,6 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
         print('Reading wavs')
         for wav_file in wav_files:
             daylong += read(wav_file)
-        print(daylong)
         # Deal with shitty CN sampling rates
         for tr in daylong:
             if not ((1 / tr.stats.delta).is_integer() and
@@ -541,10 +540,8 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
         clean_daylong(daylong.merge())
         print('Running detect')
         try:
-            print(daylong)
             party += tribe.detect(stream=daylong, **param_dict)
         except (OSError, IndexError) as e:
-            print('Some weird mpl error with file handling..?')
             print(e)
             continue
     return party
