@@ -531,11 +531,9 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
                 wav_dir, date.year, nslc[0], nslc[1], nslc[0], nslc[1],
                 nslc[2], nslc[3], date.year, jday),
                               recursive=True)
-            print(day_wav_fs)
             wav_files.extend(day_wav_fs)
         daylong = Stream()
         print('Reading wavs')
-        print(wav_files)
         for wav_file in wav_files:
             daylong += read(wav_file)
         print(daylong)
@@ -544,11 +542,11 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
             if not ((1 / tr.stats.delta).is_integer() and
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
-        clean_daylong(daylong)
+        clean_daylong(daylong.merge())
         print('Running detect')
         try:
             print(daylong)
-            party += tribe.detect(stream=daylong.merge(), **param_dict)
+            party += tribe.detect(stream=daylong, **param_dict)
         except (OSError, IndexError) as e:
             print('Some weird mpl error with file handling..?')
             print(e)
