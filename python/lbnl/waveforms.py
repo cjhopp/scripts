@@ -113,10 +113,11 @@ def clean_daylong(stream):
             rmtrs.append(tr)
             continue
         if tr.stats.endtime - tr.stats.starttime < 0.8 * 86400:
-            print('{} less than 80 percent daylong, removing'.format(tr.id))
+            print('{} less than 80 percent daylong. Removing'.format(tr.id))
             rmtrs.append(tr)
             continue
     for rt in rmtrs:
+        print(rt.id)
         stream.traces.remove(rt)
     return stream
 
