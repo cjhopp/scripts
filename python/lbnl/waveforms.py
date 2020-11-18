@@ -106,6 +106,7 @@ def clean_daylong(stream):
     rmtrs = []
     for tr in stream:
         if isinstance(tr.data, np.ma.MaskedArray):
+            print(tr.id)
             tr = tr.split()
             tr = tr.detrend().merge(fill_value=0)[0]
         if len(np.nonzero(tr.data)[0]) < 0.5 * len(tr.data):
