@@ -113,6 +113,12 @@ def clean_daylong(stream):
             print('{} less than 80 percent daylong. Removing'.format(tr.id))
             rmtrs.append(tr)
             continue
+        # Check for spikes
+        if (tr.data > 2 * np.max(np.sort(
+                np.abs(tr.data))[0:int(0.99 * len(tr.data))]
+                                 ) * 1e7).sum() > 0:
+            print('{} is spiky. Removing'.format(tr.id))
+            rmtrs.append(tr)
     for rt in rmtrs:
         stream.traces.remove(rt)
     return stream
