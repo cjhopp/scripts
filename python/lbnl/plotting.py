@@ -344,13 +344,15 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
 
 
 def plot_4850_2D(autocad_path, strike=347.,
-                 origin=np.array((811.61, -1296.63, 105.28))):
+                 origin=np.array((811.61, -1296.63, 105.28)),
+                 seismicity=None):
     """
     Plot SURF 4850 in a combination of 3D, map view, and cross section
 
     :param autocad_path: Path to file with arcs and lines etc
     :param strike: Strike of main fault to project piercepoints onto
     :param origin: Origin point for the cross section
+    :param seismicity: obspy Catalog
 
     :return:
     """
@@ -440,6 +442,9 @@ def plot_4850_2D(autocad_path, strike=347.,
             text=well, xy=(pts[:, 0][0], pts[:, 1][1]), fontsize=10,
             weight='bold', xytext=(3, 0), textcoords="offset points",
             color=col)
+    # Seismicity
+    if seismicity:
+        pts
     # Plot fault coords and piercepoints
     grdx, grdy = np.meshgrid(Pc[:, 0], Pc[:, 1])
     grdz = ((-0.238 * grdx) + grdy + 1510.9) / 0.198

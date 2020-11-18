@@ -28,7 +28,7 @@ from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
-from eqcorrscan.core.match_filter import Tribe, Party
+from eqcorrscan.core.match_filter import Tribe, Party, MatchFilterError
 from eqcorrscan.core.template_gen import template_gen
 from eqcorrscan.utils.pre_processing import shortproc, _check_daylong, dayproc
 from eqcorrscan.utils.stacking import align_traces
@@ -548,7 +548,7 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
         print('Running detect')
         try:
             party += tribe.detect(stream=daylong, **param_dict)
-        except (OSError, IndexError) as e:
+        except (OSError, IndexError, MatchFilterError) as e:
             print(e)
             continue
     return party
