@@ -114,7 +114,6 @@ def clean_daylong(stream):
             rmtrs.append(tr)
             continue
     for rt in rmtrs:
-        print(rt.id)
         stream.traces.remove(rt)
     return stream
 
