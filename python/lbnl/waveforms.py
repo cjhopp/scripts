@@ -105,16 +105,20 @@ def clean_daylong(stream):
     """
     rmtrs = []
     for tr in stream:
+        if isinstance(tr.data, np.ma.MaskedArray):
+            tr = tr.split()
+            tr = tr.detrend().merge(fill_value=0)[0]
         if len(np.nonzero(tr.data)[0]) < 0.5 * len(tr.data):
             print('{} mostly zeros. Removing'.format(tr.id))
             rmtrs.append(tr)
             continue
         if tr.stats.endtime - tr.stats.starttime < 0.8 * 86400:
             print('{} less than 80 percent daylong, removing'.format(tr.id))
+            rmtrs.append(tr)
             continue
     for rt in rmtrs:
         stream.traces.remove(rt)
-    return
+    return stream
 
 
 def downsample_mseeds(wavs, samp_rate, start, end, outdir):
@@ -537,7 +541,7 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
             if not ((1 / tr.stats.delta).is_integer() and
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
-        clean_daylong(daylong.merge())
+        daylong = clean_daylong(daylong.merge())
         print('Running detect')
         try:
             party += tribe.detect(stream=daylong, **param_dict)
