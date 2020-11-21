@@ -1050,7 +1050,8 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
     strain_median = data_median[chan, :]
     strain_std = data_std[chan, :]
     temps = temp[chan, :]
-    gain = gain[chan, :]
+    if gain != None:
+        gain = gain[chan, :]
     return times, strains, strain_median, strain_std, temps, gain
 
 

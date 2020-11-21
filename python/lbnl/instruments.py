@@ -316,6 +316,32 @@ def surf_stations_to_inv(excel_file, debug=0):
     return inventory
 
 
+def cassm_to_smf_dist(well_dict, inventory, outfile):
+    """Calculate the minimum distance between each CASSM source and each
+    fiber-installed borehole"""
+
+    smf_dists = {}
+    cassms = inventory.select(station='S*')
+    with open(outfile, 'w') as f:
+        for cassm in cassms[0]:
+            ch1903e = cassm.extra['ch1903_east'].value
+            ch1903n = cassm.extra['ch1903_north'].value
+            ch1903el = cassm.extra['ch1903_elev'].value
+            f.write('\n{},{},{},{}\n'.format(cassm.code, ch1903e,
+                                         ch1903n, ch1903el))
+            for well in ['B1', 'B2', 'B3', 'B4', 'B5',
+                         'B6', 'B7', 'B8', 'B9', 'B10']:
+                pts = well_dict[well]
+                dists = [np.sqrt((pt[0] - ch1903e)**2 + (pt[1] - ch1903n)**2 +
+                                 (pt[2] - ch1903el)**2)
+                         for pt in pts]
+                close_pt = pts[np.argmin(dists)]
+                f.write('{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}\n'.format(
+                    well, np.min(dists), close_pt[0], close_pt[1],
+                    close_pt[2], close_pt[3]))
+    return
+
+
 def consolidate_inv_channels(inventory):
     """
     Check for same channels with contiguous times and merge into same chan

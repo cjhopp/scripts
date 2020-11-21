@@ -12,6 +12,7 @@ import colorlover as cl
 import chart_studio.plotly as py
 import plotly.graph_objs as go
 import seaborn as sns
+import matplotlib.gridspec as gridspec
 
 from obspy import UTCDateTime
 from datetime import datetime
@@ -261,6 +262,80 @@ def read_collab(path):
     return df
 
 ################### Plotting functions below here #######################
+
+def plot_drive2production(df_simfip, DSS_dict, DAS_dict):
+    """
+    Plot SIMFIP at I and P versus multiple fractures at OT from fiber
+    """
+    fig = plt.figure(figsize=(7, 10))
+    spec = gridspec.GridSpec(ncols=1, nrows=13, figure=fig)
+    ax_hydro = fig.add_subplot(spec[:1, :])
+    ax_I = fig.add_subplot(spec[1:4, :], sharex=ax_hydro)
+    ax_fiber = fig.add_subplot(spec[4:7, :], sharex=ax_hydro)#, sharey=ax_I)
+    ax_P = fig.add_subplot(spec[7:10, :], sharex=ax_hydro)#, sharey=ax_I)
+    ax_comp = fig.add_subplot(spec[10:, :], sharex=ax_hydro)#, sharey=ax_I)
+    pres = df_simfip['Pz1'] / 145.038  # psi to MPa
+    # Plot hydraulics
+    ax_hydro.plot(df_simfip.index, pres, label='Pump pressure',
+                  color='firebrick')
+    ax_hydro.legend()
+    # Plot SIMFIP
+    (df_simfip[['I Yates', 'I Top', 'I Axial']] * 1e6).plot(ax=ax_I)
+    (df_simfip[['P Yates', 'P Top', 'P Axial']] * 1e6).plot(ax=ax_P)
+    # Plot fibers
+    ax_fiber.plot(DSS_dict['times'], DSS_dict['44 m'], label='DSS: 44 m',
+                  color='steelblue')
+    ax_fiber.plot(DSS_dict['times'], DSS_dict['47 m'], label='DSS: 47 m',
+                  color='dodgerblue')
+    ax_fiber.plot(DAS_dict['times'], DAS_dict['44 m'], label='DAS: 44 m',
+                  color='mediumpurple')
+    ax_fiber.plot(DAS_dict['times'], DAS_dict['47 m'], label='DAS: 47 m',
+                  color='indigo')
+    handles, labels = ax_I.get_legend_handles_labels()
+    ax_I.legend(handles, ['X', 'Y', 'Z'])
+    handles, labels = ax_I.get_legend_handles_labels()
+    ax_P.legend(handles, ['X', 'Y', 'Z'])
+    # Comparison
+    comp_times = DSS_dict['times'][np.where(
+        (np.array(DSS_dict['times']) > df_simfip.index[0])
+        & (np.array(DSS_dict['times']) < df_simfip.index[-1]))]
+    norm_dss = DSS_dict['47 m'][np.where(
+        (np.array(DSS_dict['times']) > df_simfip.index[0])
+        & (np.array(DSS_dict['times']) < df_simfip.index[-1]))]
+    norm_dss -= norm_dss[0]
+    norm_dss /= np.max(np.abs(norm_dss))
+    norm_das = DAS_dict['47 m'][np.where(
+        (np.array(DAS_dict['times']) > df_simfip.index[0])
+        & (np.array(DAS_dict['times']) < df_simfip.index[-1]))]
+    norm_das -= norm_das[0]
+    norm_das /= np.max(np.abs(norm_das))
+    norm_P_Yates = df_simfip['P Top'] / np.max(np.abs(df_simfip['P Yates']))
+    ax_comp.plot(comp_times, norm_dss, label='DSS: 47 m',
+                  color='dodgerblue')
+    ax_comp.plot(comp_times, norm_das, label='DAS: 47 m',
+                  color='indigo')
+    ax_comp.plot(
+        df_simfip.index, norm_P_Yates, label='SIMFIP', color='goldenrod')
+    # Shut in time
+    ax_P.axvline(datetime(2018, 5, 24, 22, 51), linestyle=':', color='gray',
+                 label='Shut-in')
+    ax_I.axvline(datetime(2018, 5, 24, 22, 51), linestyle=':', color='gray')
+    ax_fiber.axvline(datetime(2018, 5, 24, 22, 51), linestyle=':', color='gray')
+    ax_comp.axvline(datetime(2018, 5, 24, 22, 51), linestyle=':', color='gray')
+    # Formatting
+    ax_P.margins(0.)
+    ax_hydro.set_ylabel('MPa')
+    ax_fiber.legend(loc=1)
+    ax_comp.legend(loc=1)
+    ax_I.set_ylabel('Microns')
+    ax_P.set_ylabel('Microns')
+    ax_fiber.set_ylabel('Microns')
+    ax_fiber.set_ylim([-20, 20])
+    ax_P.set_xlim([datetime(2018, 5, 24, 22), datetime(2018, 5, 25, 2)])
+    fig.autofmt_xdate()
+    plt.show()
+    return
+
 
 def plot_overview(df, starttime=UTCDateTime(2018, 5, 22, 10, 48),
                   endtime=UTCDateTime(2018, 5, 22, 18), corrected=True):

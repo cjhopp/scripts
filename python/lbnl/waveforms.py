@@ -2061,6 +2061,55 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     return
 
 
+def plot_nsmtc_G_noise(psd_dir, eq_psd=None):
+    """
+    Plot change in noise spectra for surface and deep geophone
+
+    :param psd_dir:
+    :param eq_psd:
+    :return:
+    """
+    npz_files = glob('{}/*'.format(psd_dir))
+    ppsds = {'G1': [], 'G2': []}
+    ppsds['G1'] = PPSD.load_npz(
+        '{}/NV.NSMTC.G1.CHZ.FEB_MAR.npz'.format(psd_dir))
+    ppsds['G2'] = PPSD.load_npz(
+        '{}/NV.NSMTC.G2.CHZ.FEB_MAR.npz'.format(psd_dir))
+    fig, axes = plt.subplots(nrows=2, figsize=(7, 12), sharex='col')
+    xs1, ys1 = ppsds['G1'].get_mean()
+    xs2, ys2 = ppsds['G2'].get_mean()
+    diff = ys1 - ys2
+    # Plot vs frequency
+    axes[0].plot(1 / xs1, ys1, label='Surface', color=cascadia_colors['NSMTC.G1'])
+    axes[0].plot(1 / xs2, ys2, label='308 m', color=cascadia_colors['NSMTC.G2'])
+    # Plot noise reduction
+    axes[1].plot(1 / xs1, diff, label='Surface $-$ depth', color='steelblue')
+    axes[1].axvline(20., linestyle='--', color='k', linewidth=1.)
+    # Do a little inset axes
+    axin = axes[1].inset_axes([0.15, 0.55, 0.35, 0.5])
+    axin.scatter(0., 0., color=cascadia_colors['NSMTC.G1'])
+    axin.scatter(
+        308., -diff[np.argmin(np.abs((1 / xs2) - 20.))],
+        color=cascadia_colors['NSMTC.G2'])
+    axin.set_ylabel('Noise [dB]')
+    axin.set_xlabel('Depth [m]')
+    axin.set_title('Noise @ 20 Hz')
+    # Formatting
+    fig.suptitle('Geophone comparison', x=0.4, y=0.95, fontsize=20)
+    axes[0].set_xscale('log')
+    axes[0].set_ylabel('Amplitude [dB]', fontsize=12)
+    axes[0].set_facecolor('whitesmoke')
+    axes[0].margins(0.)
+    axes[1].set_xscale('log')
+    axes[1].set_xlabel('Freq [Hz]', fontsize=12)
+    axes[1].set_ylabel('Amplitude [dB]', fontsize=12)
+    axes[1].set_facecolor('whitesmoke')
+    axes[1].margins(0.)
+    fig.legend()
+    plt.show()
+    return
+
+
 def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
               eq_psd=None):
     """

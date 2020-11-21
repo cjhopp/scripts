@@ -26,12 +26,27 @@ def read_struct(f, depth=41):
         data = struct['OT_strain'].data[depth, :]
         # Convert nano to microstrain
         data /= 1000.
-        datenums = struct['OT_strain'].dn
+        try:
+            datenums = struct['OT_strain'].dn
+        except AttributeError as e:
+            datenums = struct['OT_strain'].datenum
     except NotImplementedError:
         # In case of Matlab 7.3 format
         with h5py.File(f, 'r') as f:
-            data = f['OT_strain']['data'][()].T
-            data = data[41, :] / 1000.
-            datenums = np.concatenate(f['OT_strain']['datenum'][()])
-    time = datenum_to_datetime(datenums)
+            # print(f['dasRate_CleanMedian']['date'][()])
+            try:
+                data = f['DAS_1min_rs']['strain'][()]
+                datenums = np.concatenate(f['DAS_1min_rs']['dates'][()])
+                depths = np.concatenate(f['DAS_1min_rs']['depths'][()])
+                depth = np.argmin(np.abs(depths - depth))
+            except KeyError as e:
+                print(e)
+                print(f['strain_OT']['strain'].shape)
+                data = f['strain_OT']['strain'][()].T
+                datenums = np.concatenate(f['strain_OT']['datenum'][()])
+            data = data[depth, :] / 1000.
+    try:
+        time = datenum_to_datetime(datenums)
+    except:
+        time = None
     return time, data

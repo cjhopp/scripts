@@ -365,7 +365,7 @@ def plot_4850_2D(autocad_path, strike=347.,
     ax_fault = fig.add_subplot(spec[4:, 4:])
     well_dict = parse_surf_boreholes(
         'data/chet-collab/boreholes/surf_4850_wells.csv')
-    # Cross section plane (strike 320)
+    # Cross section plane
     r = np.deg2rad(360 - strike)
     normal = np.array([-np.cos(r), -np.sin(r), 0.])
     normal /= norm(normal)
@@ -393,7 +393,8 @@ def plot_4850_2D(autocad_path, strike=347.,
     ax3d.add_collection3d(poly)
     # Now drift mesh
     Xs, Ys, Zs, tris = dxf_to_mpl(autocad_path)
-    ax3d.plot_trisurf(Xs, Ys, Zs, triangles=tris, color='gray', alpha=0.3)
+    if not seismicity:
+        ax3d.plot_trisurf(Xs, Ys, Zs, triangles=tris, color='gray', alpha=0.3)
     # Proj
     pts_t = np.column_stack([Pc[:, 0].flatten(), Pc[:, 1].flatten(),
                              Pc[:, 2].flatten()])
@@ -444,7 +445,39 @@ def plot_4850_2D(autocad_path, strike=347.,
             color=col)
     # Seismicity
     if seismicity:
-        pts
+        eq_pts = [(float(ev.origins[-1].extra.hmc_east.value),
+                   float(ev.origins[-1].extra.hmc_north.value),
+                   float(ev.origins[-1].extra.hmc_elev.value))
+                  for ev in seismicity]
+        eq_pts = np.array(eq_pts)
+        proj_eq_pts = np.dot(eq_pts - origin, normal)[:, None] * normal
+        proj_eq_pts = eq_pts - origin - proj_eq_pts
+        proj_eq_pts = np.matmul(change_b_mat, proj_eq_pts.T)
+        ax3d.scatter(eq_pts[:, 0], eq_pts[:, 1], eq_pts[:, 2], color='gray',
+                     s=1., alpha=0.5)
+        ax_x.scatter(proj_eq_pts[0, :], proj_eq_pts[1, :], color='gray', s=1.,
+                     alpha=0.5)
+        ax_map.scatter(eq_pts[:, 0], eq_pts[:, 1], color='gray', s=1.,
+                       alpha=0.5)
+        # Onto fract plane
+        fs_rad = np.deg2rad(frac['strike'])
+        fd_rad = np.deg2rad(frac['dip'])
+        frac_norm = np.array((np.sin(fd_rad) * np.cos(fs_rad),
+                              -np.sin(fd_rad) * np.sin(fs_rad),
+                              np.cos(fd_rad)))
+        frac_norm /= norm(frac_norm)
+        frac_strk = np.array([np.sin(fs_rad), np.cos(r), 0.])
+        frac_strk /= norm(frac_strk)
+        frac_dip = np.array([-np.cos(fs_rad) * np.cos(fd_rad),
+                             np.sin(fs_rad) * np.cos(fd_rad),
+                             np.sin(fd_rad)])
+        frac_dip /= norm(frac_dip)
+        change_b_frac = np.array([frac_strk, frac_dip, frac_norm])
+        frac_pts = np.dot(eq_pts - origin, frac_norm)[:, None] * frac_norm
+        frac_pts = eq_pts - origin - frac_pts
+        frac_pts = np.matmul(change_b_frac, frac_pts.T).T
+        ax_fault.scatter(frac_pts[:, 0], frac_pts[:, 1], color='gray',
+                         s=1., alpha=0.5)
     # Plot fault coords and piercepoints
     grdx, grdy = np.meshgrid(Pc[:, 0], Pc[:, 1])
     grdz = ((-0.238 * grdx) + grdy + 1510.9) / 0.198
@@ -453,9 +486,14 @@ def plot_4850_2D(autocad_path, strike=347.,
     ax_fault.add_artist(Circle((0, 0), radius=frac['radius'],
                                alpha=0.3, color='b'))
     # Formatting
-    ax3d.set_xlim([790, 840])
-    ax3d.set_ylim([-1330, -1280])
-    ax3d.set_zlim([80, 130])
+    if seismicity:
+        ax3d.set_xlim([800, 820])
+        ax3d.set_ylim([-1310, -1290])
+        ax3d.set_zlim([90, 120])
+    else:
+        ax3d.set_xlim([790, 840])
+        ax3d.set_ylim([-1330, -1280])
+        ax3d.set_zlim([80, 130])
     ax3d.view_init(elev=30., azim=-158)
     ax3d.margins(0.)
     ax3d.set_xticks([])
@@ -466,33 +504,50 @@ def plot_4850_2D(autocad_path, strike=347.,
     ax3d.set_zticklabels([])
     # Overview map
     ax_map.axis('equal')
-    ax_map.axis('off')
-    ax_map.set_xlim([780, 860])
-    ax_map.set_ylim([-1350, -1270])
+    if not seismicity:
+        ax_map.axis('off')
+    else:
+        ax_map.set_xlabel('Easting [m]')
+        ax_map.set_ylabel('Northing [m]')
+    if seismicity:
+        ax_map.set_xlim([795, 835])
+        ax_map.set_ylim([-1315, -1275])
+    else:
+        ax_map.set_xlim([780, 860])
+        ax_map.set_ylim([-1350, -1270])
     # Fault map
     ax_fault.axis('equal')
-    # ax_fault.spines['top'].set_visible(False)
-    # ax_fault.spines['left'].set_visible(False)
-    # ax_fault.spines['right'].set_visible(False)
-    # ax_fault.spines['bottom'].set_bounds(-10, 10)
     ax_fault.tick_params(direction='in', left=False, labelleft=False)
-    ax_fault.set_xticks([-10, -5, 0, 5, 10])
-    ax_fault.set_xticklabels(['0', '5', '10', '15', '20'])
+    if seismicity:
+        ax_fault.set_xlim([-15, 15])
+        ax_fault.set_xticks([-20, -10, 0, 10, 20])
+        ax_fault.set_xticklabels(['0', '10', '20', '30', '40'])
+    else:
+        ax_fault.set_xticks([-10, -5, 0, 5, 10])
+        ax_fault.set_xticklabels(['0', '5', '10', '15', '20'])
     ax_fault.set_xlabel('Meters')
     # Cross section
-    ax_x.set_xlim([-20, 50])
+    if seismicity:
+        ax_x.set_xlim([-20, 10])
+    else:
+        ax_x.set_xlim([-20, 50])
     ax_x.axis('equal')
     ax_x.spines['top'].set_visible(False)
     ax_x.spines['bottom'].set_visible(False)
     ax_x.spines['left'].set_visible(False)
     ax_x.yaxis.set_ticks_position('right')
     ax_x.tick_params(direction='in', bottom=False, labelbottom=False)
-    ax_x.set_yticks([-30, -20, -10, 0, 10, 20])
-    ax_x.set_yticklabels(['50', '40', '30', '20', '10', '0'])
+    if seismicity:
+        ax_x.spines['right'].set_bounds(-15, 10)
+        ax_x.set_yticks([-15, -10, -5, 0, 5, 10])
+        ax_x.set_yticklabels(['25', '20', '15', '10', '5', '0'])
+    else:
+        ax_x.spines['right'].set_bounds(-30, 20)
+        ax_x.set_yticks([-30, -20, -10, 0, 10, 20])
+        ax_x.set_yticklabels(['50', '40', '30', '20', '10', '0'])
     ax_x.set_ylabel('Meters', labelpad=15)
     ax_x.yaxis.set_label_position("right")
-    ax_x.spines['right'].set_bounds(-30, 20)
-    fig.legend()
+    fig.legend(loc=10)
     plt.show()
     return
 
