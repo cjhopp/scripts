@@ -425,8 +425,9 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
         sch_str_end = 'time <= {}'.format((dto + 86400))
         tmp_cat = catalog.filter(sch_str_start, sch_str_end)
         jday = dto.julday
-        seeds = [pk.waveform_id.get_seed_string()
-                 for ev in tmp_cat for pk in ev.picks]
+        seeds = list(set([pk.waveform_id.get_seed_string()
+                          for ev in tmp_cat for pk in ev.picks]))
+        seeds = [s for s in seeds if s.split('.')[1] in stations]
         wav_files = []
         for seed in seeds:
             try:
