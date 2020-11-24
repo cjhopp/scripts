@@ -431,7 +431,7 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
         wav_files = []
         for seed in seeds:
             try:
-                wav_files.append(glob('{}/**/{}.{}.{}.ms'.format(
+                wav_files.append(glob('{}/**/{}.{}.{:03d}.ms'.format(
                     wav_dir, seed, date.year, jday), recursive=True)[0])
             except IndexError:
                 print('{} not in wavform directory'.format(seed))
