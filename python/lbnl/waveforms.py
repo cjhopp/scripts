@@ -474,8 +474,13 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                                     and pk.waveform_id.location_code == nsl[2]]
                     tmp_ev.resource_id = ResourceIdentifier(id=t_nm)
                     tmp_ev = Catalog(events=[tmp_ev])
-                    trb = Tribe().construct(method='from_meta_file', st=daylong,
-                                            meta_file=tmp_ev, **param_dict)
+                    try:
+                        trb = Tribe().construct(method='from_meta_file',
+                                                st=daylong, meta_file=tmp_ev,
+                                                **param_dict)
+                    except IndexError as e:
+                        print(e)
+                        continue
                     trb.templates[0].name = t_nm
                     tribe += trb
         else:
