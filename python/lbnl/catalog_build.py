@@ -550,11 +550,17 @@ def trigger(param_file, plot=False):
             seed_id = '.'.join(seed_parts[:-3])
             if seed_id in sta_lta_params:
                 print('Reading in {}'.format(w))
-                st += read(w)
+                try:
+                    st += read(w)
+                except FileNotFoundError as e:
+                    print(e)
+                    continue
             elif (seed_id[:2] in network_sta_lta and
                   seed_id[-1] == 'Z'):  # Triggering on Z comps only
                 print('Reading in {}'.format(w))
                 st += read(w)
+        if len(st) == 0:
+            continue
         st = st.merge()
         st = clean_daylong(st)
         if len(st) == 0:

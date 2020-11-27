@@ -1439,6 +1439,17 @@ def geores_read(fname):
 
 ########################## PLOTTING ######################################
 
+def return_Brune(M0, stress_drop):
+    """Theoretical Brune spectra"""
+    fc = 4.9 * 1e6 * 3.8 * (stress_drop / M0)**0.333
+    freq = np.linspace(0.001, 1000)
+    wl = 2 * np.pi * freq
+    disp_spec = np.array([brune_disp(w, M0, fc) for w in wl])
+    return disp_spec
+
+def brune_disp(wl, M0, fc):
+    return M0 / (wl / 2 * np.pi * fc)**2
+
 def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
                        log=False):
     """
