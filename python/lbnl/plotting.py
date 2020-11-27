@@ -48,8 +48,8 @@ csd_well_colors = {'D1': 'blue', 'D2': 'blue', 'D3': 'green',
 cols_4850 = {'PDT': 'black', 'PDB': 'black', 'PST': 'black', 'PSB': 'black',
              'OT': 'black', 'OB': 'black', 'I': '#4682B4', 'P': '#B22222'}
 
-def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
-                      accel_dict):
+def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, seismic, packers=None,
+                      accel_dict=None):
     """
     DataFrame of timeseries data of any kind
 
@@ -84,8 +84,8 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
                              line=dict(color='mediumvioletred'),
                              fill=None, legendgroup='1'))
     fig.add_trace(go.Scatter(x=DAS_dict['times'], y=DAS_dict['data'],
-                             name='DAS at 41 m', line=dict(color='#9467bd',
-                                                           width=2.5)))
+                             name='DAS at {} m'.format(DAS_dict['depth']),
+                             line=dict(color='#9467bd', width=2.5), yaxis='y7'))
     fig.add_trace(go.Scatter(x=DSS_dict['times'], y=DSS_dict['DTS'],
                              name="DTS at {} m".format(DSS_dict['depth']),
                              yaxis="y2", line=dict(color='#ee854a')))
@@ -97,26 +97,27 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
                              name="Pump Pressure", line=dict(color='red'),
                              yaxis='y4'))
     # Packer pressures
-    fig.add_trace(go.Scatter(
-        x=packers.index,
-        y=packers['Pressure_Packer_Upper_Injection_SNL06'] / 145.,
-        name="E1-I: Upper Packer Pressure", line=dict(color='lime'),
-        yaxis='y4'))
-    fig.add_trace(go.Scatter(
-        x=packers.index,
-        y=packers['Pressure_Packer_Lower_Injection_SNL07'] / 145.,
-        name="E1-I: Lower Packer Pressure", line=dict(color='olive'),
-        yaxis='y4'))
-    fig.add_trace(go.Scatter(
-        x=packers.index,
-        y=packers['Pressure_Packer_Upper_Production_SNL08'] / 145.,
-        name="E1-P: Upper Packer Pressure", line=dict(color='maroon'),
-        yaxis='y4'))
-    fig.add_trace(go.Scatter(
-        x=packers.index,
-        y=packers['Pressure_Packer_Lower_Production_SNL09'] / 145.,
-        name="E1-P: Lower Packer Pressure", line=dict(color='darkred'),
-        yaxis='y4'))
+    if packers:
+        fig.add_trace(go.Scatter(
+            x=packers.index,
+            y=packers['Pressure_Packer_Upper_Injection_SNL06'] / 145.,
+            name="E1-I: Upper Packer Pressure", line=dict(color='lime'),
+            yaxis='y4'))
+        fig.add_trace(go.Scatter(
+            x=packers.index,
+            y=packers['Pressure_Packer_Lower_Injection_SNL07'] / 145.,
+            name="E1-I: Lower Packer Pressure", line=dict(color='olive'),
+            yaxis='y4'))
+        fig.add_trace(go.Scatter(
+            x=packers.index,
+            y=packers['Pressure_Packer_Upper_Production_SNL08'] / 145.,
+            name="E1-P: Upper Packer Pressure", line=dict(color='maroon'),
+            yaxis='y4'))
+        fig.add_trace(go.Scatter(
+            x=packers.index,
+            y=packers['Pressure_Packer_Lower_Production_SNL09'] / 145.,
+            name="E1-P: Lower Packer Pressure", line=dict(color='darkred'),
+            yaxis='y4'))
     # Earthquakes
     fig.add_trace(go.Scatter(x=seismic['times'], y=seismic['dists'],
                              name='Seismic event', mode='markers',
@@ -130,40 +131,38 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
                              line=dict(color='red', dash='dot',
                                        width=1.),
                              yaxis='y6'))
-    # Now accelerometer behind the hydraulics
-    for stachan, sc_dict in accel_dict.items():
-        fig.add_trace(go.Scatter(x=sc_dict['times'],
-                                 y=sc_dict['data'],
-                                 name='Acceleration: {}'.format(stachan),
-                                 mode='lines',
-                                 line=dict(color=next(acc_cols), width=2.),
-                                 yaxis='y7'))
     # SIMFIP
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Yates'],
-                             name='E1-P Yates',
-                             yaxis='y5'))
+                             name='E1-P Yates', yaxis='y5'))
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Top'],
-                             name='E1-P Top',
-                             yaxis='y5'))
+                             name='E1-P Top', yaxis='y5'))
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P Axial'],
-                             name='E1-P Axial',
-                             yaxis='y5'))
+                             name='E1-P Axial', yaxis='y5'))
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['I Yates'],
-                             name='E1-I Yates',
-                             yaxis='y5'))
+                             name='E1-I Yates', yaxis='y5'))
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['I Top'],
-                             name='E1-I Top',
-                             yaxis='y5'))
+                             name='E1-I Top', yaxis='y5'))
     fig.add_trace(go.Scatter(x=simfip.index, y=simfip['I Axial'],
-                             name='E1-I Axial',
-                             yaxis='y5'))
+                             name='E1-I Axial', yaxis='y5'))
+    # Synthetic DSS for production
+    # simfip['P shear'] = np.sqrt(simfip['P Yates']**2 +
+    #                             simfip['P Top']**2) / 2.5
+    # simfip['Arc'] = ((simfip['P shear'] / 2.5)**2) / 2
+    # simfip['Synthetic DSS'] = ((simfip['P Axial'] / 2.5) +
+    #                             simfip['Arc'])
+    # fig.add_trace(go.Scatter(x=simfip.index, y=simfip['Synthetic DSS'],
+    #                          name='E1-P Synth DSS', yaxis='y5'))
+    # fig.add_trace(go.Scatter(x=simfip.index, y=simfip['P shear'],
+    #                          name='E1-P Shear', yaxis='y5'))
+    # fig.add_trace(go.Scatter(x=simfip.index, y=simfip['Arc'],
+    #                          name='E1-P Arc', yaxis='y5'))
     # Create axis objects
     fig.update_layout(
         xaxis=dict(showspikes=True, spikemode='across', spikethickness=1.5,
                    spikedash='dot', domain=[0., 0.95], type='date',
                    anchor='y5'),
         yaxis=dict(title="$\mu\epsilon$", titlefont=dict(color="black"),
-                   tickfont=dict(color="black"), domain=[0.75, 1.0],
+                   tickfont=dict(color="black"), domain=[0.725, 0.9],
                    anchor='x', zeroline=False),
         yaxis2=dict(title=r"$\Delta{T}\;\text{[}^{\circ}\text{C]}$",
                     titlefont=dict(color='#ee854a'),
@@ -171,24 +170,21 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, packers, seismic,
                     side="right", showgrid=False, anchor='x'),
         yaxis3=dict(title="Flow [L/min]", titlefont=dict(color="steelblue"),
                     tickfont=dict(color="steelblue"), side="left",
-                    rangemode='nonnegative', domain=[0.50, 0.75],
+                    rangemode='nonnegative', domain=[0.9, 1.0],
                     anchor='x'),
         yaxis4=dict(title="Pressure [MPa]", titlefont=dict(color="red"),
                     tickfont=dict(color="red"), overlaying="y3", side="right",
                     rangemode='nonnegative', anchor='x'),
         yaxis5=dict(title="Displacement [m]", titlefont=dict(color="black"),
-                    tickfont=dict(color="black"), domain=[0., 0.25],
+                    tickfont=dict(color="black"), domain=[0., 0.45],
                     anchor='x'),
-        yaxis6=dict(title="Distance from 164-notch [m]",
-                    titlefont=dict(color="black"),
-                    tickfont=dict(color="black"), domain=[0., 0.25],
+        yaxis6=dict(title="Distance from 50 m notch [m]",
+                    titlefont=dict(color="black"), range=[0, 30],
+                    tickfont=dict(color="black"), domain=[0., 0.45],
                     anchor='x', side='right', overlaying='y5'),
-        yaxis7=dict(title="Displacement [m]",
-                    titlefont=dict(color="indigo"),
-                    tickfont=dict(color="indigo"),
-                    anchor='x', side='right',
-                    domain=[0.25, 0.50])
-    )
+        yaxis7=dict(title="$\mu\epsilon$", titlefont=dict(color="black"),
+                   tickfont=dict(color="black"), domain=[0.45, 0.725],
+                   anchor='x', zeroline=False))
     fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
     fig.update_layout(template="ggplot2", legend=dict(traceorder='reversed'))
     fig.show(renderer='firefox')

@@ -24,6 +24,7 @@ from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
 from obspy.core.event import ResourceIdentifier
 from obspy.geodetics.base import gps2dist_azimuth
 from obspy.signal import PPSD
+from obspy.signal.spectral_estimation import get_nhnm, get_nlnm
 from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
@@ -1735,67 +1736,6 @@ def plot_pick_corrections(catalog, stream_dir, t_before, t_after,
     return
 
 
-def plot_raw_spectra(st, ev, seed_ids, inv=None, savefig=None):
-    """
-    Simple function to plot the displacement spectra of a trace
-
-    :param st: obspy.core.trace.Stream
-    :param ev: obspy.core.event.Event
-    :param seed_ids: List of net.sta.loc to plot
-    :param inv: Inventory if we want to remove response
-
-    :return:
-    """
-    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(4, 8))
-    eid = str(ev.resource_id).split('/')[-1]
-    for trace in st:
-        print(trace.id)
-        tr = trace.copy()
-        chan = tr.stats.channel
-        staloc = '.'.join(tr.id.split('.')[:-1])
-        if (staloc not in seed_ids or tr.stats.channel[-1] in ['2', 'E'] or
-            '{}.{}'.format(tr.stats.station, tr.stats.channel[1]) == 'PGC.N'):
-            continue
-        if not chan.endswith(('1', 'Z')):
-            # Only use Z comps for now
-            continue
-        pick = [pk for pk in ev.picks
-                if pk.waveform_id.get_seed_string() == tr.id
-                and tr.stats.channel[-1] == 'Z']
-        if len(pick) == 0:
-            print('No pick for {}'.format(tr.id))
-            continue
-        else:
-            pick = pick[0]
-        if inv:
-            tr.remove_response(inventory=inv,
-                               water_level=60, output='DISP')
-        else:
-            print('No instrument response to remove. Raw spectrum only.')
-        c = cascadia_colors['.'.join(tr.id.split('.')[1:-1])]
-        # Hard coded for CASSM sources atm
-        tr.trim(starttime=pick.time - 0.5, endtime=pick.time + 5)
-        axes[0].plot(tr.data, color=c)
-        N = fftpack.next_fast_len(tr.stats.npts)
-        T = 1.0 / tr.stats.sampling_rate
-        frequencies = np.linspace(0.0, 1.0 / (2.0 * T), N // 2)
-        fft = fftpack.rfft(tr.data, N)
-        axes[1].loglog(frequencies, 2.0 / N * np.abs(fft[0: N // 2]),
-                       'r', label=tr.id, color=c)
-        axes[1].set_xlabel('Frequency (Hz)')
-        axes[1].set_ylabel('Amplitude')
-        axes[1].legend()
-        axes[1].set_title('{}: Displacement Spectra'.format(eid))
-    if savefig:
-        dir = '{}/{}'.format(savefig, eid)
-        if not os.path.isdir(dir):
-            os.mkdir(dir)
-        fig.savefig('{}/{}_spectra.png'.format(dir, eid))
-    else:
-        plt.show()
-    return axes
-
-
 def plot_arrivals(st, ev, pre_pick, post_pick):
     """
     Simple plot of arrivals for showing polarities
@@ -2067,7 +2007,7 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     return
 
 
-def plot_nsmtc_G_noise(psd_dir, eq_psd=None):
+def plot_nsmtc_G_noise(psd_dir, inset=False, eq_psd=None):
     """
     Plot change in noise spectra for surface and deep geophone
 
@@ -2082,6 +2022,8 @@ def plot_nsmtc_G_noise(psd_dir, eq_psd=None):
     ppsds['G2'] = PPSD.load_npz(
         '{}/NV.NSMTC.G2.CHZ.FEB_MAR.npz'.format(psd_dir))
     fig, axes = plt.subplots(nrows=2, figsize=(7, 12), sharex='col')
+    plot_noise_and_sig_bands(axes[0])
+    # plot_noise_and_sig_bands(axes[1])
     xs1, ys1 = ppsds['G1'].get_mean()
     xs2, ys2 = ppsds['G2'].get_mean()
     diff = ys1 - ys2
@@ -2092,14 +2034,15 @@ def plot_nsmtc_G_noise(psd_dir, eq_psd=None):
     axes[1].plot(1 / xs1, diff, label='Surface $-$ depth', color='steelblue')
     axes[1].axvline(20., linestyle='--', color='k', linewidth=1.)
     # Do a little inset axes
-    axin = axes[1].inset_axes([0.15, 0.55, 0.35, 0.5])
-    axin.scatter(0., 0., color=cascadia_colors['NSMTC.G1'])
-    axin.scatter(
-        308., -diff[np.argmin(np.abs((1 / xs2) - 20.))],
-        color=cascadia_colors['NSMTC.G2'])
-    axin.set_ylabel('Noise [dB]')
-    axin.set_xlabel('Depth [m]')
-    axin.set_title('Noise @ 20 Hz')
+    if inset:
+        axin = axes[1].inset_axes([0.15, 0.55, 0.35, 0.5])
+        axin.scatter(0., 0., color=cascadia_colors['NSMTC.G1'])
+        axin.scatter(
+            308., -diff[np.argmin(np.abs((1 / xs2) - 20.))],
+            color=cascadia_colors['NSMTC.G2'])
+        axin.set_ylabel('Noise [dB]')
+        axin.set_xlabel('Depth [m]')
+        axin.set_title('Noise @ 20 Hz')
     # Formatting
     fig.suptitle('Geophone comparison', x=0.4, y=0.95, fontsize=20)
     axes[0].set_xscale('log')
@@ -2111,6 +2054,7 @@ def plot_nsmtc_G_noise(psd_dir, eq_psd=None):
     axes[1].set_ylabel('Amplitude [dB]', fontsize=12)
     axes[1].set_facecolor('whitesmoke')
     axes[1].margins(0.)
+    axes[1].set_xlim([0.001, 1000])
     fig.legend()
     plt.show()
     return
@@ -2257,3 +2201,122 @@ def compare_detection_wavs(mseeds, events, template, seed_ids,
         fig.suptitle(ev.resource_id.id)
         plt.show()
     return
+
+
+def plot_all_spectra(cat, wav_dir, inv, seed_ids, savedir=None):
+    casc_dict = casc_wav_dict(cat, wav_dir)
+    for eid, l in casc_dict.items():
+        try:
+            plot_raw_spectra(read(l[1]), l[0], seed_ids=seed_ids, inv=inv)
+        except FileNotFoundError as e:
+            print(e)
+            continue
+    return
+
+
+def casc_wav_dict(cat, wav_dir):
+    cat_dict = {}
+    for ev in cat:
+        eid1 = ev.resource_id.id.split('/')[-1]
+        # For FDSN pulled events from USGS
+        if len(eid1.split('=')) > 1:
+            eid1 = ev.resource_id.id.split('=')[-2].split('&')[0]
+        cat_dict[eid1] = [ev, '{}/Event_{}.ms'.format(wav_dir, eid1)]
+    return cat_dict
+
+
+def plot_raw_spectra(st, ev, seed_ids, inv=None, savefig=None):
+    """
+    Simple function to plot the displacement spectra of a trace
+
+    :param st: obspy.core.trace.Stream
+    :param ev: obspy.core.event.Event
+    :param seed_ids: List of net.sta.loc to plot
+    :param inv: Inventory if we want to remove response
+
+    :return:
+    """
+    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(4, 8))
+    eid = str(ev.resource_id).split('/')[-1]
+    for trace in st:
+        tr = trace.copy()
+        chan = tr.stats.channel
+        staloc = '.'.join(tr.id.split('.')[:-1])
+        if (staloc not in seed_ids or tr.stats.channel[-1] in ['2', 'E'] or
+                '{}.{}'.format(tr.stats.station, tr.stats.channel[1]) == 'PGC.N'):
+            continue
+        if not chan.endswith(('1', 'Z')):
+            # Only use Z comps for now
+            continue
+        pick = [pk for pk in ev.picks
+                if pk.waveform_id.get_seed_string() == tr.id
+                and tr.stats.channel[-1] == 'Z']
+        if len(pick) == 0:
+            print('No pick for {}'.format(tr.id))
+            continue
+        else:
+            pick = pick[0]
+        if inv:
+            tr.remove_response(inventory=inv, output='DISP')
+        else:
+            print('No instrument response to remove. Raw spectrum only.')
+        c = cascadia_colors['.'.join(tr.id.split('.')[1:-1])]
+        # Hard coded for cascadia sources atm
+        tr.trim(starttime=pick.time - 0.1, endtime=pick.time + 7)
+        axes[0].plot(tr.data, color=c)
+        N = fftpack.next_fast_len(tr.stats.npts)
+        T = 1.0 / tr.stats.sampling_rate
+        frequencies = np.linspace(0.0, 1.0 / (2.0 * T), N // 2)
+        fft = fftpack.rfft(tr.data, N)
+        axes[1].loglog(frequencies, 2.0 / N * np.abs(fft[0: N // 2]),
+                       'r', label=tr.id, color=c)
+        axes[1].set_xlabel('Frequency (Hz)')
+        axes[1].set_ylabel('Amplitude')
+        axes[1].legend()
+        axes[1].set_title('{}: Displacement Spectra'.format(eid))
+    if savefig:
+        dir = '{}/{}'.format(savefig, eid)
+        if not os.path.isdir(dir):
+            os.mkdir(dir)
+        fig.savefig('{}/{}_spectra.png'.format(dir, eid))
+    else:
+        plt.show()
+    return axes
+
+
+def plot_noise_and_sig_bands(axes=None):
+    """Overview of signal bands and noise levels"""
+    if not axes:
+        fig, ax = plt.subplots()
+    else:
+        ax = axes
+    hn_periods, hn_psd = get_nhnm()
+    ln_periods, ln_psd = get_nlnm()
+    ax.plot(1 / hn_periods, hn_psd, color='gray')
+    ax.plot(1 / ln_periods, ln_psd, color='gray')
+    if axes:
+        ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red',
+                         alpha=0.1)
+        ax.fill_betweenx(y=[-200, -40], x1=1.25, x2=5., color='purple',
+                         alpha=0.1)
+        ax.fill_betweenx(y=[-200, -40], x1=5., x2=1000., color='green',
+                         alpha=0.1)
+        ax.fill_betweenx(y=[-200, -40], x1=0., x2=0.05, color='lightgray',
+                         alpha=0.1)
+    else:
+        ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red', alpha=0.1,
+                         label='microseism')
+        ax.fill_betweenx(y=[-200, -40], x1=1.25, x2=5., color='purple', alpha=0.1,
+                         label='Tremor')
+        ax.fill_betweenx(y=[-200, -40], x1=5., x2=1000., color='green', alpha=0.1,
+                         label=r'$M_{w} < 0$')
+        ax.fill_betweenx(y=[-200, -40], x1=0., x2=0.05, color='lightgray',
+                         alpha=0.1, label='Quasi-static')
+        ax.set_xscale('log')
+        ax.set_xlim([0.001, 1000])
+        ax.set_ylim([-200, -60])
+        ax.legend()
+        ax.set_xlabel('Frequency [Hz]')
+        ax.set_ylabel('Noise [dB]')
+        plt.show()
+    return ax

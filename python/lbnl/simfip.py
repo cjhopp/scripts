@@ -267,7 +267,7 @@ def plot_drive2production(df_simfip, DSS_dict, DAS_dict):
     """
     Plot SIMFIP at I and P versus multiple fractures at OT from fiber
     """
-    fig = plt.figure(figsize=(7, 10))
+    # fig = plt.figure(figsize=(7, 10))
     spec = gridspec.GridSpec(ncols=1, nrows=13, figure=fig)
     ax_hydro = fig.add_subplot(spec[:1, :])
     ax_I = fig.add_subplot(spec[1:4, :], sharex=ax_hydro)

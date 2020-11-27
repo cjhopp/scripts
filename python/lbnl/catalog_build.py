@@ -285,6 +285,49 @@ def associator(param_file):
     return db_sesh, db_assoc, db_tt
 
 
+def extract_raw_event_waveforms(cat, wav_dir, outdir, length=120., seeds=None):
+    if not seeds:
+        print('Need to specify all seeds you want in the wav files')
+        raise NotImplementedError
+    cat.events.sort(key=lambda x: x.origins[-1].time)
+    start = cat[0].origins[-1].time.datetime
+    end = cat[-1].origins[-1].time.datetime
+    for date in date_generator(start.date(), end.date()):
+        print('Extracting events on {}'.format(date))
+        utcdto = UTCDateTime(date)
+        day_cat = Catalog(events=[ev for ev in cat
+                                  if utcdto < ev.origins[-1].time
+                                  < utcdto + 86400.])
+        jday = utcdto.julday
+        wav_files = []
+        for seed in seeds:
+            net, sta, loc, chan = seed.split('.')
+            wav_files.append('{}/{}/{}/{}/{}/{}.{}.{:03d}.ms'.format(
+                wav_dir, date.year, net, sta, chan, seed,
+                date.year, jday))
+        print('Reading wavs')
+        day_st = Stream()
+        for w in wav_files:
+            try:
+                day_st += read(w)
+            except FileNotFoundError as e:
+                print(e)
+                continue
+        for ev in day_cat:
+            eid = ev.resource_id.id.split('/')[-1]
+            if len(eid.split('=')) > 1:
+                # For FDSN pulled events from USGS
+                eid = ev.resource_id.id.split('=')[-2].split('&')[0]
+            print('Extracting {}'.format(eid))
+            o = ev.origins[-1]
+            wav_slice = day_st.slice(starttime=o.time,
+                                     endtime=o.time + length)
+            # Write event waveform
+            outwav = '{}/Event_{}.ms'.format(outdir, eid)
+            wav_slice.write(outwav, format='MSEED')
+    return
+
+
 def extract_fdsn_events(param_file):
     """
     Loop all events detected via fdsn, extract waveforms and pick them (for CN
