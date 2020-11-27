@@ -22,13 +22,7 @@
     <select />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/python/lbnl/config_files/cascadia_trigger_bearbins_PGC_all.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/python/lbnl/config_files/cascadia_trigger_bearbins_SAULN_all.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/catalog_build.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/catalog_build.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/config_files/cascadia_trigger_bearbins_extract_2017.yml" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/config_files/cascadia_trigger_bearbins_extract_2017.yml" afterDir="false" />
-    </list>
+    <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

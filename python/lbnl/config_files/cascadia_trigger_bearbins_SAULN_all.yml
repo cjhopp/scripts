@@ -42,7 +42,7 @@ Trigger:
   channel_specific_params:
     {'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
      'NV.NSMTC.B2.CN1': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
-     'NV.NSMTC.B2.CH2': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'NV.NSMTC.B2.CN2': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
     }
   output:
     write_wavs: True
