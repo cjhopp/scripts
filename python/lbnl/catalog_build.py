@@ -560,6 +560,11 @@ def trigger(param_file, plot=False):
         if len(st) == 0:
             print('All traces removed. Next.')
             continue
+        # Deal with shitty CN sampling rates
+        for tr in st:
+            if not ((1 / tr.stats.delta).is_integer() and
+                    tr.stats.sampling_rate.is_integer()):
+                tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         # Filter and downsample the wavs
         print('Preprocessing')
         st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
