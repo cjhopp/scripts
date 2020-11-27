@@ -807,7 +807,6 @@ def read_dd_to_cat(ev_id_map, cat, dd_outfile):
             continue
     return cat_new
 
-
 ## Plotting ##
 
 def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):
@@ -840,8 +839,8 @@ def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):
             ax[i].axhline(tps['thr_off'], linestyle='--', color='b')
             bbox_props = dict(boxstyle="round,pad=0.2", fc="white",
                               ec="k", lw=1)
-            ax[i].annotate(s=sid, xy=(0.0, 0.8), xycoords='axes fraction',
-                           bbox=bbox_props, ha='center', fontsize=8)
+            ax[i].text(s=sid, xy=(0.0, 0.8), xycoords='axes fraction',
+                       bbox=bbox_props, ha='center', fontsize=8)
             ax[i].set_yticks([])
         ax[i].set_xlabel('Time [s]', fontsize=12)
         if os.path.isdir(outdir):

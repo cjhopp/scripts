@@ -21,9 +21,9 @@ Trigger:
   sta: 1.0
   lta: 10.0
   lowcut: 1.
-  highcut: 90.
+  highcut: 45.
   corners: 3
-  sampling_rate: 200.
+  sampling_rate: 100.
   ncores: 8
   threshold_on: 5.0
   threshold_off: 1.5
