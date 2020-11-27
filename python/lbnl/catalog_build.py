@@ -557,6 +557,9 @@ def trigger(param_file, plot=False):
                 st += read(w)
         st = st.merge()
         st = clean_daylong(st)
+        if len(st) == 0:
+            print('All traces removed. Next.')
+            continue
         # Filter and downsample the wavs
         print('Preprocessing')
         st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
