@@ -1,0 +1,86 @@
+# Trigger/picking parameter file for cascadia borehole project
+
+General:
+  wav_directory: '/bear0-data/GMF_1/Cascadia/Chet/mseed'
+
+Database:
+  name: 'cascadia_10km'
+
+Extract:
+  catalog: '/bear0-data/GMF_1/Cascadia/Chet/fdsn_catalogs/Cascadia_combined_EQCA-USGS_2sec_decluster.xml'
+  length: 120
+  overwrite: False
+  start_date: 2017-8-1
+  end_date: 2017-12-31
+  outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/extracted/combined_cat_6-15'
+  plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/extracted/combined_cat_6-15'
+
+Trigger:
+  start_time: 2017-9-1
+  end_time: 2019-12-31
+  sta: 1.0
+  lta: 10.0
+  lowcut: 1.
+  highcut: 90.
+  corners: 3
+  sampling_rate: 200.
+  ncores: 8
+  threshold_on: 5.0
+  threshold_off: 1.5
+  trigger_off_extension: 5.
+  max_trigger_length: 30.
+  plot_outdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/triggers/sauln_solo'
+  coincidence_sum: 3.
+  seeds: ['NV.NSMTC.B2.CNZ', 'NV.NSMTC.B2.CN2', 'NV.NSMTC.B2.CN1']
+  network_specific_params:
+    {'NV': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+     'PB': {'sta': 1., 'lta': 10., 'thr_on': 6.5, 'thr_off': 2.},
+     'UW': {'sta': 1., 'lta': 10., 'thr_on': 6.5, 'thr_off': 2.},
+     'CN': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+    }
+  # Channel specific parameters take precedence
+  channel_specific_params:
+    {'NV.NSMTC.B2.CNZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'NV.NSMTC.B2.CN1': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+     'NV.NSMTC.B2.CH2': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
+    }
+  output:
+    write_wavs: True
+    waveform_outdir: '/bear0-data/GMF_1/Cascadia/Chet/event_files/triggers/sauln_solo'
+    pre_trigger: 30.
+    post_trigger: 60.
+
+Picker:
+  # Values from OK initially
+  method  : 'aicd'
+  t_ma: 3
+  nsigma: 8
+  t_up: 0.78
+  nr_len: 2
+  nr_coeff: 2
+  pol_len: 10
+  pol_coeff: 10
+  uncert_coeff: 3
+  pick_measure: earliest  # snr or earliest
+  plotdir: '/bear0-data/GMF_1/Cascadia/Chet/plots/extracted/combined_cat_6-15'
+
+Associator:
+  # Grid parameters
+  inventory: '/bear0-data/GMF_1/Cascadia/Chet/stations/Preferred_sta_CW-NV-PB-CN_2deg.xml'
+  grid_origin_lat: 46.1593
+  grid_origin_lon: -126.3779 # Lat, Lon
+  grid_shape_lat: 40
+  grid_shape_lon: 50 # Rows, Columns
+  grid_spacing: 0.1 # Degrees
+  max_depth: 60 # km
+  depth_spacing: 10. # km
+  # Associator parameters
+  max_km: 150
+  aggregation: 1
+  aggr_norm: 'L2'
+  cutoff_outlier: 10
+  assoc_ot_uncert: 7
+  nsta_declare: 4
+  loc_uncert_thresh: 0.2
+
+

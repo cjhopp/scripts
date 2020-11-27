@@ -45,6 +45,8 @@ try:
     from phasepapy.associator.tt_stations_3D import Station3D
 except ImportError:
     print('No PhasePApy on this machine/env')
+# Local imports
+from lbnl.waveforms import clean_daylong
 
 import obspy.taup as taup
 
@@ -530,9 +532,18 @@ def trigger(param_file, plot=False):
         print('Triggering on {}'.format(date))
         utcdto = UTCDateTime(date)
         jday = utcdto.julday
-        day_wavs = glob('{}/{}/**/*{:03d}.ms'.format(
-            paramz['General']['wav_directory'], date.year, jday),
-            recursive=True)
+        if 'seeds' in trig_p:
+            day_wavs = []
+            for seed in trig_p['seeds']:
+                net, sta, loc, chan = seed.split('.')
+                day_wavs.append(
+                    '{}/{}/{}/{}/{}/{}.{}.{:03d}.ms'.format(
+                        paramz['General']['wav_directory'], date.year, net, sta,
+                        chan, seed, date.year, jday))
+        else:
+            day_wavs = glob('{}/{}/**/*{:03d}.ms'.format(
+                paramz['General']['wav_directory'], date.year, jday),
+                recursive=True)
         st = Stream()
         for w in day_wavs:
             seed_parts = os.path.basename(w).split('.')
@@ -545,14 +556,9 @@ def trigger(param_file, plot=False):
                 print('Reading in {}'.format(w))
                 st += read(w)
         st = st.merge()
-        # Remove all traces with more zeros than data
-        rms = []
-        for tr in st:
-            if not _check_daylong(tr):
-                rms.append(tr)
-        for rm in rms:
-            st.traces.remove(rm)
+        st = clean_daylong(st)
         # Filter and downsample the wavs
+        print('Preprocessing')
         st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
                      highcut=trig_p['highcut'], filt_order=trig_p['corners'],
                      samp_rate=trig_p['sampling_rate'], starttime=utcdto,
@@ -577,11 +583,12 @@ def trigger(param_file, plot=False):
             max_trigger_length=trig_p['max_trigger_length'],
             details=True, trigger_off_extension=trig_p['trigger_off_extension'])
         # Enforce at least 5 non-sidney and non Olympic borehole stations
-        day_trigs = [t for t in day_trigs
-                     if len([sta for sta in t['stations']
-                             if sta not in sidney_stas]) > 4
-                     and len([sta for sta in t['stations']
-                             if sta not in olympic_bhs]) > 4]
+        if trig_p['coincidence_sum'] > 3:  # For full network
+            day_trigs = [t for t in day_trigs
+                         if len([sta for sta in t['stations']
+                                 if sta not in sidney_stas]) > 4
+                         and len([sta for sta in t['stations']
+                                 if sta not in olympic_bhs]) > 4]
         if plot:
             plot_triggers(day_trigs, st, trigger_stream,
                           sta_lta_params, network_sta_lta,

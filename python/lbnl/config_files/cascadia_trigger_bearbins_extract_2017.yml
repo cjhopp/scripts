@@ -17,7 +17,7 @@ Extract:
 
 Trigger:
   start_time: 2017-9-1
-  end_time: 2017-9-30
+  end_time: 2019-12-31
   sta: 1.0
   lta: 10.0
   lowcut: 3.
