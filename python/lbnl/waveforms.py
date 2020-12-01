@@ -1439,16 +1439,6 @@ def geores_read(fname):
 
 ########################## PLOTTING ######################################
 
-def return_Brune(M0, stress_drop):
-    """Theoretical Brune spectra"""
-    fc = 4.9 * 1e6 * 3.8 * (stress_drop / M0)**0.333
-    freq = np.linspace(0.001, 1000)
-    wl = 2 * np.pi * freq
-    disp_spec = np.array([brune_disp(w, M0, fc) for w in wl])
-    return disp_spec
-
-def brune_disp(wl, M0, fc):
-    return M0 / (wl / 2 * np.pi * fc)**2
 
 def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
                        log=False):
@@ -2018,134 +2008,6 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     return
 
 
-def plot_nsmtc_G_noise(psd_dir, inset=False, eq_psd=None):
-    """
-    Plot change in noise spectra for surface and deep geophone
-
-    :param psd_dir:
-    :param eq_psd:
-    :return:
-    """
-    npz_files = glob('{}/*'.format(psd_dir))
-    ppsds = {'G1': [], 'G2': []}
-    ppsds['G1'] = PPSD.load_npz(
-        '{}/NV.NSMTC.G1.CHZ.FEB_MAR.npz'.format(psd_dir))
-    ppsds['G2'] = PPSD.load_npz(
-        '{}/NV.NSMTC.G2.CHZ.FEB_MAR.npz'.format(psd_dir))
-    fig, axes = plt.subplots(nrows=2, figsize=(7, 12), sharex='col')
-    plot_noise_and_sig_bands(axes[0])
-    # plot_noise_and_sig_bands(axes[1])
-    xs1, ys1 = ppsds['G1'].get_mean()
-    xs2, ys2 = ppsds['G2'].get_mean()
-    diff = ys1 - ys2
-    # Plot vs frequency
-    axes[0].plot(1 / xs1, ys1, label='Surface', color=cascadia_colors['NSMTC.G1'])
-    axes[0].plot(1 / xs2, ys2, label='308 m', color=cascadia_colors['NSMTC.G2'])
-    # Plot noise reduction
-    axes[1].plot(1 / xs1, diff, label='Surface $-$ depth', color='steelblue')
-    axes[1].axvline(20., linestyle='--', color='k', linewidth=1.)
-    # Do a little inset axes
-    if inset:
-        axin = axes[1].inset_axes([0.15, 0.55, 0.35, 0.5])
-        axin.scatter(0., 0., color=cascadia_colors['NSMTC.G1'])
-        axin.scatter(
-            308., -diff[np.argmin(np.abs((1 / xs2) - 20.))],
-            color=cascadia_colors['NSMTC.G2'])
-        axin.set_ylabel('Noise [dB]')
-        axin.set_xlabel('Depth [m]')
-        axin.set_title('Noise @ 20 Hz')
-    # Formatting
-    fig.suptitle('Geophone comparison', x=0.4, y=0.95, fontsize=20)
-    axes[0].set_xscale('log')
-    axes[0].set_ylabel('Amplitude [dB]', fontsize=12)
-    axes[0].set_facecolor('whitesmoke')
-    axes[0].margins(0.)
-    axes[1].set_xscale('log')
-    axes[1].set_xlabel('Freq [Hz]', fontsize=12)
-    axes[1].set_ylabel('Amplitude [dB]', fontsize=12)
-    axes[1].set_facecolor('whitesmoke')
-    axes[1].margins(0.)
-    axes[1].set_xlim([0.001, 1000])
-    fig.legend()
-    plt.show()
-    return
-
-
-def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
-              eq_psd=None):
-    """
-    Take pre-computed ppsds and plot the means and diffs for all specified
-    channels
-
-    :param psd_dir: Root dir with the .npz files
-    :param seeds: list of full seed ids
-    :param datetime: Datetime for date we want (will only use year and julday)
-    :param eq_psd: Path to file with periods and pds values for an event
-        or set of events
-    :return:
-    """
-    cols = cycle(sns.color_palette('muted'))
-    next(cols)  # Skip first blue-ish one
-    B_cols = cycle(sns.color_palette('Blues', 3))
-    npz_files = glob('{}/*'.format(psd_dir))
-    if datetime:
-        day_str = '{}.{:03d}'.format(datetime.year,
-                                     UTCDateTime(datetime).julday)
-    else:
-        day_str = 'FEB_MAR'
-    ppsds = {}
-    for seed in seeds:
-        try:
-            ppsds[seed] = PPSD.load_npz(
-                [f for f in npz_files
-                 if f[:-4].endswith('.'.join([seed, day_str]))][0])
-        except IndexError:
-            print('No file for {}.{}'.format(seed, day_str))
-            continue
-    # Plot em
-    fig, axes = plt.subplots(ncols=2, sharex='row', figsize=(15, 5))
-    refx, refy = ppsds[reference_seed].get_mean()
-    for seed, ppsd in ppsds.items():
-        c = cascadia_colors['.'.join(seed.split('.')[1:-1])]
-        xs, ys = ppsd.get_mean()
-        try:
-            diffx, diffy = ys - refy
-        except ValueError:  # Case of lower samp rate data
-            # Interpolate onto reference freqs
-            f = interp1d(xs, ys, bounds_error=False, fill_value=np.nan)
-            diffx = refx
-            diffy = f(refx) - refy
-        # Plot vs frequency
-        axes[0].plot(1 / xs, ys, label=seed, color=c)
-        axes[1].plot(1 / diffx, diffy, color=c)
-        if seed == reference_seed:
-            axes[0].fill_between(1 / xs, -180, ys, color='lightgray')
-            axes[1].fill_between(1 / diffx, -45, diffy, color='lightgray')
-    if eq_psd:
-        df = pd.read_csv(eq_psd)
-        pds = df['periods']
-        psds = df['psd']
-        axes[0].plot(1 / pds, psds, color='gray', linestyle=':')
-        # Interpolate onto reference freqs
-        f = interp1d(pds, psds, bounds_error=False, fill_value=np.nan)
-        diffx = refx
-        diffy = f(refx) - refy
-        axes[1].plot(1 / diffx, diffy, label='MEQ', color='gray',
-                     linestyle=':')
-    axes[0].set_xscale('log')
-    axes[0].set_xlabel('Freq [Hz]', fontsize=12)
-    axes[1].set_xlabel('Freq [Hz]', fontsize=12)
-    axes[0].set_ylabel('Amplitude [dB]', fontsize=12)
-    axes[1].set_ylabel('Relative amplitude [dB]', fontsize=12)
-    axes[0].set_facecolor('whitesmoke')
-    axes[1].set_facecolor('whitesmoke')
-    axes[0].margins(0.)
-    axes[1].margins(0.)
-    fig.legend()
-    plt.show()
-    return
-
-
 def compare_detection_wavs(mseeds, events, template, seed_ids,
                            prepick_plot=3., postpick_plot=7.):
     """
@@ -2295,10 +2157,94 @@ def plot_raw_spectra(st, ev, seed_ids, inv=None, savefig=None):
     return axes
 
 
-def plot_noise_and_sig_bands(axes=None):
+def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
+              eq_psd=None):
+    """
+    Take pre-computed ppsds and plot the means and diffs for all specified
+    channels
+
+    :param psd_dir: Root dir with the .npz files
+    :param seeds: list of full seed ids
+    :param datetime: Datetime for date we want (will only use year and julday)
+    :param eq_psd: Path to file with periods and pds values for an event
+        or set of events
+    :return:
+    """
+    cols = cycle(sns.color_palette('muted'))
+    next(cols)  # Skip first blue-ish one
+    B_cols = cycle(sns.color_palette('Blues', 3))
+    npz_files = glob('{}/*'.format(psd_dir))
+    if datetime:
+        day_str = '{}.{:03d}'.format(datetime.year,
+                                     UTCDateTime(datetime).julday)
+    else:
+        day_str = 'FEB_MAR'
+    ppsds = {}
+    for seed in seeds:
+        try:
+            ppsds[seed] = PPSD.load_npz(
+                [f for f in npz_files
+                 if f[:-4].endswith('.'.join([seed, day_str]))][0])
+        except IndexError:
+            print('No file for {}.{}'.format(seed, day_str))
+            continue
+    # Plot em
+    fig, axes = plt.subplots(ncols=2, sharex='row', figsize=(15, 5))
+    plot_noise_and_sig_bands(axes[0])
+    refx, refy = ppsds[reference_seed].get_mean()
+    for seed, ppsd in ppsds.items():
+        c = cascadia_colors['.'.join(seed.split('.')[1:-1])]
+        xs, ys = ppsd.get_mean()
+        try:
+            diffx, diffy = ys - refy
+        except ValueError:  # Case of lower samp rate data
+            # Interpolate onto reference freqs
+            f = interp1d(xs, ys, bounds_error=False, fill_value=np.nan)
+            diffx = refx
+            diffy = f(refx) - refy
+        # Plot vs frequency
+        axes[0].plot(1 / xs, ys, label=seed, color=c)
+        axes[1].plot(1 / diffx, diffy, color=c)
+        if seed == reference_seed:
+            axes[0].fill_between(1 / xs, -180, ys, color='lightgray',
+                                 alpha=0.8)
+            axes[1].fill_between(1 / diffx, -45, diffy, color='lightgray',
+                                 alpha=0.8)
+    if eq_psd:
+        df = pd.read_csv(eq_psd)
+        pds = df['periods']
+        psds = df['psd']
+        axes[0].plot(1 / pds, psds, color='gray', linestyle=':')
+        # Interpolate onto reference freqs
+        f = interp1d(pds, psds, bounds_error=False, fill_value=np.nan)
+        diffx = refx
+        diffy = f(refx) - refy
+        axes[1].plot(1 / diffx, diffy, label='MEQ', color='gray',
+                     linestyle=':')
+    axes[0].set_xscale('log')
+    axes[0].set_xlabel('Freq [Hz]', fontsize=12)
+    axes[1].set_xlabel('Freq [Hz]', fontsize=12)
+    axes[0].set_ylabel('Amplitude [dB]', fontsize=12)
+    axes[1].set_ylabel('Relative amplitude [dB]', fontsize=12)
+    axes[0].set_facecolor('whitesmoke')
+    axes[1].set_facecolor('whitesmoke')
+    axes[0].margins(0.)
+    axes[1].margins(0.)
+    axes[0].set_xlim([0.002, 250.])
+    axes[0].set_ylim(bottom=-180)
+    fig.legend()
+    plt.show()
+    return
+
+
+def plot_noise_and_sig_bands(axes=None, plot_source_spec=False):
     """Overview of signal bands and noise levels"""
-    if not axes:
+    if not axes and not plot_source_spec:
         fig, ax = plt.subplots()
+    elif not axes and plot_source_spec:
+        fig, axs = plt.subplots(nrows=2, figsize=(6, 8), sharex='col')
+        ax = axs[0]
+        ax2 = axs[1]
     else:
         ax = axes
     hn_periods, hn_psd = get_nhnm()
@@ -2315,12 +2261,12 @@ def plot_noise_and_sig_bands(axes=None):
         ax.fill_betweenx(y=[-200, -40], x1=0., x2=0.05, color='lightgray',
                          alpha=0.1)
     else:
-        ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red', alpha=0.1,
-                         label='microseism')
-        ax.fill_betweenx(y=[-200, -40], x1=1.25, x2=5., color='purple', alpha=0.1,
-                         label='Tremor')
-        ax.fill_betweenx(y=[-200, -40], x1=5., x2=1000., color='green', alpha=0.1,
-                         label=r'$M_{w} < 0$')
+        ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red',
+                        alpha=0.1, label='microseism')
+        ax.fill_betweenx(y=[-200, -40], x1=1.25, x2=5., color='purple',
+                        alpha=0.1, label='Tremor')
+        ax.fill_betweenx(y=[-200, -40], x1=5., x2=100000., color='green',
+                        alpha=0.1, label=r'$M_{w} < 1$')
         ax.fill_betweenx(y=[-200, -40], x1=0., x2=0.05, color='lightgray',
                          alpha=0.1, label='Quasi-static')
         ax.set_xscale('log')
@@ -2329,5 +2275,199 @@ def plot_noise_and_sig_bands(axes=None):
         ax.legend()
         ax.set_xlabel('Frequency [Hz]')
         ax.set_ylabel('Noise [dB]')
+        if plot_source_spec:
+            ax.set_xlabel('')
+            plot_meq_brune(ax=ax2)
+            plt.tight_layout()
         plt.show()
+    return ax
+
+
+def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
+                               plot_brune=False, distance=2000, Q=50,
+                               stress_drop=30):
+    """
+    Plot change in noise spectra for surface and deep geophone
+
+    :param psd_dir: Directory with npz files
+    :param seeds: List of full seeds for stations to plot
+    :param reference_seed: Full seed of reference station
+    :param eq_psd: Path to text file for eq psd
+    :param plot_brune: Flag for plotting theoretical eq spectra
+    :param distance: Source-receiver distance for brune (meters)
+    :param Q: Quality factor for brune
+    :param stress_drop: Stress drop (bar) for brune
+    :return:
+    """
+    ppsds = {s: {} for s in seeds}
+    for s in seeds:
+        ppsd = PPSD.load_npz('{}/{}.FEB_MAR.npz'.format(psd_dir, s))
+        ppsds[s]['ppsd'] = ppsd
+        ppsds[s]['mean'] = ppsd.get_mean()
+    for seed, pds_dict in ppsds.items():
+        try:
+            pds_dict['diff'] = (pds_dict['mean'][1] -
+                                ppsds[reference_seed]['mean'][1])
+        except ValueError:
+            # Interpolate onto reference samples
+            x, y = pds_dict['mean']
+            refx, refy = ppsds[reference_seed]['mean']
+            f = interp1d(x, y, bounds_error=False, fill_value=np.nan)
+            ppsds[seed]['diff'] = f(refx) - refy
+    if plot_brune:
+        fig, axes = plt.subplots(nrows=2, figsize=(9, 9), sharex='col')
+    else:
+        fig, axes = plt.subplots(nrows=2, figsize=(6, 10), sharex='col')
+    plot_noise_and_sig_bands(axes[0])
+    # Get earthquake psds
+    # Now power spectra
+    if plot_brune:
+        moments = Mw_to_moment()
+        mag_cols = cycle(sns.color_palette('muted'))
+        Mws = ['-3', '-2', '-1', '0', '1']
+        freq = np.logspace(-2, 4, 1000)
+        for i, mom in enumerate(moments):
+            mcol = next(mag_cols)
+            abercrom_spec = abercrombie_disp(freq, M0=mom, Q=Q, rad=distance,
+                                             sig0=stress_drop)
+            pow_spec = disp_spec_to_psd(freq, abercrom_spec)
+            axes[0].plot(freq, pow_spec, linestyle=':', c=mcol)
+            maxx = freq[np.argmax(pow_spec)]
+            maxy = np.max(pow_spec)
+            axes[0].text(x=maxx, y=maxy * 0.98, s='$M_W$ {}'.format(Mws[i]),
+                         color=mcol, fontsize=11, horizontalalignment='center')
+    if eq_psd:
+        df = pd.read_csv(eq_psd)
+        pds = df['periods']
+        psds = df['psd']
+        axes[0].plot(1 / pds, psds, color='gray', linestyle=':')
+        # Interpolate onto reference freqs
+        f = interp1d(pds, psds, bounds_error=False, fill_value=np.nan)
+        refx, refy = ppsds[reference_seed]['mean']
+        diffx = refx
+        diffy = f(refx) - refy
+        axes[1].plot(1 / diffx, diffy, label='MEQ', color='gray',
+                     linestyle=':')
+    # Plot vs frequency
+    for seed, psd_dict in ppsds.items():
+        col_code = '.'.join(seed.split('.')[1:3])
+        col = cascadia_colors[col_code]
+        x, y = psd_dict['mean']
+        diff = psd_dict['diff']
+        axes[0].plot(1 / x, y, label=seed, color=col)
+        # Plot noise reduction
+        try:
+            axes[1].plot(1 / x, diff, color=col)
+        except ValueError:
+            axes[1].plot(1 / ppsds[reference_seed]['mean'][0], diff, color=col)
+    axes[1].fill_between(np.array([1e-3, 1e3]), -55, 0., color='lightgray')
+    # Formatting
+    if plot_brune:
+        fig.suptitle('Detection threshold', x=0.4, y=0.95, fontsize=20)
+    else:
+        fig.suptitle('Sensor comparison', x=0.4, y=0.95, fontsize=20)
+    axes[0].set_xscale('log')
+    axes[0].set_ylabel('Amplitude [dB]', fontsize=12)
+    axes[0].set_facecolor('whitesmoke')
+    axes[0].margins(0.)
+    axes[0].set_ylim([-180, -40])
+    axes[1].set_xscale('log')
+    axes[1].set_xlabel('Freq [Hz]', fontsize=12)
+    axes[1].set_ylabel('Noise relative to SA-ULN [dB]', fontsize=12)
+    axes[1].set_facecolor('whitesmoke')
+    axes[1].margins(0.)
+    axes[1].set_xlim([0.001, 1000])
+    fig.legend()
+    plt.show()
+    return
+
+
+def return_Brune(M0, stress_drop):
+    """Theoretical Brune displacement spectra"""
+    # This fc uses dyn cm
+    mom_dyn = M0 / 1e-7
+    fc = 4.9e6 * 3.8 * (stress_drop / mom_dyn)**0.333
+    freq = np.logspace(-2, 5, 1000)
+    ang_fc = 2 * np.pi * fc
+    ws = 2 * np.pi * freq
+    disp_spec = np.array([brune_disp(w, M0, ang_fc) for w in ws])
+    return freq, disp_spec
+
+
+def brune_disp(w, M0, ang_fc):
+    return M0 / (1 + (w / ang_fc)**2)
+
+
+def Mw_to_moment():
+    # Return moment in Nm from Mw
+    moments = np.array([10**((mw + 10.7) / 0.667) for mw in
+                        np.array([-3, -2, -1, 0, 1])])
+    # Dyn cm to N m
+    moments *= 1e-7
+    return moments
+
+
+def abercrombie_disp(freqs, M0, sig0=10, Vs=3400, Vr=3060, Q=100, rad=10000):
+    mom_dyn = M0 / 1e-7
+    vs_ft = Vs * 3.28
+    vr_ft = Vr * 3.28
+    # Density in kg/m^3
+    ps = 230 * vs_ft**0.25
+    pr = 230 * vr_ft**0.25
+    Om0 = ((1. * 2. / np.pi) /
+           (4 * np.pi * np.sqrt(ps * pr * Vs**5 * Vr))) * (M0 / rad)
+    fc = 4.9e6 * 3.8 * (sig0 / mom_dyn)**0.333
+    disp_spec = (Om0 / (1 + (freqs / fc)**4)**(0.5)) * np.exp(
+        -((np.pi * freqs * rad) / (Q * np.sqrt(Vs * Vr))))
+    return disp_spec
+
+
+def disp_spec_to_psd(freq, disp_spec):
+    """
+    Use Eaton 2012 method for comparing disp spectra with Clinton&Heaton psd
+    https://geoconvention.com/wp-content/uploads/abstracts/2012/273_GC2012_Estimating_the_Spectra_of_Small_Events.pdf
+    :return:
+    """
+    # To max accel
+    disp_spec = disp_spec * (2 / np.sqrt(2)) * freq
+    # Displacement to Acceleration
+    ang_f = 2 * np.pi * freq
+    vel_spec = ang_f * disp_spec
+    acc_spec = ang_f * vel_spec
+    xmax = (acc_spec / np.sqrt(np.pi / 2))**2 / (freq / np.sqrt(2))
+    xmax = np.log10(xmax)
+    xmax *= 10
+    return xmax
+
+
+def plot_meq_brune(stress_drop=10, ax=None):
+    """
+    Overview plot of Brune disp spectra for small Mw events
+
+    :param stress_drop: Stress drop in bar
+    :return:
+    """
+    cols = cycle(sns.color_palette('muted'))
+    moments = Mw_to_moment()
+    Mws = ['-3', '-2', '-1', '0', '1']
+    print(moments)
+    if not ax:
+        fig, ax = plt.subplots()
+        ax2 = ax.twinx()
+    for i, mom in enumerate(moments):
+        # model above uses dyn cm, I guess
+        c = next(cols)
+        freq, disp_spec = return_Brune(mom, stress_drop)
+        ax.plot(freq, disp_spec, label=Mws[i], color=c)
+        ax.text(x=2, y=np.max(disp_spec) * 1.3, s='$M_W$ {}'.format(Mws[i]),
+                color=c, fontsize=14)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_ylabel('Moment [Nm]')
+    ax.set_xlabel('Frequency [Hz]')
+    ax.set_xlim(right=1e5)
+    ax.set_ylim(top=1e12)
+    ax.set_facecolor('whitesmoke')
+    # plt.legend(title='$M_W$')
+    # plt.show()
     return ax

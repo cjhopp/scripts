@@ -53,6 +53,10 @@ import obspy.taup as taup
 sidney_stas = ['NSMTC', 'B009', 'B010', 'B011', 'PGC']
 olympic_bhs = ['B005', 'B006', 'B007']
 
+cascadia_colors = {'NSMTC.B1': '#c6dbef', 'NSMTC.B2': '#6aaed6',
+                   'NSMTC.B3': '#2070b4', 'NSMTC.G1': '#956cb4',
+                   'NSMTC.G2': '#d65f5f', 'PGC.': '#ee854a',
+                   'B011.': '#6acc64'}
 
 def read_tremor(path, lats=(46.5, 50.), lons=(-126.5, -121.5)):
     """Read in a tremor catalog from PNSN"""
@@ -1196,4 +1200,40 @@ def plot_locations(catalog, slab_file, title='EQ Locations', filename=None,
     if filename:
         plt.savefig('{}.png'.format(filename))
         plt.savefig('{}.pdf'.format(filename))
+    return
+
+
+def plot_trigger_times(root_dir):
+    """
+    Cumulative triggers plot for PGC/SAULN
+
+    :param root_dir: Directory with subdirs for triggered wavs from pgc/sauln
+
+    :return:
+    """
+    fig, axes = plt.subplots()
+    pgc_files = glob('{}/pgc_solo/*'.format(root_dir))
+    sauln_files = glob('{}/sauln_solo/*'.format(root_dir))
+    pgc_times = [UTCDateTime(p.split('_')[-1].rstrip('.ms')).datetime
+                 for p in pgc_files]
+    sauln_times = [UTCDateTime(p.split('_')[-1].rstrip('.ms')).datetime
+                   for p in sauln_files]
+    sauln_times = [t for t in sauln_times
+                   if (datetime(2018, 12, 22) > t or
+                       datetime(2018, 12, 23) < t)
+                   and (datetime(2019, 8, 15) > t or
+                        datetime(2019, 8, 16) < t)]
+    sauln_times.sort()
+    pgc_times.sort()
+    pgc_steps = np.arange(len(pgc_times))
+    sauln_steps = np.arange(len(sauln_times))
+    axes.step(pgc_times, pgc_steps, color=cascadia_colors['PGC.'],
+              label='Broadband: Surface')
+    axes.step(sauln_times, sauln_steps, color=cascadia_colors['NSMTC.B2'],
+              label='SA-ULN: 274 m')
+    fig.autofmt_xdate()
+    axes.legend(loc='upper left')
+    axes.margins(0.)
+    axes.set_ylabel('Cumulative triggers')
+    plt.show()
     return
