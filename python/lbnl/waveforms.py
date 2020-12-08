@@ -625,7 +625,7 @@ def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
         repicked_cat += party.lag_calc(
             stream=daylong, pre_processed=False, shift_len=shift_len,
             min_cc=min_cc, plot=True, plotdir=plot_dir,
-            process_cores=process_cores, cores=cores)
+            process_cores=process_cores, cores=cores, check_full_seed=True)
         print('Writing waveforms')
         # Extract and write streams
         for d in day_dets:

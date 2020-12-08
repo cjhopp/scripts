@@ -84,6 +84,15 @@ def read_csd_hydro(root_path):
     return all_df
 
 
+def read_fsb_hydro(path):
+    """Helper to read in Pauls hydraulic data"""
+    df = pd.read_csv(path, names=['Time', 'Pres', 'Flow'], header=0)
+    df['dt'] = pd.to_datetime(df['Time'], format='%m/%d/%Y %H:%M:%S.%f')
+    df = df.set_index('dt')
+    df = df.drop(['Time'], axis=1)
+    return df
+
+
 def read_martin_hydro_mat(path):
     """Helper to read-in raw array .mat files customized from Martin's .mat
     tables (Table objects don't translate to Python)"""
