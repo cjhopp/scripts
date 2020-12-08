@@ -609,7 +609,11 @@ def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
         daylong = Stream()
         print('Reading wavs')
         for wav_file in wav_files:
-            daylong += read(wav_file)
+            try:
+                daylong += read(wav_file)
+            except FileNotFoundError:
+                print('{} doesnt exist'.format(wav_file))
+                continue
         # Deal with shitty CN sampling rates
         for tr in daylong:
             if not ((1 / tr.stats.delta).is_integer() and
