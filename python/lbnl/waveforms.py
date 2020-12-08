@@ -521,6 +521,7 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
     import logging
 
     logging.basicConfig(
+        filename='tribe-detect_run.txt',
         level=logging.ERROR,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
@@ -579,6 +580,13 @@ def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
 
     :return:
     """
+    import logging
+
+    logging.basicConfig(
+        filename='lag_calc_run.txt',
+        level=logging.ERROR,
+        format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+
     dets = [det for fam in party for det in fam]
     dets.sort(key=lambda x: x.detect_time)
     repicked_cat = Catalog()
@@ -609,10 +617,12 @@ def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
         # Do the lag calc
+        print('Lag calc-ing')
         repicked_cat += party.lag_calc(
             st=daylong, preprocessed=False, shift_len=shift_len, min_cc=min_cc,
             plot=True, plotdir=plot_dir, process_cores=process_cores,
             cores=cores)
+        print('Writing waveforms')
         # Extract and write streams
         for d in day_dets:
             d_st = d.extract_stream(stream=daylong, length=length,
