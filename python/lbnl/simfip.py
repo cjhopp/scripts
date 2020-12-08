@@ -267,7 +267,7 @@ def plot_drive2production(df_simfip, DSS_dict, DAS_dict):
     """
     Plot SIMFIP at I and P versus multiple fractures at OT from fiber
     """
-    # fig = plt.figure(figsize=(7, 10))
+    fig = plt.figure(figsize=(7, 10))
     spec = gridspec.GridSpec(ncols=1, nrows=13, figure=fig)
     ax_hydro = fig.add_subplot(spec[:1, :])
     ax_I = fig.add_subplot(spec[1:4, :], sharex=ax_hydro)
@@ -279,6 +279,9 @@ def plot_drive2production(df_simfip, DSS_dict, DAS_dict):
     ax_hydro.plot(df_simfip.index, pres, label='Pump pressure',
                   color='firebrick')
     ax_hydro.legend()
+    # Add total shear SIMFIP column
+    df_simfip['P shear'] = np.sqrt(df_simfip['P Yates']**2 +
+                                   df_simfip['P Top']**2)
     # Plot SIMFIP
     (df_simfip[['I Yates', 'I Top', 'I Axial']] * 1e6).plot(ax=ax_I)
     (df_simfip[['P Yates', 'P Top', 'P Axial']] * 1e6).plot(ax=ax_P)
@@ -309,13 +312,13 @@ def plot_drive2production(df_simfip, DSS_dict, DAS_dict):
         & (np.array(DAS_dict['times']) < df_simfip.index[-1]))]
     norm_das -= norm_das[0]
     norm_das /= np.max(np.abs(norm_das))
-    norm_P_Yates = df_simfip['P Top'] / np.max(np.abs(df_simfip['P Yates']))
+    norm_P_shear = df_simfip['P shear'] / np.max(np.abs(df_simfip['P shear']))
     ax_comp.plot(comp_times, norm_dss, label='DSS: 47 m',
                   color='dodgerblue')
     ax_comp.plot(comp_times, norm_das, label='DAS: 47 m',
                   color='indigo')
     ax_comp.plot(
-        df_simfip.index, norm_P_Yates, label='SIMFIP', color='goldenrod')
+        df_simfip.index, -norm_P_shear, label='SIMFIP', color='goldenrod')
     # Shut in time
     ax_P.axvline(datetime(2018, 5, 24, 22, 51), linestyle=':', color='gray',
                  label='Shut-in')

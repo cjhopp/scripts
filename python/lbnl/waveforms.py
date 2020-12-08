@@ -561,6 +561,66 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
     return party
 
 
+def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
+                      shift_len=0.2, min_cc=0.6, process_cores=1, cores=8):
+    """
+    Perform lag_calc and extract raw wav snippets for each detection in a party
+
+    :param party: EQcorrscan Party object
+    :param wav_dir: Path to root waveform directory
+    :param out_dir: Output directory for trimmed waveforms
+    :param plot_dir: Output directory for repicked plots
+    :param prepick: Length to extract before anticipated pick time
+    :param length: Total length of waveform to extract for each trace
+    :param shift_len: Seconds to allow lag_calc shift (absolute value)
+    :param min_cc: Minimum correlation coefficient for picking
+    :param process_cores: Cores used in preprocessing
+    :param cores: Cores used in lag_calc algorithm (post processing)
+
+    :return:
+    """
+    dets = [det for fam in party for det in fam]
+    dets.sort(key=lambda x: x.detect_time)
+    repicked_cat = Catalog()
+    for date in date_generator(dets[0].detect_time.datetime,
+                               dets[-1].detect_time.datetime):
+        dto = UTCDateTime(date)
+        jday = dto.julday
+        print('Running {}\nJday: {}'.format(dto, jday))
+        wav_files = []
+        day_dets = [d for d in dets if dto <= d.detect_time < dto + 86400]
+        day_temps = [party.select(d.template_name).template.st
+                     for d in day_dets]
+        day_seeds = list(set([tr.id for t in day_temps for tr in t]))
+        for seed in day_seeds:
+            nslc = seed.split('.')
+            f = '{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
+                wav_dir, date.year, nslc[0], nslc[1], nslc[3], nslc[0],
+                nslc[1], nslc[2], nslc[3], date.year, jday)
+            wav_files.append(f)
+        daylong = Stream()
+        print('Reading wavs')
+        for wav_file in wav_files:
+            daylong += read(wav_file)
+        # Deal with shitty CN sampling rates
+        for tr in daylong:
+            if not ((1 / tr.stats.delta).is_integer() and
+                    tr.stats.sampling_rate.is_integer()):
+                tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+        daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
+        # Do the lag calc
+        repicked_cat += party.lag_calc(
+            st=daylong, preprocessed=False, shift_len=shift_len, min_cc=min_cc,
+            plot=True, plotdir=plot_dir, process_cores=process_cores,
+            cores=cores)
+        # Extract and write streams
+        for d in day_dets:
+            d_st = d.extract_stream(stream=daylong, length=length,
+                                    prepick=prepick)
+            d_st.write('{}/{}.ms'.format(out_dir, d.id))
+    return repicked_cat
+
+
 def stack_CASSM_directory(path, length, plotdir=None):
     """
     Wrapper on stack_CASSM_shots to loop over all mseeds in directory

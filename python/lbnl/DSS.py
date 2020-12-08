@@ -76,6 +76,14 @@ chan_map_maria = {'B3': (232.21, 401.37), 'B4': (406.56, 566.58),
                   'B5': (76.46, 194.11), 'B6': (588.22, 688.19),
                   'B7': (693.37, 789.86)}
 
+fsb_wind = 20  # Degree of winding in Corning SMF fiber
+
+chan_map_injection_fsb = {
+    'B1': 99.45, 'B2': 1570.95, 'B3': (858, 1028.5),
+    'B4': (1032.8, 1193.), 'B5': (700., 820.), 'B6': (1215., 1314.5),
+    'B7': (1320., 1415.2), 'B8': (358.4, 480.8), 'B9': 266.2,
+    'B10a': (515.6, 584.), 'B10b': (584., 651.4)}
+
 ########## CSD CHANNEL MAPPINGS ###########
 # Antonio Dataviewer channel mapping
 chan_map_csd_1256 = {# Loop 1, 2, 5, 6
@@ -148,7 +156,9 @@ D2_anchor_map = {'seg5': (10.27, 11.67),
 ######### DRILLING FAULT DEPTH ############
 # Dict of drilled depths
 fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
-                'D6': 36.65, 'D7': 29.7}
+                'D6': 36.65, 'D7': 29.7, 'B1': 52.46, 'B2': 54.29, 'B3': 86.4,
+                'B4': 81.5, 'B5': 60.1, 'B6': 50.43, 'B7': 50.22, 'B8': 62.14,
+                'B9': 62.14, 'B10a': 36.16, 'B10b': 36.16}
 
 fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
                 'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
@@ -186,6 +196,8 @@ mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                                       'CSD5': chan_map_co2_5612_pt1,
                                       'FSB': chan_map_fsb},
                 'august_pulse': {'CSD1': chan_map_august},
+                'fsb_injection': {'CSD1': chan_map_august,
+                                  'FSB': chan_map_injection_fsb},
                 'surf': chan_map_surf}
 
 well_fiber_map = {'D1': 'CSD5', 'D2': 'CSD5', 'D3': 'CSD3', 'D4': 'CSD3',
@@ -230,15 +242,21 @@ def read_ascii_directory(root_path, header, location):
     """Read single-measurement files into one data matrix"""
     asciis = glob('{}/**/*.txt'.format(root_path), recursive=True)
     asciis.sort()
-    for i, ascii in enumerate(asciis):
-        if i == 0:
+    datas = []
+    timeses = []
+    for ascii in asciis:
+        try:
             dd = read_ascii(ascii, header=header)
-            times = read_times(ascii, location=location)
-            depths = dd[:, -1]
-            data = dd[:, 0]
-        else:
-            data = np.vstack([data, read_ascii(ascii, header=header)[:, 0]])
-            times = np.vstack([times, read_times(ascii, location=location)])
+        except (ValueError, StopIteration) as e:
+            # Case of interrupted or empty measurement
+            print('File {} hit error: {}'.format(ascii, e))
+            continue
+        timeses.append(read_times(ascii, location=location))
+        depths = dd[:, -1]
+        datas.append(dd[:, 0])
+    # Stack at end for speeeeed
+    data = np.vstack(datas)
+    times = np.vstack(timeses)
     return data.T, depths, times.squeeze()
 
 
@@ -581,28 +599,33 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 print('{} not in mapping'.format(well))
                 continue
             if location == 'fsb':
+                # For FSB B* wells, this accounts for XX% greater fiber depth
+                # than TD
+                if well.startswith('B'):
+                    fiber_depth = (fiber_depths[well] /
+                                   np.cos(np.deg2rad(fsb_wind)))
+                else:
+                    fiber_depth = fiber_depths[well]
                 try:
-                    depth = fiber_data[well_fiber_map[well]]['depth']
-                    data = fiber_data[well_fiber_map[well]]['data']
-                    times = fiber_data[well_fiber_map[well]]['times']
-                    gain = fiber_data[well_fiber_map[well]]['gain']
+                    depth = fiber_data['FSB']['depth'].copy()
+                    data = fiber_data['FSB']['data'].copy()
+                    times = fiber_data['FSB']['times'].copy()
+                    gain = fiber_data['FSB']['gain'].copy()
                 except KeyError as e:
-                    depth = fiber_data['CSD1']['depth']
-                    data = fiber_data['CSD1']['data']
-                    times = fiber_data['CSD1']['times']
-                    gain = fiber_data['CSD1']['gain']
+                    depth = fiber_data['CSD1']['depth'].copy()
+                    data = fiber_data['CSD1']['data'].copy()
+                    times = fiber_data['CSD1']['times'].copy()
+                    gain = fiber_data['CSD1']['gain'].copy()
             elif location == 'surf':
-                depth = fiber_data['surf']['depth']
-                data = fiber_data['surf']['data']
-                times = fiber_data['surf']['times']
+                depth = fiber_data['surf']['depth'].copy()
+                data = fiber_data['surf']['data'].copy()
+                times = fiber_data['surf']['times'].copy()
             else:
                 print('{} not a location'.format(location))
                 return
             if type(chan_map[well]) == float:
-                start_chan = np.abs(depth - (chan_map[well] -
-                                             fiber_depths[well]))
-                end_chan = np.abs(depth - (chan_map[well] +
-                                           fiber_depths[well]))
+                start_chan = np.abs(depth - (chan_map[well] - fiber_depth))
+                end_chan = np.abs(depth - (chan_map[well] + fiber_depth))
             else:
                 start_chan = np.abs(depth - chan_map[well][0])
                 end_chan = np.abs(depth - chan_map[well][-1])
@@ -613,8 +636,12 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 gain_tmp = gain[np.argmin(start_chan):np.argmin(end_chan), :]
             except UnboundLocalError:
                 print('Not doing gain correction')
-            if location == 'surf':  # and well == 'OT':
-                depth_tmp *= 0.9642  # "Stretch factor"
+            if location == 'surf':
+                # "Stretch factor"
+                depth_tmp *= 0.9642
+            elif location == 'fsb' and well.startswith('B'):
+                # Account for cable winding
+                depth_tmp *= np.cos(np.deg2rad(fsb_wind))
             noise = estimate_noise(data_tmp, method=noise_method)
             well_data[well] = {'times': times, 'mode': mode,
                                'type': type_m}

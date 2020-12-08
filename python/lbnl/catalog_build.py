@@ -1225,12 +1225,24 @@ def plot_trigger_times(root_dir):
                         datetime(2019, 8, 16) < t)]
     sauln_times.sort()
     pgc_times.sort()
+    sauln_times = np.array(sauln_times)
+    pgc_times = np.array(pgc_times)
     pgc_steps = np.arange(len(pgc_times))
     sauln_steps = np.arange(len(sauln_times))
+    perc_inc = (sauln_steps[-1] - pgc_steps[-1]) / pgc_steps[-1] * 100.
     axes.step(pgc_times, pgc_steps, color=cascadia_colors['PGC.'],
               label='Broadband: Surface')
     axes.step(sauln_times, sauln_steps, color=cascadia_colors['NSMTC.B2'],
               label='SA-ULN: 274 m')
+    # Plot avg and percent increase
+    axes.plot(pgc_times[np.array([0, -1])], [0, pgc_steps[-1]], linestyle=':',
+              color=cascadia_colors['PGC.'], alpha=0.4)
+    axes.plot(sauln_times[np.array([0, -1])], [0, sauln_steps[-1]],
+              linestyle=':', color=cascadia_colors['NSMTC.B2'], alpha=0.4)
+    axes.fill_between(x=pgc_times[np.array([0, -1])], y1=[0, pgc_steps[-1]],
+                      y2=[0, sauln_steps[-1]], color='lightgray', alpha=0.2)
+    axes.text(x=0.8, y=0.7, s='{:0.0f}% more'.format(perc_inc),
+              color='gray', fontsize=11, transform=axes.transAxes)
     fig.autofmt_xdate()
     axes.legend(loc='upper left')
     axes.margins(0.)
