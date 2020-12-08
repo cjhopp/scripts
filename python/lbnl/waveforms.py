@@ -629,8 +629,8 @@ def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
         print('Writing waveforms')
         # Extract and write streams
         for d in day_dets:
-            d_st = d.extract_stream(stream=daylong, length=length,
-                                    prepick=prepick)
+            d_st = daylong.slice(starttime=d.detect_time - prepick,
+                                 endtime=d.detect_time - prepick + length)
             d_st.write('{}/{}.ms'.format(out_dir, d.id), format='MSEED')
     return repicked_cat
 
