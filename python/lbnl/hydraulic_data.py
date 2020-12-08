@@ -86,7 +86,7 @@ def read_csd_hydro(root_path):
 
 def read_fsb_hydro(path):
     """Helper to read in Pauls hydraulic data"""
-    df = pd.read_csv(path, names=['Time', 'Pres', 'Flow'], header=0)
+    df = pd.read_csv(path, names=['Time', 'Pressure', 'Flow'], header=0)
     df['dt'] = pd.to_datetime(df['Time'], format='%m/%d/%Y %H:%M:%S.%f')
     df = df.set_index('dt')
     df = df.drop(['Time'], axis=1)
@@ -229,7 +229,7 @@ def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None):
     df_hydro['Pressure'].plot(ax=ax2, color='firebrick', label='Pressure')
     ax2.set_ylim(bottom=0)
     ax2.set_ylabel('MPa', fontsize=14, color='firebrick')
-    ax.set_ylabel('ml/min', fontsize=14)
+    ax.set_ylabel('ml/min', fontsize=14, color='steelblue')
     if not axes:
         if (df_hydro.index[-1] - df_hydro.index[0]).days == 0:
             ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
@@ -237,6 +237,10 @@ def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None):
                           fontsize=16, labelpad=5)
             plt.setp(ax.xaxis.get_majorticklabels(), rotation=-30,
                      horizontalalignment='left')
+            ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                           color='steelblue')
+            ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                            color='firebrick')
         fig.legend()
         fig.suptitle(title, fontsize=16)
         plt.show()
