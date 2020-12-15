@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+  <head>
+    <title>Analysis of SIMFIP data</title>
+    <!meta http-equiv="refresh" content="60" >
+  </head>
+  <style>
+    *{margin:0;padding:0;}
+    html,body{height:100%}
+    .frame{margin:auto;max-width:1200px}
+    .embed{position:relative;padding-bottom:60%; /* padding-bottom = iframe width */
+    clear: both;height:0;overflow:hidden;max-width:100%;height:auto}
+    .embed iframe{position:absolute;top:0;left:0;width:100%;height:100%;z-index: 1;}
+
+    .button {
+        background-color: #4CAF50; /* Green */
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+      }
+
+      .button2 {
+          background-color: lightblue;
+          border: none;
+          color: white;
+          padding: 10px 15px;
+          text-align: center;
+          text-decoration: none;
+          display: inline-block;
+          font-size: 12px;
+        }
+
+      img.resize {
+         max-width:30%;
+         max-height:30%;
+      }
+    </style>
+    <script>
+      var reloading;
+
+      function checkReloading() {
+          if (window.location.hash=="#autoreload") {
+              reloading=setTimeout("window.location.reload();", 30000);
+              document.getElementById("reloadCB").checked=true;
+          }
+      }
+
+      function toggleAutoRefresh(cb) {
+          if (cb.checked) {
+              window.location.replace("#autoreload");
+              reloading=setTimeout("window.location.reload();", 30000);
+          } else {
+              window.location.replace("#");
+              clearTimeout(reloading);
+          }
+      }
+
+      window.onload=checkReloading;
+    </script>
+    <body>
+      <center>
+        This webpage has been created by Antonio P. Rinaldi under the collaboration between CS-D and FS-B experiments at Mont Terri Research Laboratory
+        <p><img class="resize" src="logos.png"></p>
+        <br><br>
+        <h1> REAL TIME ANALYSIS </h1>
+        Updates by loading new data (button) or automatically with toggling the checkbox
+        <br><br>
+        <button class="button", onclick="location.reload();">LOAD NEW DATA</button>
+        <input type="checkbox" onclick="toggleAutoRefresh(this);" id="reloadCB"> Auto Refresh
+        <br><br>
+        <button class="button2", onclick=location.href='./simfip_LT.html'>Long term evolution</button>
+        <br><br>
+        <h2>Displacement SIMFIP</h2>
+        <!p>    <!embed src="displacement.html" width="1200px" height="700px" /> <!/p>
+        <div class="frame">
+            <div class="embed">
+                <iframe width="1200px" height="700px" src="displacement.html" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+
+        <br><br>
+        <h2>Pressure intervals</h2>
+        <!p>    <!embed class=res, src="pressure_intervals.html" width="1200px" height="700px" /> <!/p>
+        <div class="frame">
+            <div class="embed">
+                <iframe width="1200px" height="700px" src="pressure_intervals.html" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+
+        <br><br>
+        <h2>Pressure packers</h2>
+        <!p>    <!embed src="pressure_packers.html" width="1200px" height="700px" /> <!/p>
+        <div class="frame">
+            <div class="embed">
+                <iframe width="1200px" height="700px" src="pressure_packers.html" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+        <br><br>
+     </center>
+   </body>
+</html>

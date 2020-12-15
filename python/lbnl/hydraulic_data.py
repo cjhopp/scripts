@@ -185,6 +185,66 @@ def martin_cumulative_vols(df_early):
 
 ###### Plotting #######
 
+def plot_collab_ALL(df_hydro, date_range=None, axes=None):
+    if not axes:
+        fig, ax = plt.subplots(figsize=(10, 7))
+        ax2 = ax.twinx()
+    else:
+        ax = axes
+        ax2 = ax.twinx()
+    # Downsample off the bat
+    df_hydro = df_hydro.resample('30s').mean()
+    df_hydro = df_hydro[date_range[0]:date_range[1]]
+    stims = [
+        (datetime(2018, 5, 22, 21, 40, 00), datetime(2018, 5, 22, 22, 10, 00)),  #Quizix
+        (datetime(2018, 5, 23, 18, 20, 00), datetime(2018, 5, 23, 20, 10, 00)),  #Quizix
+        (datetime(2018, 5, 24, 22, 10, 00), datetime(2018, 5, 24, 23, 00, 00)),  #Triplex
+        (datetime(2018, 5, 25, 15, 00, 00), datetime(2018, 5, 25, 15, 45, 00)),  #Triplex
+        (datetime(2018, 5, 25, 20, 20, 00), datetime(2018, 5, 25, 21, 30, 00)),#Triplex
+        (datetime(2018, 6, 20, 12, 00, 00), datetime(2018, 6, 21, 00, 00, 00)),
+        (datetime(2018, 6, 21, 12, 00, 00), datetime(2018, 6, 22, 00, 00, 00)),
+        (datetime(2018, 6, 22, 12, 00, 00), datetime(2018, 6, 23, 00, 00, 00)),
+        (datetime(2018, 6, 25, 17, 00, 00), datetime(2018, 6, 25, 18, 30, 00)),  #
+        (datetime(2018, 6, 25, 18, 30, 00), datetime(2018, 6, 25, 21, 30, 00)),  #
+        (datetime(2018, 7, 19, 14, 00, 00), datetime(2018, 7, 19, 22, 00, 00)),  #Quizix
+        (datetime(2018, 7, 20, 14, 30, 00), datetime(2018, 7, 21, 00, 00, 00)),  #Combo
+        (datetime(2018, 12, 7, 23, 00, 00), datetime(2018, 12, 7, 23, 30, 00)),  #Triplex
+        (datetime(2018, 12, 20, 16, 32, 00), datetime(2018, 12, 20, 21, 30, 00)),  #Triplex
+        (datetime(2018, 12, 21, 18, 30, 00), datetime(2018, 12, 21, 23, 30, 00))]  #Triplex
+    for stim in stims:
+        if ~np.all(np.array([date_range[0] <= s < date_range[1]
+                             for s in stim])):
+            continue
+        # Stim name
+        stim_df = df_hydro[stim[0]:stim[1]].copy()
+        # Eliminate negative values
+        stim_df[stim_df < 0] = 0.
+        # Pressures to MPa
+        if stim[0].month == 6:
+            stim_df[['P1', 'P2']] = (stim_df[['PNNL08',
+                                              'SNL11']] / 145.)
+            # Do cumulative sum, account for L/min measure every 30 s
+            stim_df[['Quizix Flow', 'Triplex Flow', 'SNL16']].plot(
+                ax=ax, legend=False, color='steelblue')
+        else:
+            stim_df[['P1', 'P2']] = (stim_df[['Quizix Press',
+                                              'SNL10']] / 145.)
+            stim_df[['Quizix Flow', 'Triplex Flow']].plot(
+                ax=ax, legend=False, color='steelblue')
+        stim_df[['P1', 'P2']].plot(ax=ax2, color='firebrick', legend=False)
+    ax.set_ylabel('L/min', color='steelblue')
+    ax2.set_ylabel('MPa', color='firebrick')
+    ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                   color='steelblue')
+    ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                    color='firebrick')
+    ax.set_ylim(bottom=0.)
+    ax2.set_ylim(bottom=0.)
+    if not axes:
+        fig.legend()
+    return
+
+
 def plot_collab_hydro(df_hydro):
     """
     DataFrame from read_collab_hydro

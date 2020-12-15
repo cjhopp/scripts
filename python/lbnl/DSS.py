@@ -47,7 +47,7 @@ from lbnl.simfip import (read_excavation, plot_displacement_components,
                          read_collab, rotate_fsb_to_fault,
                          rotate_fsb_to_borehole)
 from lbnl.hydraulic_data import (read_collab_hydro, read_csd_hydro,
-                                 plot_csd_hydro)
+                                 plot_csd_hydro, plot_collab_ALL)
 
 
 ######### SURF CHANNEL MAPPING ############
@@ -59,12 +59,15 @@ chan_map_feet = {'OT': (6287., 291., 356.), 'OB': (411., 470.5, 530.),
                  'PDT': (1179., 1238., 1297.), 'PDB': (995., 1054.5, 1114.)}
 
 # Jonathan mapping from scripts (Source ??)
-chan_map_surf = {#'OT': (226., 291., 356.), ORIGINAL
-                 # 'OT': (226., 286., 346.),
-                 'OT': (224.5, 286., 347.5),
-                 'OB': (411., 470.5, 530.),
-                 'PST': (695., 737.5, 780.), 'PSB': (827., 886.5, 946.),
-                 'PDT': (1179., 1238., 1297.), 'PDB': (995., 1054.5, 1114.)}
+# chan_map_surf = {#'OT': (226., 291., 356.), ORIGINAL
+#                  # 'OT': (226., 286., 346.),
+#                  'OT': (224.5, 286., 347.5),
+#                  'OB': (411., 470.5, 530.),
+#                  'PST': (695., 737.5, 780.), 'PSB': (827., 886.5, 946.),
+#                  'PDT': (1179., 1238., 1297.), 'PDB': (995., 1054.5, 1114.)}
+
+chan_map_surf = {'OT': 286., 'OB': 470.5, 'PST': 737.5, 'PSB': 886.5,
+                 'PDT': 1238., 'PDB': 1054.5}
 
 ########## FSB DSS CHANNEL MAPPINGS ###########
 # Michelle DataViewer mapping (tug test)
@@ -75,8 +78,6 @@ chan_map_fsb = {'B3': (237.7, 404.07), 'B4': (413.52, 571.90),
 chan_map_maria = {'B3': (232.21, 401.37), 'B4': (406.56, 566.58),
                   'B5': (76.46, 194.11), 'B6': (588.22, 688.19),
                   'B7': (693.37, 789.86)}
-
-fsb_wind = 20  # Degree of winding in Corning SMF fiber
 
 chan_map_injection_fsb = {
     'B1': 99.45, 'B2': 1570.95, 'B3': (858, 1028.5),
@@ -153,12 +154,21 @@ D2_anchor_map = {'seg5': (10.27, 11.67),
                  'seg2': (13.52, 14.32),
                  'seg1': (14.32, 15.27),
                  }
+
+######### Degree of fiber winding #########
+fsb_wind = 25  # Degree of "winding" in Corning SMF fiber
+
+surf_wind = 25  # Degree for 4850 fiber package
+
 ######### DRILLING FAULT DEPTH ############
 # Dict of drilled depths
 fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
-                'D6': 36.65, 'D7': 29.7, 'B1': 52.46, 'B2': 54.29, 'B3': 86.4,
-                'B4': 81.5, 'B5': 60.1, 'B6': 50.43, 'B7': 50.22, 'B8': 62.14,
-                'B9': 62.14, 'B10a': 36.16, 'B10b': 36.16}
+                'D6': 36.65, 'D7': 29.7, 'B1': 51.5, 'B2': 53.3, 'B3': 84.8,
+                'B4': 80., 'B5': 59., 'B6': 49.5, 'B7': 49.3, 'B8': 61.,
+                'B9': 61., 'B10a': 35.5, 'B10b': 35.5}
+
+fiber_depths_surf = {'OT': 60., 'OB': 60., 'PDT': 59.7, 'PDB': 59.9,
+                     'PST': 41.8, 'PSB': 59.7}
 
 fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
                 'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
@@ -606,17 +616,25 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                                    np.cos(np.deg2rad(fsb_wind)))
                 else:
                     fiber_depth = fiber_depths[well]
-                try:
+                if well[0] == 'B':
                     depth = fiber_data['FSB']['depth'].copy()
                     data = fiber_data['FSB']['data'].copy()
                     times = fiber_data['FSB']['times'].copy()
                     gain = fiber_data['FSB']['gain'].copy()
-                except KeyError as e:
-                    depth = fiber_data['CSD1']['depth'].copy()
-                    data = fiber_data['CSD1']['data'].copy()
-                    times = fiber_data['CSD1']['times'].copy()
-                    gain = fiber_data['CSD1']['gain'].copy()
+                elif well[0] == 'D':
+                    try:
+                        depth = fiber_data[well_fiber_map[well]]['depth'].copy()
+                        data = fiber_data[well_fiber_map[well]]['data'].copy()
+                        times = fiber_data[well_fiber_map[well]]['times'].copy()
+                        gain = fiber_data[well_fiber_map[well]]['gain'].copy()
+                    except KeyError as e:
+                        depth = fiber_data['CSD1']['depth'].copy()
+                        data = fiber_data['CSD1']['data'].copy()
+                        times = fiber_data['CSD1']['times'].copy()
+                        gain = fiber_data['CSD1']['gain'].copy()
             elif location == 'surf':
+                fiber_depth = (fiber_depths_surf[well] /
+                               np.cos(np.deg2rad(surf_wind)))
                 depth = fiber_data['surf']['depth'].copy()
                 data = fiber_data['surf']['data'].copy()
                 times = fiber_data['surf']['times'].copy()
@@ -638,7 +656,8 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 print('Not doing gain correction')
             if location == 'surf':
                 # "Stretch factor"
-                depth_tmp *= 0.9642
+                # depth_tmp *= 0.9642
+                depth_tmp *= np.cos(np.deg2rad(surf_wind))
             elif location == 'fsb' and well.startswith('B'):
                 # Account for cable winding
                 depth_tmp *= np.cos(np.deg2rad(fsb_wind))
@@ -1056,7 +1075,10 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
         down_median, up_median = np.array_split(data_median, 2)
         down_std, up_std = np.array_split(data_std, 2)
         down_temp, up_temp = np.array_split(temp, 2)
-        down_gain, up_gain = np.array_split(gain, 2)
+        try:
+            down_gain, up_gain = np.array_split(gain, 2)
+        except TypeError as e:
+            pass
         if down_d.shape[0] != up_d.shape[0]:
             # prepend last element of down to up if unequal lengths by 1
             up_d = np.insert(up_d, 0, down_d[-1])
@@ -1064,21 +1086,29 @@ def extract_channel_timeseries(well_data, well, depth, direction='down',
             up_median = np.insert(up_median, 0, down_median[-1, :], axis=0)
             up_std = np.insert(up_std, 0, down_std[-1, :], axis=0)
             up_temp = np.insert(up_temp, 0, down_temp[-1, :], axis=0)
-            up_gain = np.insert(up_gain, 0, down_gain[-1, :], axis=0)
+            try:
+                up_gain = np.insert(up_gain, 0, down_gain[-1, :], axis=0)
+            except UnboundLocalError:
+                pass
         depths = np.abs(up_d - up_d[-1])
         data = up_data
         data_median = up_median
         data_std = up_std
         temp = up_temp
-        gain = up_gain
+        try:
+            gain = up_gain
+        except UnboundLocalError:
+            pass
     # Find closest channel
     chan = np.argmin(np.abs(depth - depths))
     strains = data[chan, :]
     strain_median = data_median[chan, :]
     strain_std = data_std[chan, :]
     temps = temp[chan, :]
-    if gain != None:
+    try:
         gain = gain[chan, :]
+    except TypeError:
+        pass
     return times, strains, strain_median, strain_std, temps, gain
 
 
@@ -1944,7 +1974,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         log_ax = fig.add_subplot(gs[:, :2], sharey=axes4)
         cax = fig.add_subplot(gs[:6, -1])
     # Get just the channels from the well in question
-    times = well_data[well]['times']
+    times = well_data[well]['times'].copy()
+    print(times, date_range, 'foo')
     data = well_data[well]['data'].copy()
     try:
         gain = well_data[well]['gain'].copy()
@@ -1966,6 +1997,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             if gain_correction:
                 data = scale_to_gain(data, gain, offset_samps)
     mpl_times = mdates.date2num(times)
+    print(mpl_times)
     # Denoise methods are not mature yet
     if denoise_method:
         data = denoise(data, denoise_method, times=times, depth=depth_vect,
@@ -2004,6 +2036,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
         up_d = np.insert(up_d, 0, down_d[-1])
     # Run the integration for D1/2
+    print(mpl_times)
     im = axes1.imshow(down_data, cmap=cmap, origin='upper',
                       extent=[mpl_times[0], mpl_times[-1],
                               down_d[-1] - down_d[0], 0],
@@ -2448,6 +2481,103 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                                prominence=prominence)
         plt.show()
     return plotter.pick_dict
+
+
+def plot_waterfall(well_data, well, direction='down', date_range=None,
+                   vrange=(-100, 100), axes=None, offset_samps=1,
+                   denoise_method=None, window=None, plot_method='imshow',
+                   integrate_anchor_segs=True, df_hydro=None):
+    """
+    Plot waterfall for a given leg within date range
+
+    :param well_data: Output of extract_wells
+    :param direction: 'down' or 'up'-going leg
+    :param date_range: tup of start and end time
+    :return:
+    """
+    if not axes and type(df_hydro) == pd.DataFrame:
+        fig, axes = plt.subplots(nrows=2, figsize=(12, 6))
+        ax = axes[1]
+    elif not axes:
+        fig, ax = plt.subplots(figsize=(10, 5))
+    else:
+        ax = axes
+    if offset_samps == 0 or offset_samps == None:
+        offset_samps = 1
+    times = well_data[well]['times']
+    data = well_data[well]['data'].copy()
+    try:
+        gain = well_data[well]['gain'].copy()
+    except KeyError:
+        print('No gain correction')
+    depth_vect = well_data[well]['depth']
+    mode = well_data[well]['mode']
+    print(mode)
+    types = well_data[well]['type']
+    if date_range:
+        indices = np.where((date_range[0] < times) & (times < date_range[1]))
+        times = times[indices]
+        data = np.squeeze(data[:, indices])
+    if 'gain' in well_data[well].keys():
+        gain = np.squeeze(gain[:, indices])
+        if gain_correction:
+            data = scale_to_gain(data, gain, offset_samps)
+    mpl_times = mdates.date2num(times)
+    # Denoise methods are not mature yet
+    if denoise_method and window:
+        data = denoise(data, denoise_method, times=times, depth=depth_vect,
+                       window=window)
+    else:
+        print('Will not denoise. Specify method and window')
+    if mode == 'Relative':
+        data = data - data[:, 0:offset_samps, np.newaxis].mean(axis=1)
+    cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
+    if types == 'Strain':
+        label = r'$\mu\varepsilon$'
+    elif types == 'Brillouin Gain':
+        label = r'%'
+    elif types == 'Brillouin Frequency':
+        label = r'GHz'
+    if well in ['D1', 'D2'] and integrate_anchor_segs:
+        data = integrate_anchors(data, depth_vect - depth_vect[0], well)
+    # Split the array in two and plot both separately
+    down_data, up_data = np.array_split(data, 2, axis=0)
+    down_d, up_d = np.array_split(depth_vect - depth_vect[0], 2)
+    if down_d.shape[0] != up_d.shape[0]:
+        # prepend last element of down to up if unequal lengths by 1
+        up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+        up_d = np.insert(up_d, 0, down_d[-1])
+    if direction == 'up':
+        plot_datz = up_data
+    elif direction == 'down':
+        plot_datz = down_data
+    else:
+        print('Up or down data, plz')
+        return
+    if plot_method == 'imshow':
+        im = ax.imshow(plot_datz, cmap=cmap, origin='upper',
+                       extent=[mpl_times[0], mpl_times[-1],
+                               down_d[-1] - down_d[0], 0],
+                       aspect='auto', vmin=vrange[0], vmax=vrange[1])
+    elif plot_method == 'contourf':
+        depth_vect = down_d[-1] - down_d[::-1]
+        print(depth_vect.shape, mpl_times.shape, plot_datz.shape)
+        im = ax.contourf(X=times, Y=depth_vect,
+                         Z=plot_datz, levels=20)
+    if type(df_hydro) == pd.DataFrame:
+        plot_collab_ALL(df_hydro, date_range=date_range, axes=axes[0])
+        axes[0].set_xlim(date_range)
+        axes[0].margins(0.)
+        cbar = plt.colorbar(im, ax=axes, shrink=0.25)
+    else:
+        cbar = plt.colorbar(im, ax=ax, shrink=0.25)
+    date_formatter = mdates.DateFormatter('%m-%d %H:%M')
+    ax.xaxis_date()
+    ax.xaxis.set_major_formatter(date_formatter)
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=30, ha='right')
+    ax.set_ylabel('Depth [m]', fontsize=16)
+    ax.set_title('{}going'.format(direction))
+    return ax
 
 
 def plot_potentiometer(data, depths, times, colors=None, axes=None,
