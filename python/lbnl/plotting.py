@@ -574,8 +574,8 @@ def plot_lab_2D(autocad_path, strike=305.,
     new_strk /= norm(new_strk)
     change_b_mat = np.array([new_strk, [0, 0, 1], normal])
     for afile in glob('{}/*.csv'.format(autocad_path)):
-        if 'FSB' in afile:
-            continue
+        # if 'FSB' in afile:
+        #     continue
         df_cad = pd.read_csv(afile)
         lines = df_cad.loc[df_cad['Name'] == 'Line']
         arcs = df_cad.loc[df_cad['Name'] == 'Arc']
@@ -588,8 +588,9 @@ def plot_lab_2D(autocad_path, strike=305.,
             proj_pts = np.dot(pts - origin, normal)[:, None] * normal
             proj_pts = pts - origin - proj_pts
             proj_pts = np.matmul(change_b_mat, proj_pts.T)
-            ax3d.plot(xs, ys, zs, color='darkgray')
-            ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray')
+            ax3d.plot(xs, ys, zs, color='darkgray', zorder=110)
+            ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray',
+                      zorder=110)
             ax_map.plot(xs, ys, color='darkgray')
         for i, arc in arcs.iterrows():
             # Stolen math from Melchior
@@ -624,8 +625,9 @@ def plot_lab_2D(autocad_path, strike=305.,
                 proj_pts = np.dot(pts - origin, normal)[:, None] * normal
                 proj_pts = pts - origin - proj_pts
                 proj_pts = np.matmul(change_b_mat, proj_pts.T)
-                ax3d.plot(x, y, z, color='darkgray')
-                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray')
+                ax3d.plot(x, y, z, color='darkgray', zorder=110)
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray',
+                          zorder=110)
                 ax_map.plot(x, y, color='darkgray')
             elif not np.isnan(arc['Start X']):
                 v1 = -1. * np.array([arc['Center X'] - arc['Start X'],
@@ -649,8 +651,9 @@ def plot_lab_2D(autocad_path, strike=305.,
                 proj_pts = np.dot(pts - origin, normal)[:, None] * normal
                 proj_pts = pts - origin - proj_pts
                 proj_pts = np.matmul(change_b_mat, proj_pts.T)
-                ax3d.plot(x, y, z, color='darkgray')
-                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray')
+                ax3d.plot(x, y, z, color='darkgray', zorder=110)
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray',
+                          zorder=110)
                 ax_map.plot(x, y, color='darkgray')
     # Fault model
     fault_mod = '{}/faultmod.mat'.format(autocad_path)
@@ -659,8 +662,8 @@ def plot_lab_2D(autocad_path, strike=305.,
     y = faultmod['yq']
     zt = faultmod['zq_top']
     zb = faultmod['zq_bot']
-    ax3d.plot_surface(x, y, zt, color='bisque', alpha=.5)
-    ax3d.plot_surface(x, y, zb, color='bisque', alpha=.5)
+    # ax3d.plot_surface(x, y, zt, color='bisque', alpha=.5)
+    # ax3d.plot_surface(x, y, zb, color='bisque', alpha=.5)
     # Proj
     pts_t = np.column_stack([x.flatten(), y.flatten(), zt.flatten()])
     proj_pts_t = np.dot(pts_t - origin, normal)[:, None] * normal
@@ -670,44 +673,51 @@ def plot_lab_2D(autocad_path, strike=305.,
     proj_pts_b = np.dot(pts_b - origin, normal)[:, None] * normal
     proj_pts_b = pts_b - origin - proj_pts_b
     proj_pts_b = np.matmul(change_b_mat, proj_pts_b.T)
-    ax_x.fill(proj_pts_t[0, :], proj_pts_t[1, :], color='bisque', alpha=0.7,
-              label='Main Fault')
-    ax_x.fill(proj_pts_b[0, :], proj_pts_b[1, :], color='bisque', alpha=0.7)
+    # ax_x.fill(proj_pts_t[0, :], proj_pts_t[1, :], color='bisque', alpha=0.7,
+    #           label='Main Fault')
+    # ax_x.fill(proj_pts_b[0, :], proj_pts_b[1, :], color='bisque', alpha=0.7)
     for well, pts in well_dict.items():
-        if well[0] != 'D':
+        if well[0] not in ['D', 'B']:
             continue
-        col = csd_well_colors[well]
+        try:
+            col = csd_well_colors[well]
+            zdr = 109
+        except KeyError:
+            col = 'lightgray'
+            zdr = 90
         # Proj
         pts = pts[:, :3]
         proj_pts = np.dot(pts - origin, normal)[:, None] * normal
         proj_pts = pts - origin - proj_pts
         proj_pts = np.matmul(change_b_mat, proj_pts.T)
         ax3d.plot(pts[:, 0], pts[:, 1], pts[:, 2], color=col,
-                  linewidth=1.5)
-        ax_x.plot(proj_pts[0, :], proj_pts[1, :], color=col)
-        ax_map.scatter(pts[:, 0][0], pts[:, 1][0], color=col, s=15.)
+                  linewidth=1.5, zorder=zdr)
+        ax_x.plot(proj_pts[0, :], proj_pts[1, :], color=col, zorder=zdr)
+        ax_map.scatter(pts[:, 0][0], pts[:, 1][0], color=col, s=15.,
+                       zorder=111)
         ax_map.annotate(text=well, xy=(pts[:, 0][0], pts[:, 1][1]), fontsize=10,
-                    weight='bold', xytext=(3, 0), textcoords="offset points",
-                    color=col)
+                        weight='bold', xytext=(3, 0),
+                        textcoords="offset points", color=col)
     # Plot fault coords and piercepoints
     plot_pierce_points(x, y, zt, strike=47, dip=57, ax=ax_fault, location='fsb')
     # Formatting
-    ax3d.set_xlim([2579305, 2579330])
-    ax3d.set_ylim([1247565, 1247590])
-    ax3d.set_zlim([495, 520])
-    ax3d.view_init(elev=30., azim=-112)
+    ax3d.set_xlim([2579295, 2579340])
+    ax3d.set_ylim([1247555, 1247600])
+    ax3d.set_zlim([485, 530])
+    # ax3d.view_init(elev=30., azim=-112)
+    ax3d.view_init(elev=32, azim=-175)
     ax3d.margins(0.)
-    # ax3d.set_xticks([])
+    ax3d.set_xticks([])
     ax3d.set_xticklabels([])
-    # ax3d.set_yticks([])
+    ax3d.set_yticks([])
     ax3d.set_yticklabels([])
-    # ax3d.set_zticks([])
+    ax3d.set_zticks([])
     ax3d.set_zticklabels([])
     # Overview map
     ax_map.axis('equal')
     ax_map.axis('off')
-    ax_map.set_xlim([2579310, 2579328])
-    ax_map.set_ylim([1247560, 1247582])
+    ax_map.set_xlim([2579300, 2579338])
+    ax_map.set_ylim([1247540, 1247582])
     # Fault map
     ax_fault.axis('equal')
     ax_fault.spines['top'].set_visible(False)

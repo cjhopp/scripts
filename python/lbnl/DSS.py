@@ -24,7 +24,7 @@ from eqcorrscan.core.match_filter import normxcorr2
 from pandas.errors import ParserError
 from scipy.io import savemat
 from scipy.integrate import trapz
-from scipy.interpolate import griddata, interp2d
+from scipy.interpolate import griddata, interp1d, interp2d
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks, zpk2sos, sosfilt, iirfilter
 from scipy.stats import median_absolute_deviation
@@ -41,7 +41,8 @@ from matplotlib.collections import LineCollection
 from lbnl.coordinates import cartesian_distance
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             calculate_frac_density, read_frac_cores,
-                            depth_to_xyz, distance_to_borehole)
+                            depth_to_xyz, distance_to_borehole,
+                            read_gallery_distances, read_gallery_excavation)
 from lbnl.DTS import read_struct
 from lbnl.simfip import (read_excavation, plot_displacement_components,
                          read_collab, rotate_fsb_to_fault,
@@ -115,7 +116,7 @@ chan_map_bottom_34 = {# Loop 3, 4
 # Excavation correlation mapping
 # Loop 5, 6
 chan_map_excav_56 = {'D5': 187.535,
-                     'D6': 97.145}
+                     'D6': 96.645}
 # Loop 3, 4
 chan_map_excav_34 = {'D3': 76.61,
                      'D4': 167.22}
@@ -162,8 +163,9 @@ surf_wind = 25  # Degree for 4850 fiber package
 
 ######### DRILLING FAULT DEPTH ############
 # Dict of drilled depths
-fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.65, 'D4': 36.9, 'D5': 31.79,
-                'D6': 36.65, 'D7': 29.7, 'B1': 51.5, 'B2': 53.3, 'B3': 84.8,
+# CS-D depths taken from COTDR in SolExp fiber install report (p. 22)
+fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.42, 'D4': 35.99, 'D5': 31.38,
+                'D6': 36.28, 'D7': 29.7, 'B1': 51.5, 'B2': 53.3, 'B3': 84.8,
                 'B4': 80., 'B5': 59., 'B6': 49.5, 'B7': 49.3, 'B8': 61.,
                 'B9': 61., 'B10a': 35.5, 'B10b': 35.5}
 
@@ -225,8 +227,8 @@ frac_cols = {'All fractures': 'black',
              'lithology change': 'yellow'}
 
 csd_well_colors = {'D1': 'dodgerblue', 'D2': 'lightseagreen',
-                   'D3': 'firebrick', 'D4': 'firebrick',
-                   'D5': 'blueviolet', 'D6': 'firebrick',
+                   'D3': 'firebrick', 'D4': 'darkorange',
+                   'D5': 'blueviolet', 'D6': 'darkblue',
                    'D7': 'k'}
 
 def date_generator(start_date, end_date, frequency='day'):
@@ -2181,7 +2183,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         # Plot fracture density too TODO Enable other logs here too
         if tv_picks:
             try:
-                frac_dict = calculate_frac_density(tv_picks, create_FSB_boreholes())
+                frac_dict = calculate_frac_density(
+                    tv_picks, create_FSB_boreholes())
             except KeyError:
                 # Try core fracture counts instead
                 frac_dict = read_frac_cores(tv_picks, well)
@@ -2682,15 +2685,15 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
     :param strain_range:
     :return:
     """
-    fig, axes = plt.subplots(ncols=3, figsize=(4, 10), sharey='row')
+    fig, axes = plt.subplots(ncols=3, figsize=(5, 10), sharey='row')
     dss_dict = extract_strains(well_data, date=time, wells=['D5'],
                                average=False, reference_time=reference_time)
     frac_dict = read_frac_cores(tv_picks, 'D5')
     for frac_type, dens in frac_dict.items():
         if not frac_type.startswith('sed'):
-            axes[0].plot(dens[:, 1], dens[:, 0],
+            axes[0].barh(dens[:, 0], dens[:, 1], height=1.,
                          color=frac_cols[frac_type],
-                         label=frac_type)
+                         label=frac_type, alpha=0.5)
     pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
     top_anchors = [d[0] for nm, d in potentiometer_depths.items()]
     top_anchors.sort()
@@ -2701,17 +2704,21 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
     # Divide by two for microns (flip for extension)
     data *= -0.5
     axes[1].step(data, top_anchors, label='Potentiometer',
-                 color='r', where='post')
+                 color='r', where='pre')
     # Plot anchors as lil black dots
     axes[1].scatter(data, top_anchors, c='k', s=2., zorder=101)
     # Lastly, DSS data
     axes[2].plot(dss_dict['D5'][leg], dss_dict['D5']['depths'],
                  label='DSS', color='purple')
     axes[0].invert_yaxis()
-    axes[0].set_ylabel('Depth [m]')
-    axes[0].set_xlabel('Fractures per m')
+    axes[0].set_ylabel('Depth [m]', fontsize=16)
+    axes[0].set_xlabel(r'$\frac{fractures}{meter}$', fontsize=15)
     axes[1].set_xlabel('Microns')
+    axes[1].set_xticks([-100, 0, 100])
+    axes[1].set_xticklabels(['-100', '', '100'])
     axes[2].set_xlabel('Microns')
+    axes[2].set_xticks([-100, 0, 100])
+    axes[2].set_xticklabels(['-100', '', '100'])
     axes[1].set_xlim(strain_range)
     axes[2].set_xlim(strain_range)
     # Zero line for DSS and potentiometer
@@ -3023,7 +3030,6 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
             np.isin(dss_time_dict[w]['1'][0], mask_measures),
             dss_time_dict[w]['1'][1])
         if well_data_2:
-            print()
             plot_strains2 = np.ma.masked_where(
                 np.isin(dss_time_dict[w]['2'][0], mask_measures),
                 dss_time_dict[w]['2'][1])
@@ -3032,6 +3038,10 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
                          label='{} m'.format(depths[w]))
             ax_time.plot(dss_time_dict[w]['2'][0], plot_strains2,
                          color=csd_well_colors[w])
+            if w == 'D1':
+                out_times = np.concatenate([dss_time_dict[w]['1'][0],
+                                            dss_time_dict[w]['2'][0]])
+                out_strains = np.concatenate([plot_strains1, plot_strains2])
         else:
             ax_time.plot(dss_time_dict[w]['1'][0], dss_time_dict[w]['1'][2],
                          color=csd_well_colors[w],
@@ -3084,6 +3094,175 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
                     xycoords='axes fraction',
                     ha='left', fontsize=22)
     plt.show()
+    return out_times, out_strains, df_hydro
+
+
+def plot_csd_press_strain(times, strains, df_hydro):
+    """Take output from above and plot cross plot for pressure and strain"""
+    t1 = datetime(2019, 6, 12, 14, 10)
+    t2 = datetime(2019, 6, 12, 15, 12)
+    strain_times = times[np.where((times > t1) & (times < t2))]
+    cross_strains = strains[np.where((times > t1) & (times < t2))]
+    cross_press = df_hydro[t1:t2]['Pressure'].values
+    cross_times = df_hydro[t1:t2].index.values
+    # Interp pressures at DSS times
+    f = interp1d(mdates.date2num(cross_times), cross_press,
+                 bounds_error=False, fill_value=np.nan)
+    cross_press = f(mdates.date2num(strain_times))
+    fit = np.polyfit(cross_press, cross_strains, deg=1)
+    print(fit)
+    p = np.poly1d(fit)
+    fig, axes = plt.subplots()
+    axes.scatter(cross_press, cross_strains, color='firebrick',
+                 marker='P')
+    axes.annotate(xy=(0.1, 0.8),
+                  s=r'{:.2f} $\mu\varepsilon$/MPa'.format(fit[0]),
+                  xycoords='axes fraction', fontsize=14)
+    axes.plot(cross_press, p(cross_press), color='k', linestyle=':')
+    axes.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
+    axes.set_xlabel('MPa', fontsize=16)
+    axes.set_facecolor('whitesmoke')
+    plt.show()
+    return
+
+
+def plot_csd_section(well_data, wells, date, ref_date, leg='up_data',
+                     which_depth='shallow'):
+    """
+    Plot Shallow strains for all CSD boreholes with dist to excavation
+    breakthrough
+
+    :param well_data: output of extract_wells()
+    :param wells: List of wells to plot
+    :param date: datetime for strains to extract
+    :param ref_date: datetime for reference date
+    :param leg: 'up_data' or 'down_data'
+    :param depth_dict: dict of {well: [top, bottom]}
+
+    .. note: Breakthough xyz: [2.57931745e+06, 1.24755756e+06, 5.15000000e+02]
+
+    :return:
+    """
+    # Make dictionary of depths
+    if which_depth == 'shallow':
+        depth_dict = {w: [0, 7.] for w in wells}
+    elif which_depth == 'fault':
+        depth_dict = {w: [fault_depths[w][0] - 1, fault_depths[w][1] + 1]
+                      for w in wells}
+    dss_dict = extract_strains(well_data, date=date, wells=wells,
+                               reference_time=ref_date, average=False)
+    # Set up figure
+    fig, ax = plt.subplots(figsize=(4, 5))
+    for i, (well, wd) in enumerate(dss_dict.items()):
+        c = csd_well_colors[well]
+        # Get depths to 5 m
+        depths = wd['depths']
+        dep = depths[np.where((depths <= depth_dict[well][1])
+                              & (depths > depth_dict[well][0]))]
+        data = wd[leg]
+        strains = data[np.where((depths <= depth_dict[well][1])
+                                & (depths > depth_dict[well][0]))]
+        if which_depth == 'fault':
+            dep -= dep[0]
+            dep /= dep[-1]
+            # strains += i * 30
+        ax.plot(strains, dep, color=c)
+    print('foo')
+    ax.invert_yaxis()
+    ax.set_xlabel(r'$\mu\epsilon$', fontsize=14)
+    ax.set_ylabel('Meters', fontsize=14)
+    ax.set_facecolor('whitesmoke')
+    fig.legend()
+    plt.show()
+    return
+
+
+def plot_csd_deep(well_data, date, wells, tv_picks,
+                  ref_date=datetime(2019, 5, 23), leg='up_data'):
+    """
+    Plot the excavation strains with well logs and a zoom on the fault
+
+    :param well_data:
+    :param date:
+    :param wells:
+    :param log_dir:
+    :param ref_date:
+    :return:
+    """
+    fig, axes = plt.subplots(ncols=len(wells) * 2, figsize=(10, 10),
+                             sharey='row')
+    frac_dicts = []
+    for w in wells:
+        if w == 'D4':  # Placeholder for non-cored well
+            frac_dicts.append({})
+        else:
+            frac_dicts.append(read_frac_cores(tv_picks, w))
+    dss_dict = extract_strains(well_data, date=date, wells=wells,
+                               reference_time=ref_date, average=False)
+    for i, f_d in enumerate(frac_dicts):
+        ax_ind = i * 2
+        if wells[i] == 'D4':
+            axes[ax_ind].tick_params(axis='x', labelbottom=False)
+            axes[ax_ind].annotate(text='No core logs', xy=(0.5, 0.5),
+                                  ha='center', va='center', rotation=90,
+                                  fontsize=16, fontweight='bold',
+                                  color=csd_well_colors['D4'],
+                                  xycoords='axes fraction')
+            continue
+        for frac_type, dens in f_d.items():
+            if not frac_type.startswith('sed'):
+                axes[ax_ind].barh(dens[:, 0], dens[:, 1], height=1.,
+                                  color=csd_well_colors[wells[i]],
+                                  label=frac_type, alpha=0.5)
+        axes[ax_ind].set_xlim([0, 10])
+        axes[ax_ind].set_xlabel(r'$\frac{fractures}{meter}$', fontsize=15)
+    # Formatting, resin plugs, and fault depths
+    axes[0].set_ylabel('Depth [m]', fontsize=15)
+    for i, ax in enumerate(axes):
+        ax_well = wells[i//2]
+        # Resin plug
+        if i == 0:
+            label = 'Main Fault'
+        else:
+            label = ''
+            # Fill between resin plug
+            ax.fill_between(
+                x=np.array([-500, 500]), y1=resin_depths[ax_well][0],
+                y2=resin_depths[ax_well][1], hatch='/',
+                alpha=0.5, color='bisque')
+        ax.axhline(fault_depths[ax_well][0], linestyle='--',
+                   linewidth=1., color='k')
+        ax.axhline(fault_depths[ax_well][1],
+                   linestyle='--', label=label,
+                   linewidth=1., color='k')
+        ax.set_facecolor('lightgray')
+        ax.set_ylim(top=0, bottom=fiber_depths[ax_well])
+        # Plot DSS
+        if i % 2 == 1:  # Only odd no axes
+            ax.plot(dss_dict[ax_well][leg], dss_dict[ax_well]['depths'],
+                         label='DSS', color=csd_well_colors[ax_well])
+            ax.set_xlim([-180, 180])
+            ax.axvline(x=0., linestyle=':', color='gray',
+                       linewidth=1.)
+            ax.set_xticks([-100, 0, 100])
+            ax.set_xticklabels(['-100', '', '100'])
+            ax.set_xlabel(r'$\mu\epsilon$', fontsize=14)
+        ax.tick_params(axis='x', labelsize=8)
+    fig.text(0.1, 0.95, date.date(), ha="left", va="bottom", fontsize=14,
+             bbox=dict(boxstyle="round", ec='k', fc='white'))
+    # Title labels
+    t_xs = []
+    for j in range(4):
+        t_xs = np.mean([axes[j*2].get_position().x1,
+                        axes[(j*2)+1].get_position().x0])
+        plt.annotate(text=wells[j], xy=(t_xs, 0.9), xycoords='figure fraction',
+                     ha='center', color=csd_well_colors[wells[j]],
+                     fontsize=20, fontweight='bold')
+    plt.show()
+    return
+
+
+def plot_csd_fault():
     return
 
 
