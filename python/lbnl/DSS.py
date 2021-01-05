@@ -18,13 +18,11 @@ import matplotlib.patches as mpatches
 
 from glob import glob
 from copy import deepcopy
-from obspy import Stream, Trace
 from pytz import timezone
 from eqcorrscan.core.match_filter import normxcorr2
 from pandas.errors import ParserError
-from scipy.io import savemat
 from scipy.integrate import trapz
-from scipy.interpolate import griddata, interp1d, interp2d
+from scipy.interpolate import griddata, interp1d
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks, zpk2sos, sosfilt, iirfilter
 from scipy.stats import median_absolute_deviation
@@ -35,7 +33,6 @@ from matplotlib.colors import ListedColormap, Normalize
 from matplotlib.gridspec import GridSpec
 from matplotlib.cm import ScalarMappable
 from matplotlib.ticker import MultipleLocator
-from matplotlib.collections import LineCollection
 
 # Local imports
 from lbnl.coordinates import cartesian_distance
@@ -1977,7 +1974,6 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         cax = fig.add_subplot(gs[:6, -1])
     # Get just the channels from the well in question
     times = well_data[well]['times'].copy()
-    print(times, date_range, 'foo')
     data = well_data[well]['data'].copy()
     try:
         gain = well_data[well]['gain'].copy()
@@ -1999,7 +1995,6 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             if gain_correction:
                 data = scale_to_gain(data, gain, offset_samps)
     mpl_times = mdates.date2num(times)
-    print(mpl_times)
     # Denoise methods are not mature yet
     if denoise_method:
         data = denoise(data, denoise_method, times=times, depth=depth_vect,
@@ -2028,6 +2023,8 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         label = r'%'
     elif type == 'Brillouin Frequency':
         label = r'GHz'
+    elif type == None:
+        label = r'$^O$C'
     if well in ['D1', 'D2'] and integrate_anchor_segs:
         data = integrate_anchors(data, depth_vect - depth_vect[0], well)
     # Split the array in two and plot both separately
@@ -2038,7 +2035,6 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
         up_d = np.insert(up_d, 0, down_d[-1])
     # Run the integration for D1/2
-    print(mpl_times)
     im = axes1.imshow(down_data, cmap=cmap, origin='upper',
                       extent=[mpl_times[0], mpl_times[-1],
                               down_d[-1] - down_d[0], 0],
