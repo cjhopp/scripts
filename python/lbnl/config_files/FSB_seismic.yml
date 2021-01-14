@@ -1,0 +1,23 @@
+# Config file of station mapping and locations for FSB seismic instruments
+
+Mapping:
+  # Last four channel of 16-channel GMuG box are empty
+  GMuG_stachans: ['B81.XN1', 'B82.XN1', 'B83.XN1', 'B84.XN1', 'B85.XN1',
+                  'B86.XN1', 'B91.XN1', 'B92.XN1', 'B93.XN1', 'B94.XN1',
+                  'B95.XN1', 'B96.XN1', '.', '.', '.', '.']
+  # Last four channels of vibbox cross connected to four AE's
+  # Initially these were: B84, B86, B94, B96 but no signal was seen
+  # Changed to: B81, B82, B83, B91 on 17 June 2020
+  vibbox_stachans: ['B31.XNZ', 'B31.XNX', 'B31.XNY', 'B32.XNZ', 'B32.XNX',
+                    'B32.XNY', 'B42.XNZ', 'B42.XNX', 'B42.XNY', 'B43.XNZ',
+                    'B43.XNX', 'B43.XNY', 'B551.XNZ', 'B551.XNX', 'B551.XNY',
+                    'B585.XNZ', 'B585.XNX', 'B585.XNY', 'B647.XNZ', 'B647.XNX',
+                    'B647.XNY', 'B659.XNZ', 'B659.XNX', 'B659.XNY', 'B748.XNZ',
+                    'B748.XNX', 'B748.XNY', 'B75.XNZ', 'B75.XNX', 'B75.XNY',
+                    'B301.XN1', 'B303.XN1', 'B305.XN1', 'B307.XN1', 'B309.XN1',
+                    'B310.XN1', 'B311.XN1', 'B312.XN1', 'B314.XN1', 'B316.XN1',
+                    'B318.XN1', 'B320.XN1', 'B322.XN1', 'B401.XN1', 'B403.XN1',
+                    'B405.XN1', 'B407.XN1', 'B409.XN1', 'B410.XN1', 'B411.XN1',
+                    'B412.XN1', 'B414.XN1', 'B416.XN1', 'B418.XN1', 'B420.XN1',
+                    'B422.XN1', 'CTrg.', 'CEnc.', 'PPS.', 'CMon.', 'B81.XN1',
+                    'B82.XN1', 'B93.XN1', 'B91.XN1']

@@ -56,12 +56,12 @@ attr_map = {'OT': ['otDepths', 'otTemps'], 'OB': ['obDepths', 'obTemps'],
 ######### Mapping lengths ####################
 
 chan_map_injection_fsb = {
-    'B1': 98.35, 'B2': 1515.3, 'B3': 888., 'B4': 1062., 'B5': 709., 'B6': 1216.,
+    'B1': 98.5, 'B2': 1515.3, 'B3': 888., 'B4': 1062., 'B5': 709., 'B6': 1216.,
     'B7': 1320., 'B8': 428., 'B9': 267., 'B10': 565.}
 
 ######### Degree of fiber winding #########
 
-fsb_wind = 0  # Degree of "winding" in Corning SMF fiber
+fsb_wind = 10  # Degree of "winding" in Corning MMF fiber
 
 surf_wind = 25  # Degree for 4850 fiber package
 
@@ -69,7 +69,7 @@ surf_wind = 25  # Degree for 4850 fiber package
 # Dict of drilled depths
 # CS-D depths taken from COTDR in SolExp fiber install report (p. 22)
 fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.42, 'D4': 35.99, 'D5': 31.38,
-                'D6': 36.28, 'D7': 29.7, 'B1': 51.5, 'B2': 53.3, 'B3': 84.8,
+                'D6': 36.28, 'D7': 29.7, 'B1': 51.0, 'B2': 53.5, 'B3': 84.8,
                 'B4': 80., 'B5': 59., 'B6': 49.5, 'B7': 49.3, 'B8': 61.,
                 'B9': 61., 'B10': 35.5}
 
@@ -78,8 +78,9 @@ fiber_depths_surf = {'OT': 60., 'OB': 60., 'PDT': 59.7, 'PDB': 59.9,
 
 fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
                 'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
-                'D7': (22.46, 25.54)}
+                'D7': (22.46, 25.54), 'B2': (41.1, 42.7), 'B1': ()}
 
+simfip_depths = {'B2': (40.47, 41.47)}
 
 def datenum_to_datetime(datenums):
     # Helper to correctly convert matlab datenum to python datetime
@@ -249,7 +250,7 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
              date_range=(datetime(2020, 11, 19), datetime(2020, 11, 23)),
              denoise_method=None, window='2h', vrange=(14, 17), title=None,
              tv_picks=None, prominence=30., pot_data=None, hydro_data=None,
-             offset_samps=120, filter_params=None):
+             offset_samps=None, filter_params=None):
     """
     Plot a colormap of DSS data
 
@@ -316,7 +317,6 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
         noise = well_data[well]['noise'][0]
     else:
         noise = well_data[well]['noise']
-    mode = well_data[well]['mode']
     type = well_data[well]['type']
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
@@ -332,7 +332,7 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
             data = filter(data, freqmin=f['freqmin'],
                           freqmax=f['freqmax'],
                           df=1 / (times[1] - times[0]).seconds)
-    if mode == 'Relative':
+    if offset_samps:
         data = data - data[:, 0:offset_samps, np.newaxis].mean(axis=1)
     cmap = ListedColormap(sns.color_palette('magma', 21).as_hex())
     if derivative:

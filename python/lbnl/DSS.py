@@ -1827,6 +1827,8 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
                 continue
         # Always increment, obviously
         i += 2
+        ax1.tick_params(axis='x', labelsize=6)
+        ax2.tick_params(axis='x', labelsize=6)
     if formater:
         if frame:
             lab_y = 0.04
@@ -2878,7 +2880,9 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     """
     # Mask values
     mask_measures = np.array([datetime(2019, 6, 12, 16, 25, 11),
-                              datetime(2019, 6, 12, 16, 35, 11)])
+                              datetime(2019, 6, 12, 16, 35, 11),
+                              datetime(2019, 6, 12, 16, 26, 34),
+                              datetime(2019, 6, 12, 16, 36, 34)])
     # Copy out of the way
     well_data1 = deepcopy(well_data_1)
     if well_data_2:
@@ -2926,7 +2930,7 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
                                                      'D2')
     # Make dict of DSS timeseries for each well
     dss_time_dict = {}
-    for well in ['D5', 'D1', 'D2']:
+    for well in ['D5', 'D1', 'D2', 'D3', 'D4']:
         dep = depths[well]
         dss_times1, dss_strains1, dss_med1, dss_std1, _, _ = extract_channel_timeseries(
             well_data1, well, depth=dep, direction='up', window=window)
@@ -3021,7 +3025,7 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     # Time series plotting
     ax_time.plot(pot_times, -0.5 * pot_strains, color='r',
                  label='Potentiometer')
-    for w in ['D1', 'D2', 'D5']:
+    for w in ['D1', 'D2', 'D3', 'D4', 'D5']:
         plot_strains1 = np.ma.masked_where(
             np.isin(dss_time_dict[w]['1'][0], mask_measures),
             dss_time_dict[w]['1'][1])
@@ -3031,10 +3035,10 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
                 dss_time_dict[w]['2'][1])
             ax_time.plot(dss_time_dict[w]['1'][0], plot_strains1,
                          color=csd_well_colors[w],
-                         label='{} m'.format(depths[w]))
+                         label='{}'.format(w))
             ax_time.plot(dss_time_dict[w]['2'][0], plot_strains2,
                          color=csd_well_colors[w])
-            if w == 'D1':
+            if w == 'D1':  # Return for pressure/strain plotting
                 out_times = np.concatenate([dss_time_dict[w]['1'][0],
                                             dss_time_dict[w]['2'][0]])
                 out_strains = np.concatenate([plot_strains1, plot_strains2])
@@ -3096,7 +3100,8 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
 def plot_csd_press_strain(times, strains, df_hydro):
     """Take output from above and plot cross plot for pressure and strain"""
     t1 = datetime(2019, 6, 12, 14, 10)
-    t2 = datetime(2019, 6, 12, 15, 12)
+    # t2 = datetime(2019, 6, 12, 15, 12)
+    t2 = datetime(2019, 6, 12, 15, 30)
     strain_times = times[np.where((times > t1) & (times < t2))]
     cross_strains = strains[np.where((times > t1) & (times < t2))]
     cross_press = df_hydro[t1:t2]['Pressure'].values
@@ -3105,18 +3110,21 @@ def plot_csd_press_strain(times, strains, df_hydro):
     f = interp1d(mdates.date2num(cross_times), cross_press,
                  bounds_error=False, fill_value=np.nan)
     cross_press = f(mdates.date2num(strain_times))
-    fit = np.polyfit(cross_press, cross_strains, deg=1)
-    print(fit)
+    # Fit only 'linear' portion
+    fit = np.polyfit(cross_press[:-2], cross_strains[:-2], deg=1)
     p = np.poly1d(fit)
     fig, axes = plt.subplots()
-    axes.scatter(cross_press, cross_strains, color='firebrick',
+    axes.scatter(cross_press, cross_strains, color='midnightblue',
                  marker='P')
+    axes.plot(cross_press, cross_strains, color='midnightblue')
     axes.annotate(xy=(0.1, 0.8),
                   s=r'{:.2f} $\mu\varepsilon$/MPa'.format(fit[0]),
                   xycoords='axes fraction', fontsize=14)
-    axes.plot(cross_press, p(cross_press), color='k', linestyle=':')
+    axes.plot(cross_press[:-2], p(cross_press[:-2]), color='k', linestyle=':')
     axes.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
     axes.set_xlabel('MPa', fontsize=16)
+    axes.set_xlim(right=4.7)
+    axes.set_ylim(top=310)
     axes.set_facecolor('whitesmoke')
     plt.show()
     return
@@ -3189,23 +3197,13 @@ def plot_csd_deep(well_data, date, wells, tv_picks,
                              sharey='row')
     frac_dicts = []
     for w in wells:
-        if w == 'D4':  # Placeholder for non-cored well
-            frac_dicts.append({})
-        else:
-            frac_dicts.append(read_frac_cores(tv_picks, w))
+        frac_dicts.append(read_frac_cores(tv_picks, w))
     dss_dict = extract_strains(well_data, date=date, wells=wells,
                                reference_time=ref_date, average=False)
     for i, f_d in enumerate(frac_dicts):
         ax_ind = i * 2
-        if wells[i] == 'D4':
-            axes[ax_ind].tick_params(axis='x', labelbottom=False)
-            axes[ax_ind].annotate(text='No core logs', xy=(0.5, 0.5),
-                                  ha='center', va='center', rotation=90,
-                                  fontsize=16, fontweight='bold',
-                                  color=csd_well_colors['D4'],
-                                  xycoords='axes fraction')
-            continue
         for frac_type, dens in f_d.items():
+            print(frac_type, dens)
             if not frac_type.startswith('sed'):
                 axes[ax_ind].barh(dens[:, 0], dens[:, 1], height=1.,
                                   color=csd_well_colors[wells[i]],
