@@ -227,6 +227,7 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
             fname = vb_f.split('/')[-1].replace(
                 '.dat', '.h5').replace('vbox', 'FSB')
             name = os.path.join(outdir, fname)
+            print('Writing {}'.format(name))
             with pyasdf.ASDFDataSet(name, compression='gzip-3') as asdf:
                 asdf.add_stationxml(inventory)
                 asdf.add_waveforms(st_all, tag='raw_recording')
