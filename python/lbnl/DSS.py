@@ -498,8 +498,8 @@ def write_wells(well_data):
 
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='madjdabadi', convert_freq=False,
-                  DTS=None, DTS_interp='linear', gain_thresh=0.015,
-                  correct_gain=False, debug=0):
+                  realign=True, DTS=None, DTS_interp='linear',
+                  gain_thresh=0.015, correct_gain=False, debug=0):
     """
     Helper to extract only the channels in specific wells
 
@@ -517,6 +517,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
         'majdabadi' returns scalar, 'by_channel' an array
     :param convert_freq: Convert Absolute Freq to Relative strain?
+    :param realign: Apply Madjdabadi realignment?
     :param DTS: Path to DTS data
     :param DTS_interp: Method of interpolation for DTS to DSS grid
     :param gain_thresh: Threshold for removal of changes from bulk gain shifts
@@ -588,11 +589,12 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
         return
     print('Realigning')
     # First realign
-    for fib, f_dict in fiber_data.items():
-        if not f_dict:
-            print('Fiber {} returned empty dictionary'.format(fib))
-            continue
-        f_dict['data'] = madjdabadi_realign(f_dict['data'])
+    if realign:
+        for fib, f_dict in fiber_data.items():
+            if not f_dict:
+                print('Fiber {} returned empty dictionary'.format(fib))
+                continue
+            f_dict['data'] = madjdabadi_realign(f_dict['data'])
     if convert_freq and type_m.endswith('Frequency'):
         print('Converting from freq to strain')
         if mode == 'Absolute':
@@ -2748,8 +2750,7 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
     return
 
 
-def plot_D5_with_time(well_data, pot_data, depth, simfip,
-                      dates=None):
+def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
     """
     Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)
 
@@ -2787,7 +2788,7 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip,
     print(normxcorr2(dss_strains, pot_strains * -0.5))
     # Now simfip plot
     # Integrate DSS and Pot
-    integrated_strain = integrate_depth_interval(well_data, depths=(20., 23.),
+    integrated_strain = integrate_depth_interval(well_data, depths=(19.5, 22.5),
                                                  well='D5', leg='up',
                                                  dates=dates)
     # Sum potentiometer
@@ -2846,7 +2847,6 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip,
         df_excavation.index.values, df_excavation['Distance to SIMFIP'],
         label='Excavation front', color='k', linestyle='dotted')
     leg_hand, leg_lab = axes[0].get_legend_handles_labels()
-    print(leg_hand, exc_hand)
     axes[0].legend()
     ax_ex.legend(loc='lower right')
     axes[1].legend()

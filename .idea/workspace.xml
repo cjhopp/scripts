@@ -3,6 +3,9 @@
   <component name="AnalysisUIOptions">
     <option name="SCOPE_TYPE" value="4" />
   </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="BranchesTreeState">
     <expand>
       <path>
@@ -23,12 +26,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/python/lbnl/config_files/FSB_seismic.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/python/lbnl/gmug.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/python/lbnl/stress.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DUG-seis-lbl/config/surf_seis_FSB.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../DUG-seis-lbl/config/surf_seis_FSB.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/DTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DTS.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/boreholes.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/boreholes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/gmug.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/gmug.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/simfip.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/simfip.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,6 +58,14 @@
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="SYNC" />
+  </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
   </component>
   <component name="ProjectId" id="1QmwAL74XOkR2k2ocOVK9lGb37B" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true">

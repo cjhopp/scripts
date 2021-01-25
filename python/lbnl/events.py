@@ -628,3 +628,25 @@ def parse_eq_Canada(file_path):
                       origins=[o], magnitudes=[m])
             cat.events.append(e)
     return cat
+
+
+def ncedc_dd_to_cat(path):
+    """
+    Read csv of ncedc dd locations to catalog
+
+    :param path:
+    :return:
+    """
+    cat = Catalog()
+    with open(path, 'r') as f:
+        next(f)
+        for ln in f:
+            ot, lat, lon, dp, mag, mt, _, _, _, _, _, eid = ln.split(',')
+            ot = UTCDateTime('T'.join(ot.split()))
+            o = Origin(latitude=lat, longitude=lon,
+                       depth=float(dp) * 1000, time=ot)
+            m = Magnitude(mag=mag, magnitude_type=mt)
+            ev = Event(origins=[o], magnitudes=[m],
+                       resource_id=ResourceIdentifier(id=eid))
+            cat.events.append(ev)
+    return cat

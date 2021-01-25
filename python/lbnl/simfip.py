@@ -217,9 +217,12 @@ def read_excavation(path):
     # Use Dask as its significantly faster for this many data points
     dask_df = dd.read_csv(path)
     df = dask_df.compute()
-    df['dt'] = pd.to_datetime(df['TIME (UTC+2)'], format='%d.%m.%y %H:%M:%S')
+    try:
+        df['dt'] = pd.to_datetime(df['TIME (UTC+2)'], format='%d.%m.%y %H:%M:%S')
+    except KeyError:
+        df['dt'] = pd.to_datetime(df['Time'], format='%d-%b-%Y %H:%M:%S')
     df = df.set_index('dt')
-    df = df.drop(['TIME (UTC+2)'], axis=1)
+    # df = df.drop(['TIME (UTC+2)'], axis=1)
     # Sort index as this isn't forced by pandas for DateTime indices
     df = df.sort_index()
     df.index.name = None

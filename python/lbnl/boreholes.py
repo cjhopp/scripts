@@ -33,6 +33,53 @@ def depth_to_xyz(well_dict, well, depth):
     return (x, y, z)
 
 
+def borehole_plane_intersect(well_dict, well, pt_on_plane, strike, dip,
+                             epsilon=1e-6):
+    """
+    Return the intersection point of a borehole with a plane
+
+    :param well_dict: Dict of well path from create_FSB_boreholes
+    :param well: Name of well in question
+    :param pt_on_plane: Point on the plane defined by strike-dip
+    :param strike: Strike of plane
+    :param dip: Dip of plane (RHR)
+    :param epsilon: Near-zero approximation for near-parallel line/plane
+
+    Return a Vector or None (when the intersection can't be found).
+
+    ..note Injection point FSB: (2579330.559, 1247576.248, 472.775)
+    """
+    s = np.deg2rad(strike)
+    d = np.deg2rad(dip)
+    # Define fault normal
+    p_no = np.array((np.sin(d) * np.cos(s),
+                     -np.sin(d) * np.sin(s),
+                     np.cos(d)))
+    p_no /= np.linalg.norm(p_no)
+    well_pts = well_dict[well]
+    p0 = well_pts[0][:3]
+    p1 = well_pts[-1][:3]
+    u = p1 - p0
+    dot = np.dot(p_no, u)
+    if abs(dot) > epsilon:
+        # The factor of the point between p0 -> p1 (0 - 1)
+        # if 'fac' is between (0 - 1) the point intersects with the segment.
+        # Otherwise:
+        #  < 0.0: behind p0.
+        #  > 1.0: infront of p1.
+        w = p0 - pt_on_plane
+        fac = -np.dot(p_no, w) / dot
+        u *= fac
+        pt = p0 + u
+        # Now calculate closest depth point
+        closest_pt = np.argmin(np.abs(np.sum(pt - well_pts[:, :3], axis=1)))
+        apx_depth = well_pts[closest_pt, -1]
+        return pt, fac, apx_depth
+    else:
+        # The segment is parallel to plane.
+        return None
+
+
 def distance_to_borehole(well_dict, well, depth, gallery_pts,
                          excavation_times):
     """
@@ -334,6 +381,57 @@ def wells_4850_to_gmt(outfile):
             f.write('>-W1.0,{} -L{}\n'.format(col_str, key))
             for pt in pts:
                 f.write('{} {}\n'.format(pt[0], pt[1]))
+    return
+
+
+def fsb_to_xyz(well_dict, strike, dip, outfile):
+    """
+    Write out the xyz points of various important FSB features
+
+    :param outfile: Path to output .csv
+    :return:
+    """
+    # Fault intersection pts
+    fault_int = {w: borehole_plane_intersect(
+        well_dict, w, (2579330.559, 1247576.248, 472.775), strike, dip)
+        for w in ['B1', 'B2', 'B10', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7']}
+    lines = ['Feature, Borehole, Depth [m], X, Y, Z']
+    # D7 SIMFIP
+    for feat, dep in zip(('Top SIMFIP', 'Bottom SIMFIP'), (21.55, 28.75)):
+        pt = depth_to_xyz(well_dict, 'D7', dep)
+        lines.append('{}, D7, {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(
+            feat, dep, pt[0], pt[1], pt[2]))
+    # B2 SIMFIP
+    for feat, dep in zip(('Top SIMFIP', 'Bottom SIMFIP'), (40.47, 41.47)):
+        pt = depth_to_xyz(well_dict, 'B2', dep)
+        lines.append('{}, B2, {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(
+            feat, dep, pt[0], pt[1], pt[2]))
+    # B2 Screens
+    for i, dep in enumerate([25.31, 335.4, 41.47, 45.76, 51.34]):
+        pt_top = depth_to_xyz(well_dict, 'B2', dep - 1)
+        lines.append('Screen {} top, B2, {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(
+            i + 1, dep - 1, pt_top[0], pt_top[1], pt_top[2]))
+        pt_bot = depth_to_xyz(well_dict, 'B2', dep)
+        lines.append(
+            'Screen {} bottom, B2, {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(
+                i + 1, dep, pt_bot[0], pt_bot[1], pt_bot[2]))
+    # B1 pressure transducers
+    for i, dep in enumerate([29., 31., 34.9, 42.2]):
+        pt = depth_to_xyz(well_dict, 'B1', dep)
+        lines.append('Pressure {}, B1, {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(
+            i + 1, dep, pt[0], pt[1], pt[2]))
+    # B1 Displacement sensors
+    for i, dep in enumerate([31., 34.9, 38.55, 42.2]):
+        pt = depth_to_xyz(well_dict, 'B1', dep)
+        lines.append('Displacement {}, B1, {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(
+            i + 1, dep, pt[0], pt[1], pt[2]))
+    # All Fault intervals
+    for well, fault_pt in fault_int.items():
+        lines.append('Fault top, {}, {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(
+            well, fault_pt[-1], fault_pt[0][0],
+            fault_pt[0][1], fault_pt[0][2]))
+    with open(outfile, 'w') as f:
+        f.write('\n'.join(lines))
     return
 
 # Plotting
