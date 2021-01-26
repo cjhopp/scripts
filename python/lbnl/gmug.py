@@ -133,7 +133,7 @@ def which_vbox_files(gmug_st, vbox_files):
 
 
 def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
-                      dug_params, debug=0):
+                      dug_params, overwrite=True, debug=0):
     """
     Turn two directories, one with vbox waveforms, the other with gmug waves,
     into a single directory of 32 sec-long, combined asdf files
@@ -144,6 +144,9 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
     :param outdir: Root output directory
     :param inventory: obspy Inventory
     :param dug_param: Path to DUG-seis parameter file with metadata
+    :param overwrite: Overwrite files or no?
+    :param debug: Debug flag for plotting
+
     :return:
     """
     # Read in dugseis parameters
@@ -162,6 +165,12 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
         for tr in st_gmug:
             tr.stats.delta *= 1.00002808
         for i, vb_f in enumerate(which_vbox_files(st_gmug, vbox_files)):
+            fname = vb_f.split('/')[-1].replace(
+                '.dat', '.h5').replace('vbox', 'FSB')
+            name = os.path.join(outdir, fname)
+            if os.path.exists(name) and not overwrite:
+                print('{} already exists'.format(name))
+                continue
             print('Vibbox file: {}'.format(vb_f))
             st_vbox = vibbox_read(vb_f, dug_params)
             if debug > 1:  # Don't plot these large wavs unless necessary
@@ -224,9 +233,6 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
             slice_vbox = slice_vbox.select(station='[BCP][34567TEPM]*')
             st_all = slice_gmug + slice_vbox
             # Write it out
-            fname = vb_f.split('/')[-1].replace(
-                '.dat', '.h5').replace('vbox', 'FSB')
-            name = os.path.join(outdir, fname)
             print('Writing {}'.format(name))
             with pyasdf.ASDFDataSet(name, compression='gzip-3') as asdf:
                 asdf.add_stationxml(inventory)
