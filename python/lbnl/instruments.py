@@ -23,7 +23,7 @@ from obspy.core.inventory import Inventory, Network, Station, Channel, Response
 fsb_accelerometers = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647',
                       'B659', 'B748', 'B75']
 
-def read_fsb_asbuilt(path):
+def read_fsb_asbuilt(excel_path, gocad_dir, asbuilt_dir):
     """
     Read the as-built excel spreadsheet for FSB and return a dictionary of all
     the stations and sources containing locations
@@ -33,9 +33,10 @@ def read_fsb_asbuilt(path):
     """
     sens_dict = {}
     # Read excel spreadsheet of sensor wells and depths
-    sensors = pd.read_excel(path, sheet_name=None, skiprows=np.arange(5),
+    sensors = pd.read_excel(excel_path, sheet_name=None, skiprows=np.arange(5),
                             usecols=np.arange(1, 10), header=None)
-    well_dict = create_FSB_boreholes()
+    well_dict = create_FSB_boreholes(gocad_dir=gocad_dir,
+                                     asbuilt_dir=asbuilt_dir)
     # Hydrophones first
     for i, sens in sensors['Hydrophones'].iterrows():
         if sens[3] != ' -- ': # B3
@@ -106,7 +107,7 @@ def read_fsb_asbuilt(path):
     return sens_dict
 
 
-def fsb_to_inv(path, orientations=False, debug=0):
+def fsb_to_inv(path, gocad_dir, asbuilt_dir, orientations=False, debug=0):
     """
     Take excel file of sensor locations and build an Inventory
 
@@ -116,7 +117,7 @@ def fsb_to_inv(path, orientations=False, debug=0):
     :return:
     """
     converter = FSB_converter()
-    sens_dict = read_fsb_asbuilt(path)
+    sens_dict = read_fsb_asbuilt(path, gocad_dir, asbuilt_dir)
     # Assemble dictionary of {station: {channel: infoz}}
     # Create dict before, then build inventory from channel level upwards
     sta_dict = {}

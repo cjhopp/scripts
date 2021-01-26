@@ -27,7 +27,8 @@
   <component name="ChangeListManager">
     <list default="true" id="394aa078-c77c-46cf-83a4-5a40f687d743" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/../DUG-seis-lbl/config/surf_seis_FSB.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../DUG-seis-lbl/config/surf_seis_FSB.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/gmug.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/gmug.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/lbnl/instruments.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/instruments.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -233,12 +234,12 @@
     </todo-panel>
   </component>
   <component name="Vcs.Log.History.Properties">
-    <option name="COLUMN_ORDER">
+    <option name="COLUMN_ID_ORDER">
       <list>
-        <option value="0" />
-        <option value="2" />
-        <option value="3" />
-        <option value="1" />
+        <option value="Default.Root" />
+        <option value="Default.Author" />
+        <option value="Default.Date" />
+        <option value="Default.Subject" />
       </list>
     </option>
   </component>
