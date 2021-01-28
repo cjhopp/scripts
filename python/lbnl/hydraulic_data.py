@@ -318,3 +318,52 @@ def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None):
         ax.set_yticks(np.arange(25, 225, 25))
         ax.set_yticklabels([str(n) for n in np.arange(25, 225, 25)])
     return
+
+
+def plot_fsb_hydro(df_hydro, title='Flow and Pressure', axes=None):
+    """Simple Flow and Press plot"""
+    if not axes:
+        fig, ax = plt.subplots()
+    else:
+        ax = axes
+    ax2 = ax.twinx()
+    if axes:
+        lab = ''
+    else:
+        lab = 'Flow'
+    # Mask funky signal between tests
+    df_hydro_mask = df_hydro[((df_hydro.index > '2020-11-21 10:07') &
+                               (df_hydro.index < '2020-11-21 10:58'))]
+    df_hydro = df_hydro[~((df_hydro.index > '2020-11-21 10:07') &
+                          (df_hydro.index < '2020-11-21 10:58'))]
+    df_hydro_mask['Flow'].plot(ax=ax, color='steelblue', alpha=0.15,
+                               legend=False, label='')
+    df_hydro['Flow'].plot(ax=ax, color='steelblue', label=lab)
+    ax.set_ylim(bottom=0)
+    df_hydro_mask['Pressure'].plot(ax=ax2, color='firebrick', alpha=0.15,
+                                   legend=False, label='')
+    df_hydro['Pressure'].plot(ax=ax2, color='firebrick', label='Pressure')
+    ax2.set_ylim(bottom=0)
+    ax2.set_ylabel('MPa', fontsize=14, color='firebrick')
+    ax.set_ylabel('L/min', fontsize=14, color='steelblue')
+    if not axes:
+        if (df_hydro.index[-1] - df_hydro.index[0]).days == 0:
+            ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+            ax.set_xlabel('Time on {}'.format(df_hydro.index.date[0]),
+                          fontsize=16, labelpad=5)
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=-30,
+                     horizontalalignment='left')
+            ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                           color='steelblue')
+            ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                            color='firebrick')
+        fig.legend()
+        fig.suptitle(title, fontsize=16)
+        plt.show()
+    else:
+        ax.set_ylabel('L/min', fontsize=14, color='steelblue')
+        ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                       color='steelblue', length=6, width=1)
+        ax2.tick_params(axis='y', which='major', direction='out',
+                        labelcolor='firebrick', color='firebrick', width=1)
+    return

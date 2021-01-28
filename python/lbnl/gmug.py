@@ -157,8 +157,8 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
     vbox_files.sort()
     gmug_files.sort()
     # Big loop over gmug files (10-min length)
+    clock_correct = []  # Save previous clock corrections if ccc too low
     for gmu_f in gmug_files:
-        clock_correct = []  # Save previous clock corrections if ccc too low
         print('GMuG file: {}'.format(gmu_f))
         st_gmug = gmug_to_stream(gmu_f.rstrip('.dat'), gmug_param)
         # Change delta to account for slightly shorter samp relative to vbox

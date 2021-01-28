@@ -45,7 +45,8 @@ from lbnl.simfip import (read_excavation, plot_displacement_components,
                          read_collab, rotate_fsb_to_fault,
                          rotate_fsb_to_borehole)
 from lbnl.hydraulic_data import (read_collab_hydro, read_csd_hydro,
-                                 plot_csd_hydro, plot_collab_ALL)
+                                 plot_csd_hydro, plot_collab_ALL,
+                                 plot_fsb_hydro)
 
 
 ######### SURF CHANNEL MAPPING ############
@@ -227,6 +228,15 @@ csd_well_colors = {'D1': 'dodgerblue', 'D2': 'lightseagreen',
                    'D3': 'firebrick', 'D4': 'darkorange',
                    'D5': 'blueviolet', 'D6': 'darkblue',
                    'D7': 'k'}
+
+fsb_injection_times = [
+    (datetime(2020, 11, 21, 8, 21), datetime(2020, 11, 21, 8, 31)),
+    (datetime(2020, 11, 21, 9, 21), datetime(2020, 11, 21, 9, 31)),
+    (datetime(2020, 11, 21, 11, 3), datetime(2020, 11, 21, 11, 13)),
+    (datetime(2020, 11, 21, 12, 43), datetime(2020, 11, 21, 12, 53)),
+    (datetime(2020, 11, 21, 14, 25), datetime(2020, 11, 21, 14, 34)),
+    (datetime(2020, 11, 21, 16, 11), datetime(2020, 11, 21, 16, 32))]
+
 
 def date_generator(start_date, end_date, frequency='day'):
     # Generator for date looping
@@ -759,7 +769,10 @@ def madjdabadi_realign(data):
     # 'Down' shifted
     prev_j = np.insert(data[:-1, :], 0, data[0, :]).reshape(data.shape)
     compare = np.stack([prev_j, data, next_j], axis=2)
-    return np.min(compare, axis=2)
+    # return np.min(compare, axis=2)
+    print('foo')
+    return np.max(compare, axis=2)
+
 
 
 def estimate_noise(data, method='madjdabadi'):
@@ -3256,10 +3269,6 @@ def plot_csd_deep(well_data, date, wells, tv_picks,
     return
 
 
-def plot_csd_fault():
-    return
-
-
 def plot_strain_gain(well_data, well, depth, direction, title=''):
     """Compare strain and gain timeseries"""
     dss_times, dss_strains, _, _, _, dss_gain = extract_channel_timeseries(
@@ -3279,5 +3288,31 @@ def plot_strain_gain(well_data, well, depth, direction, title=''):
     ax.set_ylabel(r'$\mu\epsilon$')
     ax2.set_ylabel('Gain [%]')
     fig.suptitle(title)
+    plt.show()
+    return
+
+
+def plot_fsb_timeseries(well_data, df_hydro, depths):
+    """
+    Plot channel timeseries for FSB injection versus hydraulic data
+
+    :param well_data:
+    :param df_hydro:
+    :param depths:
+    :return:
+    """
+    fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(10, 7))
+    for w, d in depths.items():
+        times, strains, _, _, _, _ = extract_channel_timeseries(
+            well_data, well=w, depth=d, direction='down')
+        axes[0].plot(times, strains, label='{}: {} m'.format(w, d))
+    plot_fsb_hydro(df_hydro, axes=axes[1])
+    # Plot injection times
+    for span in fsb_injection_times:
+        axes[0].axvspan(span[0], span[1], color='lightgray', alpha=0.5)
+    axes[0].set_ylabel(r'$\mu\epsilon$', fontsize=14)
+    axes[0].legend()
+    axes[1].set_xlabel('Time', fontsize=14)
+    plt.tight_layout()
     plt.show()
     return
