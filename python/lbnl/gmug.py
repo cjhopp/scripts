@@ -228,7 +228,8 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
             slice_vbox = st_vbox.trim(starttime=all_strt, endtime=all_end)
             if debug > 0:
                 vbox_B81 = slice_vbox.copy().select(station='B81').slice(
-                    starttime=correct[-1], endtime=correct[-1] + 0.01)
+                    starttime=clock_correct[-1][-1],
+                    endtime=clock_correct[-1][-1] + 0.01)
                 vbox_B81[0].stats.network = 'MT'
                 st_B81 = slice_gmug.copy().select(station='B81').slice(
                     starttime=correct[-1], endtime=correct[-1] + 0.01) + vbox_B81
