@@ -202,7 +202,6 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                         which=which, debug=debug, name=name)
                 except Exception as e: # For vbox at end or beginning of gmug wav
                     print(e)
-                    continue
             clock_correct.append(cc)
             # Correct the starttime
             # Find most recent high ccc value
