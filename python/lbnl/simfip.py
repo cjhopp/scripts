@@ -15,6 +15,7 @@ import seaborn as sns
 import matplotlib.gridspec as gridspec
 
 from obspy import UTCDateTime
+from glob import glob
 from datetime import datetime
 from itertools import cycle
 from matplotlib.collections import LineCollection
@@ -263,6 +264,26 @@ def read_collab(path):
         'S1TopIE': 'I Top', 'S1YatesIE': 'I Yates', 'S1WellAxialIE': 'I Axial'},
         inplace=True)
     return df
+
+
+def read_3D(data_dir):
+    """
+    Read the data from the FSB 3D string
+
+    :param data_dir: 3D string data directory
+    :return:
+    """
+    flz = glob('{}/*.csv'.format(data_dir))
+    df = pd.DataFrame()
+    for fl in flz:
+        nm = 'T{}Z{}'.format(fl[-7], fl[-5])
+        tdf = pd.read_csv(fl, header=0, names=['time', '{}E'.format(nm),
+                                     '{}N'.format(nm), '{}U'.format(nm)])
+        tdf['dt'] = pd.to_datetime(tdf['time'], format='%d-%b-%Y %H:%M:%S')
+        tdf = tdf.set_index('dt')
+        tdf = tdf.drop(['time'], axis=1)
+        df = pd.concat([df, tdf])
+    return df.sort_index()
 
 ################### Plotting functions below here #######################
 

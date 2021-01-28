@@ -98,11 +98,19 @@ def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0, name=None):
         dt > np.mean(dt) + 70 * median_absolute_deviation(dt))[0][which]
     trig1_time = vbox_tr.stats.starttime + (float(samp_to_trig) /
                                             vbox_tr.stats.sampling_rate)
+    print('Trigger: {}'.format(trig1_time))
     cc_vbox = vbox_tr.copy().trim(trig1_time,
                                   endtime=trig1_time + 0.01).detrend('demean')
     cc_gmug = gmug_tr.copy().trim(trig1_time,
                                   endtime=trig1_time + 0.2).detrend('demean')
-    cc_gmug.resample(cc_vbox.stats.sampling_rate)
+    print('Vbox {}--{}'.format(vbox_tr.stats.starttime,
+                               vbox_tr.stats.endtime))
+    print('GMuG {}--{}'.format(gmug_tr.stats.starttime,
+                               gmug_tr.stats.endtime))
+    try:
+        cc_gmug.resample(cc_vbox.stats.sampling_rate)
+    except AttributeError as e:  # Outside range of gmug waveform
+        return 0., np.array([0.0]), UTCDateTime()
     ccc = normxcorr2(cc_vbox.data, cc_gmug.data)
     max_cc = np.argmax(ccc[0])
     max_cc_sec = float(max_cc) / cc_vbox.stats.sampling_rate
@@ -194,7 +202,7 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                     which = -1
                 else:
                     which = 0
-                try:  # Try the oppostie cassm shot in case its higher amp
+                try:  # Try the opposite cassm shot in case its higher amp
                     cc = cassm_clock_correct(
                         gmug_tr=st_gmug.select(station='B81')[0],
                         vbox_tr=st_vbox.select(station='B81')[0],
@@ -207,7 +215,10 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
             # Find most recent high ccc value
             inds = [j for j, c in enumerate(clock_correct)
                     if np.max(c[1]) > 0.75]
-            correct = clock_correct[np.max(inds)]
+            try:
+                correct = clock_correct[np.max(inds)]
+            except ValueError as e:  # No suitable correction in array
+                correct = [0., np.array([0.0]), UTCDateTime()]
             print('Clock correction: {}'.format(correct))
             for tr in st_gmug:
                 tr.stats.starttime -= correct[0]
@@ -230,12 +241,17 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                 vbox_B81 = slice_vbox.copy().select(station='B81').slice(
                     starttime=clock_correct[-1][-1],
                     endtime=clock_correct[-1][-1] + 0.01)
-                vbox_B81[0].stats.network = 'MT'
-                st_B81 = slice_gmug.copy().select(station='B81').slice(
-                    starttime=correct[-1], endtime=correct[-1] + 0.01) + vbox_B81
-                st_B81.plot(method='full', equal_scale=False,
-                            outfile=name.replace('.h5', 'corrected.png'))
-                plt.close('all')
+                try:
+                    vbox_B81[0].stats.network = 'MT'
+                    st_B81 = slice_gmug.copy().select(station='B81').slice(
+                        starttime=clock_correct[-1][-1],
+                        endtime=clock_correct[-1][-1] + 0.01) + vbox_B81
+                    st_B81.plot(method='full', equal_scale=False,
+                                outfile=name.replace('.h5', 'corrected.png'))
+                    plt.close('all')
+                except IndexError as e:
+                    # Final try at clock correction is outside vbox stream
+                    print('No corrected plot for {}'.format(name))
             # Deselect AE sensors on vibbox
             slice_vbox = slice_vbox.select(station='[BCP][34567TEPM]*')
             st_all = slice_gmug + slice_vbox
