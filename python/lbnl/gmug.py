@@ -75,7 +75,7 @@ def gmug_to_stream(pattern, config):
     return st
 
 
-def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0):
+def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0, name=None):
     """
     Find first CASSM shot in common and use cross correlation to estimate
     the clock offset between the two systems.
@@ -87,6 +87,7 @@ def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0):
     :param trig_tr: Trace of the CASSM trigger
     :param which: 0 for first or -1 for last trigger
     :param debug: Debug flag for correlation plot
+    :param name: Name of output h5 file for plot nameing if debug > 0
 
     :return:
     """
@@ -115,8 +116,9 @@ def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0):
         axes[0].plot(vbox_x, cc_vbox.data / np.max(cc_vbox.data), color='r',
                      linewidth=0.7)
         axes[1].plot(ccc[0], color='b', linewidth=0.7)
-        plt.show()
-    return max_cc_sec, ccc
+        plt.savefig(name.replace('.h5', 'time_cc.png'))
+        plt.close('all')
+    return max_cc_sec, ccc, trig1_time
 
 
 def which_vbox_files(gmug_st, vbox_files):
@@ -186,7 +188,7 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                     gmug_tr=st_gmug.select(station='B81')[0],
                     vbox_tr=st_vbox.select(station='B81')[0],
                     trig_tr=st_vbox.select(station='CTrg')[0],
-                    which=which, debug=debug)
+                    which=which, debug=debug, name=name)
             if np.max(cc[1]) < 0.75:
                 if which == 0:
                     which = -1
@@ -197,18 +199,19 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                         gmug_tr=st_gmug.select(station='B81')[0],
                         vbox_tr=st_vbox.select(station='B81')[0],
                         trig_tr=st_vbox.select(station='CTrg')[0],
-                        which=which, debug=debug)
-                except Exception: # For vbox at end or beginning of gmug wav
+                        which=which, debug=debug, name=name)
+                except Exception as e: # For vbox at end or beginning of gmug wav
+                    print(e)
                     continue
             clock_correct.append(cc)
             # Correct the starttime
             # Find most recent high ccc value
             inds = [j for j, c in enumerate(clock_correct)
                     if np.max(c[1]) > 0.75]
-            correct = clock_correct[np.max(inds)][0]
+            correct = clock_correct[np.max(inds)]
             print('Clock correction: {}'.format(correct))
             for tr in st_gmug:
-                tr.stats.starttime -= correct
+                tr.stats.starttime -= correct[0]
             # Shitty checks on the start and end times
             if st_vbox[0].stats.starttime < st_gmug[0].stats.starttime:
                 all_strt = st_gmug[0].stats.starttime
@@ -225,10 +228,14 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                                        endtime=all_end).copy()
             slice_vbox = st_vbox.trim(starttime=all_strt, endtime=all_end)
             if debug > 0:
-                vbox_B81 = slice_vbox.select(station='B81')
+                vbox_B81 = slice_vbox.copy().select(station='B81').slice(
+                    starttime=correct[-1], endtime=correct[-1] + 0.01)
                 vbox_B81[0].stats.network = 'MT'
-                st_B81 = slice_gmug.select(station='B81') + vbox_B81
-                st_B81.plot(method='full', equal_scale=False)
+                st_B81 = slice_gmug.copy().select(station='B81').slice(
+                    starttime=correct[-1], endtime=correct[-1] + 0.01) + vbox_B81
+                st_B81.plot(method='full', equal_scale=False,
+                            outfile=name.replace('.h5', 'corrected.png'))
+                plt.close('all')
             # Deselect AE sensors on vibbox
             slice_vbox = slice_vbox.select(station='[BCP][34567TEPM]*')
             st_all = slice_gmug + slice_vbox
