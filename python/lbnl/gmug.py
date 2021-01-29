@@ -87,7 +87,7 @@ def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0, name=None):
     :param trig_tr: Trace of the CASSM trigger
     :param which: 0 for first or -1 for last trigger
     :param debug: Debug flag for correlation plot
-    :param name: Name of output h5 file for plot nameing if debug > 0
+    :param name: Name of output h5 file for plot naming if debug > 0
 
     :return:
     """
@@ -103,10 +103,10 @@ def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0, name=None):
                                   endtime=trig1_time + 0.01).detrend('demean')
     cc_gmug = gmug_tr.copy().trim(trig1_time,
                                   endtime=trig1_time + 0.2).detrend('demean')
-    print('    Vbox {}--{}'.format(vbox_tr.stats.starttime,
-                               vbox_tr.stats.endtime))
-    print('    GMuG {}--{}'.format(gmug_tr.stats.starttime,
-                               gmug_tr.stats.endtime))
+    print('        Vbox {}--{}'.format(vbox_tr.stats.starttime,
+                                       vbox_tr.stats.endtime))
+    print('        GMuG {}--{}'.format(gmug_tr.stats.starttime,
+                                       gmug_tr.stats.endtime))
     try:
         cc_gmug.resample(cc_vbox.stats.sampling_rate)
     except AttributeError as e:  # Outside range of gmug waveform
@@ -129,10 +129,12 @@ def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0, name=None):
     return max_cc_sec, ccc, trig1_time
 
 
-def which_vbox_files(gmug_st, vbox_files):
+def which_vbox_files(gmug_f, vbox_files):
     """Select only those vbox files in the time range of gmug stream"""
-    gmug_start = gmug_st[0].stats.starttime
-    gmug_end = gmug_st[0].stats.endtime
+    starttime, no_chans, delta = parse_continuous_metadata(
+        gmug_f.replace('.dat', '.txt'))
+    gmug_start = starttime
+    gmug_end = gmug_start + (delta * 1.00002808 * 134217728)
     vbox_starts = [datetime.strptime(s.split('_')[-1][:14], '%Y%m%d%H%M%S')
                    for s in vbox_files]
     vbox_ends = [v + timedelta(seconds=32) for v in vbox_starts]
@@ -170,14 +172,20 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
     clock_correct = []  # Save previous clock corrections if ccc too low
     for gmu_f in gmug_files:
         print('GMuG file: {}'.format(gmu_f))
+        # Find corresponding vbox files
+        vboxes = which_vbox_files(gmu_f, vbox_files)
+        vb_out = [v.split('/')[-1].replace('.dat', '.h5').replace('vbox', 'FSB')
+                  for v in vboxes]
+        vb_out = [os.path.join(outdir, vbo) for vbo in vb_out]
+        if all(list(map(os.path.isfile, vb_out))):
+            print('All output files already exist')
+            continue
+        # Read in gmug wavs
         st_gmug = gmug_to_stream(gmu_f.rstrip('.dat'), gmug_param)
         # Change delta to account for slightly shorter samp relative to vbox
         for tr in st_gmug:
             tr.stats.delta *= 1.00002808
-        for i, vb_f in enumerate(which_vbox_files(st_gmug, vbox_files)):
-            fname = vb_f.split('/')[-1].replace(
-                '.dat', '.h5').replace('vbox', 'FSB')
-            name = os.path.join(outdir, fname)
+        for i, (vb_f, name) in enumerate(zip(vboxes, vb_out)):
             if os.path.exists(name) and not overwrite:
                 print('{} already exists'.format(name))
                 continue
