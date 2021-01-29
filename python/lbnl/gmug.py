@@ -98,14 +98,14 @@ def cassm_clock_correct(gmug_tr, vbox_tr, trig_tr, which=0, debug=0, name=None):
         dt > np.mean(dt) + 70 * median_absolute_deviation(dt))[0][which]
     trig1_time = vbox_tr.stats.starttime + (float(samp_to_trig) /
                                             vbox_tr.stats.sampling_rate)
-    print('Trigger: {}'.format(trig1_time))
+    print('    Trigger: {}'.format(trig1_time))
     cc_vbox = vbox_tr.copy().trim(trig1_time,
                                   endtime=trig1_time + 0.01).detrend('demean')
     cc_gmug = gmug_tr.copy().trim(trig1_time,
                                   endtime=trig1_time + 0.2).detrend('demean')
-    print('Vbox {}--{}'.format(vbox_tr.stats.starttime,
+    print('    Vbox {}--{}'.format(vbox_tr.stats.starttime,
                                vbox_tr.stats.endtime))
-    print('GMuG {}--{}'.format(gmug_tr.stats.starttime,
+    print('    GMuG {}--{}'.format(gmug_tr.stats.starttime,
                                gmug_tr.stats.endtime))
     try:
         cc_gmug.resample(cc_vbox.stats.sampling_rate)
@@ -219,9 +219,6 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                 correct = clock_correct[np.max(inds)]
             except ValueError as e:  # No suitable correction in array
                 correct = [0., np.array([0.0]), UTCDateTime()]
-            print('Clock correction: {}'.format(correct))
-            for tr in st_gmug:
-                tr.stats.starttime -= correct[0]
             # Shitty checks on the start and end times
             if st_vbox[0].stats.starttime < st_gmug[0].stats.starttime:
                 all_strt = st_gmug[0].stats.starttime
@@ -236,6 +233,9 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
             # Slice both to appropriate time range
             slice_gmug = st_gmug.slice(starttime=all_strt,
                                        endtime=all_end).copy()
+            print('    Clock correction: {}'.format(correct))
+            for tr in slice_gmug:
+                tr.stats.starttime -= correct[0]
             slice_vbox = st_vbox.trim(starttime=all_strt, endtime=all_end)
             if debug > 0:
                 vbox_B81 = slice_vbox.copy().select(station='B81').slice(
@@ -256,7 +256,7 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
             slice_vbox = slice_vbox.select(station='[BCP][34567TEPM]*')
             st_all = slice_gmug + slice_vbox
             # Write it out
-            print('Writing {}'.format(name))
+            print('    Writing {}'.format(name))
             with pyasdf.ASDFDataSet(name, compression='gzip-3') as asdf:
                 asdf.add_stationxml(inventory)
                 asdf.add_waveforms(st_all, tag='raw_recording')
