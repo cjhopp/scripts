@@ -21,6 +21,7 @@ from copy import deepcopy
 from pytz import timezone
 from eqcorrscan.core.match_filter import normxcorr2
 from pandas.errors import ParserError
+from scipy.io.matlab import savemat
 from scipy.integrate import trapz
 from scipy.interpolate import griddata, interp1d
 from scipy.ndimage import gaussian_filter, median_filter
@@ -476,6 +477,17 @@ def scale_to_gain(data, gain, offset_samps):
     """Scale measure relative to starting gain"""
     gain /= gain[:, 0:offset_samps, np.newaxis].mean(axis=1)
     return data / gain
+
+
+def write_mat(outdir, well_data):
+    """Write matlab file from well data for Vero"""
+    # Basically just strptime the datetimes
+    for w, wd in well_data.items():
+        wd['noise'] = 0.
+        # wd['times'] = [t.strftime('%d-%b-%Y %H:%M:%S') for t in wd['times']]
+        name = '{}/{}_DSS.mat'.format(outdir, w)
+        savemat(name, wd)
+    return
 
 
 def write_wells(well_data):

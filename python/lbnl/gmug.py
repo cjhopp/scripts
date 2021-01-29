@@ -230,6 +230,10 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
             else:
                 all_strt = st_vbox[0].stats.starttime
                 all_end = st_vbox[0].stats.endtime
+            # Sanity check
+            if all_strt > all_end:
+                # Can happen when gmug file ends in the gap between vibbox files
+                continue
             # Slice both to appropriate time range
             slice_gmug = st_gmug.slice(starttime=all_strt,
                                        endtime=all_end).copy()
