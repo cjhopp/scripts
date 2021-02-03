@@ -276,10 +276,10 @@ def read_3D(data_dir):
     flz = glob('{}/*.csv'.format(data_dir))
     df = pd.DataFrame()
     for fl in flz:
-        nm = 'T{}Z{}'.format(fl[-7], fl[-5])
+        nm = 'Z{}'.format(fl[-5])
         tdf = pd.read_csv(fl, header=0, names=['time', '{}E'.format(nm),
                                      '{}N'.format(nm), '{}U'.format(nm)])
-        tdf['dt'] = pd.to_datetime(tdf['time'], format='%d-%b-%Y %H:%M:%S')
+        tdf['dt'] = pd.to_datetime(tdf['time'], format='%d-%b-%Y %I:%M:%S.%f')
         tdf = tdf.set_index('dt')
         tdf = tdf.drop(['time'], axis=1)
         df = pd.concat([df, tdf])

@@ -430,9 +430,11 @@ def integrate_anchors(data, depth, well):
         intg_up = trapz(data[up_chans[0]:up_chans[1] + 1, :], axis=0)
         intg_down = trapz(data[down_chans[0]:down_chans[1] + 1, :], axis=0)
         # Scale to channel spacing
-        data[up_chans[0]:up_chans[1] + 1, :] = intg_up * np.abs(depth[1] - depth[0])
-        data[down_chans[0]:down_chans[1] + 1, :] = intg_down * np.abs(depth[1] - depth[0])
-    return data
+        data[up_chans[0]:up_chans[1] + 1, :] = intg_up * np.abs(depth[1] -
+                                                                depth[0])
+        data[down_chans[0]:down_chans[1] + 1, :] = intg_down * np.abs(depth[1] -
+                                                                      depth[0])
+    return data  # This is displacement!
 
 
 def integrate_depth_interval(well_data, depths, well, leg, dates=None):
@@ -445,9 +447,9 @@ def integrate_depth_interval(well_data, depths, well, leg, dates=None):
     :param leg: Down or up
     :return:
     """
-    data = well_data[well]['data']
-    depth = well_data[well]['depth']
-    depth -= depth[0]
+    data = well_data[well]['data'].copy()
+    depth = well_data[well]['depth'].copy()
+    depth -= depth[0].copy()
     if leg == 'down':
         chans = (np.argmin(np.abs(depth - depths[0])),
                  np.argmin(np.abs(depth - depths[1])))
@@ -462,6 +464,7 @@ def integrate_depth_interval(well_data, depths, well, leg, dates=None):
         # Relative to first sample
         int_data = int_data - int_data[:, 0]
         integral = trapz(int_data, axis=0)
+        integral = np.squeeze(integral) * (depth[1] - depth[0])
     else:
         d_inds = np.where((dates[0] <= well_data[well]['times']) &
                            (dates[1] > well_data[well]['times']))
@@ -469,8 +472,9 @@ def integrate_depth_interval(well_data, depths, well, leg, dates=None):
         # Relative to first sample
         int_data = int_data - int_data[:, 0, np.newaxis]
         integral = trapz(int_data, axis=0)
-        integral = np.squeeze(integral)
-    return integral
+        # Squeeze and scale to channel spacing
+        integral = np.squeeze(integral) * (depth[1] - depth[0])
+    return integral  # units are displacement
 
 
 def scale_to_gain(data, gain, offset_samps):
@@ -617,6 +621,8 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 print('Fiber {} returned empty dictionary'.format(fib))
                 continue
             f_dict['data'] = madjdabadi_realign(f_dict['data'])
+            # Now re-reference everything to first sample?
+            f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
     if convert_freq and type_m.endswith('Frequency'):
         print('Converting from freq to strain')
         if mode == 'Absolute':
@@ -625,6 +631,11 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
             mode = 'Relative'  # overwrite mode
             type_m = 'Strain'
+    if mode == 'Absolute' and type_m.endswith('Strain'):
+        for fib, f_dict in fiber_data.items():
+            f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
+            mode = 'Relative'
+    print(fiber_data)
     print('Calculating channel mapping')
     if wells:
         for well in wells:
@@ -723,7 +734,9 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             if convert_freq:
                 # Use conversion factor 0.579 GHz shift per 1% strain
                 # For microstrain, factor is 5790
-                data_tmp *= 5790.
+                # 0.05055 MHz/me??
+                # data_tmp *= 5790.
+                data_tmp /= 0.00005055
             if correct_gain:
                 well_data[well].update({'data': data_tmp, 'depth': depth_tmp,
                                         'noise': noise, 'gain': gain_tmp})
@@ -775,16 +788,26 @@ def madjdabadi_realign(data):
     """
     Spatial realignment based on Modjdabadi et al. 2016
     https://doi.org/10.1016/j.measurement.2015.08.040
+
+    ..note MUST ONLY BE APPLIED TO ABSOLUTE MEASURES
     """
     # 'Up' shifted
     next_j = np.append(data[1:, :], data[-1, :]).reshape(data.shape)
     # 'Down' shifted
     prev_j = np.insert(data[:-1, :], 0, data[0, :]).reshape(data.shape)
-    compare = np.stack([prev_j, data, next_j], axis=2)
-    # return np.min(compare, axis=2)
-    print('foo')
-    return np.max(compare, axis=2)
-
+    # Relative to prev channel
+    init_minus = np.insert(data[:-1, 0], 0, data[0, 0])
+    vi_minus = data - init_minus[:, np.newaxis]
+    init_plus = np.append(data[1:, 0], data[-1, 0])
+    vi_plus = data - init_plus[:, np.newaxis]
+    # Relative data
+    vi = data - data[:, 0, np.newaxis]
+    # Relative to next channel
+    rel_compare = np.stack([prev_j, data, next_j], axis=2)
+    abs_compare = np.stack([vi_minus, vi, vi_plus], axis=2)
+    inds = np.argmin(rel_compare, axis=2)
+    corrected = np.take_along_axis(abs_compare, inds[:, :, np.newaxis], axis=2)
+    return corrected.squeeze()
 
 
 def estimate_noise(data, method='madjdabadi'):
@@ -1269,6 +1292,7 @@ def plot_fiber_mapping(well_data, fiber, mapping, title='Fiber mapping',
     axes.set_xlabel('Meters along fiber')
     axes.set_ylabel('Absolute Freq [GHz]')
     axes.xaxis.set_minor_locator(MultipleLocator(10))
+    axes.set_ylim([10.6, 10.9])
     plt.grid(True, which='both', axis='x')
     if xlims:
         axes.set_xlim(xlims)
@@ -1569,16 +1593,19 @@ def plot_fiber_correlation(template, template_lengths, image, image_lengths,
     return
 
 
-def plot_strains_w_dist(location, DSS_picks, point):
+def plot_strains_w_dist(well_data, location, otv_picks, point,
+                        date=datetime(2019, 6, 3)):
     """
     Plot DSS strain values with distance from a point (e.g. excavation front)
 
     :param location: 'fsb' or 'surf'
-    :param DSS_picks: Dictionary {well name: [pick depths, ...]}
+    :param otv_picks: Path to OTV excel file
     :param point: (x, y, z) point to calculate distances from
+
     :return:
     """
 
+    fig, axes = plt.subplots(ncols=3)
     if location == 'surf':
         well_dict = parse_surf_boreholes(
             '/media/chet/hdd/seismic/chet_collab/boreholes/surf_4850_wells.csv')
@@ -1588,31 +1615,45 @@ def plot_strains_w_dist(location, DSS_picks, point):
     else:
         print('Location {} not supported'.format(location))
         return
-    dist_list = []
-    for well, pick_dict in DSS_picks.items():
-        easts, norths, zs, deps = np.hsplit(well_dict[well], 4)
-        if well.startswith('D'):  # Scale CSD signal way down visually
-            loc = 1
-            scale = 1.1
-        elif well.startswith('B'):
-            loc = 2
-            scale = 1.1
+    otv_picks = pd.read_excel(otv_picks, sheet_name=None, skiprows=[1],
+                              header=0)
+    otv_MF = {w[-2:]: d.loc[d['Main Fault'] == 'f']['Depth']
+              for w, d in otv_picks.items()
+              if w[-2:] in ['D4', 'D5', 'D6']}
+    otv_DSS = {w[-2:]: d.loc[d['DSS'] == 's']['Depth']
+               for w, d in otv_picks.items()
+               if w[-2:] in ['D4', 'D5', 'D6']}
+    otv_none = {w[-2:]: d.loc[(d['Main Fault'] != 'f') &
+                              (d['DSS'] != 's')]['Depth']
+                for w, d in otv_picks.items()
+                if w[-2:] in ['D4', 'D5', 'D6']}
+    for well in ['D4', 'D5', 'D6']:
+        print(well)
+        dist_list = []
+        mf_picks = otv_MF[well]
+        dss_picks = otv_DSS[well]
+        none_picks = otv_none[well]
         # Over each picked feature
-        for i, dep in enumerate(pick_dict['depths']):
-            if dep < 5.:
-                # Crude skip of shallow anomalies that overrun everything
-                continue
-            dists = np.squeeze(np.abs(dep - deps))
-            x = easts[np.argmin(dists)][0]
-            y = norths[np.argmin(dists)][0]
-            z = zs[np.argmin(dists)][0]
-            strain = pick_dict['strains'][i]
-            width = pick_dict['widths'][i]
-            dist_list.append((strain, cartesian_distance(pt1=(x, y, z),
-                                                         pt2=point)))
-    # Unpack and plot
-    strains, dists = zip(*dist_list)
-    plt.scatter(dists, strains, color='blue', alpha=0.7, label='DSS picks')
+        for pks in [mf_picks, ]:
+
+            x, y, z = depth_to_xyz(well_dict, well, dep)
+            # Find strain value at channel and time
+            dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
+                well_data, well, depth=dep, direction='up')
+            # Reference to start of series
+            dss_strains = dss_strains - dss_strains[0]
+            date_ind = np.argmin([np.abs(d.days) for d in (date - dss_times)])
+            dss_strain = dss_strains[date_ind]
+            dist_list.append((dss_strain, cartesian_distance(pt1=(x, y, z),
+                                                             pt2=point), dep))
+        # Unpack and plot
+        strains, dists, depths = zip(*dist_list)
+        axes.scatter(dists, strains, color=csd_well_colors[well], alpha=0.7,
+                     label=well)
+    axes.set_xlabel('Meters', fontsize=14)
+    axes.set_ylabel(r'$\mu\epsilon$', fontsize=14)
+    axes.legend()
+    fig.show()
     return
 
 
@@ -2727,7 +2768,7 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
     data = pot_d.T[(np.abs(pot_times - time)).argmin(), :]
     data = np.squeeze(data)
     # Divide by two for microns (flip for extension)
-    data *= -0.5
+    data *= -1.#0.5
     axes[1].step(data, top_anchors, label='Potentiometer',
                  color='r', where='pre')
     # Plot anchors as lil black dots
@@ -2738,12 +2779,12 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
     axes[0].invert_yaxis()
     axes[0].set_ylabel('Depth [m]', fontsize=16)
     axes[0].set_xlabel(r'$\frac{fractures}{meter}$', fontsize=15)
-    axes[1].set_xlabel('Microns')
-    axes[1].set_xticks([-100, 0, 100])
-    axes[1].set_xticklabels(['-100', '', '100'])
-    axes[2].set_xlabel('Microns')
-    axes[2].set_xticks([-100, 0, 100])
-    axes[2].set_xticklabels(['-100', '', '100'])
+    axes[1].set_xlabel(r'$\mu\epsilon$', fontsize=14)
+    axes[1].set_xticks([-200, 0, 200])
+    axes[1].set_xticklabels(['-200', '', '200'])
+    axes[2].set_xlabel(r'$\mu\epsilon$', fontsize=14)
+    axes[2].set_xticks([-200, 0, 200])
+    axes[2].set_xticklabels(['-200', '', '200'])
     axes[1].set_xlim(strain_range)
     axes[2].set_xlim(strain_range)
     # Zero line for DSS and potentiometer
@@ -2788,9 +2829,13 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
     fig, axes = plt.subplots(nrows=2, figsize=(8, 10), sharex='col')
     pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
     # Which pot?
-    pind = (np.abs(pot_depths - depth)).argmin()
-    # Take 3 elements (1.5 m), sum and scale
-    pot_strains = pot_d[pind-1:pind+2, :].sum(axis=0) / 1.5
+    pind = (np.abs(pot_depths - 20.)).argmin()
+    # Take 3 elements (1.5 m) and sum
+    # bc we read in microstrain, scaling by element length yields displacement
+    pot_strains = pot_d[pind-1:pind+2, :].sum(axis=0) * -0.5
+    # Integrate over same depths for DSS for displacement
+    integral = integrate_depth_interval(well_data, depths=(19.25, 20.75),
+                                        well='D5', leg='up', dates=dates)
     dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
         well_data, 'D5', depth=depth, direction='up')
     if dates:
@@ -2806,22 +2851,18 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
     # Relative to start of plot
     pot_strains = pot_strains - pot_strains[0]
     dss_strains = dss_strains - dss_strains[0]
-    axes[0].plot(pot_times, -0.5 * pot_strains, color='r',
+    axes[0].plot(pot_times, pot_strains, color='r',
                  label='Potentiometer')
-    axes[0].plot(dss_times, dss_strains, color='purple',
-                 label='DSS')
-    print(normxcorr2(dss_strains, pot_strains * -0.5))
+    axes[0].plot(dss_times, integral, color='purple', label='DSS')
+    print(normxcorr2(dss_strains, pot_strains))
     # Now simfip plot
     # Integrate DSS and Pot
-    integrated_strain = integrate_depth_interval(well_data, depths=(19.5, 22.5),
+    integrated_strain = integrate_depth_interval(well_data, depths=(18.5, 22.5),
                                                  well='D5', leg='up',
                                                  dates=dates)
     # Sum potentiometer
-    interval = np.where((pot_depths < 23.) & (pot_depths > 20.))
+    interval = np.where((pot_depths < 23.) & (pot_depths > 19.))
     integrated_pot = np.sum(-0.5 * pot_d[interval, :].squeeze(), axis=0)
-    # Scale the integrated traces to sampling interval
-    integrated_strain *= 0.255
-    integrated_pot *= 0.5
     axes[1].plot(dss_times, integrated_strain, color='mediumorchid',
                  label='DSS')
     axes[1].plot(pot_times, integrated_pot - integrated_pot[0],
@@ -2835,19 +2876,19 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
     df_simfip['Yf'] = df_simfip['Yf'] - df_simfip['Yf'][0]
     df_simfip['Xf'] = df_simfip['Xf'] - df_simfip['Xf'][0]
     df_simfip['Sf'] = np.sqrt(df_simfip['Xf']**2 + df_simfip['Yf']**2)
-    # Convert to shear strain
-    df_simfip['ESf'] = df_simfip['Sf'] / 6.3
     # Theoretical arc length effect of SIMFIP shear as seen on DSS
-    # assuming 6.3 m (SIMFIP interval) strained length
-    df_simfip['Arc'] = (df_simfip['ESf'] / 6.3)**2 / 2
-    df_simfip['Synthetic DSS'] = ((df_simfip['Zf'] / 6.3) +
-                                  df_simfip['Arc']) * 6.3
+    # assuming 6.3 m or 6300000 micron (SIMFIP interval) strained length
+    df_simfip['Arc e'] = ((df_simfip['Sf']/ 6300000)**2) / 2
+    df_simfip['Arc d'] = df_simfip['Arc e'] * 6300000
+    df_simfip['Synth Madjdabadi'] = df_simfip['Arc d'] + df_simfip['Zf']
+    df_simfip['Synthetic DSS pythag'] = np.sqrt(df_simfip['Zf']**2 +
+                                                df_simfip['Sf']**2)
     df_simfip['Zf'].plot(ax=axes[1], color='steelblue',
                          label='SIMFIP: Opening')
     df_simfip['Sf'].plot(ax=axes[1], color='lightseagreen',
                          label='SIMFIP: Shear')
-    df_simfip['Synthetic DSS'].plot(ax=axes[1], color='blue',
-                                    label='Synthetic DSS')
+    df_simfip['Synthetic DSS pythag'].plot(ax=axes[1], color='blue',
+                                           label='SIMFIP: Shear + Opening')
     for i, ax in enumerate(axes):
         ax.set_facecolor('lightgray')
         ax.set_ylabel('Microns', fontsize=14)
@@ -2886,7 +2927,7 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
 
 
 def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
-                       well_data_2=None, strain_range=(-170, 170),
+                       well_data_2=None, strain_range=(-450, 450),
                        window='2h'):
     """
     Plot final figure for co2 injection period at CSD
@@ -2912,14 +2953,14 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     well_data1 = deepcopy(well_data_1)
     if well_data_2:
         well_data2 = deepcopy(well_data_2)
-    fig = plt.figure(figsize=(11, 9))
-    spec = GridSpec(ncols=7, nrows=6, figure=fig, wspace=0.13, hspace=0.1)
-    ax5pot = fig.add_subplot(spec[:, 0])
-    ax5dss = fig.add_subplot(spec[:, 1], sharey=ax5pot, sharex=ax5pot)
-    ax1dss = fig.add_subplot(spec[:, 2], sharey=ax5pot, sharex=ax5pot)
-    ax2dss = fig.add_subplot(spec[:, 3], sharey=ax5pot, sharex=ax5pot)
-    ax_time = fig.add_subplot(spec[:3, 4:])
-    ax_hydro = fig.add_subplot(spec[3:, 4:], sharex=ax_time)
+    fig = plt.figure(figsize=(6, 9))
+    spec = GridSpec(ncols=4, nrows=6, figure=fig, wspace=0.13, hspace=0.1)
+    # ax5pot = fig.add_subplot(spec[:, 0])
+    # ax5dss = fig.add_subplot(spec[:, 0])
+    ax1dss = fig.add_subplot(spec[:, 0])
+    # ax2dss = fig.add_subplot(spec[:, 3], sharey=ax5pot, sharex=ax5pot)
+    ax_time = fig.add_subplot(spec[:3, 1:])
+    ax_hydro = fig.add_subplot(spec[3:, 1:], sharex=ax_time)
     if well_data_2:
         pot_data = 'data/chet-FS-B/potentiometer/CO2_injection/dataGEOMONITOR'
     else:
@@ -3021,16 +3062,15 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     if time.year == 2020:
         pot_depth_data[9] = np.nan
     # Now plot everything
-    ax5pot.step(pot_depth_data, top_anchors, color='r', where='post')
-    ax5dss.plot(dss_depth_dict['D5'][leg], dss_depth_dict['D5']['depths'],
-                color=csd_well_colors['D5'])
+    # ax5pot.step(pot_depth_data, top_anchors, color='r', where='post')
+    # ax5dss.plot(dss_depth_dict['D5'][leg], dss_depth_dict['D5']['depths'],
+    #             color=csd_well_colors['D5'])
     ax1dss.plot(dss_depth_dict['D1'][leg], dss_depth_dict['D1']['depths'],
                 color=csd_well_colors['D1'])
-    ax2dss.plot(dss_depth_dict['D2'][leg], dss_depth_dict['D2']['depths'],
-                color=csd_well_colors['D2'])
+    # ax2dss.plot(dss_depth_dict['D2'][leg], dss_depth_dict['D2']['depths'],
+    #             color=csd_well_colors['D2'])
     # Resin plugs and fault depths
-    for well, ax in zip(['D5', 'D5', 'D1', 'D2'], [ax5pot, ax5dss,
-                                                   ax1dss, ax2dss]):
+    for well, ax in zip(['D1'], [ax1dss]):
         ax.axhline(fault_depths[well][0], linestyle='--',
                     linewidth=1., color='k')
         ax.axhline(fault_depths[well][1],
@@ -3078,8 +3118,8 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
         df_hydro = read_csd_hydro('data/chet-FS-B/pump/pulse_test')
     plot_csd_hydro(df_hydro, axes=ax_hydro)
     # Formatting
-    ax5pot.invert_yaxis()
-    ax5pot.set_xlim(strain_range)
+    ax1dss.invert_yaxis()
+    ax1dss.set_xlim(strain_range)
     ax_time.set_ylim(strain_range)
     if well_data_2:
         ax_time.fill_between(
@@ -3095,7 +3135,7 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     ax_time.yaxis.set_label_position('right')
     ax_time.set_ylabel(r'$\mu\epsilon$', fontsize=16)
     ax_time.tick_params(labelright=True)
-    ax5pot.set_ylabel('Depth [m]', fontsize=16)
+    ax1dss.set_ylabel('Depth [m]', fontsize=16)
     if well_data_2:
         ax_hydro.xaxis.set_major_formatter(DateFormatter('%H:%M'))
         ax_hydro.axvline(datetime(2019, 6, 12, 15, 11), linestyle=':', color='k',
@@ -3111,11 +3151,11 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     ax_time.tick_params(which='minor', length=0.)
     if well_data_2:
         ax_time.legend(loc='lower left')
-        ax_hydro.legend()
+        ax_hydro.legend(loc='lower left')
     else:
         ax_time.legend(loc='upper left')
         ax_hydro.legend(loc='lower left')
-    ax5dss.annotate(text=r'$\mu\epsilon$', xy=(.95, -0.11),
+    ax1dss.annotate(text=r'$\mu\epsilon$', xy=(.95, -0.11),
                     xycoords='axes fraction',
                     ha='left', fontsize=22)
     plt.show()
@@ -3149,7 +3189,7 @@ def plot_csd_press_strain(times, strains, df_hydro):
     axes.set_ylabel(r'$\mu\varepsilon$', fontsize=16)
     axes.set_xlabel('MPa', fontsize=16)
     axes.set_xlim(right=4.7)
-    axes.set_ylim(top=310)
+    axes.set_ylim(top=350)
     axes.set_facecolor('whitesmoke')
     plt.show()
     return
@@ -3196,7 +3236,6 @@ def plot_csd_section(well_data, wells, date, ref_date, leg='up_data',
             dep /= dep[-1]
             # strains += i * 30
         ax.plot(strains, dep, color=c)
-    print('foo')
     ax.invert_yaxis()
     ax.set_xlabel(r'$\mu\epsilon$', fontsize=14)
     ax.set_ylabel('Meters', fontsize=14)
@@ -3228,7 +3267,6 @@ def plot_csd_deep(well_data, date, wells, tv_picks,
     for i, f_d in enumerate(frac_dicts):
         ax_ind = i * 2
         for frac_type, dens in f_d.items():
-            print(frac_type, dens)
             if not frac_type.startswith('sed'):
                 axes[ax_ind].barh(dens[:, 0], dens[:, 1], height=1.,
                                   color=csd_well_colors[wells[i]],
@@ -3260,11 +3298,11 @@ def plot_csd_deep(well_data, date, wells, tv_picks,
         if i % 2 == 1:  # Only odd no axes
             ax.plot(dss_dict[ax_well][leg], dss_dict[ax_well]['depths'],
                          label='DSS', color=csd_well_colors[ax_well])
-            ax.set_xlim([-180, 180])
+            ax.set_xlim([-240, 240])
             ax.axvline(x=0., linestyle=':', color='gray',
                        linewidth=1.)
-            ax.set_xticks([-100, 0, 100])
-            ax.set_xticklabels(['-100', '', '100'])
+            ax.set_xticks([-200, 0, 200])
+            ax.set_xticklabels(['-200', '', '200'])
             ax.set_xlabel(r'$\mu\epsilon$', fontsize=14)
         ax.tick_params(axis='x', labelsize=8)
     fig.text(0.1, 0.95, date.date(), ha="left", va="bottom", fontsize=14,

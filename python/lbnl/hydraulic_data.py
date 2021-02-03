@@ -273,7 +273,7 @@ def plot_collab_hydro(df_hydro):
     return
 
 
-def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None):
+def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None, flow=False):
     """Simple Flow and Press plot"""
     if not axes:
         fig, ax = plt.subplots()
@@ -284,12 +284,17 @@ def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None):
         lab = ''
     else:
         lab = 'Flow'
-    df_hydro['Flow'].plot(ax=ax, color='steelblue', label=lab)
-    ax.set_ylim(bottom=0)
+    if flow:
+        df_hydro['Flow'].plot(ax=ax, color='steelblue', label=lab)
+        ax.set_ylim(bottom=0)
+        ax.set_ylabel('ml/min', fontsize=14, color='steelblue')
+    else:
+        ax.tick_params(labelleft=False, left=False)
+    # Only take values past 13:47
+    df_hydro = df_hydro[df_hydro.index > datetime(2019, 6, 12, 13, 47)]
     df_hydro['Pressure'].plot(ax=ax2, color='firebrick', label='Pressure')
     ax2.set_ylim(bottom=0)
     ax2.set_ylabel('MPa', fontsize=14, color='firebrick')
-    ax.set_ylabel('ml/min', fontsize=14, color='steelblue')
     if not axes:
         if (df_hydro.index[-1] - df_hydro.index[0]).days == 0:
             ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
@@ -301,22 +306,23 @@ def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None):
                            color='steelblue')
             ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
                             color='firebrick')
-        fig.legend()
+        fig.legend(loc='lower left')
         fig.suptitle(title, fontsize=16)
         plt.show()
     else:
-        ax.yaxis.set_ticks_position('right')
-        ax.yaxis.set_label_position('right')
-        ax.set_ylabel('ml/min', fontsize=14, labelpad=-50,
-                      color='steelblue')
-        ax.tick_params(axis='y', which='major', direction='in', pad=-30,
-                       labelcolor='steelblue', color='steelblue',
-                       labelright=True, length=6, width=1)
+        if flow:
+            ax.yaxis.set_ticks_position('right')
+            ax.yaxis.set_label_position('right')
+            ax.set_ylabel('ml/min', fontsize=14, labelpad=-50,
+                          color='steelblue')
+            ax.tick_params(axis='y', which='major', direction='in', pad=-30,
+                           labelcolor='steelblue', color='steelblue',
+                           labelright=True, length=6, width=1)
+            ax.set_yticks(np.arange(25, 225, 25))
+            ax.set_yticklabels([str(n) for n in np.arange(25, 225, 25)])
         ax2.tick_params(axis='y', which='major', direction='out', pad=5,
                         labelcolor='firebrick', color='firebrick',
                         length=6, width=1)
-        ax.set_yticks(np.arange(25, 225, 25))
-        ax.set_yticklabels([str(n) for n in np.arange(25, 225, 25)])
     return
 
 
