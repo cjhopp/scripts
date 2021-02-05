@@ -190,7 +190,11 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                 print('{} already exists'.format(name))
                 continue
             print('Vibbox file: {}'.format(vb_f))
-            st_vbox = vibbox_read(vb_f, dug_params)
+            try:
+                st_vbox = vibbox_read(vb_f, dug_params)
+            except ValueError as e:  # Wrong number of samples?
+                print(e)
+                continue
             if debug > 1:  # Don't plot these large wavs unless necessary
                 vbox_B81 = st_vbox.select(station='B81')
                 vbox_B81[0].stats.network = 'MT'

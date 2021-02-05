@@ -26,7 +26,7 @@ from scipy.integrate import trapz
 from scipy.interpolate import griddata, interp1d
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks, zpk2sos, sosfilt, iirfilter
-from scipy.stats import median_absolute_deviation
+from scipy.stats import median_absolute_deviation, linregress
 from datetime import datetime, timedelta
 from itertools import cycle
 from matplotlib.dates import num2date, date2num, DateFormatter
@@ -635,7 +635,6 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
         for fib, f_dict in fiber_data.items():
             f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
             mode = 'Relative'
-    print(fiber_data)
     print('Calculating channel mapping')
     if wells:
         for well in wells:
@@ -1594,7 +1593,7 @@ def plot_fiber_correlation(template, template_lengths, image, image_lengths,
 
 
 def plot_strains_w_dist(well_data, location, otv_picks, point,
-                        date=datetime(2019, 6, 3)):
+                        date=datetime(2019, 6, 3), leg='up_data'):
     """
     Plot DSS strain values with distance from a point (e.g. excavation front)
 
@@ -1605,7 +1604,8 @@ def plot_strains_w_dist(well_data, location, otv_picks, point,
     :return:
     """
 
-    fig, axes = plt.subplots(ncols=3)
+    fig, axes = plt.subplots(ncols=3, sharey='row', figsize=(15, 4.8),
+                             sharex='row')
     if location == 'surf':
         well_dict = parse_surf_boreholes(
             '/media/chet/hdd/seismic/chet_collab/boreholes/surf_4850_wells.csv')
@@ -1627,33 +1627,57 @@ def plot_strains_w_dist(well_data, location, otv_picks, point,
                               (d['DSS'] != 's')]['Depth']
                 for w, d in otv_picks.items()
                 if w[-2:] in ['D4', 'D5', 'D6']}
+    ax_titles = ['Main Fault', 'DSS signals', 'No signal']
+    dss_dict = extract_strains(well_data, date=date, wells=['D4', 'D5', 'D6'],
+                               average=False,
+                               reference_time=datetime(2019, 5, 23))
+    all_data = {at: {'dists': [], 'strains': []} for at in ax_titles}
     for well in ['D4', 'D5', 'D6']:
         print(well)
-        dist_list = []
         mf_picks = otv_MF[well]
         dss_picks = otv_DSS[well]
         none_picks = otv_none[well]
+        well_deps = dss_dict[well]['depths']
+        well_strain = dss_dict[well][leg]
         # Over each picked feature
-        for pks in [mf_picks, ]:
-
-            x, y, z = depth_to_xyz(well_dict, well, dep)
-            # Find strain value at channel and time
-            dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
-                well_data, well, depth=dep, direction='up')
-            # Reference to start of series
-            dss_strains = dss_strains - dss_strains[0]
-            date_ind = np.argmin([np.abs(d.days) for d in (date - dss_times)])
-            dss_strain = dss_strains[date_ind]
-            dist_list.append((dss_strain, cartesian_distance(pt1=(x, y, z),
-                                                             pt2=point), dep))
-        # Unpack and plot
-        strains, dists, depths = zip(*dist_list)
-        axes.scatter(dists, strains, color=csd_well_colors[well], alpha=0.7,
-                     label=well)
-    axes.set_xlabel('Meters', fontsize=14)
-    axes.set_ylabel(r'$\mu\epsilon$', fontsize=14)
-    axes.legend()
-    fig.show()
+        for i, pks in enumerate([mf_picks, dss_picks, none_picks]):
+            dist_list = []
+            if i == 0:
+                lab = well
+            else:
+                lab = ''
+            for dep in pks:
+                x, y, z = depth_to_xyz(well_dict, well, dep)
+                if np.all(np.isnan(np.abs(dep - well_deps))):
+                    continue
+                dind = np.argmin(np.abs(dep - well_deps))
+                dss_strain = well_strain[dind]
+                dist_list.append(
+                    (dss_strain, cartesian_distance(pt1=(x, y, z),
+                                                    pt2=point), dep))
+            # Unpack and plot
+            strains, dists, depths = zip(*dist_list)
+            axes[i].scatter(dists, strains, color=csd_well_colors[well], alpha=0.7,
+                            label=lab)
+            # Add data to dict for regression
+            all_data[ax_titles[i]]['dists'].extend(list(dists))
+            all_data[ax_titles[i]]['strains'].extend(list(strains))
+    for i, (k, kd) in enumerate(all_data.items()):
+        dat_tup = list(zip(kd['dists'], kd['strains']))
+        dat_tup.sort(key=lambda x: x[0])
+        d, s = zip(*dat_tup)
+        m, b, r_value, p_value, std_err = linregress(d, s)
+        axes[i].plot(np.array(d), m * np.array(d) + b, linestyle=':')
+        axes[i].set_title(k, fontsize=16)
+        axes[i].set_xlabel('Distance to breakthrough [m]', fontsize=16)
+        axes[i].set_ylabel(r'$\mu\epsilon$', fontsize=18)
+        axes[i].set_xlim(left=0, right=45.)
+        axes[i].annotate(xy=(0.1, 0.9), xycoords='axes fraction',
+                         text='P={:0.3f}'.format(p_value))
+        axes[i].annotate(xy=(0.1, 0.83), xycoords='axes fraction',
+                         text=r'R$^2$={:0.3f}'.format(r_value**2))
+    fig.legend()
+    plt.show()
     return
 
 
@@ -2769,6 +2793,9 @@ def plot_D5_with_depth(well_data, time, tv_picks, pot_data, leg='up_data',
     data = np.squeeze(data)
     # Divide by two for microns (flip for extension)
     data *= -1.#0.5
+    print('Max potentiometer: {}'.format(np.max(data)))
+    print('Max DSS: {}'.format(np.max(dss_dict['D5'][leg])))
+    print(dss_dict['D5'][leg])
     axes[1].step(data, top_anchors, label='Potentiometer',
                  color='r', where='pre')
     # Plot anchors as lil black dots
@@ -2854,7 +2881,10 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
     axes[0].plot(pot_times, pot_strains, color='r',
                  label='Potentiometer')
     axes[0].plot(dss_times, integral, color='purple', label='DSS')
-    print(normxcorr2(dss_strains, pot_strains))
+    print('Cross correlation coefficient: {}'.format(
+        normxcorr2(dss_strains, pot_strains)))
+    print('DSS: {}\nPotentiometer: {}'.format(np.max(dss_strains),
+                                              np.max(pot_strains)))
     # Now simfip plot
     # Integrate DSS and Pot
     integrated_strain = integrate_depth_interval(well_data, depths=(18.5, 22.5),
