@@ -3381,6 +3381,7 @@ def plot_fsb_timeseries(well_data, df_hydro, depths):
     :param depths:
     :return:
     """
+    depth_ranges = {'B1': [], 'B2': [], 'B9': []}
     fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(10, 7))
     for w, d in depths.items():
         times, strains, _, _, _, _ = extract_channel_timeseries(

@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../DUG-Seis/.idea/DUG-Seis.iml" filepath="$PROJECT_DIR$/../DUG-Seis/.idea/DUG-Seis.iml" />
       <module fileurl="file://$PROJECT_DIR$/../DUG-Seis-master/.idea/DUG-Seis-master.iml" filepath="$PROJECT_DIR$/../DUG-Seis-master/.idea/DUG-Seis-master.iml" />
       <module fileurl="file://$PROJECT_DIR$/../DUG-seis-lbl/.idea/DUG-seis-lbl.iml" filepath="$PROJECT_DIR$/../DUG-seis-lbl/.idea/DUG-seis-lbl.iml" />
       <module fileurl="file://$PROJECT_DIR$/../EQcorrscan/.idea/EQcorrscan.iml" filepath="$PROJECT_DIR$/../EQcorrscan/.idea/EQcorrscan.iml" />

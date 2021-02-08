@@ -278,12 +278,16 @@ def read_3D(data_dir):
     for fl in flz:
         nm = 'Z{}'.format(fl[-5])
         tdf = pd.read_csv(fl, header=0, names=['time', '{}E'.format(nm),
-                                     '{}N'.format(nm), '{}U'.format(nm)])
-        tdf['dt'] = pd.to_datetime(tdf['time'], format='%d-%b-%Y %I:%M:%S.%f')
+                          '{}N'.format(nm), '{}U'.format(nm), 'P{}'.format(nm)])
+        tdf['dt'] = pd.to_datetime(tdf['time'], format='%d-%b-%Y %H:%M:%S.%f')
         tdf = tdf.set_index('dt')
         tdf = tdf.drop(['time'], axis=1)
+        # tdf.interpolate(inplace=True)
+        tdf['{} Sum'.format(nm)] = np.sqrt(tdf['{}E'.format(nm)]**2 +
+                                           tdf['{}N'.format(nm)]**2 +
+                                           tdf['{}U'.format(nm)]**2)
         df = pd.concat([df, tdf])
-    return df.sort_index()
+    return df.sort_index()#.interpolate()
 
 ################### Plotting functions below here #######################
 

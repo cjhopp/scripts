@@ -177,6 +177,7 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
         vb_out = [v.split('/')[-1].replace('.dat', '.h5').replace('vbox', 'FSB')
                   for v in vboxes]
         vb_out = [os.path.join(outdir, vbo) for vbo in vb_out]
+        print(vb_out)
         if all(list(map(os.path.isfile, vb_out))):
             print('All output files already exist')
             continue
