@@ -1601,6 +1601,7 @@ def plot_strains_w_dist(well_data, location, otv_picks, point,
     :param otv_picks: Path to OTV excel file
     :param point: (x, y, z) point to calculate distances from
 
+    Excavation front: [2.57931745e+06, 1.24755756e+06, 5.15000000e+02]
     :return:
     """
 

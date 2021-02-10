@@ -15,6 +15,8 @@ from glob import glob
 from pathlib import Path
 from matplotlib.dates import date2num, num2date
 
+# local imports
+from lbnl.coordinates import cartesian_distance
 
 def depth_to_xyz(well_dict, well, depth):
     """
@@ -244,6 +246,37 @@ def read_frac_cores(path, well):
             well_dict['All fractures'] = np.stack(
                 (bin_centers, items['Total Counts Core 1m'])).T
     return well_dict
+
+
+def otv_to_sdd(path):
+    """
+    Take Quinns wellcad picks and parse to strike-dip-dep DataFrames
+    for fracture groups
+
+    :param path: Path to wellcad.xlsx file
+    :return:
+    """
+    exc_frnt = np.array([2.57931745e+06, 1.24755756e+06, 5.15000000e+02])
+    otv_picks = pd.read_excel(path, sheet_name=None, skiprows=[1],
+                              header=0)
+    well_dict = create_FSB_boreholes()
+    # Get dip dir, dip, and depth for each subset
+    otv_MF = {w[-2:]: d.loc[d['Main Fault'] == 'f'][['Azimuth', 'Dip', 'Depth']]
+              for w, d in otv_picks.items()
+              if w[-2:] in ['D4', 'D5', 'D6']}
+    otv_DSS = {w[-2:]: d.loc[d['DSS'] == 's'][['Azimuth', 'Dip', 'Depth']]
+               for w, d in otv_picks.items()
+               if w[-2:] in ['D4', 'D5', 'D6']}
+    otv_none = {w[-2:]: d.loc[(d['Main Fault'] != 'f') &
+                              (d['DSS'] != 's')][['Azimuth', 'Dip', 'Depth']]
+                for w, d in otv_picks.items()
+                if w[-2:] in ['D4', 'D5', 'D6']}
+    for thing in [otv_MF, otv_DSS, otv_none]:
+        for w, df in thing.items():
+            df['Distance'] = [cartesian_distance(
+                pt1=depth_to_xyz(well_dict, w, d),
+                pt2=exc_frnt) for d in df['Depth'].values]
+    return otv_MF, otv_DSS, otv_none
 
 
 def read_frac_otv(path, well):
