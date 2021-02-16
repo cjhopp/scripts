@@ -77,12 +77,22 @@ def contour_ice(dataarray):
 ## Plotting funcs ##
 
 def plot_ice_map(ice_path, shore_dir):
+    """
+    Plot contours of ice thicknesses on Great Lakes
+
+    :param ice_path: Path to .ct file
+    :param shore_dir: Path to directory of shorline vectors
+
+    :return:
+    """
+    # Get date from title of ice grid
+    date = datetime.strptime(ice_path[-11:-3], '%Y%m%d').date()
     ice_array = read_ice_grid(ice_path)
     geodf_ice = contour_ice(ice_array)
     shores = read_shorelines(shore_dir)
     fig = px.choropleth(
         geodf_ice, geojson=geodf_ice.geometry, locations=geodf_ice.index,
-        color='fill')
+        color='fill', title='Ice Cover: {}'.format(date))
     for i, shore in shores.iterrows():
         lon, lat = shore.geometry.exterior.coords.xy
         fig.add_trace(go.Scattergeo(lon=np.array(lon), lat=np.array(lat),
@@ -92,7 +102,8 @@ def plot_ice_map(ice_path, shore_dir):
                                     showlegend=False))
     fig.update_geos(fitbounds='locations', projection_type='mercator',
                     visible=False)
-    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+    fig.update_layout(#margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                      title_text='Ice Cover: {}'.format(date))
     fig.data = fig.data[::-1]
     fig.show()
     return

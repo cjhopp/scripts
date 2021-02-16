@@ -28,6 +28,7 @@
     <orderEntry type="module" module-name="DUG-seis-lbl" />
     <orderEntry type="module" module-name="EQcorrscan" />
     <orderEntry type="module" module-name="DUG-Seis" />
+    <orderEntry type="module" module-name="FatCrayonToolkit" />
   </component>
   <component name="TestRunnerService">
     <option name="PROJECT_TEST_RUNNER" value="Nosetests" />
