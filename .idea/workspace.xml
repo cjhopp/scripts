@@ -29,15 +29,6 @@
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/FatCrayonToolkit.iml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/DTS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DTS.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/events.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/hydraulic_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/hydraulic_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/network_design.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/network_design.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/plotting.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
