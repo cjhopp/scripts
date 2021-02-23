@@ -236,7 +236,7 @@ def plot_solution(targets, points, stas, sources, well_dict=None,
         ax.set_zlabel('Elevation')
         fig.colorbar(cs, ax=ax)
         if outdir:
-            plt.savefig('{}/Sensor_{}.png'.format(outdir, i + 1))
+            plt.savefig('{}/Sensor_{}.png'.format(outdir, i + 1), dpi=300)
             plt.close('all')
         else:
             plt.show()

@@ -326,7 +326,7 @@ def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None, flow=False):
     return
 
 
-def plot_fsb_hydro(df_hydro, title='Flow and Pressure', axes=None):
+def plot_fsb_hydro(df_hydro, title='Flow and Pressure', axes=None, show=False):
     """Simple Flow and Press plot"""
     if not axes:
         fig, ax = plt.subplots()
@@ -365,11 +365,12 @@ def plot_fsb_hydro(df_hydro, title='Flow and Pressure', axes=None):
                             color='firebrick')
         fig.legend()
         fig.suptitle(title, fontsize=16)
-        plt.show()
+        if show:
+            plt.show()
     else:
         ax.set_ylabel('L/min', fontsize=14, color='steelblue')
         ax.tick_params(axis='y', which='major', labelcolor='steelblue',
                        color='steelblue', length=6, width=1)
         ax2.tick_params(axis='y', which='major', direction='out',
                         labelcolor='firebrick', color='firebrick', width=1)
-    return
+    return [ax, ax2]

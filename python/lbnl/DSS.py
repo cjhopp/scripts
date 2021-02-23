@@ -488,7 +488,7 @@ def write_mat(outdir, well_data):
     # Basically just strptime the datetimes
     for w, wd in well_data.items():
         wd['noise'] = 0.
-        # wd['times'] = [t.strftime('%d-%b-%Y %H:%M:%S') for t in wd['times']]
+        wd['times'] = [t.strftime('%d-%b-%Y %H:%M:%S') for t in wd['times']]
         name = '{}/{}_DSS.mat'.format(outdir, w)
         savemat(name, wd)
     return
@@ -3373,7 +3373,7 @@ def plot_strain_gain(well_data, well, depth, direction, title=''):
     return
 
 
-def plot_fsb_timeseries(well_data, df_hydro, depths):
+def plot_fsb_timeseries(well_data, df_hydro, depths, show=False):
     """
     Plot channel timeseries for FSB injection versus hydraulic data
 
@@ -3396,5 +3396,6 @@ def plot_fsb_timeseries(well_data, df_hydro, depths):
     axes[0].legend()
     axes[1].set_xlabel('Time', fontsize=14)
     plt.tight_layout()
-    plt.show()
-    return
+    if show:
+        plt.show()
+    return axes

@@ -12,8 +12,9 @@ import matplotlib.dates as mdates
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
 
-from scipy.io import loadmat
+from scipy.io import loadmat, savemat
 from lxml import etree
+from copy import deepcopy
 from glob import glob
 from obspy import UTCDateTime
 from pandas.errors import ParserError
@@ -174,6 +175,20 @@ def read_XTDTS_dir(dir_path, wells, noise_method='madjdabadi'):
                            'noise': noise, 'times': times, 'mode': None,
                            'type': None}
     return well_data
+
+
+def write_mat(outdir, well_data):
+    """Write matlab file from well data for Vero"""
+    # Basically just strptime the datetimes
+    well_d = deepcopy(well_data)
+    for w, wd in well_d.items():
+        wd['noise'] = 0.
+        wd['mode'] = 0.
+        wd['type'] = 0
+        wd['times'] = [t.strftime('%d-%b-%Y %H:%M:%S') for t in wd['times']]
+        name = '{}/{}_DTS.mat'.format(outdir, w)
+        savemat(name, wd)
+    return
 
 
 def estimate_noise(data, method='madjdabadi'):

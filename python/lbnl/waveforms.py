@@ -391,6 +391,38 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
     return
 
 
+def tribe_from_client(catalog, **params):
+    """
+    Small wrapper for creating a tribe from client
+
+    Basically just to catch merge exceptions and skip
+
+    :param catalog: Catalog of events (we'll loop over days)
+    :param params: Rest of kwargs for Tribe.construct
+
+    :return:
+    """
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    # Define catalog start and end dates
+    cat_start = catalog[0].preferred_origin().time.date
+    cat_end = catalog[-1].preferred_origin().time.date
+    tribe = Tribe()
+    for date in date_generator(cat_start, cat_end):
+        dto = UTCDateTime(date)
+        print('Date: {}'.format(dto))
+        # Establish which events are in this day
+        sch_str_start = 'time >= {}'.format(dto)
+        sch_str_end = 'time <= {}'.format((dto + 86400))
+        tmp_cat = catalog.filter(sch_str_start, sch_str_end)
+        try:
+            tribe += Tribe().construct(**params)
+        except Exception as e:
+            # This is probs same trace id with diff samp rates
+            print(e)
+            continue
+    return tribe
+
+
 def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                        stations='all'):
     """

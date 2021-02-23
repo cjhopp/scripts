@@ -567,6 +567,7 @@ def retrieve_usgs_catalog(**kwargs):
     cat = cli.get_events(**kwargs)
     # Now loop over each event and grab the phase dataframe using libcomcat
     for ev in cat:
+        print(ev.resource_id.id)
         eid = ev.resource_id.id.split('=')[-2].split('&')[0]
         detail = get_event_by_id(eid, includesuperseded=True)
         phase_df = get_phase_dataframe(detail)

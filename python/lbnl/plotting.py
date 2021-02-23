@@ -45,6 +45,11 @@ from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
 csd_well_colors = {'D1': 'blue', 'D2': 'blue', 'D3': 'green',
                    'D4': 'green', 'D5': 'green', 'D6': 'green', 'D7': 'black'}
 
+fsb_well_colors = {'B1': 'k', 'B2': 'steelblue', 'B3': 'goldenrod',
+                   'B4': 'goldenrod', 'B5': 'goldenrod', 'B6': 'goldenrod',
+                   'B7': 'goldenrod', 'B8': 'firebrick', 'B9': 'firebrick',
+                   'B10': 'k'}
+
 cols_4850 = {'PDT': 'black', 'PDB': 'black', 'PST': 'black', 'PSB': 'black',
              'OT': 'black', 'OB': 'black', 'I': '#4682B4', 'P': '#B22222'}
 
@@ -548,7 +553,7 @@ def plot_4850_2D(autocad_path, strike=347.,
     return
 
 
-def plot_lab_2D(autocad_path, strike=305.,
+def plot_CSD_2D(autocad_path, strike=305.,
                 origin=np.array([2579325., 1247565., 514.])):
     """
     Plot the Mont Terri lab in a combination of 3D, map view, and cross section
@@ -718,6 +723,209 @@ def plot_lab_2D(autocad_path, strike=305.,
     ax_map.axis('off')
     ax_map.set_xlim([2579300, 2579338])
     ax_map.set_ylim([1247540, 1247582])
+    # Fault map
+    ax_fault.axis('equal')
+    ax_fault.spines['top'].set_visible(False)
+    ax_fault.spines['left'].set_visible(False)
+    ax_fault.spines['right'].set_visible(False)
+    ax_fault.spines['bottom'].set_bounds(-5, 5)
+    ax_fault.tick_params(direction='in', left=False, labelleft=False)
+    ax_fault.set_xticks([-5, 0, 5])
+    ax_fault.set_xticklabels(['0', '5', '10'])
+    ax_fault.set_xlabel('Meters')
+    # Cross section
+    ax_x.set_xlim([-30, 5])
+    ax_x.axis('equal')
+    ax_x.spines['top'].set_visible(False)
+    ax_x.spines['bottom'].set_visible(False)
+    ax_x.spines['left'].set_visible(False)
+    ax_x.yaxis.set_ticks_position('right')
+    ax_x.tick_params(direction='in', bottom=False, labelbottom=False)
+    ax_x.set_yticks([-30, -20, -10, 0])
+    ax_x.set_yticklabels(['30', '20', '10', '0'])
+    ax_x.set_ylabel('Meters', labelpad=15)
+    ax_x.yaxis.set_label_position("right")
+    ax_x.spines['right'].set_bounds(0, -30)
+    fig.legend()
+    plt.show()
+    return
+
+
+def plot_FSB_2D(autocad_path, strike=120.,
+                origin=np.array([2579332., 1247600., 514.])):
+    """
+    Plot the Mont Terri lab in a combination of 3D, map view, and cross section
+
+    :param autocad_path: Path to file with arcs and lines etc
+    :param strike: Strike of main fault to project piercepoints onto
+    :param origin: Origin point for the cross section
+
+    :return:
+    """
+    fig = plt.figure(figsize=(12, 12))
+    spec = gridspec.GridSpec(ncols=8, nrows=8, figure=fig)
+    ax3d = fig.add_subplot(spec[:4, :4], projection='3d')
+    ax_x = fig.add_subplot(spec[:4, 4:])
+    ax_map = fig.add_subplot(spec[4:, :4])
+    ax_fault = fig.add_subplot(spec[4:, 4:])
+    well_dict = create_FSB_boreholes()
+    # Cross section plane (strike 320)
+    r = np.deg2rad(360 - strike)
+    normal = np.array([-np.sin(r), -np.cos(r), 0.])
+    normal /= norm(normal)
+    new_strk = np.array([np.sin(r), -np.cos(r), 0.])
+    new_strk /= norm(new_strk)
+    change_b_mat = np.array([new_strk, [0, 0, 1], normal])
+    for afile in glob('{}/*.csv'.format(autocad_path)):
+        # if 'FSB' in afile:
+        #     continue
+        df_cad = pd.read_csv(afile)
+        lines = df_cad.loc[df_cad['Name'] == 'Line']
+        arcs = df_cad.loc[df_cad['Name'] == 'Arc']
+        for i, line in lines.iterrows():
+            xs = np.array([line['Start X'], line['End X']])
+            ys = np.array([line['Start Y'], line['End Y']])
+            zs = np.array([line['Start Z'], line['End Z']])
+            # Proj
+            pts = np.column_stack([xs, ys, zs])
+            proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+            proj_pts = pts - origin - proj_pts
+            proj_pts = np.matmul(change_b_mat, proj_pts.T)
+            ax3d.plot(xs, ys, zs, color='lightgray', zorder=110,
+                      linewidth=0.5)
+            ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
+                      zorder=110, alpha=0.5, linewidth=0.5)
+            ax_map.plot(xs, ys, color='darkgray', linewidth=0.5)
+        for i, arc in arcs.iterrows():
+            # Stolen math from Melchior
+            if not np.isnan(arc['Extrusion Direction X']):
+                rotaxang = [arc['Extrusion Direction X'],
+                            arc['Extrusion Direction Y'],
+                            arc['Extrusion Direction Z'],
+                            arc['Total Angle']]
+                rad = np.linspace(arc['Start Angle'], arc['Start Angle'] +
+                                  arc['Total Angle'])
+                dx = np.sin(np.deg2rad(rad)) * arc['Radius']
+                dy = np.cos(np.deg2rad(rad)) * arc['Radius']
+                dz = np.zeros(dx.shape[0])
+                phi1 = -np.arctan2(
+                    norm(np.cross(np.array([rotaxang[0], rotaxang[1], rotaxang[2]]),
+                                  np.array([0, 0, 1]))),
+                    np.dot(np.array([rotaxang[0], rotaxang[1], rotaxang[2]]),
+                           np.array([0, 0, 1])))
+                DX = dx * np.cos(phi1) + dz * np.sin(phi1)
+                DY = dy
+                DZ = dz * np.cos(phi1) - dx * np.sin(phi1)
+                # ax.plot(DX, DY, DZ, color='r')
+                phi2 = np.arctan(rotaxang[1] / rotaxang[0])
+                fdx = (DX * np.cos(phi2)) - (DY * np.sin(phi2))
+                fdy = (DX * np.sin(phi2)) + (DY * np.cos(phi2))
+                fdz = DZ
+                x = fdx + arc['Center X']
+                y = fdy + arc['Center Y']
+                z = fdz + arc['Center Z']
+                # projected pts
+                pts = np.column_stack([x, y, z])
+                proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+                proj_pts = pts - origin - proj_pts
+                proj_pts = np.matmul(change_b_mat, proj_pts.T)
+                ax3d.plot(x, y, z, color='lightgray', zorder=110,
+                          linewidth=0.5)
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
+                          zorder=110, alpha=0.5, linewidth=0.5)
+                ax_map.plot(x, y, color='darkgray', linewidth=0.5)
+            elif not np.isnan(arc['Start X']):
+                v1 = -1. * np.array([arc['Center X'] - arc['Start X'],
+                                     arc['Center Y'] - arc['Start Y'],
+                                     arc['Center Z'] - arc['Start Z']])
+                v2 = -1. * np.array([arc['Center X'] - arc['End X'],
+                                     arc['Center Y'] - arc['End Y'],
+                                     arc['Center Z'] - arc['End Z']])
+                rad = np.linspace(0, np.deg2rad(arc['Total Angle']), 50)
+                # get rotation vector (norm is rotation angle)
+                rotvec = np.cross(v2, v1)
+                rotvec /= norm(rotvec)
+                rotvec = rotvec[:, np.newaxis] * rad[np.newaxis, :]
+                Rs = R.from_rotvec(rotvec.T)
+                pt = np.matmul(v1, Rs.as_matrix())
+                # Projected pts
+                x = arc['Center X'] + pt[:, 0]
+                y = arc['Center Y'] + pt[:, 1]
+                z = arc['Center Z'] + pt[:, 2]
+                pts = np.column_stack([x, y, z])
+                proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+                proj_pts = pts - origin - proj_pts
+                proj_pts = np.matmul(change_b_mat, proj_pts.T)
+                ax3d.plot(x, y, z, color='lightgray', zorder=110,
+                          linewidth=0.5)
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
+                          zorder=110, alpha=0.5, linewidth=0.5)
+                ax_map.plot(x, y, color='darkgray', linewidth=0.5)
+    # Fault model
+    fault_mod = '{}/faultmod.mat'.format(autocad_path)
+    faultmod = loadmat(fault_mod, simplify_cells=True)['faultmod']
+    x = faultmod['xq']
+    y = faultmod['yq']
+    zt = faultmod['zq_top']
+    zb = faultmod['zq_bot']
+    # ax3d.plot_surface(x, y, zt, color='bisque', alpha=.5)
+    # ax3d.plot_surface(x, y, zb, color='bisque', alpha=.5)
+    # Proj
+    pts_t = np.column_stack([x.flatten(), y.flatten(), zt.flatten()])
+    proj_pts_t = np.dot(pts_t - origin, normal)[:, None] * normal
+    proj_pts_t = pts_t - origin - proj_pts_t
+    proj_pts_t = np.matmul(change_b_mat, proj_pts_t.T)
+    pts_b = np.column_stack([x.flatten(), y.flatten(), zb.flatten()])
+    proj_pts_b = np.dot(pts_b - origin, normal)[:, None] * normal
+    proj_pts_b = pts_b - origin - proj_pts_b
+    proj_pts_b = np.matmul(change_b_mat, proj_pts_b.T)
+    ax_x.fill((8., -30., -30, 2.), (0., -63., -50., 0.), color='lightgray',
+              alpha=0.7, label='Main Fault Zone')
+    for well, pts in well_dict.items():
+        if well[0] not in ['D', 'B']:
+            continue
+        try:
+            col = fsb_well_colors[well]
+            zdr = 109
+        except KeyError:
+            col = 'lightgray'
+            zdr = 90
+        # Proj
+        pts = pts[:, :3]
+        proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+        proj_pts = pts - origin - proj_pts
+        proj_pts = np.matmul(change_b_mat, proj_pts.T)
+        ax3d.plot(pts[:, 0], pts[:, 1], pts[:, 2], color=col,
+                  linewidth=1.5, zorder=zdr)
+        ax3d.scatter(pts[0, 0], pts[0, 1], pts[0, 2], color=col,
+                     linewidth=1.5, zorder=zdr, s=5.)
+        if well[0] == 'B':
+            ax_x.plot(proj_pts[0, :], proj_pts[1, :], color=col, zorder=zdr)
+        ax_map.scatter(pts[:, 0][0], pts[:, 1][0], color=col, s=15.,
+                       zorder=111)
+        ax_map.annotate(text=well, xy=(pts[:, 0][0], pts[:, 1][1]), fontsize=10,
+                        weight='bold', xytext=(3, 0),
+                        textcoords="offset points", color=col)
+    # Plot fault coords and piercepoints
+    plot_pierce_points(x, y, zt, strike=47, dip=57, ax=ax_fault, location='fsb')
+    # Formatting
+    ax3d.set_xlim([2579310, 2579355])
+    ax3d.set_ylim([1247555, 1247600])
+    ax3d.set_zlim([485, 530])
+    # ax3d.view_init(elev=30., azim=-112)
+    ax3d.view_init(elev=75, azim=-120.)
+    ax3d.margins(0.)
+    ax3d.set_xticks([])
+    ax3d.set_xticklabels([])
+    ax3d.set_yticks([])
+    ax3d.set_yticklabels([])
+    ax3d.set_zticks([])
+    ax3d.set_zticklabels([])
+    # Overview map
+    ax_map.axis('equal')
+    ax_map.axis('off')
+    ax_map.set_xlim([2579305, 2579353])
+    ax_map.set_ylim([1247565, 1247612])
     # Fault map
     ax_fault.axis('equal')
     ax_fault.spines['top'].set_visible(False)
