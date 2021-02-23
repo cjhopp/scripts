@@ -414,6 +414,8 @@ def tribe_from_client(catalog, **params):
         sch_str_start = 'time >= {}'.format(dto)
         sch_str_end = 'time <= {}'.format((dto + 86400))
         tmp_cat = catalog.filter(sch_str_start, sch_str_end)
+        if len(tmp_cat) == 0:
+            continue
         try:
             tribe += Tribe().construct(catalog=tmp_cat, **params)
         except Exception as e:
