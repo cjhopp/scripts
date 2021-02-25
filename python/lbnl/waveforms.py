@@ -539,6 +539,35 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
     return tribe
 
 
+def detect_tribe_client(tribe, client, start, end, param_dict):
+    """
+    Run detect for tribe on specified wav client
+
+    :param tribe:
+    :param client:
+    :param start:
+    :param end:
+    :param param_dict: Params necessary for running detect from client
+    :return:
+    """
+    import logging
+
+    logging.basicConfig(
+        filename='tribe-detect_run.txt',
+        level=logging.ERROR,
+        format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+
+    party = Party()
+    for date in date_generator(start.datetime, end.datetime):
+        print('Running detect: {}'.format(date))
+        try:
+            party += tribe.detect(client=client, **param_dict)
+        except (OSError, IndexError, MatchFilterError) as e:
+            print(e)
+            continue
+    return party
+
+
 def detect_tribe(tribe, wav_dir, start, end, param_dict):
     """
     Run matched filter detection on a tribe of Templates over waveforms in
