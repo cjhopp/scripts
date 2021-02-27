@@ -29,7 +29,6 @@
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/FatCrayonToolkit.iml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/waveforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/waveforms.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

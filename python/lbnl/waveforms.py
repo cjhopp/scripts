@@ -573,6 +573,9 @@ def detect_tribe_client(tribe, client, start, end, param_dict,
                         **param_dict)
                     if not os.path.exists(daylong_dir):
                         os.makedirs(daylong_dir)
+                    # Ensure there are no masked arrays
+                    for tr in day_st:
+                        tr.data = tr.data.filled()
                     day_st.write('{}/{}.mseed'.format(daylong_dir, date),
                                  format='MSEED')
             else:
