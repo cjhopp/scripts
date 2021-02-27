@@ -539,7 +539,8 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
     return tribe
 
 
-def detect_tribe_client(tribe, client, start, end, param_dict):
+def detect_tribe_client(tribe, client, start, end, param_dict,
+                        daylong_dir=None):
     """
     Run detect for tribe on specified wav client
 
@@ -561,10 +562,25 @@ def detect_tribe_client(tribe, client, start, end, param_dict):
     for date in date_generator(start.datetime, end.datetime):
         print('Running detect: {}'.format(date))
         try:
-            party += tribe.client_detect(
-                client=client, starttime=UTCDateTime(date),
-                endtime=UTCDateTime(date) + 86400,
-                **param_dict)
+            if 'return_stream' in param_dict:
+                if param_dict['return_stream'] == True and not daylong_dir:
+                    print('Specify daylong dir if you want to save streams')
+                    return
+                elif param_dict['return_stream'] == True and daylong_dir:
+                    day_party, day_st = tribe.client_detect(
+                        client=client, starttime=UTCDateTime(date),
+                        endtime=UTCDateTime(date) + 86400,
+                        **param_dict)
+                    if not os.path.exists(daylong_dir):
+                        os.makedirs(daylong_dir)
+                    day_st.write('{}/{}.mseed'.format(daylong_dir, date),
+                                 format='MSEED')
+            else:
+                day_party = tribe.client_detect(
+                    client=client, starttime=UTCDateTime(date),
+                    endtime=UTCDateTime(date) + 86400,
+                    **param_dict)
+            party += day_party
         except (OSError, IndexError, MatchFilterError) as e:
             print(e)
             continue
