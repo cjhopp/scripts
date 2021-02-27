@@ -561,7 +561,10 @@ def detect_tribe_client(tribe, client, start, end, param_dict):
     for date in date_generator(start.datetime, end.datetime):
         print('Running detect: {}'.format(date))
         try:
-            party += tribe.detect(client=client, **param_dict)
+            party += tribe.client_detect(
+                client=client, starttime=UTCDateTime(date),
+                endtime=UTCDateTime(date) + 86400,
+                **param_dict)
         except (OSError, IndexError, MatchFilterError) as e:
             print(e)
             continue
