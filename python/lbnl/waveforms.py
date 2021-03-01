@@ -575,8 +575,8 @@ def detect_tribe_client(tribe, client, start, end, param_dict,
                         os.makedirs(daylong_dir)
                     # Ensure there are no masked arrays
                     for tr in day_st:
-                        print(tr.data)
-                        tr.data = tr.data[tr.data.mask == False]
+                        if np.ma.is_masked(tr.data):
+                            tr.data = tr.data[tr.data.mask == False]
                     day_st.write('{}/{}.mseed'.format(daylong_dir, date),
                                  format='MSEED')
             else:
