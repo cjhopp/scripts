@@ -21,6 +21,7 @@ import matplotlib.gridspec as gridspec
 from itertools import cycle
 from glob import glob
 from datetime import datetime
+from sklearn.cluster import KMeans
 from scipy.io import loadmat
 from scipy.linalg import lstsq, norm
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
@@ -342,6 +343,60 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     else:
         py.plot(fig, filename=outfile)
     return fig
+
+
+def plot_dug_seis_locations_fsb(well_dict, df_active=None, df_passive=None,
+                                cluster=False):
+    """
+    Plot location output of dug-seis on wells at FSB
+
+    :param well_dict: output from create_FSB_boreholes
+    :param df_active: DataFrame of "active" source shots
+    :param df_passive: DataFrame of "passive" sources
+    :param cluster: False or number of kmeans clusters to create
+    :return:
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    if isinstance(df_active, pd.DataFrame) and not cluster:
+        ax.scatter(df_active['x'], df_active['y'], df_active['z'], color='k',
+                   s=0.5, alpha=0.3)
+    elif isinstance(df_active, pd.DataFrame) and cluster:
+        data = df_active[['x', 'y', 'z']].to_numpy()
+        km = KMeans(n_clusters=cluster, init='random',
+                    n_init=10, max_iter=300,
+                    tol=1e-04, random_state=0)
+        clusters = km.fit_predict(data)
+    if isinstance(df_passive, pd.DataFrame) and not cluster:
+        ax.scatter(df_passive['x'], df_passive['y'], df_passive['z'], color='r',
+                   s=5, alpha=0.3)
+    elif isinstance(df_passive, pd.DataFrame) and cluster:
+        data = df_passive[['x', 'y', 'z']].to_numpy()
+        km = KMeans(n_clusters=cluster, init='random',
+                    n_init=10, max_iter=300,
+                    tol=1e-04, random_state=0)
+        clusters = km.fit_predict(data)
+        clusts = {}
+        for c in list(set(clusters)):
+            events = data[clusters == c]
+            clusts[c] = df_passive.iloc[clusters == c]
+            ax.scatter(events[:, 0], events[:, 1], events[:, 2], alpha=0.5,
+                       s=5., label=c)
+    # Plot up the well bores
+    for w, pts in well_dict.items():
+        if w.startswith('B'):
+            wx = pts[:, 0] + 579300
+            wy = pts[:, 1] + 247500
+            wz = pts[:, 2] + 500
+            ax.scatter(wx[0], wy[0], wz[0], s=10., marker='s',
+                       color=fsb_well_colors[w])
+            ax.plot(wx, wy, wz, color=fsb_well_colors[w])
+    ax.set_xlim([3158610, 3158655])
+    ax.set_ylim([1495055, 1495100])
+    ax.set_zlim([985, 1030])
+    ax.legend()
+    plt.show()
+    return clusts
 
 
 def plot_4850_2D(autocad_path, strike=347.,

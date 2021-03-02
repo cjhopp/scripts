@@ -585,8 +585,9 @@ def detect_tribe_client(tribe, client, start, end, param_dict,
                     endtime=UTCDateTime(date) + 86400,
                     **param_dict)
             party += day_party
-        except (OSError, IndexError, MatchFilterError) as e:
-            print(e)
+        except (OSError, IndexError, MatchFilterError, Exception) as e:
+            # Any number of lame pre-processing errors, usually
+            logging.exception(e)
             continue
     return party
 
