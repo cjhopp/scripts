@@ -15,6 +15,7 @@ import shutil
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from glob import glob
 from subprocess import call
@@ -25,6 +26,8 @@ from obspy.core.event import Pick, Origin, Arrival, Event, Magnitude,\
     WaveformStreamID, ResourceIdentifier, OriginQuality, OriginUncertainty,\
     QuantityError
 from obspy.clients.fdsn import Client
+
+## Locals
 from lbnl.coordinates import SURF_converter
 from lbnl.boreholes import depth_to_xyz, parse_surf_boreholes
 try:
@@ -651,3 +654,25 @@ def ncedc_dd_to_cat(path):
                        resource_id=ResourceIdentifier(id=eid))
             cat.events.append(ev)
     return cat
+
+#### PLOTTTING ####
+
+def plot_cumulative_catalog(catalogs, xlim=None, title=None):
+    """Simple cumulative number of events with time"""
+    fig, ax = plt.subplots()
+    for cat in catalogs:
+        times = [ev.picks[-1].time.datetime for ev in cat]
+        times.sort()
+        vals = np.arange(len(times))
+        ax.step(times, vals)
+    # Formatting
+    ax.set_ylim(bottom=0.)
+    if xlim:
+        ax.set_xlim(xlim)
+    if title:
+        ax.set_title(title, fontsize=15)
+    fig.autofmt_xdate()
+    ax.set_ylabel('Cumulative number')
+    ax.set_facecolor('whitesmoke')
+    plt.show()
+    return

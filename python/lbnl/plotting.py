@@ -947,6 +947,7 @@ def plot_FSB_2D(autocad_path, strike=120.,
             zdr = 90
         # Proj
         pts = pts[:, :3]
+        print(pts.shape)
         proj_pts = np.dot(pts - origin, normal)[:, None] * normal
         proj_pts = pts - origin - proj_pts
         proj_pts = np.matmul(change_b_mat, proj_pts.T)
@@ -991,19 +992,6 @@ def plot_FSB_2D(autocad_path, strike=120.,
     ax_fault.set_xticks([-5, 0, 5])
     ax_fault.set_xticklabels(['0', '5', '10'])
     ax_fault.set_xlabel('Meters')
-    # Cross section
-    ax_x.set_xlim([-30, 5])
-    ax_x.axis('equal')
-    ax_x.spines['top'].set_visible(False)
-    ax_x.spines['bottom'].set_visible(False)
-    ax_x.spines['left'].set_visible(False)
-    ax_x.yaxis.set_ticks_position('right')
-    ax_x.tick_params(direction='in', bottom=False, labelbottom=False)
-    ax_x.set_yticks([-30, -20, -10, 0])
-    ax_x.set_yticklabels(['30', '20', '10', '0'])
-    ax_x.set_ylabel('Meters', labelpad=15)
-    ax_x.yaxis.set_label_position("right")
-    ax_x.spines['right'].set_bounds(0, -30)
     fig.legend()
     plt.show()
     return

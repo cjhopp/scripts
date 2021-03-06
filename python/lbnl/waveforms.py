@@ -555,7 +555,7 @@ def detect_tribe_client(tribe, client, start, end, param_dict,
 
     logging.basicConfig(
         filename='tribe-detect_run.txt',
-        level=logging.ERROR,
+        level=logging.WARNING,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
     party = Party()
