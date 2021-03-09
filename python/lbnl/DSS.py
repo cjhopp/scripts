@@ -13,8 +13,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
+import scipy.linalg as linalg
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
+from matplotlib.collections import LineCollection
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
 from glob import glob
 from copy import deepcopy
@@ -23,6 +26,7 @@ from eqcorrscan.core.match_filter import normxcorr2
 from pandas.errors import ParserError
 from scipy.io.matlab import savemat
 from scipy.integrate import trapz
+from scipy.spatial.transform import Rotation as R
 from scipy.interpolate import griddata, interp1d
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks, zpk2sos, sosfilt, iirfilter
@@ -47,7 +51,7 @@ from lbnl.simfip import (read_excavation, plot_displacement_components,
                          rotate_fsb_to_borehole)
 from lbnl.hydraulic_data import (read_collab_hydro, read_csd_hydro,
                                  plot_csd_hydro, plot_collab_ALL,
-                                 plot_fsb_hydro)
+                                 plot_fsb_hydro, read_fsb_hydro)
 
 
 ######### SURF CHANNEL MAPPING ############
@@ -1954,11 +1958,11 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
 
 def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
-             date_range=(datetime(2019, 5, 19), datetime(2019, 6, 4)),
-             denoise_method=None, window='2h', vrange=(-60, 60), title=None,
-             tv_picks=None, prominence=30., pot_data=None, hydro_data=None,
-             offset_samps=120, filter_params=None, plot_stack=False,
-             integrate_anchor_segs=True, gain_correction=False):
+             date_range=None, denoise_method=None, window='2h',
+             vrange=(-60, 60), title=None, tv_picks=None, prominence=30.,
+             pot_data=None, hydro_data=None, offset_samps=120,
+             filter_params=None, plot_stack=False, integrate_anchor_segs=True,
+             gain_correction=False):
     """
     Plot a colormap of DSS data
 
@@ -3374,6 +3378,13 @@ def plot_strain_gain(well_data, well, depth, direction, title=''):
     return
 
 
+def minute_generator(start_date, end_date):
+    # Generator for date looping (every 5 min in this case)
+    from datetime import timedelta
+    for n in range(int(((end_date - start_date).seconds) / 300.) + 1):
+        yield start_date + timedelta(seconds=n * 300)
+
+
 def plot_fsb_timeseries(well_data, df_hydro, depths, show=False):
     """
     Plot channel timeseries for FSB injection versus hydraulic data
@@ -3400,3 +3411,223 @@ def plot_fsb_timeseries(well_data, df_hydro, depths, show=False):
     if show:
         plt.show()
     return axes
+
+
+def martin_plot_fsb(well_data, date_range, autocad_path,
+                     vrange, hydro_path, outdir, title):
+    """
+    Make a series of frames to animate into movie of DAS strain a la
+    Martin's plots for Collab
+
+    :param well_data: Output of extract_wells
+    :param date_range: Two tuple of start and end date
+    :param autocad_path: Path to directory of autocad gallery files
+    :param vrange: Two tuple of low and high end of strain colorbar
+    :param strike: Strike of xsection plot
+    :param hydro_path: Path to hydraulic data file
+    :param outdir: Output directory for plots
+
+    :return:
+    """
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+    for i, date in enumerate(minute_generator(date_range[0], date_range[1])):
+        fig = martin_plot_frame(
+            well_data, time=date, vrange=vrange,
+            autocad_path=autocad_path,
+            hydro_path=hydro_path, title=title)
+        fig.savefig('{}/{:04d}.png'.format(outdir, i), dpi=300)
+        plt.close('all')
+    return
+
+
+def martin_plot_frame(well_data, time, vrange=(-100, 100),
+                      autocad_path=None, strike=120., hydro_path=None,
+                      origin=np.array([2579332., 1247600., 514.]),
+                      title=None):
+    """
+    Plot single frame of wells colored by strain. Take map and cross
+    section from Vero and my presentation to MT partners
+
+    :param well_data: Output from extract_wells
+    :param time: Time plot signals for
+
+    :return:
+    """
+    fig = plt.figure(figsize=(15, 8))
+    spec = GridSpec(ncols=8, nrows=8, figure=fig)
+    ax3d = fig.add_subplot(spec[:6, :4], projection='3d')
+    ax_x = fig.add_subplot(spec[:7, 4:])
+    ax_hydro = fig.add_subplot(spec[7:, :])
+    if title:
+        fig.suptitle(title, fontsize=20)
+    # Cross section plane (strike 320)
+    r = np.deg2rad(360 - strike)
+    normal = np.array([-np.sin(r), -np.cos(r), 0.])
+    normal /= linalg.norm(normal)
+    new_strk = np.array([np.sin(r), -np.cos(r), 0.])
+    new_strk /= linalg.norm(new_strk)
+    change_b_mat = np.array([new_strk, [0, 0, 1], normal])
+    for afile in glob('{}/*.csv'.format(autocad_path)):
+        df_cad = pd.read_csv(afile)
+        lines = df_cad.loc[df_cad['Name'] == 'Line']
+        arcs = df_cad.loc[df_cad['Name'] == 'Arc']
+        for i, line in lines.iterrows():
+            xs = np.array([line['Start X'], line['End X']])
+            ys = np.array([line['Start Y'], line['End Y']])
+            zs = np.array([line['Start Z'], line['End Z']])
+            # Proj
+            pts = np.column_stack([xs, ys, zs])
+            proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+            proj_pts = pts - origin - proj_pts
+            proj_pts = np.matmul(change_b_mat, proj_pts.T)
+            ax3d.plot(xs, ys, zs, color='lightgray', zorder=210,
+                      linewidth=0.5)
+            ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
+                      zorder=110, alpha=0.5, linewidth=0.5)
+        for i, arc in arcs.iterrows():
+            # Stolen math from Melchior
+            if not np.isnan(arc['Extrusion Direction X']):
+                rotaxang = [arc['Extrusion Direction X'],
+                            arc['Extrusion Direction Y'],
+                            arc['Extrusion Direction Z'],
+                            arc['Total Angle']]
+                rad = np.linspace(arc['Start Angle'], arc['Start Angle'] +
+                                  arc['Total Angle'])
+                dx = np.sin(np.deg2rad(rad)) * arc['Radius']
+                dy = np.cos(np.deg2rad(rad)) * arc['Radius']
+                dz = np.zeros(dx.shape[0])
+                phi1 = -np.arctan2(
+                    linalg.norm(
+                        np.cross(np.array([rotaxang[0], rotaxang[1], rotaxang[2]]),
+                        np.array([0, 0, 1]))),
+                    np.dot(np.array([rotaxang[0], rotaxang[1], rotaxang[2]]),
+                           np.array([0, 0, 1])))
+                DX = dx * np.cos(phi1) + dz * np.sin(phi1)
+                DY = dy
+                DZ = dz * np.cos(phi1) - dx * np.sin(phi1)
+                # ax.plot(DX, DY, DZ, color='r')
+                phi2 = np.arctan(rotaxang[1] / rotaxang[0])
+                fdx = (DX * np.cos(phi2)) - (DY * np.sin(phi2))
+                fdy = (DX * np.sin(phi2)) + (DY * np.cos(phi2))
+                fdz = DZ
+                x = fdx + arc['Center X']
+                y = fdy + arc['Center Y']
+                z = fdz + arc['Center Z']
+                # projected pts
+                pts = np.column_stack([x, y, z])
+                proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+                proj_pts = pts - origin - proj_pts
+                proj_pts = np.matmul(change_b_mat, proj_pts.T)
+                ax3d.plot(x, y, z, color='lightgray', zorder=210,
+                          linewidth=0.5)
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
+                          zorder=110, alpha=0.5, linewidth=0.5)
+            elif not np.isnan(arc['Start X']):
+                v1 = -1. * np.array([arc['Center X'] - arc['Start X'],
+                                     arc['Center Y'] - arc['Start Y'],
+                                     arc['Center Z'] - arc['Start Z']])
+                v2 = -1. * np.array([arc['Center X'] - arc['End X'],
+                                     arc['Center Y'] - arc['End Y'],
+                                     arc['Center Z'] - arc['End Z']])
+                rad = np.linspace(0, np.deg2rad(arc['Total Angle']), 50)
+                # get rotation vector (norm is rotation angle)
+                rotvec = np.cross(v2, v1)
+                rotvec /= linalg.norm(rotvec)
+                rotvec = rotvec[:, np.newaxis] * rad[np.newaxis, :]
+                Rs = R.from_rotvec(rotvec.T)
+                pt = np.matmul(v1, Rs.as_matrix())
+                # Projected pts
+                x = arc['Center X'] + pt[:, 0]
+                y = arc['Center Y'] + pt[:, 1]
+                z = arc['Center Z'] + pt[:, 2]
+                pts = np.column_stack([x, y, z])
+                proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+                proj_pts = pts - origin - proj_pts
+                proj_pts = np.matmul(change_b_mat, proj_pts.T)
+                ax3d.plot(x, y, z, color='lightgray', zorder=210,
+                          linewidth=0.5)
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
+                          zorder=210, alpha=0.5, linewidth=0.5)
+    well_dict = create_FSB_boreholes()
+    # cmap = ListedColormap(sns.color_palette('icefire', 21).as_hex())
+    cmap = ListedColormap(sns.color_palette('coolwarm', 21).as_hex())
+    for well, w_dict in well_data.items():
+        pts = []
+        if well == 'B4':
+            continue
+        for feature_dep in w_dict['depth']:
+            feature_dep -= w_dict['depth'][0]
+            pts.append(depth_to_xyz(well_dict, well, feature_dep))
+        strains = w_dict['data'][:, np.argmin(np.abs(time - w_dict['times']))]
+        # Project well points and fault intersection points onto cross section
+        pts = np.array(pts)
+        proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+        proj_pts = pts - origin - proj_pts
+        proj_pts = np.matmul(change_b_mat, proj_pts.T)
+        proj_pts = proj_pts[:2, :]
+        proj_pts = proj_pts.T.reshape([-1, 1, 2])
+        ax3d.scatter(pts[0, 0], pts[0, 1], pts[0, 2], color='darkgray',
+                     linewidth=1.5, s=15., zorder=110)
+        pts = pts.reshape([-1, 1, 3])
+        try:
+            fault_pts = [depth_to_xyz(well_dict, well, fault_depths[well][i])
+                         for i in (0, 1)]
+            fault_pts = np.array(fault_pts)
+            p_fault_pts = np.dot(fault_pts - origin, normal)[:, None] * normal
+            p_fault_pts = fault_pts - origin - p_fault_pts
+            p_fault_pts = np.matmul(change_b_mat, p_fault_pts.T)
+            p_fault_pts = p_fault_pts[:2, :].T
+            # Plot fault intersection points
+            ax_x.scatter(p_fault_pts[:, 0], p_fault_pts[:, 1], c='purple',
+                         marker='x', s=15., zorder=105)
+        except KeyError as e:
+            # Borehole doesn't intersect fault
+            pass
+        # Make segments
+        proj_seggies = np.concatenate([proj_pts[:-1], proj_pts[1:]], axis=1)
+        seggies = np.concatenate([pts[:-1], pts[1:]], axis=1)
+        col_norm = plt.Normalize(vrange[0], vrange[1])
+        lc = Line3DCollection(seggies, cmap=cmap, norm=col_norm)
+        lc_proj = LineCollection(proj_seggies, cmap=cmap, norm=col_norm)
+        # Set the values used for colormapping
+        lc.set_array(strains)
+        lc.set_linewidth(3.)
+        lc_proj.set_array(strains)
+        lc_proj.set_linewidth(3.)
+        line = ax3d.add_collection3d(lc)
+        line_x = ax_x.add_collection(lc_proj)
+    fig.colorbar(line_x, ax=ax3d, label=r'$\mu\epsilon$')
+    # Formatting
+    ax3d.set_xlim([2579310, 2579355])
+    ax3d.set_ylim([1247555, 1247600])
+    ax3d.set_zlim([485, 530])
+    # ax3d.view_init(elev=30., azim=-112)
+    ax3d.view_init(elev=75, azim=-120.)
+    ax3d.margins(0.)
+    ax3d.set_xticks([])
+    ax3d.set_xticklabels([])
+    ax3d.set_yticks([])
+    ax3d.set_yticklabels([])
+    ax3d.set_zticks([])
+    ax3d.set_zticklabels([])
+    # Cross section
+    ax_x.set_xlim([-30, 5])
+    ax_x.axis('equal')
+    ax_x.spines['top'].set_visible(False)
+    ax_x.spines['bottom'].set_visible(False)
+    ax_x.spines['left'].set_visible(False)
+    ax_x.yaxis.set_ticks_position('right')
+    ax_x.tick_params(direction='in', bottom=False, labelbottom=False)
+    ax_x.set_yticks([-30, -20, -10, 0])
+    ax_x.set_yticklabels(['30', '20', '10', '0'])
+    ax_x.set_ylabel('                                      Meters', labelpad=15)
+    ax_x.yaxis.set_label_position("right")
+    ax_x.spines['right'].set_bounds(0, -30)
+    # Plot the hydro
+    df_hydro = read_fsb_hydro(hydro_path)
+    pq_axes = plot_fsb_hydro(df_hydro, axes=ax_hydro)
+    # Add 1 hour to Swiss local winter time
+    pq_axes[0].axvline(x=time, linestyle=':', color='k', linewidth=2.)
+    pq_axes[0].set_xlabel('Time', fontsize=14)
+    return fig

@@ -329,7 +329,7 @@ def plot_csd_hydro(df_hydro, title='Flow and Pressure', axes=None, flow=False):
 def plot_fsb_hydro(df_hydro, title='Flow and Pressure', axes=None, show=False):
     """Simple Flow and Press plot"""
     if not axes:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(15, 5))
     else:
         ax = axes
     ax2 = ax.twinx()

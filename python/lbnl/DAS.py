@@ -618,7 +618,7 @@ def minute_generator(start_date, end_date):
 
 
 def martin_plot_fsb(well_data, date_range, autocad_path,
-                     vrange, hydro_path, outdir):
+                     vrange, hydro_path, outdir, title):
     """
     Make a series of frames to animate into movie of DAS strain a la
     Martin's plots for Collab
@@ -635,19 +635,20 @@ def martin_plot_fsb(well_data, date_range, autocad_path,
     """
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    for date in minute_generator(date_range[0], date_range[1]):
+    for i, date in enumerate(minute_generator(date_range[0], date_range[1])):
         fig = martin_plot_frame(
             well_data, time=date, vrange=vrange,
             autocad_path=autocad_path,
-            hydro_path=hydro_path)
-        fig.savefig('{}/{}.png'.format(outdir, date), dpi=300)
+            hydro_path=hydro_path, title=title)
+        fig.savefig('{}/{:04d}.png'.format(outdir, i), dpi=300)
         plt.close('all')
     return
 
 
 def martin_plot_frame(well_data, time, vrange=(-100, 100),
                       autocad_path=None, strike=120., hydro_path=None,
-                      origin=np.array([2579332., 1247600., 514.])):
+                      origin=np.array([2579332., 1247600., 514.]),
+                      title=None):
     """
     Plot single frame of wells colored by strain. Take map and cross
     section from Vero and my presentation to MT partners
@@ -657,11 +658,13 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
 
     :return:
     """
-    fig = plt.figure(figsize=(12, 12))
+    fig = plt.figure(figsize=(15, 8))
     spec = GridSpec(ncols=8, nrows=8, figure=fig)
-    ax3d = fig.add_subplot(spec[:4, :4], projection='3d')
+    ax3d = fig.add_subplot(spec[:6, :4], projection='3d')
     ax_x = fig.add_subplot(spec[:7, 4:])
     ax_hydro = fig.add_subplot(spec[7:, :])
+    if title:
+        fig.suptitle(title, fontsize=20)
     # Cross section plane (strike 320)
     r = np.deg2rad(360 - strike)
     normal = np.array([-np.sin(r), -np.cos(r), 0.])
@@ -682,7 +685,7 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
             proj_pts = np.dot(pts - origin, normal)[:, None] * normal
             proj_pts = pts - origin - proj_pts
             proj_pts = np.matmul(change_b_mat, proj_pts.T)
-            ax3d.plot(xs, ys, zs, color='lightgray', zorder=110,
+            ax3d.plot(xs, ys, zs, color='lightgray', zorder=210,
                       linewidth=0.5)
             ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
                       zorder=110, alpha=0.5, linewidth=0.5)
@@ -720,7 +723,7 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
                 proj_pts = np.dot(pts - origin, normal)[:, None] * normal
                 proj_pts = pts - origin - proj_pts
                 proj_pts = np.matmul(change_b_mat, proj_pts.T)
-                ax3d.plot(x, y, z, color='lightgray', zorder=110,
+                ax3d.plot(x, y, z, color='lightgray', zorder=210,
                           linewidth=0.5)
                 ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
                           zorder=110, alpha=0.5, linewidth=0.5)
@@ -746,10 +749,10 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
                 proj_pts = np.dot(pts - origin, normal)[:, None] * normal
                 proj_pts = pts - origin - proj_pts
                 proj_pts = np.matmul(change_b_mat, proj_pts.T)
-                ax3d.plot(x, y, z, color='lightgray', zorder=110,
+                ax3d.plot(x, y, z, color='lightgray', zorder=210,
                           linewidth=0.5)
                 ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='lightgray',
-                          zorder=110, alpha=0.5, linewidth=0.5)
+                          zorder=210, alpha=0.5, linewidth=0.5)
     well_dict = create_FSB_boreholes()
     # cmap = ListedColormap(sns.color_palette('icefire', 21).as_hex())
     cmap = ListedColormap(sns.color_palette('coolwarm', 21).as_hex())
@@ -758,15 +761,33 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
         if well == 'B4':
             continue
         for feature_dep in w_dict['depth']:
+            feature_dep -= w_dict['depth'][0]
             pts.append(depth_to_xyz(well_dict, well, feature_dep))
         strains = w_dict['data'][:, np.argmin(np.abs(time - w_dict['times']))]
+        # Project well points and fault intersection points onto cross section
         pts = np.array(pts)
         proj_pts = np.dot(pts - origin, normal)[:, None] * normal
         proj_pts = pts - origin - proj_pts
         proj_pts = np.matmul(change_b_mat, proj_pts.T)
         proj_pts = proj_pts[:2, :]
         proj_pts = proj_pts.T.reshape([-1, 1, 2])
+        ax3d.scatter(pts[0, 0], pts[0, 1], pts[0, 2], color='darkgray',
+                     linewidth=1.5, s=15., zorder=110)
         pts = pts.reshape([-1, 1, 3])
+        try:
+            fault_pts = [depth_to_xyz(well_dict, well, fault_depths[well][i])
+                         for i in (0, 1)]
+            fault_pts = np.array(fault_pts)
+            p_fault_pts = np.dot(fault_pts - origin, normal)[:, None] * normal
+            p_fault_pts = fault_pts - origin - p_fault_pts
+            p_fault_pts = np.matmul(change_b_mat, p_fault_pts.T)
+            p_fault_pts = p_fault_pts[:2, :].T
+            # Plot fault intersection points
+            ax_x.scatter(p_fault_pts[:, 0], p_fault_pts[:, 1], c='purple',
+                         marker='x', s=15., zorder=105)
+        except KeyError as e:
+            # Borehole doesn't intersect fault
+            pass
         # Make segments
         proj_seggies = np.concatenate([proj_pts[:-1], proj_pts[1:]], axis=1)
         seggies = np.concatenate([pts[:-1], pts[1:]], axis=1)
@@ -780,7 +801,7 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
         lc_proj.set_linewidth(3.)
         line = ax3d.add_collection3d(lc)
         line_x = ax_x.add_collection(lc_proj)
-    # fig.colorbar(line, ax=ax)
+    fig.colorbar(line_x, ax=ax3d, label=r'$\mu\epsilon$')
     # Formatting
     ax3d.set_xlim([2579310, 2579355])
     ax3d.set_ylim([1247555, 1247600])
@@ -804,13 +825,13 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
     ax_x.tick_params(direction='in', bottom=False, labelbottom=False)
     ax_x.set_yticks([-30, -20, -10, 0])
     ax_x.set_yticklabels(['30', '20', '10', '0'])
-    ax_x.set_ylabel('Meters', labelpad=15)
+    ax_x.set_ylabel('                                      Meters', labelpad=15)
     ax_x.yaxis.set_label_position("right")
     ax_x.spines['right'].set_bounds(0, -30)
     # Plot the hydro
     df_hydro = read_fsb_hydro(hydro_path)
     pq_axes = plot_fsb_hydro(df_hydro, axes=ax_hydro)
     # Add 1 hour to Swiss local winter time
-    pq_axes[0].axvline(x=time + timedelta(seconds=3600),
-                       linestyle=':', color='k', linewidth=2.)
+    pq_axes[0].axvline(x=time, linestyle=':', color='k', linewidth=2.)
+    pq_axes[0].set_xlabel('Time', fontsize=14)
     return fig
