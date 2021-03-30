@@ -44,7 +44,8 @@ from lbnl.coordinates import cartesian_distance
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             calculate_frac_density, read_frac_cores,
                             depth_to_xyz, distance_to_borehole,
-                            read_gallery_distances, read_gallery_excavation)
+                            read_gallery_distances, read_gallery_excavation,
+                            read_frac_quinn)
 from lbnl.DTS import read_struct
 from lbnl.simfip import (read_excavation, plot_displacement_components,
                          read_collab, rotate_fsb_to_fault,
@@ -228,7 +229,13 @@ frac_cols = {'All fractures': 'black',
              'induced fracture': 'magenta',
              'sedimentary structures/color changes undif.': 'green',
              'uncertain type': 'orange',
-             'lithology change': 'yellow'}
+             'lithology change': 'yellow',
+             'Fracture': 'forestgreen',
+             'Bedding': 'steelblue',
+             'Scaly Clay': 'firebrick',
+             'MF_bounds': 'black',
+             'CC_cal': 'lightgray',
+             np.nan: 'white'}
 
 csd_well_colors = {'D1': 'dodgerblue', 'D2': 'lightseagreen',
                    'D3': 'firebrick', 'D4': 'darkorange',
@@ -3589,12 +3596,12 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
         seggies = np.concatenate([pts[:-1], pts[1:]], axis=1)
         col_norm = plt.Normalize(vrange[0], vrange[1])
         lc = Line3DCollection(seggies, cmap=cmap, norm=col_norm)
-        lc_proj = LineCollection(proj_seggies, cmap=cmap, norm=col_norm)
+        lc_proj = LineCollection(proj_seggies, cmap=cmap, norm=col_norm,
+                                 linewidths=1 + np.abs(strains) / 20)
         # Set the values used for colormapping
         lc.set_array(strains)
-        lc.set_linewidth(3.)
+        lc.set_linewidth(4.)
         lc_proj.set_array(strains)
-        lc_proj.set_linewidth(3.)
         line = ax3d.add_collection3d(lc)
         line_x = ax_x.add_collection(lc_proj)
     fig.colorbar(line_x, ax=ax3d, label=r'$\mu\epsilon$')
@@ -3631,3 +3638,93 @@ def martin_plot_frame(well_data, time, vrange=(-100, 100),
     pq_axes[0].axvline(x=time, linestyle=':', color='k', linewidth=2.)
     pq_axes[0].set_xlabel('Time', fontsize=14)
     return fig
+
+
+def plot_logs(log_dir, well, fiber_data=None, fiber_leg='up_data',
+              date=None, ref_time=None, frac_picks=None):
+    """
+    Plot logs with depth, optionally with fiber optic data
+
+    :param log_dir: Directory of log files (hard coded filenames...)
+    :param well: Name of well to plot
+    :param fiber_data: Optional output from extract_wells function
+        in all fiber method modules
+
+    :return:
+    """
+    # Read in log files
+    gam_conduct_f = glob('{}/*GR_DEV_DIL.txt'.format(log_dir))[0]
+    conduct = pd.read_csv(gam_conduct_f, skiprows=[1], delimiter='\t')
+    conduct = conduct.rename(columns=lambda x: x.strip())
+    conduct = conduct.rename(columns=lambda x: x.lower())
+    spec_gam_f = glob('{}/*GRS.txt'.format(log_dir))[0]
+    spec_gam = pd.read_csv(spec_gam_f, skiprows=[1], delimiter='\t')
+    spec_gam = spec_gam.rename(columns=lambda x: x.strip())
+    spec_gam = spec_gam.rename(columns=lambda x: x.lower())
+    # Clip to 2-m to TD
+    print(spec_gam)
+    print(conduct)
+    print('foo')
+    spec_gam = spec_gam[(spec_gam['depth'] > 2.) &
+                        (spec_gam['depth'] < fiber_depths[well] - 0.75)]
+    conduct = conduct[(conduct['depth'] > 2.) &
+                      (conduct['depth'] < fiber_depths[well] - 0.75)]
+    frac_dict = read_frac_quinn(frac_picks, well)
+    axes_cnt = 6
+    # Get fiber
+    if fiber_data:
+        axes_cnt += 1
+        dss_dict = extract_strains(fiber_data, date=date, wells=[well],
+                                   reference_time=ref_time, average=False)
+    # Set up figure
+    fig, axes = plt.subplots(ncols=axes_cnt, figsize=(10, 10),
+                             sharey='row')
+    # Plot fract on left if they exist
+    for frac_type, dens in frac_dict.items():
+        if not frac_type.startswith('sed'):
+            col = [frac_cols[cls] for cls in dens[:, 3]]
+            axes[0].scatter(dens[:, 1], dens[:, 0],
+                            c=col, label=frac_type, alpha=0.5)
+    axes[0].set_xlabel(r'Dip [$^o$]', fontsize=15)
+    if fiber_data:
+        axes[-1].plot(dss_dict[well][fiber_leg], dss_dict[well]['depths'],
+                      color=csd_well_colors[well])
+    # Natural gamma
+    axes[1].plot(spec_gam['natural gamma'], spec_gam['depth'],
+                 color='lightgray')
+    # Spectral
+    axes[2].plot(spec_gam['k2o'], spec_gam['depth'], color='purple',
+                 alpha=0.5)
+    axes[3].plot(spec_gam['tho2'], spec_gam['depth'], color='magenta',
+                 alpha=0.5)
+    axes[4].plot(spec_gam['u3o8'], spec_gam['depth'], color='blue',
+                 alpha=0.5)
+    # And conductivity
+    axes[5].plot(conduct['conductivity-ss'], conduct['depth'], color='b')
+    for a in axes:
+        # Plot Main Fault bounds
+        a.axhline(fault_depths[well][0], linestyle=':', color='gray')
+        a.axhline(fault_depths[well][1], linestyle=':', color='gray')
+    # Formatting, resin plugs, and fault depths
+    axes[0].invert_yaxis()
+    axes[0].set_title('OTV picks')
+    axes[1].set_title('Nat. Gamma')
+    axes[1].set_xlabel('CPS')
+    axes[2].set_xlabel('% K')
+    axes[2].set_title('K')
+    axes[3].set_xlabel('ppm Th')
+    axes[3].set_title('Th')
+    axes[4].set_xlabel('ppm U')
+    axes[4].set_title('U')
+    axes[5].set_title('Conductivity')
+    axes[5].set_xlabel('mmho')
+    fig.suptitle(well, fontsize=18)
+    if fiber_data:
+        axes[-1].set_xlim([-250, 250])
+        axes[-1].set_xlabel(r'$\mu\varepsilon$')
+        axes[-1].set_title('DSS')
+    axes[0].set_ylabel('Depth [m]', fontsize=15)
+    axes[0].set_ylim(top=0)
+    fig.legend()
+    plt.show()
+    return

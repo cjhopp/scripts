@@ -18,6 +18,7 @@ from matplotlib.dates import date2num, num2date
 # local imports
 from lbnl.coordinates import cartesian_distance
 
+
 def depth_to_xyz(well_dict, well, depth):
     """
     Return xyz coords for depth in a given borehole
@@ -248,6 +249,23 @@ def read_frac_cores(path, well):
     return well_dict
 
 
+def read_frac_quinn(path, well):
+    """
+    Read Quinns TV picks
+
+    :return:
+    """
+    well_dict = {'All fractures': {}}
+    fracs = pd.read_excel(path, sheet_name=None, skiprows=[1], header=0)
+    for full_name, items in fracs.items():
+        if 'BCS-{}'.format(well) == full_name:
+            bin_centers = items['Depth'].values
+            well_dict['All fractures'] = np.stack(
+                (bin_centers, items['Dip'], items['Azimuth'],
+                 items['Mont Terri Structure'])).T
+    return well_dict
+
+
 def otv_to_sdd(path):
     """
     Take Quinns wellcad picks and parse to strike-dip-dep DataFrames
@@ -362,16 +380,27 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
                                     (y_top + rows.iloc[:, 4]).values,
                                     rows.iloc[:, 2].values,
                                     rows.iloc[:, 1].values)).T
-        if well_dict[name].shape[0] < 1000:  # Read in gamma instead
-            # If so, make a more highly-sampled interpolation
-            x, y, z, d = zip(*well_dict[name])
-            td = d[-1]
-            if td == 'Top':
-                td = float(d[-3])
-            well_dict[name] = np.stack((np.linspace(x_top, x[-1], 1000),
-                                        np.linspace(y_top, y[-1], 1000),
-                                        np.linspace(z_top, z[-1], 1000),
-                                        np.linspace(0, td, 1000))).T
+        print(name, well_dict[name].shape[0])
+        if well_dict[name].shape[0] < 10000:
+            try:
+                excel_f = [f for f in excel_asbuilts
+                           if f.split('-')[-1][:2] == name][0]
+            except IndexError:
+                # If so, make a more highly-sampled interpolation
+                x, y, z, d = zip(*well_dict[name])
+                td = d[-1]
+                if td == 'Top':
+                    td = float(d[-3])
+                well_dict[name] = np.stack((np.linspace(x_top, x[-1], 1000),
+                                            np.linspace(y_top, y[-1], 1000),
+                                            np.linspace(z_top, z[-1], 1000),
+                                            np.linspace(0, td, 1000))).T
+                continue
+            df = pd.read_excel(excel_f, header=6, skiprows=[7])
+            well_dict[name] = np.stack(((x_top + df['Easting']).values,
+                                        (y_top + df['Northing']).values,
+                                        (z_top - df['TVD']).values,
+                                        df['Depth'].values)).T
     return well_dict
 
 
