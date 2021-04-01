@@ -181,6 +181,10 @@ fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58)
                 'D7': (22.46, 25.54), 'B2': (41.25, 45.65), 'B1': (34.8, 42.25),
                 'B9': (55.7, 55.7), 'B10': (17.75, 21.7)}
 
+scaly_clay_depths = {'D3': [(14.8, 15.), (16.1, 16.2)],
+                     'D5': [(19.65, 19.75), (20.4, 20.45), (22.65, 22.7)],
+                     'D6': [(28.4, 28.55), (29., 30.95)]}
+
 # Depths of intersect for OB/P are guesses and assume propagation past OT-P con.
 frac_depths = {'I': 50.2, 'OT': 45., 'OB': 50., 'P': 40.}
 
@@ -3316,6 +3320,15 @@ def plot_csd_deep(well_data, date, wells, tv_picks,
                                   label=frac_type, alpha=0.5)
         axes[ax_ind].set_xlim([0, 10])
         axes[ax_ind].set_xlabel(r'$\frac{fractures}{meter}$', fontsize=15)
+        try:
+            for deps in scaly_clay_depths[wells[i]]:
+                axes[ax_ind].fill_between(
+                    x=np.array([-500, 500]),
+                    y1=deps[0], y2=deps[1],
+                    alpha=0.5, color='red')
+        except KeyError:
+            # Well not in scaly clay dict (D4)
+            continue
     # Formatting, resin plugs, and fault depths
     axes[0].set_ylabel('Depth [m]', fontsize=15)
     for i, ax in enumerate(axes):
@@ -3446,7 +3459,6 @@ def martin_plot_fsb(well_data, date_range, autocad_path,
         fig.savefig('{}/{:04d}.png'.format(outdir, i), dpi=300)
         plt.close('all')
     return
-
 
 def martin_plot_frame(well_data, time, vrange=(-100, 100),
                       autocad_path=None, strike=120., hydro_path=None,
