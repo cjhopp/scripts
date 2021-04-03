@@ -32,6 +32,7 @@ from obspy import Trace
 from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib.patches import Circle
+from matplotlib.colors import ListedColormap, Normalize
 from scipy.signal import resample, detrend
 
 # Local imports (assumed to be in python path)
@@ -40,7 +41,8 @@ from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             distance_to_borehole)
 from lbnl.coordinates import SURF_converter
 from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
-                      get_well_piercepoint, get_frac_piercepoint)
+                      get_well_piercepoint, get_frac_piercepoint,
+                      extract_strains, fault_depths)
 
 
 csd_well_colors = {'D1': 'blue', 'D2': 'blue', 'D3': 'green',
@@ -1018,8 +1020,8 @@ def plot_pierce_points(x, y, z, strike, dip, ax, location='fsb'):
     if location == 'fsb':
         pierce_points = get_well_piercepoint(['D1', 'D2', 'D3', 'D4', 'D5',
                                               'D6', 'D7'])
-        ax.fill(pts[hull.vertices, 0], pts[hull.vertices, 1], color='bisque',
-                alpha=0.7)
+        ax.fill(pts[hull.vertices, 0], pts[hull.vertices, 1], color='white',
+                alpha=0.0)
         size = 20.
         fs = 10
     elif location == 'surf':
@@ -1029,6 +1031,7 @@ def plot_pierce_points(x, y, z, strike, dip, ax, location='fsb'):
         size = 70.
         fs = 12
     # Plot well pierce points
+    projected_pts = {}
     for well, pts in pierce_points.items():
         try:
             col = csd_well_colors[well]
@@ -1044,7 +1047,9 @@ def plot_pierce_points(x, y, z, strike, dip, ax, location='fsb'):
         ax.annotate(text=well, xy=(new_pt[0], new_pt[1]), fontsize=fs,
                     weight='bold', xytext=(3, 0),
                     textcoords="offset points", color=col)
-    return
+        projected_pts[well] = new_pt
+    return projected_pts
+
 
 ###### Adding various objects to the plotly figure #######
 

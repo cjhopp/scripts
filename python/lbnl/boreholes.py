@@ -380,7 +380,6 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
                                     (y_top + rows.iloc[:, 4]).values,
                                     rows.iloc[:, 2].values,
                                     rows.iloc[:, 1].values)).T
-        print(name, well_dict[name].shape[0])
         if well_dict[name].shape[0] < 10000:
             try:
                 excel_f = [f for f in excel_asbuilts

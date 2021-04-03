@@ -24,8 +24,9 @@ from copy import deepcopy
 from pytz import timezone
 from eqcorrscan.core.match_filter import normxcorr2
 from pandas.errors import ParserError
-from scipy.io.matlab import savemat
+from scipy.io.matlab import savemat, loadmat
 from scipy.integrate import trapz
+from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation as R
 from scipy.interpolate import griddata, interp1d
 from scipy.ndimage import gaussian_filter, median_filter
@@ -246,6 +247,9 @@ csd_well_colors = {'D1': 'dodgerblue', 'D2': 'lightseagreen',
                    'D5': 'blueviolet', 'D6': 'darkblue',
                    'D7': 'k'}
 
+cols_4850 = {'PDT': 'black', 'PDB': 'black', 'PST': 'black', 'PSB': 'black',
+             'OT': 'black', 'OB': 'black', 'I': '#4682B4', 'P': '#B22222'}
+
 fsb_injection_times = [
     (datetime(2020, 11, 21, 8, 21), datetime(2020, 11, 21, 8, 31)),
     (datetime(2020, 11, 21, 9, 21), datetime(2020, 11, 21, 9, 31)),
@@ -465,6 +469,7 @@ def integrate_depth_interval(well_data, depths, well, leg, dates=None):
     """
     data = well_data[well]['data'].copy()
     depth = well_data[well]['depth'].copy()
+    times = well_data[well]['times']
     depth -= depth[0].copy()
     if leg == 'down':
         chans = (np.argmin(np.abs(depth - depths[0])),
@@ -484,13 +489,14 @@ def integrate_depth_interval(well_data, depths, well, leg, dates=None):
     else:
         d_inds = np.where((dates[0] <= well_data[well]['times']) &
                            (dates[1] > well_data[well]['times']))
+        times = times[d_inds]
         int_data = np.squeeze(data[chans[0]:chans[1] + 1, d_inds])
         # Relative to first sample
         int_data = int_data - int_data[:, 0, np.newaxis]
         integral = trapz(int_data, axis=0)
         # Squeeze and scale to channel spacing
         integral = np.squeeze(integral) * (depth[1] - depth[0])
-    return integral  # units are displacement
+    return integral, times # units are displacement
 
 
 def scale_to_gain(data, gain, offset_samps):
@@ -541,7 +547,7 @@ def write_wells(well_data):
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='madjdabadi', convert_freq=False,
                   realign=True, DTS=None, DTS_interp='linear',
-                  gain_thresh=0.015, correct_gain=False, debug=0):
+                  gain_thresh=0.015, mask=False, debug=0):
     """
     Helper to extract only the channels in specific wells
 
@@ -564,7 +570,8 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     :param DTS_interp: Method of interpolation for DTS to DSS grid
     :param gain_thresh: Threshold for removal of changes from bulk gain shifts
         Unit is percent.
-    :param correct_gain: bool to apply correction at gain jumps or method to use
+    :param correct_gain: bool to mask offending values above gain thresh
+        D5 is always corrected, however
     :param debug: Flag for plotting
 
     :returns: dict {well name: {'data':, 'depth':, 'noise':, ...}
@@ -972,18 +979,26 @@ def calculate_leg_deviation(well_data):
     return well_data
 
 
-def gain_correction(well_data, method='correct', gain_thresh=0.015, debug=0):
+def gain_correction(well_data, mask=False, gain_thresh=0.015, debug=0):
     """
     Correct data for jumps in gain that produce freq shift
 
     :param well_data: well_data dict
-    :param method: 'correct' or 'mask'
+    :param mask: Mask offending values or no? D5 always corrected
     :param gain_thresh: Threshold above which to remove measurement contribution
     :param debug: Debug flag for plotting
 
     :return:
     """
     for well, wdict in well_data.items():
+        if well != 'D5':
+            print('Only correcting D5 right now. Otherwise masking')
+            if mask:
+                method = 'mask'
+            else:
+                method = 'skip'
+        else:
+            method = 'correct'
         # Absolute diff along time axis
         g_prime = np.abs(np.diff(wdict['gain'], axis=1, append=0.))
         d_prime = np.diff(wdict['data'], axis=1, append=0.)
@@ -1001,7 +1016,10 @@ def gain_correction(well_data, method='correct', gain_thresh=0.015, debug=0):
                     continue  # Skip final sample
         elif method == 'mask':
             new_data = np.ma.masked_where(g_prime > gain_thresh, new_data)
-        if debug > 0 and well in ['D5', 'D1', 'D2']:
+        else:
+            # Skip this trace
+            continue
+        if debug > 0 and well in ['D5', 'D1', 'D2', 'D3', 'D4', 'D6']:
             fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(10, 7))
             fig.suptitle('Gain shift correction', fontsize=18, x=0.3, y=0.95,
                          weight='bold')
@@ -2878,7 +2896,7 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
     # bc we read in microstrain, scaling by element length yields displacement
     pot_strains = pot_d[pind-1:pind+2, :].sum(axis=0) * -0.5
     # Integrate over same depths for DSS for displacement
-    integral = integrate_depth_interval(well_data, depths=(19.25, 20.75),
+    integral, _ = integrate_depth_interval(well_data, depths=(19.25, 20.75),
                                         well='D5', leg='up', dates=dates)
     dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
         well_data, 'D5', depth=depth, direction='up')
@@ -2904,9 +2922,8 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
                                               np.max(pot_strains)))
     # Now simfip plot
     # Integrate DSS and Pot
-    integrated_strain = integrate_depth_interval(well_data, depths=(18.5, 22.5),
-                                                 well='D5', leg='up',
-                                                 dates=dates)
+    integrated_strain, _ = integrate_depth_interval(
+        well_data, depths=(18.5, 22.5), well='D5', leg='up', dates=dates)
     # Sum potentiometer
     interval = np.where((pot_depths < 23.) & (pot_depths > 19.))
     integrated_pot = np.sum(-0.5 * pot_d[interval, :].squeeze(), axis=0)
@@ -2969,6 +2986,103 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
     axes[1].margins(0.)
     if dates:
         axes[0].set_xlim(dates)
+    plt.show()
+    return
+
+
+def plot_CSD_with_time(well_data, pot_data, depth, simfip, dates=None):
+    """
+    Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)
+
+    :param well_data: Output of extract_wells
+    :param pot_data: Path to potentiometer file
+    :param depth: Depth in well to plot
+    :param simfip: Path to SIMFIP data
+    :param dates: Date range to plot
+    """
+    integrate_dict = {'D3': (17.5, 21.), 'D4': (26., 29.),
+                      'D5': (18.5, 22.5), 'D6': (27.5, 31.5)}
+    fig, axes = plt.subplots(figsize=(10, 7))
+    pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
+    # Which pot?
+    pind = (np.abs(pot_depths - 20.)).argmin()
+    # Take 3 elements (1.5 m) and sum
+    # bc we read in microstrain, scaling by element length yields displacement
+    pot_strains = pot_d[pind-1:pind+2, :].sum(axis=0) * -0.5
+    dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
+        well_data, 'D5', depth=depth, direction='up')
+    if dates:
+        date_inds = np.where((dates[0] <= dss_times) &
+                             (dates[1] > dss_times))
+        dss_times = dss_times[date_inds]
+        dss_strains = dss_strains[date_inds]
+    indices = np.where((pot_times > dss_times[0]) &
+                       (pot_times < dss_times[-1]))
+    pot_times = pot_times[indices]
+    pot_d = pot_d[:, indices].squeeze()
+    pot_strains = pot_strains[indices]
+    # Relative to start of plot
+    pot_strains = pot_strains - pot_strains[0]
+    dss_strains = dss_strains - dss_strains[0]
+    # axes[0].plot(pot_times, pot_strains, color='r',
+    #              label='Potentiometer')
+    # axes[0].plot(dss_times, integral, color='purple', label='DSS')
+    print('Cross correlation coefficient: {}'.format(
+        normxcorr2(dss_strains, pot_strains)))
+    print('DSS: {}\nPotentiometer: {}'.format(np.max(dss_strains),
+                                              np.max(pot_strains)))
+    # Now simfip plot
+    # Integrate DSS and Pot
+    for well in ['D3', 'D4', 'D5', 'D6']:
+        integrated_strain, time = integrate_depth_interval(
+            well_data, depths=integrate_dict[well], well=well, leg='up',
+            dates=dates)
+        axes.plot(time, integrated_strain,
+                  color=csd_well_colors[well], label=well)
+    # # Sum potentiometer
+    # interval = np.where((pot_depths < 23.) & (pot_depths > 19.))
+    # integrated_pot = np.sum(-0.5 * pot_d[interval, :].squeeze(), axis=0)
+    # axes.plot(pot_times, integrated_pot - integrated_pot[0],
+    #           color='firebrick', label='Potentiometer')
+    df_simfip = read_excavation(simfip)
+    df_simfip = df_simfip.loc[((df_simfip.index < dss_times[-1])
+                               & (df_simfip.index > dss_times[0]))]
+    # Rotate simfip onto BCS-D5
+    df_simfip = rotate_fsb_to_borehole(df_simfip, 'D5')
+    df_simfip['Zf'] = df_simfip['Zf'] - df_simfip['Zf'][0]
+    df_simfip['Yf'] = df_simfip['Yf'] - df_simfip['Yf'][0]
+    df_simfip['Xf'] = df_simfip['Xf'] - df_simfip['Xf'][0]
+    df_simfip['Sf'] = np.sqrt(df_simfip['Xf']**2 + df_simfip['Yf']**2)
+    # Theoretical arc length effect of SIMFIP shear as seen on DSS
+    # assuming 6.3 m or 6300000 micron (SIMFIP interval) strained length
+    df_simfip['Arc e'] = ((df_simfip['Sf']/ 6300000)**2) / 2
+    df_simfip['Arc d'] = df_simfip['Arc e'] * 6300000
+    df_simfip['Synth Madjdabadi'] = df_simfip['Arc d'] + df_simfip['Zf']
+    df_simfip['Synthetic DSS pythag'] = np.sqrt(df_simfip['Zf']**2 +
+                                                df_simfip['Sf']**2)
+    # df_simfip['Zf'].plot(ax=axes, color='steelblue',
+    #                      label='SIMFIP: Opening')
+    # df_simfip['Sf'].plot(ax=axes, color='lightseagreen',
+    #                      label='SIMFIP: Shear')
+    df_simfip['Synthetic DSS pythag'].plot(ax=axes, color='blue',
+                                           label='SIMFIP: Shear + Opening')
+    axes.set_facecolor('lightgray')
+    axes.set_ylabel('Microns', fontsize=14)
+    axes.axvline(date2num(datetime(2019, 5, 27, 17)), linestyle='--',
+                 color='gray', label='Breakthrough')
+    axes.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+    axes.set_xlabel(pot_times[0].year, fontsize=14)
+    axes.set_title('DSS, SIMFIP, and Potentiometer: Main Fault Interval',
+                      fontsize=16)
+    df_excavation = distance_to_borehole(
+        create_FSB_boreholes(), well='D5', depth=20.,
+        gallery_pts='data/chet-FS-B/excavation/points_along_excavation.csv',
+        excavation_times='data/chet-FS-B/excavation/G18excavationdistance.txt')
+    axes.legend()
+    axes.margins(0.)
+    axes.set_ylim(bottom=0.)
+    if dates:
+        axes.set_xlim(dates)
     plt.show()
     return
 
@@ -3207,6 +3321,162 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
                     ha='left', fontsize=22)
     plt.show()
     return out_times, out_strains, df_hydro
+
+
+def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
+                         leg='up_data', vlims=(-250, 250), outdir=None):
+    """
+
+    :param well_data:
+    :param autocad_path:
+    :param date_range:
+    :param wells:
+    :param simfip:
+    :param leg:
+    :param vlims:
+    :param outdir:
+    :return:
+    """
+    integrate_dict = {'D3': (17.5, 21.), 'D4': (26., 29.),
+                      'D5': (18.5, 22.5), 'D6': (27.5, 31.5)}
+    # Fault model
+    fault_mod = '{}/faultmod.mat'.format(autocad_path)
+    faultmod = loadmat(fault_mod, simplify_cells=True)['faultmod']
+    x = faultmod['xq']
+    y = faultmod['yq']
+    zt = faultmod['zq_top']
+    xs = []
+    ys = []
+    timeseries = {}
+    # Integrate across fault for each well
+    # Dummy axes
+    fig, ax = plt.subplots()
+    # Plot fault coords and piercepoints
+    proj_pts = plot_pierce_points(x, y, zt, strike=47, dip=57,
+                                  ax=ax, location='fsb')
+    plt.close('all')
+    for well in wells:
+        xs.append(proj_pts[well][0])
+        ys.append(proj_pts[well][1])
+        if well == 'D7':
+            # Add in the SIMFIP vector sum
+            # Rotate simfip onto BCS-D5
+            df_simfip = read_excavation(simfip)
+            df_simfip = rotate_fsb_to_borehole(df_simfip, 'D5')
+            df_simfip['Zf'] = df_simfip['Zf'] - df_simfip['Zf'][0]
+            df_simfip['Yf'] = df_simfip['Yf'] - df_simfip['Yf'][0]
+            df_simfip['Xf'] = df_simfip['Xf'] - df_simfip['Xf'][0]
+            df_simfip['Sf'] = np.sqrt(df_simfip['Xf'] ** 2 +
+                                      df_simfip['Yf'] ** 2)
+            # Theoretical arc length effect of SIMFIP shear as seen on DSS
+            # assuming 6.3 m or 6300000 micron (SIMFIP interval) strained length
+            df_simfip['Arc e'] = ((df_simfip['Sf'] / 6300000) ** 2) / 2
+            df_simfip['Arc d'] = df_simfip['Arc e'] * 6300000
+            df_simfip['Synth Madjdabadi'] = df_simfip['Arc d'] +\
+                                            df_simfip['Zf']
+            df_simfip['Synthetic DSS pythag'] = np.sqrt(df_simfip['Zf'] ** 2 +
+                                                        df_simfip['Sf'] ** 2)
+            timeseries[well] = (df_simfip.index,
+                                df_simfip['Synthetic DSS pythag'].values)
+        else:
+            fault_ds = integrate_dict[well]
+            timeseries[well] = (well_data[well]['times'],
+                                integrate_depth_interval(
+                                    well_data, fault_ds, well,
+                                    leg.split('_')[0], dates=date_range)[0])
+    i = 0
+    for date in date_generator(date_range[0], date_range[1], frequency='hour'):
+        zs = []
+        print('Plotting {}'.format(date))
+        cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
+        cmap_norm = Normalize(vmin=vlims[0], vmax=vlims[1])
+        fig, ax = plt.subplots()
+        for w in wells:
+            date_ind = np.argmin(np.abs(date - timeseries[w][0]))
+            zs.append(timeseries[w][1][date_ind])
+            col = csd_well_colors[w]
+            ax.scatter(proj_pts[w][0], proj_pts[w][1], marker='+', color='k',
+                       s=20., zorder=103)
+            ax.annotate(text=w, xy=(proj_pts[w][0], proj_pts[w][1]),
+                        fontsize=10., weight='bold', xytext=(3, 0),
+                        textcoords="offset points", color=col)
+        try:
+            CS = ax.tricontourf(xs, ys, zs, cmap=cmap, norm=cmap_norm,
+                                alpha=0.6)
+        except ValueError as e:
+            print(e)
+            print(xs, ys, zs)
+            plt.close('all')
+            continue
+        plt.colorbar(ScalarMappable(norm=cmap_norm, cmap=cmap), ax=ax,
+                     label=r'Displacement [$\mu$m]')
+        ax.set_aspect('equal', anchor='C')
+        ax.spines['top'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_bounds(-5, 5)
+        ax.tick_params(direction='in', left=False, labelleft=False)
+        ax.set_xticks([-5, 0, 5])
+        ax.set_xticklabels(['0', '5', '10'])
+        ax.set_xlabel('Meters')
+        fig.text(0.5, 0.95, date, ha="center", va="bottom", fontsize=12,
+                 bbox=dict(boxstyle="round", ec='k', fc='white'))
+        plt.savefig('{}/{:04d}.png'.format(outdir, i + 1),
+                    dpi=300)
+        i += 1
+    return
+
+
+def plot_pierce_points(x, y, z, strike, dip, ax, location='fsb'):
+    s = np.deg2rad(strike)
+    d = np.deg2rad(dip)
+    x = x.flatten()
+    y = y.flatten()
+    z = z.flatten()
+    origin = np.array((np.nanmean(x), np.nanmean(y), np.nanmean(z)))
+    normal = np.array((np.sin(d) * np.cos(s), -np.sin(d) * np.sin(s),
+                       np.cos(d)))
+    strike_new = np.array([np.sin(s), np.cos(s), 0])
+    up_dip = np.array([-np.cos(s) * np.cos(d), np.sin(s) * np.cos(d), np.sin(d)])
+    change_B_mat = np.array([strike_new, up_dip, normal])
+    grid_pts = np.subtract(np.column_stack([x, y, z]), origin)
+    newx, newy, newz = change_B_mat.dot(grid_pts.T)
+    newx = newx[~np.isnan(newx)]
+    newy = newy[~np.isnan(newy)]
+    pts = np.column_stack([newx, newy])
+    hull = ConvexHull(pts)
+    if location == 'fsb':
+        pierce_points = get_well_piercepoint(['D1', 'D2', 'D3', 'D4', 'D5',
+                                              'D6', 'D7'])
+        # ax.fill(pts[hull.vertices, 0], pts[hull.vertices, 1], color='white',
+        #         alpha=0.0)
+        size = 20.
+        fs = 10
+    elif location == 'surf':
+        pierce_points = get_frac_piercepoint(
+            ['I', 'OB', 'OT', 'P'],
+            well_file='data/chet-collab/boreholes/surf_4850_wells.csv')
+        size = 70.
+        fs = 12
+    # Plot well pierce points
+    projected_pts = {}
+    for well, pts in pierce_points.items():
+        try:
+            col = csd_well_colors[well]
+        except KeyError as e:
+            col = cols_4850[well]
+        p = np.array(pts['top'])
+        # Project onto plane in question
+        proj_pt = p - (normal.dot(p - origin)) * normal
+        trans_pt = proj_pt - origin
+        new_pt = change_B_mat.dot(trans_pt.T)
+        ax.scatter(new_pt[0], new_pt[1], marker='+', color='k', s=size,
+                   zorder=103)
+        ax.annotate(text=well, xy=(new_pt[0], new_pt[1]), fontsize=fs,
+                    weight='bold', xytext=(3, 0),
+                    textcoords="offset points", color=col)
+        projected_pts[well] = new_pt
+    return projected_pts
 
 
 def plot_csd_press_strain(times, strains, df_hydro):
