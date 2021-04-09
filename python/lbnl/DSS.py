@@ -570,7 +570,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     :param DTS_interp: Method of interpolation for DTS to DSS grid
     :param gain_thresh: Threshold for removal of changes from bulk gain shifts
         Unit is percent.
-    :param correct_gain: bool to mask offending values above gain thresh
+    :param mask: bool to mask offending values above gain thresh
         D5 is always corrected, however
     :param debug: Flag for plotting
 
@@ -759,7 +759,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 # 0.05055 MHz/me??
                 # data_tmp *= 5790.
                 data_tmp /= 0.00005055
-            if correct_gain:
+            if mask:
                 well_data[well].update({'data': data_tmp, 'depth': depth_tmp,
                                         'noise': noise, 'gain': gain_tmp})
             else:
@@ -797,9 +797,9 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     # Calculate deviation between legs in each well
     calculate_leg_deviation(well_data)
     # Gain correction
-    if correct_gain:
+    if mask:
         try:
-            gain_correction(well_data, correct_gain, gain_thresh, debug=debug)
+            gain_correction(well_data, mask, gain_thresh, debug=debug)
         except KeyError as e:
             print(e)
             pass
@@ -3060,12 +3060,12 @@ def plot_CSD_with_time(well_data, pot_data, depth, simfip, dates=None):
     df_simfip['Synth Madjdabadi'] = df_simfip['Arc d'] + df_simfip['Zf']
     df_simfip['Synthetic DSS pythag'] = np.sqrt(df_simfip['Zf']**2 +
                                                 df_simfip['Sf']**2)
-    # df_simfip['Zf'].plot(ax=axes, color='steelblue',
-    #                      label='SIMFIP: Opening')
-    # df_simfip['Sf'].plot(ax=axes, color='lightseagreen',
-    #                      label='SIMFIP: Shear')
-    df_simfip['Synthetic DSS pythag'].plot(ax=axes, color='blue',
-                                           label='SIMFIP: Shear + Opening')
+    df_simfip['Zf'].plot(ax=axes, color='steelblue',
+                         label='SIMFIP: Opening')
+    df_simfip['Sf'].plot(ax=axes, color='lightseagreen',
+                         label='SIMFIP: Shear')
+    # df_simfip['Synthetic DSS pythag'].plot(ax=axes, color='blue',
+    #                                        label='SIMFIP: Shear + Opening')
     axes.set_facecolor('lightgray')
     axes.set_ylabel('Microns', fontsize=14)
     axes.axvline(date2num(datetime(2019, 5, 27, 17)), linestyle='--',
@@ -3323,6 +3323,179 @@ def plot_csd_injection(well_data_1, time, depths, dates=None, leg='up_data',
     return out_times, out_strains, df_hydro
 
 
+def plot_csd_xsection(well_data, df_simfip, date,
+                      wells=('D3', 'D4', 'D5', 'D6', 'D7'),
+                      strike=305., origin=np.array([2579325., 1247565., 512.]),
+                      ax_x=None, autocad_path='',
+                      ref_date=datetime(2019, 5, 23)):
+    if not ax_x:
+        fig, ax_x = plt.subplots(figsize=(12, 12))
+    well_dict = create_FSB_boreholes()
+    # Cross section plane (strike 320)
+    r = np.deg2rad(360 - strike)
+    normal = np.array([-np.sin(r), -np.cos(r), 0.])
+    normal /= linalg.norm(normal)
+    new_strk = np.array([np.sin(r), -np.cos(r), 0.])
+    new_strk /= linalg.norm(new_strk)
+    change_b_mat = np.array([new_strk, [0, 0, 1], normal])
+    for afile in glob('{}/*.csv'.format(autocad_path)):
+        # if 'FSB' in afile:
+        #     continue
+        df_cad = pd.read_csv(afile)
+        lines = df_cad.loc[df_cad['Name'] == 'Line']
+        arcs = df_cad.loc[df_cad['Name'] == 'Arc']
+        for i, line in lines.iterrows():
+            xs = np.array([line['Start X'], line['End X']])
+            ys = np.array([line['Start Y'], line['End Y']])
+            zs = np.array([line['Start Z'], line['End Z']])
+            # Proj
+            pts = np.column_stack([xs, ys, zs])
+            proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+            proj_pts = pts - origin - proj_pts
+            proj_pts = np.matmul(change_b_mat, proj_pts.T)
+            ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray',
+                      zorder=110, alpha=0.5)
+        for i, arc in arcs.iterrows():
+            # Stolen math from Melchior
+            if not np.isnan(arc['Extrusion Direction X']):
+                rotaxang = [arc['Extrusion Direction X'],
+                            arc['Extrusion Direction Y'],
+                            arc['Extrusion Direction Z'],
+                            arc['Total Angle']]
+                rad = np.linspace(arc['Start Angle'], arc['Start Angle'] +
+                                  arc['Total Angle'])
+                dx = np.sin(np.deg2rad(rad)) * arc['Radius']
+                dy = np.cos(np.deg2rad(rad)) * arc['Radius']
+                dz = np.zeros(dx.shape[0])
+                phi1 = -np.arctan2(
+                    linalg.norm(np.cross(np.array([rotaxang[0], rotaxang[1],
+                                                   rotaxang[2]]),
+                                         np.array([0, 0, 1]))),
+                    np.dot(np.array([rotaxang[0], rotaxang[1], rotaxang[2]]),
+                           np.array([0, 0, 1])))
+                DX = dx * np.cos(phi1) + dz * np.sin(phi1)
+                DY = dy
+                DZ = dz * np.cos(phi1) - dx * np.sin(phi1)
+                # ax.plot(DX, DY, DZ, color='r')
+                phi2 = np.arctan(rotaxang[1] / rotaxang[0])
+                fdx = (DX * np.cos(phi2)) - (DY * np.sin(phi2))
+                fdy = (DX * np.sin(phi2)) + (DY * np.cos(phi2))
+                fdz = DZ
+                x = fdx + arc['Center X']
+                y = fdy + arc['Center Y']
+                z = fdz + arc['Center Z']
+                # projected pts
+                pts = np.column_stack([x, y, z])
+                proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+                proj_pts = pts - origin - proj_pts
+                proj_pts = np.matmul(change_b_mat, proj_pts.T)
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray',
+                          zorder=110, alpha=0.5)
+            elif not np.isnan(arc['Start X']):
+                v1 = -1. * np.array([arc['Center X'] - arc['Start X'],
+                                     arc['Center Y'] - arc['Start Y'],
+                                     arc['Center Z'] - arc['Start Z']])
+                v2 = -1. * np.array([arc['Center X'] - arc['End X'],
+                                     arc['Center Y'] - arc['End Y'],
+                                     arc['Center Z'] - arc['End Z']])
+                rad = np.linspace(0, np.deg2rad(arc['Total Angle']), 50)
+                # get rotation vector (norm is rotation angle)
+                rotvec = np.cross(v2, v1)
+                rotvec /= linalg.norm(rotvec)
+                rotvec = rotvec[:, np.newaxis] * rad[np.newaxis, :]
+                Rs = R.from_rotvec(rotvec.T)
+                pt = np.matmul(v1, Rs.as_matrix())
+                # Projected pts
+                x = arc['Center X'] + pt[:, 0]
+                y = arc['Center Y'] + pt[:, 1]
+                z = arc['Center Z'] + pt[:, 2]
+                pts = np.column_stack([x, y, z])
+                proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+                proj_pts = pts - origin - proj_pts
+                proj_pts = np.matmul(change_b_mat, proj_pts.T)
+                ax_x.plot(proj_pts[0, :], proj_pts[1, :], color='darkgray',
+                          zorder=110, alpha=0.5)
+    # Get DSS data
+    dss_dict = extract_strains(well_data, date=date, wells=wells,
+                               reference_time=ref_date, average=False)
+    fault_tops = []
+    fault_bots = []
+    for well, pts in well_dict.items():
+        if well not in wells:
+            continue
+        try:
+            col = csd_well_colors[well]
+            zdr = 109
+        except KeyError:
+            col = 'lightgray'
+            zdr = 90
+        # Proj
+        deps = pts[:, 3]
+        pts = pts[:, :3]
+        proj_pts = np.dot(pts - origin, normal)[:, None] * normal
+        proj_pts = pts - origin - proj_pts
+        proj_pts = np.matmul(change_b_mat, proj_pts.T)
+        if well == 'D7':
+            simfip_top = proj_pts[:, np.argmin(np.abs(deps - 21.1))]
+            simfip_bot = proj_pts[:, np.argmin(np.abs(deps - 29.2))]
+            ax_x.plot([simfip_top[0], simfip_bot[0]],
+                      [simfip_top[1], simfip_bot[1]], color=col,
+                      zorder=zdr, linewidth=5.)
+            ax_x.plot(proj_pts[0], proj_pts[1], color=col, zorder=zdr)
+            continue
+        dx = proj_pts[0][0] - proj_pts[0][-1]
+        dy = proj_pts[1][0] - proj_pts[1][-1]
+        angle = np.arctan2(dy, dx)  # Angle clockwise from (1, 0)
+        # Rotate DSS data
+        strain = dss_dict[well]['up_data']
+        # Scale to 1-m == 100 me
+        strain /= 100.
+        depth = dss_dict[well]['depths']
+        data_o = (0, 0)
+        R2d = np.array([[np.cos(angle), -np.sin(angle)],
+                        [np.sin(angle), np.cos(angle)]])
+        o = np.atleast_2d(data_o)
+        p = np.atleast_2d(np.vstack([depth[::-1], strain]).T)
+        rot_vect = np.squeeze((R2d @ (p.T - o.T) + o.T).T)
+        # Add projected origin
+        plot_vect = rot_vect + proj_pts[:2, -1]
+        ax_x.plot(plot_vect[:, 0], plot_vect[:, 1], color=col, zorder=zdr)
+        # Add fault intersections to draw later
+        fault_top = proj_pts[:2, np.argmin(np.abs(deps - fault_depths[well][0]))]
+        fault_bot = proj_pts[:2, np.argmin(np.abs(deps - fault_depths[well][1]))]
+        fault_tops.append(tuple(fault_top))
+        fault_bots.append(tuple(fault_bot))
+    # Plot fault lines
+    fault_tops.sort(key=lambda x: x[0])
+    fault_bots.sort(key=lambda x: x[0])
+    topx, topy = zip(*fault_tops)
+    botx, boty = zip(*fault_bots)
+    ax_x.plot(topx, topy, linestyle=':', color='darkgray')
+    ax_x.plot(botx, boty, linestyle=':', color='darkgray')
+    # SIMFIP vector
+    # Rotate to cross section
+    df_simfip = rotate_fsb_to_fault(df_simfip, strike=360 - strike, dip=0)
+    simfip_date_f = df_simfip.iloc[df_simfip.index.get_loc(
+        date, method='nearest')]
+    ax_x.quiver(simfip_top[0], simfip_top[1],
+                simfip_date_f['Yf'], simfip_date_f['Zf'],
+                scale=10, scale_units='xy', angles='xy')
+    # Cross section
+    ax_x.set_xlim([-30, 5])
+    ax_x.axis('equal')
+    ax_x.spines['top'].set_visible(False)
+    ax_x.spines['bottom'].set_visible(False)
+    ax_x.spines['left'].set_visible(False)
+    ax_x.yaxis.set_ticks_position('right')
+    ax_x.tick_params(direction='in', bottom=False, labelbottom=False)
+    ax_x.set_yticks([-30, -20, -10, 0])
+    ax_x.set_yticklabels(['30', '20', '10', '0'])
+    ax_x.set_ylabel('Meters', labelpad=15)
+    ax_x.yaxis.set_label_position("right")
+    ax_x.spines['right'].set_bounds(0, -30)
+    return
+
+
 def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
                          leg='up_data', vlims=(-250, 250), outdir=None):
     """
@@ -3362,6 +3535,7 @@ def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
             # Add in the SIMFIP vector sum
             # Rotate simfip onto BCS-D5
             df_simfip = read_excavation(simfip)
+            df_simfip_xc = df_simfip.copy()
             df_simfip = rotate_fsb_to_borehole(df_simfip, 'D5')
             df_simfip['Zf'] = df_simfip['Zf'] - df_simfip['Zf'][0]
             df_simfip['Yf'] = df_simfip['Yf'] - df_simfip['Yf'][0]
@@ -3390,7 +3564,14 @@ def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
         print('Plotting {}'.format(date))
         cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
         cmap_norm = Normalize(vmin=vlims[0], vmax=vlims[1])
-        fig, ax = plt.subplots()
+        fig, axes = plt.subplots(ncols=2, figsize=(12, 8))
+        ax = axes[0]
+        # Plot cross section onto righthand axes
+        plot_csd_xsection(well_data, df_simfip_xc, date,
+                          wells=('D3', 'D4', 'D5', 'D6', 'D7'), strike=305.,
+                          origin=np.array([2579325., 1247565., 512.]),
+                          ax_x=axes[1], autocad_path=autocad_path,
+                          ref_date=datetime(2019, 5, 23))
         for w in wells:
             date_ind = np.argmin(np.abs(date - timeseries[w][0]))
             zs.append(timeseries[w][1][date_ind])
@@ -3408,6 +3589,12 @@ def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
             print(xs, ys, zs)
             plt.close('all')
             continue
+        # Plot SIMFIP vector on fault plane
+        simfip_date_f = df_simfip.iloc[df_simfip.index.get_loc(
+            date, method='nearest')]
+        ax.quiver(proj_pts['D7'][0], proj_pts['D7'][1],
+                  simfip_date_f['Xf'], simfip_date_f['Yf'],
+                  scale=40, scale_units='xy', angles='xy')
         plt.colorbar(ScalarMappable(norm=cmap_norm, cmap=cmap), ax=ax,
                      label=r'Displacement [$\mu$m]')
         ax.set_aspect('equal', anchor='C')
@@ -3421,9 +3608,10 @@ def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
         ax.set_xlabel('Meters')
         fig.text(0.5, 0.95, date, ha="center", va="bottom", fontsize=12,
                  bbox=dict(boxstyle="round", ec='k', fc='white'))
-        plt.savefig('{}/{:04d}.png'.format(outdir, i + 1),
+        plt.savefig('{}/{:04d}.pdf'.format(outdir, i + 1),
                     dpi=300)
         i += 1
+        plt.close('all')
     return
 
 
