@@ -29,6 +29,7 @@
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/FatCrayonToolkit.iml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../FatCrayonToolkit/exp2_4100_Design_Study.py" beforeDir="false" afterPath="$PROJECT_DIR$/../FatCrayonToolkit/exp2_4100_Design_Study.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/vibbox.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/vibbox.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/python/lbnl/DSS.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/lbnl/DSS.py" afterDir="false" />
@@ -54,7 +55,7 @@
         <entry key="$PROJECT_DIR$/../EQcorrscan" value="4d9b72b3993ff77f7511f71a7cacfa0b39880e86" />
       </map>
     </option>
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../DUG-seis-lbl" />
     <option name="ROOT_SYNC" value="SYNC" />
   </component>
   <component name="GitSEFilterConfiguration">
@@ -78,7 +79,7 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="SearchEverywhereHistoryKey" value="template_dict&#9;null&#9;null&#10;np.rand&#9;null&#9;null&#10;time_error&#9;null&#9;null&#10;filter&#9;null&#9;null&#10;rand&#9;null&#9;null&#10;lag-calc&#9;FILE&#9;file:///home/chet/scripts/python/testing/EQcorrscan-develop/eqcorrscan/doc/_build/html/tutorials/lag-calc.html" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../FatCrayonToolkit" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../DUG-seis-lbl/config" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
     <property name="settings.editor.selected.configurable" value="preferences.sourceCode" />
   </component>

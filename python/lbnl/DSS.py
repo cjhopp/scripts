@@ -16,6 +16,7 @@ import seaborn as sns
 import scipy.linalg as linalg
 import matplotlib.ticker as ticker
 import matplotlib.patches as mpatches
+import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
@@ -186,6 +187,9 @@ scaly_clay_depths = {'D3': [(14.8, 15.), (16.1, 16.2)],
                      'D5': [(19.65, 19.75), (20.4, 20.45), (22.65, 22.7)],
                      'D6': [(28.4, 28.55), (29., 30.95)]}
 
+fz_depths = {'D3': [(7.1, 7.7)],
+             'D5': [(15.7, 15.9)],
+             'D6': []}
 # Depths of intersect for OB/P are guesses and assume propagation past OT-P con.
 frac_depths = {'I': 50.2, 'OT': 45., 'OB': 50., 'P': 40.}
 
@@ -3024,26 +3028,17 @@ def plot_CSD_with_time(well_data, pot_data, depth, simfip, dates=None):
     # Relative to start of plot
     pot_strains = pot_strains - pot_strains[0]
     dss_strains = dss_strains - dss_strains[0]
-    # axes[0].plot(pot_times, pot_strains, color='r',
-    #              label='Potentiometer')
-    # axes[0].plot(dss_times, integral, color='purple', label='DSS')
     print('Cross correlation coefficient: {}'.format(
         normxcorr2(dss_strains, pot_strains)))
     print('DSS: {}\nPotentiometer: {}'.format(np.max(dss_strains),
                                               np.max(pot_strains)))
-    # Now simfip plot
-    # Integrate DSS and Pot
+    # Integrate DSS
     for well in ['D3', 'D4', 'D5', 'D6']:
         integrated_strain, time = integrate_depth_interval(
             well_data, depths=integrate_dict[well], well=well, leg='up',
             dates=dates)
         axes.plot(time, integrated_strain,
                   color=csd_well_colors[well], label=well)
-    # # Sum potentiometer
-    # interval = np.where((pot_depths < 23.) & (pot_depths > 19.))
-    # integrated_pot = np.sum(-0.5 * pot_d[interval, :].squeeze(), axis=0)
-    # axes.plot(pot_times, integrated_pot - integrated_pot[0],
-    #           color='firebrick', label='Potentiometer')
     df_simfip = read_excavation(simfip)
     df_simfip = df_simfip.loc[((df_simfip.index < dss_times[-1])
                                & (df_simfip.index > dss_times[0]))]
@@ -3074,13 +3069,77 @@ def plot_CSD_with_time(well_data, pot_data, depth, simfip, dates=None):
     axes.set_xlabel(pot_times[0].year, fontsize=14)
     axes.set_title('DSS, SIMFIP, and Potentiometer: Main Fault Interval',
                       fontsize=16)
-    df_excavation = distance_to_borehole(
-        create_FSB_boreholes(), well='D5', depth=20.,
-        gallery_pts='data/chet-FS-B/excavation/points_along_excavation.csv',
-        excavation_times='data/chet-FS-B/excavation/G18excavationdistance.txt')
     axes.legend()
     axes.margins(0.)
     axes.set_ylim(bottom=0.)
+    if dates:
+        axes.set_xlim(dates)
+    plt.show()
+    return
+
+
+def plot_off_fault_with_time(well_data, pot_data, dates=None):
+    """
+    Compare timeseries of potentiometer, DSS and SIMFIP (normal to fault)
+
+    :param well_data: Output of extract_wells
+    :param pot_data: Path to potentiometer file
+    :param depth: Depth in well to plot
+    :param simfip: Path to SIMFIP data
+    :param dates: Date range to plot
+    """
+    integrate_dict = {'D3': [(15.5, 17.), (7., 8.)],
+                      'D4': [(14., 15.)],
+                      'D5': [(8., 9.), (14.5, 18)],
+                      }
+    fig, axes = plt.subplots(figsize=(10, 7))
+    pot_d, pot_depths, pot_times = read_potentiometer(pot_data)
+    # Which pot?
+    pind = (np.abs(pot_depths - 20.)).argmin()
+    # Take 3 elements (1.5 m) and sum
+    # bc we read in microstrain, scaling by element length yields displacement
+    pot_strains = pot_d[pind-1:pind+2, :].sum(axis=0) * -0.5
+    dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
+        well_data, 'D5', depth=0., direction='up')
+    if dates:
+        date_inds = np.where((dates[0] <= dss_times) &
+                             (dates[1] > dss_times))
+        dss_times = dss_times[date_inds]
+        dss_strains = dss_strains[date_inds]
+    indices = np.where((pot_times > dss_times[0]) &
+                       (pot_times < dss_times[-1]))
+    pot_times = pot_times[indices]
+    pot_d = pot_d[:, indices].squeeze()
+    pot_strains = pot_strains[indices]
+    # Relative to start of plot
+    pot_strains = pot_strains - pot_strains[0]
+    dss_strains = dss_strains - dss_strains[0]
+    print('Cross correlation coefficient: {}'.format(
+        normxcorr2(dss_strains, pot_strains)))
+    print('DSS: {}\nPotentiometer: {}'.format(np.max(dss_strains),
+                                              np.max(pot_strains)))
+    # Integrate DSS
+    for well in ['D3', 'D4', 'D5']:
+        for i, depths in enumerate(integrate_dict[well]):
+            alph = (i + 0.75) / 2
+            integrated_strain, time = integrate_depth_interval(
+                well_data, depths=depths, well=well, leg='up',
+                dates=dates)
+            axes.plot(time, integrated_strain,
+                      color=csd_well_colors[well], label='{}: {}'.format(
+                    well, depths),
+                      alpha=alph)
+    axes.set_facecolor('lightgray')
+    axes.set_ylabel('Microns', fontsize=14)
+    axes.axvline(date2num(datetime(2019, 5, 27, 17)), linestyle='--',
+                 color='gray', label='Breakthrough')
+    axes.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+    axes.set_xlabel(pot_times[0].year, fontsize=14)
+    axes.set_title('DSS: Off-fault features',
+                      fontsize=16)
+    axes.legend()
+    axes.margins(0.)
+    # axes.set_ylim(bottom=0.)
     if dates:
         axes.set_xlim(dates)
     plt.show()
@@ -3474,12 +3533,17 @@ def plot_csd_xsection(well_data, df_simfip, date,
     ax_x.plot(botx, boty, linestyle=':', color='darkgray')
     # SIMFIP vector
     # Rotate to cross section
-    df_simfip = rotate_fsb_to_fault(df_simfip, strike=360 - strike, dip=0)
-    simfip_date_f = df_simfip.iloc[df_simfip.index.get_loc(
-        date, method='nearest')]
-    ax_x.quiver(simfip_top[0], simfip_top[1],
-                simfip_date_f['Yf'], simfip_date_f['Zf'],
-                scale=10, scale_units='xy', angles='xy')
+    df_simfip = rotate_fsb_to_fault(df_simfip, strike=strike, dip=0)
+    df_index = df_simfip.index.get_loc(date, method='nearest')
+    ind_last_hr = df_simfip.index.get_loc(date - timedelta(seconds=3600),
+                                          method='nearest')
+    simfip_date_f = df_simfip.iloc[ind_last_hr:df_index+1]
+    diffx = simfip_date_f['Xf'].values
+    diffz = simfip_date_f['Zf'].values
+    x = diffx[-1] - diffx[0]
+    z = diffz[-1] - diffz[0]
+    ax_x.quiver(simfip_top[0], simfip_top[1], -x, z,
+                scale=0.3, scale_units='xy', angles='xy')
     # Cross section
     ax_x.set_xlim([-30, 5])
     ax_x.axis('equal')
@@ -3564,13 +3628,16 @@ def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
         print('Plotting {}'.format(date))
         cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
         cmap_norm = Normalize(vmin=vlims[0], vmax=vlims[1])
-        fig, axes = plt.subplots(ncols=2, figsize=(12, 8))
-        ax = axes[0]
+        fig = plt.figure(figsize=(12, 10))
+        spec = gridspec.GridSpec(ncols=12, nrows=10, figure=fig)
+        ax = fig.add_subplot(spec[:9, :5])
+        cross_ax = fig.add_subplot(spec[:9, 5:])
+        time_ax = fig.add_subplot(spec[9:, :])
         # Plot cross section onto righthand axes
         plot_csd_xsection(well_data, df_simfip_xc, date,
                           wells=('D3', 'D4', 'D5', 'D6', 'D7'), strike=305.,
                           origin=np.array([2579325., 1247565., 512.]),
-                          ax_x=axes[1], autocad_path=autocad_path,
+                          ax_x=cross_ax, autocad_path=autocad_path,
                           ref_date=datetime(2019, 5, 23))
         for w in wells:
             date_ind = np.argmin(np.abs(date - timeseries[w][0]))
@@ -3586,17 +3653,46 @@ def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
                                 alpha=0.6)
         except ValueError as e:
             print(e)
-            print(xs, ys, zs)
-            plt.close('all')
-            continue
+            # For case where SIMFIP is nan
+            CS = ax.tricontourf(xs[:-1], ys[:-1], zs[:-1], cmap=cmap,
+                                norm=cmap_norm, alpha=0.6)
         # Plot SIMFIP vector on fault plane
-        simfip_date_f = df_simfip.iloc[df_simfip.index.get_loc(
-            date, method='nearest')]
-        ax.quiver(proj_pts['D7'][0], proj_pts['D7'][1],
-                  simfip_date_f['Xf'], simfip_date_f['Yf'],
-                  scale=40, scale_units='xy', angles='xy')
+        df_index = df_simfip.index.get_loc(date, method='nearest')
+        ind_last_hr = df_simfip.index.get_loc(date - timedelta(seconds=3600),
+                                              method='nearest')
+        simfip_date_f = df_simfip.iloc[ind_last_hr:df_index + 1]
+        diffx = simfip_date_f['Xf'].values
+        diffy = simfip_date_f['Yf'].values
+        x = diffx[-1] - diffx[0]
+        y = diffy[-1] - diffy[0]
+        ax.quiver(proj_pts['D7'][0], proj_pts['D7'][1], x, y,
+                  scale=0.7, scale_units='xy', angles='xy')
         plt.colorbar(ScalarMappable(norm=cmap_norm, cmap=cmap), ax=ax,
                      label=r'Displacement [$\mu$m]')
+        # Plot reference time axis
+        df_simfip = df_simfip.loc[date_range[0]:date_range[1]]
+        simfip_vec_sum = np.sqrt(df_simfip.Xc.values**2 +
+                                 df_simfip.Yc.values**2 +
+                                 df_simfip.Zc.values**2)
+        time_ax.plot(df_simfip.index,
+                     simfip_vec_sum / np.nanmax(simfip_vec_sum),
+                     zorder=150, color='firebrick')
+        time_ax.axvline(date, linestyle=':', color='k')
+        # Formatting
+        # Major ticks every day
+        fmt_week = mdates.DayLocator(interval=1)
+        time_ax.xaxis.set_major_locator(fmt_week)
+        time_ax.xaxis.set_major_formatter(mdates.DateFormatter('%b-%d'))
+        # Minor ticks every 6 hours
+        fmt_day = mdates.HourLocator(interval=6)
+        time_ax.xaxis.set_minor_locator(fmt_day)
+        time_ax.set_yticks([0, 1])
+        time_ax.set_yticklabels(['', ''])
+        time_ax.set_ylim(bottom=0.)
+        time_ax.axvspan(xmin=date_range[0], xmax=datetime(2019, 5, 27, 17),
+                        color='whitesmoke')
+        time_ax.axvspan(xmin=datetime(2019, 5, 27, 17), xmax=date_range[-1],
+                        color='lightgray')
         ax.set_aspect('equal', anchor='C')
         ax.spines['top'].set_visible(False)
         ax.spines['left'].set_visible(False)
@@ -3609,6 +3705,8 @@ def interpolate_on_fault(well_data, autocad_path, date_range, wells, simfip,
         fig.text(0.5, 0.95, date, ha="center", va="bottom", fontsize=12,
                  bbox=dict(boxstyle="round", ec='k', fc='white'))
         plt.savefig('{}/{:04d}.pdf'.format(outdir, i + 1),
+                    dpi=300)
+        plt.savefig('{}/{:04d}.png'.format(outdir, i + 1),
                     dpi=300)
         i += 1
         plt.close('all')
@@ -3783,7 +3881,18 @@ def plot_csd_deep(well_data, date, wells, tv_picks,
                 axes[ax_ind].fill_between(
                     x=np.array([-500, 500]),
                     y1=deps[0], y2=deps[1],
-                    alpha=0.5, color='red')
+                    alpha=1., color='red', label='Scaly clay')
+        except KeyError:
+            # Well not in scaly clay dict (D4)
+            continue
+        # Now plot classified 'fault zone' depths (when no scaly clay)
+        try:
+            for deps in fz_depths[wells[i]]:
+                axes[ax_ind].fill_between(
+                    x=np.array([-500, 500]),
+                    y1=deps[0], y2=deps[1],
+                    alpha=1., color='blue',
+                    label='Fracture zone')
         except KeyError:
             # Well not in scaly clay dict (D4)
             continue

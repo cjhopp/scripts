@@ -280,3 +280,30 @@ def combine_vbox_gmug(vbox_dir, gmug_dir, gmug_param, outdir, inventory,
                 asdf.add_stationxml(inventory)
                 asdf.add_waveforms(st_all, tag='raw_recording')
     return
+
+
+def vibbox_to_asdf(files, inv, param_file):
+    """
+    Convert a list of vibbox files to ASDF files of the same name
+
+    :param files: List of files to convert
+    :param inventory: Inventory object to add to asdf files
+    :param param_file: path to yaml config file for DUG-seis
+
+    :return:
+    """
+    # Load in the parameters
+    with open(param_file, 'r') as f:
+        param = yaml.load(f, Loader=yaml.FullLoader)
+    outdir = param['Acquisition']['asdf_settings']['data_folder']
+    for afile in files:
+        name = os.path.join(outdir, afile.split('/')[-2],
+                            afile.split('/')[-1].replace('.dat', '.h5'))
+        if not os.path.isdir(os.path.dirname(name)):
+            os.mkdir(os.path.dirname(name))
+        print('Writing {} to {}'.format(afile, name))
+        st = vibbox_read(afile, param)
+        with pyasdf.ASDFDataSet(name, compression='gzip-3') as asdf:
+            asdf.add_stationxml(inv)
+            asdf.add_waveforms(st, tag='raw_recording')
+    return
