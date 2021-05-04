@@ -301,8 +301,15 @@ def vibbox_to_asdf(files, inv, param_file):
                             afile.split('/')[-1].replace('.dat', '.h5'))
         if not os.path.isdir(os.path.dirname(name)):
             os.mkdir(os.path.dirname(name))
+        if os.path.isfile(name):
+            print('{} already written'.format(name))
+            continue
         print('Writing {} to {}'.format(afile, name))
-        st = vibbox_read(afile, param)
+        try:
+            st = vibbox_read(afile, param)
+        except ValueError as e:  # Wrong number of samples?
+            print(e)
+            continue
         with pyasdf.ASDFDataSet(name, compression='gzip-3') as asdf:
             asdf.add_stationxml(inv)
             asdf.add_waveforms(st, tag='raw_recording')
