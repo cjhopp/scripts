@@ -655,6 +655,34 @@ def ncedc_dd_to_cat(path):
             cat.events.append(ev)
     return cat
 
+
+def parse_pyrocko_markers(marker_file):
+    """Parse picks in Pyrocko markers format"""
+    picks = []
+    with open(marker_file, 'r') as f:
+        for ln in f:
+            line = ln.split()
+            if line[0] in ['#', 'event:']:
+                continue
+            time = UTCDateTime('T'.join(line[1:3]))
+            nslc = line[4].split('.')
+            pk = Pick(time=time, phase_hint=line[-3],
+                      waveform_id=WaveformStreamID(network_code=nslc[0],
+                                                   station_code=nslc[1],
+                                                   location_code=nslc[2],
+                                                   channel_code=nslc[3]))
+            picks.append(pk)
+    return picks
+
+
+def combine_xml_pyrocko_markers(event_file, marker_file):
+    """Combine a QuakeML file with associated pyrocko markers"""
+    ev = read_events(event_file)
+    picks = parse_pyrocko_markers(marker_file)
+    # Replace original picks with new ones (only bc we use all of them in NLLoc)
+    ev[0].picks = picks
+    return ev
+
 #### PLOTTTING ####
 
 def plot_cumulative_catalog(catalogs, xlim=None, title=None):

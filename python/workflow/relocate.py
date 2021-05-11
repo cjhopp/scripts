@@ -7,7 +7,7 @@ Script to handle pick refinement/removal and relocation of catalog earthquakes.
 import os
 import locale
 import warnings
-
+import pyproj
 import numpy as np
 
 from glob import glob
@@ -40,8 +40,6 @@ def casc_xyz2latlon(x, y):
     :param y:
     :return:
     """
-    import pyproj
-
     pts = zip(x, y)
     orig_utm = (239200, 5117300)
     utm = pyproj.Proj(init="EPSG:32610")
@@ -58,8 +56,6 @@ def surf_xyz2latlon(x, y):
     :param y:
     :return:
     """
-    import pyproj
-
     # Descale (/10) and convert to meters
     x *= 10
     y *= 10
@@ -72,10 +68,30 @@ def surf_xyz2latlon(x, y):
     lon, lat = utm(utmx, utmy, inverse=True)
     return (lon, lat)
 
+def fsb_xyz2latlon(x, y):
+    """
+    Convert from scaled surf xyz (in km) to lat lon
+    :param x:
+    :param y:
+    :return:
+    """
+    # Descale (/10) and convert to meters
+    x *= 10
+    y *= 10
+    pts = zip(x, y)
+    orig_utm = (2579255., 1247501.)
+    utm = pyproj.Proj(init='EPSG:2056')
+    pts_utm = [(orig_utm[0] + pt[0], orig_utm[1] + pt[1])
+               for pt in pts]
+    utmx, utmy = zip(*pts_utm)
+    lon, lat = utm(utmx, utmy, inverse=True)
+    return (lon, lat)
+
+
 def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
     """
-    Run NonLinLoc relocations on a catalog. This is a function hardcoded for
-    my laptop only.
+    Run NonLinLoc relocations on a catalog.
+
     :type cat: obspy.Catalog
     :param cat: catalog of events with picks to relocate
     :type root_name: str
@@ -85,6 +101,7 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
     :param in_file: NLLoc input file
     :type pick_uncertainty: dict
     :param pick_uncertainty: Dictionary mapping uncertainties to sta/chans
+    :param location: Which coordinate conversion to use
 
     :return: same catalog with new origins appended to each event
     """
@@ -240,7 +257,7 @@ def dicts2NLLocPhases(ev, location):
             phase = 'P'.ljust(6)
         pol = "?"
         t = pick.time
-        if location == 'SURF':
+        if location in ['SURF', 'FSB']:
             # CJH Hack to accommodate full microsecond precision...
             t = datetime.fromtimestamp(t.datetime.timestamp() * 100)
         date = t.strftime("%Y%m%d")
@@ -315,14 +332,17 @@ def loadNLLocOutput(ev, infile, location):
     if location == 'cascadia':
         lon, lat = casc_xyz2latlon(np.array([x]), np.array([y]))
     # Convert coords
-    elif location == 'SURF':
+    elif location in ['SURF', 'FSB']:
         # CJH I reported depths at SURF in meters below 130 m so positive is
         # down in this case
         depth = float(line[6])
         print('Doing hypo conversion')
         # Descale first
         depth *= 10
-        lon, lat = surf_xyz2latlon(np.array([x]), np.array([y]))
+        if location == 'SURF':
+            lon, lat = surf_xyz2latlon(np.array([x]), np.array([y]))
+        else:
+            lon, lat = fsb_xyz2latlon(np.array([x]), np.array([y]))
     else:
         print('Location: {} not supported'.format(location))
         return
@@ -344,7 +364,7 @@ def loadNLLocOutput(ev, infile, location):
     minute = int(line[6])
     seconds = float(line[7])
     time = UTCDateTime(year, month, day, hour, minute, seconds)
-    if location == 'SURF':
+    if location in ['SURF', 'FSB']:
         # Convert to actual time
         time = UTCDateTime(datetime.fromtimestamp(
             time.datetime.timestamp() / 100.
@@ -433,7 +453,7 @@ def loadNLLocOutput(ev, infile, location):
     o.latitude = lat[0]
     o.longitude = lon[0]
     o.depth = depth
-    if location == 'SURF':
+    if location in ['SURF', 'FSB']:
         print('Creating origin uncertainty')
         o.longitude = lon[0]
         o.latitude = lat[0]
@@ -441,20 +461,36 @@ def loadNLLocOutput(ev, infile, location):
         o.depth = depth# * (-1e3)  # meters positive down!
         print('Creating extra AttribDict')
         # Attribute dict for actual hmc coords
-        extra = AttribDict({
-            'hmc_east': {
-                'value': x * 10,
-                'namespace': 'smi:local/hmc'
-            },
-            'hmc_north': {
-                'value': y * 10,
-                'namespace': 'smi:local/hmc'
-            },
-            'hmc_elev': {
-                'value': 130 - depth, # Extra attribs maintain absolute elevation
-                'namespace': 'smi:local/hmc'
-            }
-        })
+        if location == 'FSB':
+            extra = AttribDict({
+                'ch1903_east': {
+                    'value': 2579255. + (x * 10),
+                    'namespace': 'smi:local/ch1903'
+                },
+                'ch1903_north': {
+                    'value': 1247501. + (y * 10),
+                    'namespace': 'smi:local/ch1903'
+                },
+                'ch1903_elev': {
+                    'value': 547. - depth, # Extra attribs maintain absolute elevation
+                    'namespace': 'smi:local/ch1903'
+                }
+            })
+        else:
+            extra = AttribDict({
+                'hmc_east': {
+                    'value': x * 10,
+                    'namespace': 'smi:local/hmc'
+                },
+                'hmc_north': {
+                    'value': y * 10,
+                    'namespace': 'smi:local/hmc'
+                },
+                'hmc_elev': {
+                    'value': 130 - depth, # Extra attribs maintain absolute elevation
+                    'namespace': 'smi:local/hmc'
+                }
+            })
         o.extra = extra
     o.origin_uncertainty = OriginUncertainty()
     o.quality = OriginQuality()
@@ -661,7 +697,7 @@ def loadNLLocOutput(ev, infile, location):
         arrival.distance = kilometer2degrees(epidist)
         arrival.phase = type
         arrival.time_residual = res
-        if location == 'SURF':
+        if location in ['SURF', 'FSB']:
             arrival.time_residual = res / 1000. # CJH descale time too (why 1000)??
         arrival.azimuth = azimuth
         if not np.isnan(ray_dip):
@@ -688,7 +724,7 @@ def loadNLLocOutput(ev, infile, location):
         print('Invalid resource ids breaking Arrival-->Pick lookup')
     print('Made it through location reading')
     # read NLLOC scatter file
-    data = readNLLocScatter(infile.replace('hyp', 'scat'))
+    data = readNLLocScatter(infile.replace('hyp', 'scat'), location)
     print('Read in scatter')
     o.nonlinloc_scatter = data
 
@@ -771,7 +807,7 @@ def getPick(event, network=None, station=None, phase_hint=None,
             continue
     return p
 
-def readNLLocScatter(scat_filename):
+def readNLLocScatter(scat_filename, location):
     """
     ****
     Stolen from obspyck
@@ -793,9 +829,19 @@ def readNLLocScatter(scat_filename):
     data = data.reshape((data.shape[0] // 4, 4)).swapaxes(0, 1)
     # data[0], data[1] = gk2lonlat(data[0], data[1])
     print('Converting scatter coords')
-    data[0], data[1] = surf_xyz2latlon(data[0], data[1])
+    if location == 'SURF':
+        data[0], data[1] = surf_xyz2latlon(data[0], data[1])
+        data[2] *= 10
+        data[2] = 130 - data[2]
+    elif location == 'FSB': # go straight to ch1903 for this
+        print(data.shape)
+        data[0] *= 10
+        data[0] = 2579255. + data[0]
+        data[1] *= 10
+        data[1] = 1247501. + data[1]
+        data[2] *= 10
+        data[2] = 547 - data[2]
     # Descale depth too and convert to m (* 100 / 1000 = * 10)
-    data[2] *= 10
     return data.T
 
 

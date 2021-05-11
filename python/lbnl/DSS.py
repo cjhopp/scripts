@@ -995,12 +995,16 @@ def gain_correction(well_data, mask=False, gain_thresh=0.015, debug=0):
     :return:
     """
     for well, wdict in well_data.items():
-        if well != 'D5':
-            print('Only correcting D5 right now. Otherwise masking')
-            if mask:
-                method = 'mask'
-            else:
-                method = 'skip'
+        # if well != 'D5':
+        #     print('Only correcting D5 right now. Otherwise masking')
+        #     if mask:
+        #         method = 'mask'
+        #     else:
+        #         method = 'skip'
+        # else:
+        #     method = 'correct'
+        if mask:
+            method = 'mask'
         else:
             method = 'correct'
         # Absolute diff along time axis
@@ -1023,7 +1027,7 @@ def gain_correction(well_data, mask=False, gain_thresh=0.015, debug=0):
         else:
             # Skip this trace
             continue
-        if debug > 0 and well in ['D5', 'D1', 'D2', 'D3', 'D4', 'D6']:
+        if debug > 0 and well in ['D5', 'D1', 'D2', 'D3', 'D4', 'D6', 'B2']:
             fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(10, 7))
             fig.suptitle('Gain shift correction', fontsize=18, x=0.3, y=0.95,
                          weight='bold')

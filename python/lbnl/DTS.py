@@ -99,8 +99,9 @@ def datenum_to_datetime(datenums):
             for d in datenums]
 
 
-def read_struct(fs, date_range=None):
+def read_struct(struct_dir):
     structs = []
+    fs = glob('{}/*.mat'.format(struct_dir))
     for f in fs:
         # Return the parts of the struct we actually want
         structs.append(loadmat(f, struct_as_record=False,
@@ -272,7 +273,7 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
              date_range=(datetime(2020, 11, 19), datetime(2020, 11, 23)),
              denoise_method=None, window='2h', vrange=(14, 17), title=None,
              tv_picks=None, prominence=30., pot_data=None, hydro_data=None,
-             offset_samps=None, filter_params=None):
+             offset_samps=None, filter_params=None, mask_depths=None):
     """
     Plot a colormap of DSS data
 
@@ -292,6 +293,8 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
     :param hydro_data: Path to hydraulic data file (just Martin's at collab rn)
     :param offset_samps: Number of time samples to use to compute/remove noise
     :param filter_params: Nested dict of various bandstop parameters
+    :param mask_depths: Depths in borehole to mask in plotting (e.g. for
+        the 3D string heating in BFS-B1)
 
     :return:
     """
@@ -369,6 +372,15 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
         # prepend last element of down to up if unequal lengths by 1
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
         up_d = np.insert(up_d, 0, down_d[-1])
+    if mask_depths:
+        for i, dr in enumerate(mask_depths):
+            if i == 0:
+                mask_inds = ((down_d > dr[0]) & (down_d <= dr[1]))
+            else:
+                mask_inds += ((down_d > dr[0]) & (down_d <= dr[1]))
+        mask_arr = np.stack([mask_inds] * down_data.shape[1], -1)
+        down_data = np.ma.MaskedArray(down_data, mask_arr)
+        up_data = np.ma.MaskedArray(up_data, mask_arr[::-1, :])
     # Run the integration for D1/2
     im = axes1.imshow(down_data, cmap=cmap, origin='upper',
                       extent=[mpl_times[0], mpl_times[-1],

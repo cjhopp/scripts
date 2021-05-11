@@ -28,7 +28,7 @@ from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from shapely.ops import cascaded_union, polygonize
 from scipy.spatial import Delaunay
 from scipy.spatial.transform import Rotation as R
-from obspy import Trace
+from obspy import Trace, Catalog
 from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib.patches import Circle
@@ -347,58 +347,115 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     return fig
 
 
-def plot_dug_seis_locations_fsb(well_dict, df_active=None, df_passive=None,
-                                cluster=False):
+def plot_dug_seis_locations_fsb(well_dict, active_events=None,
+                                passive_events=None, cluster=False,
+                                inventory=None):
     """
     Plot location output of dug-seis on wells at FSB
 
     :param well_dict: output from create_FSB_boreholes
-    :param df_active: DataFrame of "active" source shots
-    :param df_passive: DataFrame of "passive" sources
+    :param active_events: DataFrame or catalog of "active" source shots
+    :param passive_events: DataFrame or catalog of "passive" sources
     :param cluster: False or number of kmeans clusters to create
+    :param inventory: obspy.core.Inventory of stations
+
     :return:
     """
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    if isinstance(df_active, pd.DataFrame) and not cluster:
-        ax.scatter(df_active['x'], df_active['y'], df_active['z'], color='k',
-                   s=0.5, alpha=0.3)
-    elif isinstance(df_active, pd.DataFrame) and cluster:
-        data = df_active[['x', 'y', 'z']].to_numpy()
+    # Make a data array for active
+    if isinstance(active_events, pd.DataFrame):
+        data_act = active_events[['x', 'y', 'z']].to_numpy()
+    elif isinstance(active_events, Catalog):
+        oextra = [ev.origins[-1].extra for ev in active_events]
+        data_act = np.array([[float(d.ch1903_east.value),
+                              float(d.ch1903_north.value),
+                              float(d.ch1903_elev.value)]
+                             for d in oextra])
+        if len(active_events) == 1:
+            act_scatter = active_events[0].origins[-1].nonlinloc_scatter
+    else:
+        data_act = np.array([])
+    if isinstance(passive_events, pd.DataFrame):
+        data_pass = passive_events[['x', 'y', 'z']].to_numpy()
+    elif isinstance(passive_events, Catalog):
+        oextra = [ev.origins[-1].extra for ev in passive_events]
+        oarrs = [ev.origins[-1].arrivals for ev in passive_events]
+        data_pass = np.array([[float(d.ch1903_east.value),
+                               float(d.ch1903_north.value),
+                               float(d.ch1903_elev.value)]
+                         for d in oextra])
+        if len(passive_events) == 1:
+            title = passive_events[0].origins[0].time
+            oarrs = passive_events[0].origins[-1].arrivals
+            arr_stas = [arr.pick_id.get_referred_object().waveform_id.station_code
+                        for arr in oarrs]
+            pass_scatter = passive_events[0].origins[-1].nonlinloc_scatter
+    else:
+        data_pass = np.array([])
+    # If cluster, plot em up
+    if cluster and data_pass.size > 0:
         km = KMeans(n_clusters=cluster, init='random',
                     n_init=10, max_iter=300,
                     tol=1e-04, random_state=0)
-        clusters = km.fit_predict(data)
-    if isinstance(df_passive, pd.DataFrame) and not cluster:
-        ax.scatter(df_passive['x'], df_passive['y'], df_passive['z'], color='r',
-                   s=5, alpha=0.3)
-    elif isinstance(df_passive, pd.DataFrame) and cluster:
-        data = df_passive[['x', 'y', 'z']].to_numpy()
-        km = KMeans(n_clusters=cluster, init='random',
-                    n_init=10, max_iter=300,
-                    tol=1e-04, random_state=0)
-        clusters = km.fit_predict(data)
+        clusters = km.fit_predict(data_pass)
         clusts = {}
         for c in list(set(clusters)):
-            events = data[clusters == c]
-            clusts[c] = df_passive.iloc[clusters == c]
+            events = data_pass[clusters == c]
+            clusts[c] = events
             ax.scatter(events[:, 0], events[:, 1], events[:, 2], alpha=0.5,
                        s=5., label=c)
+    else:
+        if data_act.size > 0:
+            if data_act.shape[0] == 1:
+                # Plot scatter too
+                ax.scatter(act_scatter[:, 0], act_scatter[:, 1],
+                           act_scatter[:, 2], color='lightgray',
+                           alpha=0.1, s=2)
+            ax.scatter(data_act[:, 0], data_act[:, 1], data_act[:, 2],
+                       color='k', s=5, alpha=0.1, zorder=120)
+        if data_pass.size > 0:
+            if data_pass.shape[0] == 1:
+                # Plot scatter too
+                ax.scatter(pass_scatter[:, 0], pass_scatter[:, 1],
+                           pass_scatter[:, 2], color='k',
+                           alpha=0.1, s=2, zorder=-1)
+                if inventory:
+                    # Get xyz for all stations in arrivals list
+                    for sta in arr_stas:
+                        # Plot ray
+                        xyz = inventory.select(station=sta)[0][0].extra
+                        xyz = [float(xyz.ch1903_east.value),
+                               float(xyz.ch1903_north.value),
+                               float(xyz.ch1903_elev.value)]
+                        ax.scatter(xyz[0], xyz[1], xyz[2], marker='x',
+                                   color='k')
+                        ax.plot([xyz[0], data_pass[0, 0]],
+                                [xyz[1], data_pass[0, 1]],
+                                [xyz[2], data_pass[0, 2]], color='k',
+                                alpha=0.3, linewidth=0.75)
+                ax.set_title(title.strftime('%d-%b %H:%M:%S.%f'), fontsize=14)
+                ax.text2D(-0.3, 0.75, 'East: {}\nNorth: {}\nElev: {}'.format(
+                    data_pass[0, 0], data_pass[0, 1], data_pass[0, 2]),
+                    transform=ax.transAxes)
+            ax.scatter(data_pass[:, 0], data_pass[:, 1], data_pass[:, 2],
+                       color='r', marker='s', s=40, alpha=0.7, zorder=5)
     # Plot up the well bores
     for w, pts in well_dict.items():
         if w.startswith('B'):
-            wx = pts[:, 0] + 579300
-            wy = pts[:, 1] + 247500
-            wz = pts[:, 2] + 500
+            wx = pts[:, 0]# + 579300
+            wy = pts[:, 1]# + 247500
+            wz = pts[:, 2]# + 500
             ax.scatter(wx[0], wy[0], wz[0], s=10., marker='s',
                        color=fsb_well_colors[w])
             ax.plot(wx, wy, wz, color=fsb_well_colors[w])
-    ax.set_xlim([3158610, 3158655])
-    ax.set_ylim([1495055, 1495100])
-    ax.set_zlim([985, 1030])
+    # ax.set_xlim([3158610, 3158655])
+    # ax.set_ylim([1495055, 1495100])
+    # ax.set_zlim([985, 1030])
     ax.legend()
     plt.show()
-    return clusts
+    if cluster:
+        return clusts
 
 
 def plot_4850_2D(autocad_path, strike=347.,
