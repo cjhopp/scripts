@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from matplotlib.dates import DateFormatter
+from matplotlib import gridspec
 from nptdms import TdmsFile
 from glob import glob
 from scipy.io import loadmat
@@ -374,3 +375,71 @@ def plot_fsb_hydro(df_hydro, title='Flow and Pressure', axes=None, show=False):
         ax2.tick_params(axis='y', which='major', direction='out',
                         labelcolor='firebrick', color='firebrick', width=1)
     return [ax, ax2]
+
+def plot_fsb_hydro_panels(df_hydro, title='Flow and Pressure',
+                          meq_times=None):
+    """
+    Plot same data as above, but zoom into each cycle in separate panels
+
+    :param df_hydro:
+    :param title:
+    :return:
+    """
+    fig = plt.figure(figsize=(12, 12))
+    spec = gridspec.GridSpec(ncols=8, nrows=12, wspace=2, hspace=3)
+    fig.suptitle(title, fontsize=18)
+    ax1 = fig.add_subplot(spec[:4, :4])
+    ax2 = fig.add_subplot(spec[:4, 4:])
+    ax3 = fig.add_subplot(spec[4:8, :4])
+    ax4 = fig.add_subplot(spec[4:8, 4:])
+    ax5 = fig.add_subplot(spec[8:, :4])
+    ax6 = fig.add_subplot(spec[8:, 4:])
+    cycle_ranges = [
+        (datetime(2020, 11, 21, 8, 10), datetime(2020, 11, 21, 8, 40)),
+        (datetime(2020, 11, 21, 9, 10), datetime(2020, 11, 21, 9, 40)),
+        (datetime(2020, 11, 21, 10, 54), datetime(2020, 11, 21, 11, 30)),
+        (datetime(2020, 11, 21, 12, 34), datetime(2020, 11, 21, 13, 17)),
+        (datetime(2020, 11, 21, 14, 17), datetime(2020, 11, 21, 15)),
+        (datetime(2020, 11, 21, 16), datetime(2020, 11, 21, 17)),
+    ]
+    # Mask funky signal between tests
+    df_hydro_mask = df_hydro[((df_hydro.index > '2020-11-21 10:07') &
+                               (df_hydro.index < '2020-11-21 10:58'))]
+    df_hydro = df_hydro[~((df_hydro.index > '2020-11-21 10:07') &
+                          (df_hydro.index < '2020-11-21 10:58'))]
+    time = df_hydro.index.values
+    pressure = df_hydro['Pressure']
+    flow = df_hydro['Flow']
+    for i, (ax, date_range) in enumerate(zip([ax1, ax2, ax3, ax4, ax5, ax6],
+                                             cycle_ranges)):
+        ax2 = ax.twinx()
+        ax.plot(time, flow, color='steelblue', label='Flow')
+        ax.set_ylim(bottom=0)
+        ax2.plot(time, pressure, color='firebrick', label='')
+        ax2.set_ylim(bottom=0)
+        if i % 2 == 0:
+            ax.set_ylabel('L/min', fontsize=14, color='steelblue')
+            ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                           color='steelblue')
+            ax2.set_yticklabels([])
+        else:
+            ax2.set_ylabel('MPa', fontsize=14, color='firebrick')
+            ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                            color='firebrick')
+            ax.set_yticklabels([])
+        # Plot stems for eq times
+        if meq_times:
+            ax.stem(meq_times, [6 for i in range(len(meq_times))],
+                    markerfmt='ro', linefmt=':k')
+        # Cycle label
+        ax.text(0.9, 0.8, i + 1, fontweight='bold', fontsize=16,
+                transform=ax.transAxes)
+        ax.set_xlim(date_range)
+        ax.set_xlabel('')
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+        plt.setp(ax.xaxis.get_majorticklabels(), horizontalalignment='center')
+        plt.setp(ax.xaxis.get_majorticklabels(), visible=True)
+        plt.setp(ax2.xaxis.get_majorticklabels(), visible=True)
+    fig.tight_layout()
+    plt.show()
+    return

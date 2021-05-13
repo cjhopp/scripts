@@ -31,6 +31,7 @@ from scipy.spatial.transform import Rotation as R
 from obspy import Trace, Catalog
 from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
+from matplotlib import animation
 from matplotlib.patches import Circle
 from matplotlib.colors import ListedColormap, Normalize
 from scipy.signal import resample, detrend
@@ -347,9 +348,51 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     return fig
 
 
+def animate_dug_seis_location(outfile, well_dict, active_events=None,
+                              passive_events=None, cluster=False,
+                              inventory=None):
+    """
+    Matplotlib animation of a dug-seis location at FSB
+
+    :param outfile: Path to output file
+    :param well_dict: Dict from create_FSB_boreholes()
+    :param active_events: DataFrame or Catalog
+    :param passive_events: DataFrame or Catalog
+    :param cluster: Bool for clustering
+    :param inventory: obspy Inventory
+    :return:
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    ax.view_init(elev=90, azim=-90)
+    plot_dug_seis_locations_fsb(well_dict, active_events,
+                                passive_events,
+                                cluster,
+                                inventory,
+                                fig, ax)
+
+    def animate(i):
+        if i < 90:
+            el = 90 - i
+            az = -90
+        else:
+            el = 0
+            az = -i
+        ax.view_init(elev=el, azim=az)
+        return fig,
+
+    # Animate
+    anim = animation.FuncAnimation(
+        fig, animate, frames=450, interval=20)
+    # Save
+    anim.save(outfile, extra_args=['-vcodec', 'libx264'],
+              dpi=200)
+    return
+
+
 def plot_dug_seis_locations_fsb(well_dict, active_events=None,
                                 passive_events=None, cluster=False,
-                                inventory=None):
+                                inventory=None, figure=None, axes=None):
     """
     Plot location output of dug-seis on wells at FSB
 
@@ -361,8 +404,13 @@ def plot_dug_seis_locations_fsb(well_dict, active_events=None,
 
     :return:
     """
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+    if not axes:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        ax.view_init(elev=90, azim=-90)
+    else:
+        fig = figure
+        ax = axes
     # Make a data array for active
     if isinstance(active_events, pd.DataFrame):
         data_act = active_events[['x', 'y', 'z']].to_numpy()
@@ -440,6 +488,8 @@ def plot_dug_seis_locations_fsb(well_dict, active_events=None,
                     transform=ax.transAxes)
             ax.scatter(data_pass[:, 0], data_pass[:, 1], data_pass[:, 2],
                        color='r', marker='s', s=40, alpha=0.7, zorder=5)
+            ax.plot(data_pass[:, 0], data_pass[:, 1], data_pass[:, 2],
+                    color='r', linewidth=1., marker=None, alpha=0.7, zorder=5)
     # Plot up the well bores
     for w, pts in well_dict.items():
         if w.startswith('B'):
@@ -452,10 +502,11 @@ def plot_dug_seis_locations_fsb(well_dict, active_events=None,
     # ax.set_xlim([3158610, 3158655])
     # ax.set_ylim([1495055, 1495100])
     # ax.set_zlim([985, 1030])
-    ax.legend()
-    plt.show()
+    if not axes:
+        plt.show()
     if cluster:
-        return clusts
+        return clusters
+    return fig,
 
 
 def plot_4850_2D(autocad_path, strike=347.,

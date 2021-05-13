@@ -5,6 +5,8 @@ Functions for reading/writing and processing waveform data
 """
 import os
 import copy
+
+import pyasdf
 import scipy
 import itertools
 import yaml
@@ -18,7 +20,7 @@ import seaborn as sns
 from glob import glob
 from copy import deepcopy
 from itertools import cycle
-from datetime import timedelta
+from datetime import timedelta, datetime
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
 from obspy.core.event import ResourceIdentifier
@@ -643,6 +645,51 @@ def detect_tribe(tribe, wav_dir, start, end, param_dict):
         print('Running detect')
         try:
             party += tribe.detect(stream=daylong, **param_dict)
+        except (OSError, IndexError, MatchFilterError) as e:
+            print(e)
+            continue
+    return party
+
+
+def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
+    """
+    Run matched filter detection on a tribe of Templates over waveforms
+    saved in asdf h5 format (FSB Vibbox-specific naming conventions)
+
+    :param tribe: Tribe of Templates
+    :param wav_dir: Root directory that will globbed
+    :param start_date: Start UTCDateTime object
+    :param end_date: End UTCDateTime object
+    :param param_dict: Dict of parameters to pass to Tribe.detect()
+    :return:
+    """
+    import logging
+
+    logging.basicConfig(
+        filename='tribe-detect_run.txt',
+        level=logging.ERROR,
+        format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
+
+    party = Party()
+    # Grab all the necessary files
+    h5s = glob('{}/*.h5'.format(wav_dir))
+    h5s.sort()
+    continuous = Stream()
+    # Establish list of needed stations
+    stas = list(set([tr.stats.station for temp in tribe for tr in temp.st]))
+    for h5 in h5s:
+        filestart = datetime.strptime(
+            h5.splot('_').rstrip('.h5'), '%Y%m%d%H%M%S%f')
+        if filestart < start or filestart > end:
+            continue
+        # Grab only the stations in the templates
+        with pyasdf.ASDFDataSet(h5) as ds:
+            for sta in ds.waveforms:
+                if sta in stas:
+                    continuous += sta.raw_recording
+        print('Running detect')
+        try:
+            party += tribe.detect(stream=continuous, **param_dict)
         except (OSError, IndexError, MatchFilterError) as e:
             print(e)
             continue
@@ -2632,3 +2679,67 @@ def plot_meq_brune(stress_drop=10, ax=None):
     # plt.legend(title='$M_W$')
     # plt.show()
     return ax
+
+
+def plot_stacked_wavs(events, streams, station, prepick, postpick,
+                      colors=None, labels=None):
+    """
+    Plot traces from given station for number of events
+
+    :param events: list of events with picks
+    :param streams: list of streams in order of events
+    :param station: Station to plot
+    :param prepick: Seconds before to clip
+    :param postpick: Seconds after to clip
+    :param colors: Colors of each trace, optional
+    :param labels: List of labels for each trace
+
+    :return:
+    """
+    fig, ax = plt.subplots(figsize=(14, 9))
+    labs = [r'$Time$']
+    for i, (ev, st) in enumerate(zip(events, streams)):
+        try:
+            raw = st.select(station=station)[0]
+        except IndexError:
+            print('No wav for {}'.format(ev))
+            labs.append('')
+            continue
+        try:
+            ptime = [p.time for p in ev.picks
+                     if p.waveform_id.station_code == station
+                     and p.phase_hint == 'P'][0]
+        except IndexError:
+            print('No pick for {}'.format(ev))
+            labs.append('')
+            continue
+        # Filter
+        raw = raw.copy().filter('bandpass', freqmin=500.,
+                                freqmax=15000., corners=3)
+        # Trim
+        data = raw.trim(starttime=ptime - prepick,
+                        endtime=ptime + postpick).data
+        # Microsecond vector
+        time_v = np.arange(data.shape[0]) / raw.stats.sampling_rate * 1e3
+        data /= np.max(data)  # Normalize
+        # Plot
+        if colors:
+            col = colors[i]
+        else:
+            col = 'k'
+        if labels:
+            lab = labels[i]
+        else:
+            lab = ''
+        ax.plot(time_v, data - i, color=col, label=lab)
+        labs.append('{}:{}:{}.{}'.format(ptime.hour,
+                                      ptime.minute,
+                                      ptime.second,
+                                      ptime.microsecond))
+    ax.set_yticks(-np.arange(len(streams) + 1) + 1)
+    ax.set_xlabel('Milliseconds')
+    ax.set_yticklabels(labs, fontsize=12)
+    fig.suptitle(station, fontsize=20, fontweight='bold')
+    fig.legend()
+    plt.show()
+    return

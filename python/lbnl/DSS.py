@@ -1415,7 +1415,8 @@ def plot_channel_timeseries(well_data, well, depths):
     axes[0].set_facecolor('lightgray')
     axes[1].set_facecolor('lightgray')
     fig.autofmt_xdate()
-    return fig
+    print('foo')
+    return fig, times, data
 
 
 def plot_interpolation_frames(well_data, date_range, strike, dip, points,
@@ -3079,7 +3080,7 @@ def plot_CSD_with_time(well_data, pot_data, depth, simfip, dates=None):
     if dates:
         axes.set_xlim(dates)
     plt.show()
-    return
+    return df_simfip
 
 
 def plot_off_fault_with_time(well_data, pot_data, dates=None):
