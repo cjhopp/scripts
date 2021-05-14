@@ -679,7 +679,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
     stas = list(set([tr.stats.station for temp in tribe for tr in temp.st]))
     for h5 in h5s:
         filestart = datetime.strptime(
-            h5.splot('_').rstrip('.h5'), '%Y%m%d%H%M%S%f')
+            h5.split('_').rstrip('.h5'), '%Y%m%d%H%M%S%f')
         if filestart < start or filestart > end:
             continue
         # Grab only the stations in the templates
