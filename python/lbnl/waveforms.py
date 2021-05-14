@@ -690,6 +690,11 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                     continuous += sta.raw_recording
                 except WaveformNotInFileException:
                     continue
+        # Fix sampling rates of AE data to their already dumb value
+        for tr in continuous:
+            if tr.stats.station in ['B81', 'B82', 'B83', 'B91']:
+                if tr.stats.sampling_rate != 199994.4:
+                    tr.stats.sampling_rate = 199994.4
         print('Running detect on {}'.format(h5))
         try:
             party += tribe.detect(stream=continuous, **param_dict)
