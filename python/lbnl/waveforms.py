@@ -686,7 +686,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         # Grab only the stations in the templates
         with pyasdf.ASDFDataSet(h5) as ds:
             for sta in ds.waveforms:
-                if sta in stas:
+                if sta.StationXML[0][0].code in stas:
                     continuous += sta.raw_recording
         print(continuous)
         print('Running detect')
