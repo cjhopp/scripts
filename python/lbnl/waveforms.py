@@ -677,6 +677,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
     continuous = Stream()
     # Establish list of needed stations
     stas = list(set([tr.stats.station for temp in tribe for tr in temp.st]))
+    print(stas)
     for h5 in h5s:
         filestart = datetime.strptime(
             h5.split('_')[-1].rstrip('.h5'), '%Y%m%d%H%M%S%f')
