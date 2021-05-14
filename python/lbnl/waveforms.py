@@ -44,6 +44,7 @@ from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from pyasdf import WaveformNotInFileException
 
 # Local imports
 try:
@@ -686,9 +687,10 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         # Grab only the stations in the templates
         with pyasdf.ASDFDataSet(h5) as ds:
             for sta in ds.waveforms:
-                if sta.StationXML[0][0].code in stas:
+                try:
                     continuous += sta.raw_recording
-        print(continuous)
+                except WaveformNotInFileException:
+                    continue
         print('Running detect')
         try:
             party += tribe.detect(stream=continuous, **param_dict)
