@@ -687,6 +687,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
             for sta in ds.waveforms:
                 if sta in stas:
                     continuous += sta.raw_recording
+        print(continuous)
         print('Running detect')
         try:
             party += tribe.detect(stream=continuous, **param_dict)
