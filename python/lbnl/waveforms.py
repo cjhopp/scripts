@@ -32,6 +32,8 @@ from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
 from eqcorrscan.core.match_filter import Tribe, Party, MatchFilterError
+from eqcorrscan.core.match_filter.matched_filter import match_filter
+from eqcorrscan import Family
 from eqcorrscan.core.template_gen import template_gen
 from eqcorrscan.utils.pre_processing import shortproc, _check_daylong, dayproc
 from eqcorrscan.utils.stacking import align_traces
@@ -671,7 +673,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         level=logging.ERROR,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
-    party = Party()
+    fam_dict = {t: Family(template=t) for t in tribe.templates}
     # Grab all the necessary files
     h5s = glob('{}/*.h5'.format(wav_dir))
     h5s.sort()
@@ -690,17 +692,24 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                     continuous += sta.raw_recording
                 except WaveformNotInFileException:
                     continue
-        # Fix sampling rates of AE data to their already dumb value
-        for tr in continuous:
-            if tr.stats.station in ['B81', 'B82', 'B83', 'B91']:
-                if tr.stats.sampling_rate != 199994.4:
-                    tr.stats.sampling_rate = 199994.4
+        # Process this myself to avoid checks in eqcorrscan that find jankyness
+        continuous.filter('bandpass', freqmin=tribe[0].lowcut,
+                          freqmax=tribe[0].highcut,
+                          sampling_rate=tribe[0].samp_rate)
         print('Running detect on {}'.format(h5))
         try:
-            party += tribe.detect(stream=continuous, **param_dict)
+            detections = match_filter(
+                template_names=[t.name for t in tribe],
+                template_list=tribe.templates,
+                st=continuous, **param_dict)
         except (OSError, IndexError, MatchFilterError) as e:
             print(e)
             continue
+        # Place each Detection in it's proper family
+        for d in detections:
+            fam_dict[d.template_name] += d
+    # Now make party
+    party = Party(families=[f for t, f in fam_dict.items()])
     return party
 
 
