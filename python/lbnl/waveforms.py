@@ -700,7 +700,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         try:
             detections = match_filter(
                 template_names=[t.name for t in tribe],
-                template_list=tribe.templates,
+                template_list=[t.st for t in tribe],
                 st=continuous, **param_dict)
         except (OSError, IndexError, MatchFilterError) as e:
             print(e)
