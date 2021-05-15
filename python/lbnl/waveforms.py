@@ -673,7 +673,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         level=logging.ERROR,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
-    fam_dict = {t: Family(template=t) for t in tribe.templates}
+    fam_dict = {t.name: Family(template=t) for t in tribe.templates}
     # Grab all the necessary files
     h5s = glob('{}/*.h5'.format(wav_dir))
     h5s.sort()
