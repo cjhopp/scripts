@@ -694,8 +694,8 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                     continue
         # Process this myself to avoid checks in eqcorrscan that find jankyness
         continuous.filter('bandpass', freqmin=tribe[0].lowcut,
-                          freqmax=tribe[0].highcut,
-                          sampling_rate=tribe[0].samp_rate)
+                          freqmax=tribe[0].highcut)
+        continuous.resample(sampling_rate=tribe[0].samp_rate)
         print('Running detect on {}'.format(h5))
         try:
             detections = match_filter(
