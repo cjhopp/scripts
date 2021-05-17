@@ -693,8 +693,11 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 except WaveformNotInFileException:
                     continue
         # Merge
+        print(continuous.__str__(extended=True))
         continuous.merge(fill_value='interpolate')
+        print(continuous.__str__(extended=True))
         continuous.detrend('demean')
+        print(continuous.__str__(extended=True))
         # Process this myself to avoid checks in eqcorrscan that find jankyness
         continuous.filter('bandpass', freqmin=tribe[0].lowcut,
                           freqmax=tribe[0].highcut)
