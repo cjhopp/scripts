@@ -698,15 +698,15 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 except AttributeError:  # Trigger traces
                     continue
         # Merge
-        continuous.merge(fill_value='interpolate')
-        continuous.detrend('demean')
+        # continuous.merge(fill_value='interpolate')
+        # continuous.detrend('demean')
         # for tr in continuous:
         #     if tr.stats.station in ['B81', 'B82', 'B83', 'B91']:
         #         tr.stats.delta = 5e-6
         # Process this myself to avoid checks in eqcorrscan that find jankyness
-        continuous.resample(sampling_rate=tribe[0].samp_rate)
-        continuous.filter('bandpass', freqmin=tribe[0].lowcut,
-                          freqmax=tribe[0].highcut)
+        # continuous.resample(sampling_rate=tribe[0].samp_rate)
+        # continuous.filter('bandpass', freqmin=tribe[0].lowcut,
+        #                   freqmax=tribe[0].highcut)
         print('Running detect on {}'.format(h5))
         try:
             party += tribe.detect(stream=continuous, **param_dict)
