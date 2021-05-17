@@ -708,6 +708,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         continuous.resample(sampling_rate=tribe[0].samp_rate)
         continuous.filter('bandpass', freqmin=tribe[0].lowcut,
                           freqmax=tribe[0].highcut)
+        print(continuous)
         print('Running detect on {}'.format(h5))
         try:
             # party += tribe.detect(stream=continuous, **param_dict)
