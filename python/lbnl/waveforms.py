@@ -677,10 +677,10 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
     # Grab all the necessary files
     h5s = glob('{}/*.h5'.format(wav_dir))
     h5s.sort()
-    continuous = Stream()
     # Establish list of needed stations
     stas = list(set([tr.stats.station for temp in tribe for tr in temp.st]))
     for h5 in h5s:
+        continuous = Stream()
         filestart = datetime.strptime(
             h5.split('_')[-1].rstrip('.h5'), '%Y%m%d%H%M%S%f')
         if filestart < start or filestart > end:
@@ -693,11 +693,8 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 except WaveformNotInFileException:
                     continue
         # Merge
-        print(continuous.__str__(extended=True))
         continuous.merge(fill_value='interpolate')
-        print(continuous.__str__(extended=True))
         continuous.detrend('demean')
-        print(continuous.__str__(extended=True))
         # Process this myself to avoid checks in eqcorrscan that find jankyness
         continuous.filter('bandpass', freqmin=tribe[0].lowcut,
                           freqmax=tribe[0].highcut)
