@@ -670,7 +670,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
 
     logging.basicConfig(
         filename='tribe-detect_run.txt',
-        level=logging.ERROR,
+        level=logging.INFO,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
     fam_dict = {t.name: Family(template=t) for t in tribe.templates}
