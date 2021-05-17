@@ -697,9 +697,9 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         # continuous.detrend('demean')
         # Process this myself to avoid checks in eqcorrscan that find jankyness
         print(continuous.__str__(extended=True))
+        continuous.resample(sampling_rate=tribe[0].samp_rate)
         continuous.filter('bandpass', freqmin=tribe[0].lowcut,
                           freqmax=tribe[0].highcut)
-        continuous.resample(sampling_rate=tribe[0].samp_rate)
         print(continuous.__str__(extended=True))
         print('Running detect on {}'.format(h5))
         try:
