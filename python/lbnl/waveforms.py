@@ -698,30 +698,30 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 except AttributeError:  # Trigger traces
                     continue
         # Merge
-        # continuous.merge(fill_value='interpolate')
-        # continuous.detrend('demean')
+        continuous.merge(fill_value='interpolate')
+        continuous.detrend('demean')
         # for tr in continuous:
         #     if tr.stats.station in ['B81', 'B82', 'B83', 'B91']:
         #         tr.stats.delta = 5e-6
         # Process this myself to avoid checks in eqcorrscan that find jankyness
-        # continuous.resample(sampling_rate=tribe[0].samp_rate)
-        # continuous.filter('bandpass', freqmin=tribe[0].lowcut,
-        #                   freqmax=tribe[0].highcut)
+        continuous.resample(sampling_rate=tribe[0].samp_rate)
+        continuous.filter('bandpass', freqmin=tribe[0].lowcut,
+                          freqmax=tribe[0].highcut)
         print('Running detect on {}'.format(h5))
         try:
-            party += tribe.detect(stream=continuous, **param_dict)
-            # detections = match_filter(
-            #     template_names=[t.name for t in tribe],
-            #     template_list=[t.st for t in tribe],
-            #     st=continuous, **param_dict)
+            # party += tribe.detect(stream=continuous, **param_dict)
+            detections = match_filter(
+                template_names=[t.name for t in tribe],
+                template_list=[t.st for t in tribe],
+                st=continuous, **param_dict)
         except (OSError, IndexError, MatchFilterError) as e:
             print(e)
             continue
         # Place each Detection in it's proper family
-        # for d in detections:
-        #     fam_dict[d.template_name] += d
+        for d in detections:
+            fam_dict[d.template_name] += d
     # Now make party
-    # party = Party(families=[f for t, f in fam_dict.items()])
+    party = Party(families=[f for t, f in fam_dict.items()])
     return party
 
 
