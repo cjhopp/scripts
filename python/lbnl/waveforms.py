@@ -698,6 +698,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 except AttributeError:  # Trigger traces
                     continue
         # Merge
+        print(continuous)
         continuous.merge(fill_value='interpolate')
         continuous.detrend('demean')
         # for tr in continuous:
