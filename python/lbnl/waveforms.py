@@ -670,7 +670,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
 
     logging.basicConfig(
         filename='tribe-detect_run.txt',
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
     fam_dict = {t.name: Family(template=t) for t in tribe.templates}
@@ -679,6 +679,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
     h5s.sort()
     # Establish list of needed stations
     stas = list(set([tr.stats.station for temp in tribe for tr in temp.st]))
+    party = Party()
     for h5 in h5s:
         continuous = Stream()
         filestart = datetime.strptime(
@@ -708,18 +709,19 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                           freqmax=tribe[0].highcut)
         print('Running detect on {}'.format(h5))
         try:
-            detections = match_filter(
-                template_names=[t.name for t in tribe],
-                template_list=[t.st for t in tribe],
-                st=continuous, **param_dict)
+            party += tribe.detect(st=continuous, **param_dict)
+            # detections = match_filter(
+            #     template_names=[t.name for t in tribe],
+            #     template_list=[t.st for t in tribe],
+            #     st=continuous, **param_dict)
         except (OSError, IndexError, MatchFilterError) as e:
             print(e)
             continue
         # Place each Detection in it's proper family
-        for d in detections:
-            fam_dict[d.template_name] += d
+        # for d in detections:
+        #     fam_dict[d.template_name] += d
     # Now make party
-    party = Party(families=[f for t, f in fam_dict.items()])
+    # party = Party(families=[f for t, f in fam_dict.items()])
     return party
 
 
