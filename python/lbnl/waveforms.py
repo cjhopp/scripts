@@ -709,7 +709,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                           freqmax=tribe[0].highcut)
         print('Running detect on {}'.format(h5))
         try:
-            party += tribe.detect(st=continuous, **param_dict)
+            party += tribe.detect(stream=continuous, **param_dict)
             # detections = match_filter(
             #     template_names=[t.name for t in tribe],
             #     template_list=[t.st for t in tribe],
