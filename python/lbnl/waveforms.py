@@ -697,8 +697,8 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 except AttributeError:  # Trigger traces
                     continue
         # Merge
-        # continuous.merge(fill_value='interpolate')
-        # continuous.detrend('demean')
+        continuous.merge(fill_value='interpolate')
+        continuous.detrend('demean')
         # Process this myself to avoid checks in eqcorrscan that find jankyness
         print(continuous.__str__(extended=True))
         continuous.resample(sampling_rate=tribe[0].samp_rate)
