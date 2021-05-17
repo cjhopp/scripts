@@ -688,11 +688,14 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         # Grab only the stations in the templates
         with pyasdf.ASDFDataSet(h5) as ds:
             for sta in ds.waveforms:
-                if sta.StationXML[0][0].code in stas:
-                    try:
-                        continuous += sta.raw_recording
-                    except WaveformNotInFileException:
-                        continue
+                try:
+                    if sta.StationXML[0][0].code in stas:
+                        try:
+                            continuous += sta.raw_recording
+                        except WaveformNotInFileException:
+                            continue
+                except AttributeError:  # Trigger traces
+                    continue
         # Merge
         # continuous.merge(fill_value='interpolate')
         # continuous.detrend('demean')
