@@ -694,7 +694,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                     continue
         # Merge
         continuous.merge(fill_value='interpolate')
-        continuous.detrend(method='demean')
+        continuous.detrend('demean')
         # Process this myself to avoid checks in eqcorrscan that find jankyness
         continuous.filter('bandpass', freqmin=tribe[0].lowcut,
                           freqmax=tribe[0].highcut)
