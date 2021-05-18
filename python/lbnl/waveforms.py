@@ -33,9 +33,10 @@ from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
 from eqcorrscan.core.match_filter import Tribe, Party, MatchFilterError
 from eqcorrscan.core.match_filter.matched_filter import match_filter
-from eqcorrscan import Family
+from eqcorrscan.core.match_filter.matched_filter import get_stream_xcorr, multi_find_peaks
+from eqcorrscan import Family, Detection
 from eqcorrscan.core.template_gen import template_gen
-from eqcorrscan.utils.pre_processing import shortproc, _check_daylong, dayproc
+from eqcorrscan.utils.pre_processing import shortproc, dayproc, _prep_data_for_correlation
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
 from eqcorrscan.utils.mag_calc import dist_calc
@@ -679,7 +680,6 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
     h5s.sort()
     # Establish list of needed stations
     stas = list(set([tr.stats.station for temp in tribe for tr in temp.st]))
-    party = Party()
     for h5 in h5s:
         continuous = Stream()
         filestart = datetime.strptime(
@@ -701,9 +701,6 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         print(continuous[0].data.shape)
         continuous.merge(fill_value='interpolate')
         continuous.detrend('demean')
-        # for tr in continuous:
-        #     if tr.stats.station in ['B81', 'B82', 'B83', 'B91']:
-        #         tr.stats.delta = 5e-6
         # Process this myself to avoid checks in eqcorrscan that find jankyness
         continuous.resample(sampling_rate=tribe[0].samp_rate)
         continuous.filter('bandpass', freqmin=tribe[0].lowcut,
@@ -711,11 +708,55 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
         print(continuous[0].data.shape)
         print('Running detect on {}'.format(h5))
         try:
-            # party += tribe.detect(stream=continuous, **param_dict)
-            detections = match_filter(
-                template_names=[t.name for t in tribe],
-                template_list=[t.st for t in tribe],
-                st=continuous, **param_dict)
+            # Go lower level to get to epoch arg
+            templates = [t for t in tribe]
+            _template_names = [t.name for t in tribe]
+            # All this just to not force_epoch
+            stream, templates, _template_names = _prep_data_for_correlation(
+                stream=continuous, templates=templates,
+                template_names=_template_names, force_stream_epoch=False)
+            if len(templates) == 0:
+                raise IndexError("No matching data")
+            multichannel_normxcorr = get_stream_xcorr(None, None)
+            [cccsums, no_chans, chans] = multichannel_normxcorr(
+                templates=templates, stream=stream, **param_dict)
+            if len(cccsums[0]) == 0:
+                raise MatchFilterError('Correlation has not run, zero length cccsum')
+            detections = []
+            thresholds = [param_dict['threshold'] * np.median(np.abs(cccsum))
+                          for cccsum in cccsums]
+            all_peaks = multi_find_peaks(
+                arr=cccsums, thresh=thresholds, parallel=True,
+                trig_int=int(param_dict['trig_int'] *
+                             stream[0].stats.sampling_rate),
+                full_peaks=False, cores=param_dict['cores'])
+            for i, cccsum in enumerate(cccsums):
+                # Set up a trace object for the cccsum as this is easier to plot and
+                # maintains timing
+                # if param_dict['plot']:
+                #     _match_filter_plot(
+                #         stream=stream, cccsum=cccsum,
+                #         template_names=_template_names,
+                #         rawthresh=thresholds[i], plotdir=plotdir,
+                #         plot_format=plot_format, i=i)
+                if all_peaks[i]:
+                    print("Found {0} peaks for template {1}".format(
+                          len(all_peaks[i]), _template_names[i]))
+                    for peak in all_peaks[i]:
+                        detecttime = (
+                                stream[0].stats.starttime +
+                                peak[1] / stream[0].stats.sampling_rate)
+                        detection = Detection(
+                            template_name=_template_names[i],
+                            detect_time=detecttime, no_chans=no_chans[i],
+                            detect_val=peak[0], threshold=thresholds[i],
+                            typeofdet='corr', chans=chans[i],
+                            threshold_type=param_dict['threshold_type'],
+                            threshold_input=param_dict['threshold'])
+                        detections.append(detection)
+                else:
+                    print("Found 0 peaks for template {0}".format(
+                          _template_names[i]))
         except (OSError, IndexError, MatchFilterError) as e:
             print(e)
             continue
