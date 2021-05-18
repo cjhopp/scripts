@@ -698,12 +698,15 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 except AttributeError:  # Trigger traces
                     continue
         # Merge
-        continuous.merge(fill_value='interpolate')
-        continuous.detrend('demean')
-        # Process this myself to avoid checks in eqcorrscan that find jankyness
-        continuous.resample(sampling_rate=tribe[0].samp_rate)
-        continuous.filter('bandpass', freqmin=tribe[0].lowcut,
-                          freqmax=tribe[0].highcut)
+        continuous = shortproc(
+            continuous, highcut=tribe[0].highcut, lowcut=tribe[0].lowcut,
+            samp_rate=tribe[0].samp_rate, filt_order=tribe[0].filt_order)
+        # continuous.merge(fill_value='interpolate')
+        # continuous.detrend('demean')
+        # # Process this myself to avoid checks in eqcorrscan that find jankyness
+        # continuous.resample(sampling_rate=tribe[0].samp_rate)
+        # continuous.filter('bandpass', freqmin=tribe[0].lowcut,
+        #                   freqmax=tribe[0].highcut)
         print('Running detect on {}'.format(h5))
         try:
             # Go lower level to get to epoch arg
