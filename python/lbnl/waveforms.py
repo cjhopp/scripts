@@ -698,18 +698,16 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 except AttributeError:  # Trigger traces
                     continue
         # Merge
-        print(continuous[0].data.shape)
         continuous.merge(fill_value='interpolate')
         continuous.detrend('demean')
         # Process this myself to avoid checks in eqcorrscan that find jankyness
         continuous.resample(sampling_rate=tribe[0].samp_rate)
         continuous.filter('bandpass', freqmin=tribe[0].lowcut,
                           freqmax=tribe[0].highcut)
-        print(continuous[0].data.shape)
         print('Running detect on {}'.format(h5))
         try:
             # Go lower level to get to epoch arg
-            templates = [t for t in tribe]
+            templates = [t.st.copy() for t in tribe]
             _template_names = [t.name for t in tribe]
             # All this just to not force_epoch
             stream, templates, _template_names = _prep_data_for_correlation(
