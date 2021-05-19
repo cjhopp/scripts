@@ -762,7 +762,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                                 endtime=detecttime + 0.02)
                             detection_multiplot(
                                 stream=background, template=templates[i],
-                                times=[detecttime])
+                                times=[detecttime], plotdir=plotdir)
                 else:
                     print("Found 0 peaks for template {0}".format(
                           _template_names[i]))
