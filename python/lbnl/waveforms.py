@@ -760,9 +760,12 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                             background = stream.slice(
                                 starttime=detecttime - 0.005,
                                 endtime=detecttime + 0.02)
+                            filename = '{}{}_{}.png'.format(
+                                plotdir, _template_names[i], detecttime)
                             detection_multiplot(
                                 stream=background, template=templates[i],
-                                times=[detecttime], plotdir=plotdir)
+                                times=[detecttime], show=False,
+                                save=True, savefile=filename)
                 else:
                     print("Found 0 peaks for template {0}".format(
                           _template_names[i]))
