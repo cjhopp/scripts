@@ -513,6 +513,16 @@ def write_mat(outdir, well_data):
     """Write matlab file from well data for Vero"""
     # Basically just strptime the datetimes
     for w, wd in well_data.items():
+        # Split the data and depth in half
+        down_data, up_data = np.array_split(wd['data'], 2)
+        depth, up_dep = np.array_split(wd['depth'] - wd['depth'][0], 2)
+        if down_data.shape[0] != up_data.shape[0]:
+            up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+            up_data = np.flip(up_data, axis=0)
+        wd['up_data'] = up_data
+        wd['down_data'] = down_data
+        wd['distance'] = wd['depth'].copy()
+        wd['depth'] = depth
         wd['noise'] = 0.
         wd['times'] = [t.strftime('%d-%b-%Y %H:%M:%S') for t in wd['times']]
         name = '{}/{}_DSS.mat'.format(outdir, w)

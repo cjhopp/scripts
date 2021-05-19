@@ -696,6 +696,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
             for sta in ds.waveforms:
                 try:
                     if sta.StationXML[0][0].code in stas:
+                        print(sta.StationXML[0][0].code)
                         try:
                             continuous += sta.raw_recording
                         except WaveformNotInFileException:
