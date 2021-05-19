@@ -40,6 +40,7 @@ from eqcorrscan.utils.pre_processing import shortproc, dayproc, _prep_data_for_c
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
 from eqcorrscan.utils.mag_calc import dist_calc
+from eqcorrscan.utils.plotting import _match_filter_plot
 from scipy.stats import special_ortho_group, median_absolute_deviation
 from scipy.signal import find_peaks
 from scipy import fftpack
@@ -697,16 +698,10 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                             continue
                 except AttributeError:  # Trigger traces
                     continue
-        # Merge
+        # Process
         continuous = shortproc(
             continuous, highcut=tribe[0].highcut, lowcut=tribe[0].lowcut,
             samp_rate=tribe[0].samp_rate, filt_order=tribe[0].filt_order)
-        # continuous.merge(fill_value='interpolate')
-        # continuous.detrend('demean')
-        # # Process this myself to avoid checks in eqcorrscan that find jankyness
-        # continuous.resample(sampling_rate=tribe[0].samp_rate)
-        # continuous.filter('bandpass', freqmin=tribe[0].lowcut,
-        #                   freqmax=tribe[0].highcut)
         print('Running detect on {}'.format(h5))
         try:
             # Go lower level to get to epoch arg
@@ -734,12 +729,13 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
             for i, cccsum in enumerate(cccsums):
                 # Set up a trace object for the cccsum as this is easier to plot and
                 # maintains timing
-                # if param_dict['plot']:
-                #     _match_filter_plot(
-                #         stream=stream, cccsum=cccsum,
-                #         template_names=_template_names,
-                #         rawthresh=thresholds[i], plotdir=plotdir,
-                #         plot_format=plot_format, i=i)
+                if param_dict['plot']:
+                    plotdir = param_dict['plotdir']
+                    _match_filter_plot(
+                        stream=stream, cccsum=cccsum,
+                        template_names=_template_names,
+                        rawthresh=thresholds[i], plotdir=plotdir,
+                        plot_format='png', i=i)
                 if all_peaks[i]:
                     print("Found {0} peaks for template {1}".format(
                           len(all_peaks[i]), _template_names[i]))
