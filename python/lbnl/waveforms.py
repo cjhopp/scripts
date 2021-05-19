@@ -44,7 +44,7 @@ from eqcorrscan.utils.pre_processing import shortproc, dayproc, _prep_data_for_c
 from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
 from eqcorrscan.utils.mag_calc import dist_calc
-from eqcorrscan.utils.plotting import _match_filter_plot
+from eqcorrscan.utils.plotting import _match_filter_plot, detection_multiplot
 from scipy.stats import special_ortho_group, median_absolute_deviation
 from scipy.signal import find_peaks
 from scipy import fftpack
@@ -755,6 +755,14 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                             threshold_type=param_dict['threshold_type'],
                             threshold_input=param_dict['threshold'])
                         detections.append(detection)
+                        # Plot detection plot if asked for
+                        if param_dict['plot']:
+                            background = stream.slice(
+                                starttime=detecttime - 0.005,
+                                endtime=detecttime + 0.02)
+                            detection_multiplot(
+                                stream=background, template=templates[i],
+                                times=[detecttime])
                 else:
                     print("Found 0 peaks for template {0}".format(
                           _template_names[i]))
