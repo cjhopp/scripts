@@ -731,6 +731,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
                 # maintains timing
                 if param_dict['plot']:
                     plotdir = param_dict['plotdir']
+                    print(plotdir)
                     _match_filter_plot(
                         stream=stream, cccsum=cccsum,
                         template_names=_template_names,
