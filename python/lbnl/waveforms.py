@@ -3,6 +3,10 @@
 """
 Functions for reading/writing and processing waveform data
 """
+
+import matplotlib
+matplotlib.use('Agg')
+
 import os
 import copy
 
