@@ -794,6 +794,12 @@ def party_multiplot_h5(party, h5_dir, plotdir):
         filestart = datetime.strptime(
             h5.split('_')[-1].rstrip('.h5'), '%Y%m%d%H%M%S%f')
         file_end = filestart + timedelta(seconds=32.)  # roughly...
+        # Get all detections in this file
+        detections = [d for f in party for d in f
+                      if filestart <= d.detect_time <= file_end]
+        if len(detections) == 0:
+            print('No detections')
+            continue
         # Grab only the stations in the templates
         with pyasdf.ASDFDataSet(h5) as ds:
             for sta in ds.waveforms:
@@ -811,9 +817,6 @@ def party_multiplot_h5(party, h5_dir, plotdir):
             lowcut=party[0].template.lowcut,
             samp_rate=party[0].template.samp_rate,
             filt_order=party[0].template.filt_order)
-        # Get all detections in this file
-        detections = [d for f in party for d in f
-                      if filestart <= d.detect_time <= file_end]
         for det in detections:
             background = continuous.slice(
                 starttime=det.detecttime - 0.005,
