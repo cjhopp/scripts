@@ -780,7 +780,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
     return party
 
 
-def party_multiplot_h5(party, h5_dir, plotdir):
+def party_multiplot_h5(party, h5_dir, plotdir, start, end):
     # Grab all the necessary files
     h5s = glob('{}/*.h5'.format(h5_dir))
     h5s.sort()
@@ -793,6 +793,8 @@ def party_multiplot_h5(party, h5_dir, plotdir):
         continuous = Stream()
         filestart = datetime.strptime(
             h5.split('_')[-1].rstrip('.h5'), '%Y%m%d%H%M%S%f')
+        if filestart < start or filestart > end:
+            continue
         file_end = filestart + timedelta(seconds=32.)  # roughly...
         # Get all detections in this file
         detections = [d for f in party for d in f
