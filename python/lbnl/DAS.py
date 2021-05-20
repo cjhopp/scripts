@@ -19,6 +19,7 @@ from itertools import cycle
 from datetime import datetime, timedelta
 from scipy.io import loadmat
 from scipy.signal import detrend
+from scipy.integrate import trapz
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.spatial.transform import Rotation as R
 from pandas.errors import ParserError
@@ -198,6 +199,88 @@ def rolling_stats(data, times, depth, window='2h', stat='mean'):
         print('{} is not a supported statistic'.format(stat))
         return None
     return roll.values.T
+
+
+def extract_channel_timeseries(well_data, well, depth, direction='down',
+                               window='20T'):
+    """
+    Return a time series of the selected well and depth
+
+    :param well_data: Dict from extract_wells
+    :param well: String, wellname
+    :param depth: Depth to channel
+    :param direction: 'up' or 'down', defaults to 'down'
+    :return: times, strains, both arrays
+    """
+    well_d = well_data[well]
+    depths = well_d['depth'] - well_d['depth'][0]
+    data = well_d['data']
+    times = well_d['times']
+    data_median = rolling_stats(data, times, depths, window, stat='median')
+    data_std = rolling_stats(data, times, depths, window, stat='std')
+    if direction == 'up':
+        down_d, up_d = np.array_split(depths, 2)
+        down_data, up_data = np.array_split(data, 2)
+        down_median, up_median = np.array_split(data_median, 2)
+        down_std, up_std = np.array_split(data_std, 2)
+        if down_d.shape[0] != up_d.shape[0]:
+            # prepend last element of down to up if unequal lengths by 1
+            up_d = np.insert(up_d, 0, down_d[-1])
+            up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+            up_median = np.insert(up_median, 0, down_median[-1, :], axis=0)
+            up_std = np.insert(up_std, 0, down_std[-1, :], axis=0)
+        depths = np.abs(up_d - up_d[-1])
+        data = up_data
+        data_median = up_median
+        data_std = up_std
+    # Find closest channel
+    chan = np.argmin(np.abs(depth - depths))
+    strains = data[chan, :]
+    strain_median = data_median[chan, :]
+    strain_std = data_std[chan, :]
+    return times, strains, strain_median, strain_std
+
+
+def integrate_depth_interval(well_data, depths, well, leg, dates=None):
+    """
+    Return timeseries of channels integrated over a depth range
+
+    :param data: data array for well loop
+    :param depths: [shallow, deep] range to integrate over
+    :param well: Well name
+    :param leg: Down or up
+    :return:
+    """
+    data = well_data[well]['data'].copy()
+    depth = well_data[well]['depth'].copy()
+    times = well_data[well]['times']
+    depth -= depth[0].copy()
+    if leg == 'down':
+        chans = (np.argmin(np.abs(depth - depths[0])),
+                 np.argmin(np.abs(depth - depths[1])))
+    elif leg == 'up':
+        chans = (np.argmin(np.abs(depth - (depth[-1] - depths[1]))),
+                 np.argmin(np.abs(depth - (depth[-1] - depths[0]))))
+    else:
+        print('Only up or down leg, hoss')
+        return
+    if not dates:
+        int_data = data[chans[0]:chans[1] + 1, :]
+        # Relative to first sample
+        int_data = int_data - int_data[:, 0]
+        integral = trapz(int_data, axis=0)
+        integral = np.squeeze(integral) * (depth[1] - depth[0])
+    else:
+        d_inds = np.where((times >= dates[0]) &
+                          (times < dates[1]))
+        times = times[d_inds]
+        int_data = np.squeeze(data[chans[0]:chans[1] + 1, d_inds])
+        # Relative to first sample
+        int_data = int_data - int_data[:, 0, np.newaxis]
+        integral = trapz(int_data, axis=0)
+        # Squeeze and scale to channel spacing
+        integral = np.squeeze(integral) * (depth[1] - depth[0])
+    return integral, times # units are displacement
 
 ## Plotting funcs ##
 

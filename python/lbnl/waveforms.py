@@ -780,6 +780,53 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
     return party
 
 
+def party_multiplot_h5(party, h5_dir, plotdir):
+    # Grab all the necessary files
+    h5s = glob('{}/*.h5'.format(h5_dir))
+    h5s.sort()
+    # Establish list of needed stations
+    stas = list(set([tr.stats.station for fam in party
+                     for tr in fam.template.st]))
+    template_dict = {f.template.name: f.template.st for f in party}
+    for h5 in h5s:
+        print('Running file: {}'.format(h5))
+        continuous = Stream()
+        filestart = datetime.strptime(
+            h5.split('_')[-1].rstrip('.h5'), '%Y%m%d%H%M%S%f')
+        file_end = filestart + timedelta(seconds=32.)  # roughly...
+        # Grab only the stations in the templates
+        with pyasdf.ASDFDataSet(h5) as ds:
+            for sta in ds.waveforms:
+                try:
+                    if sta.StationXML[0][0].code in stas:
+                        try:
+                            continuous += sta.raw_recording
+                        except WaveformNotInFileException:
+                            continue
+                except AttributeError:  # Trigger traces
+                    continue
+        # Process
+        continuous = shortproc(
+            continuous, highcut=party[0].template.highcut,
+            lowcut=party[0].template.lowcut,
+            samp_rate=party[0].template.samp_rate,
+            filt_order=party[0].template.filt_order)
+        # Get all detections in this file
+        detections = [d for f in party for d in f
+                      if filestart <= d.detect_time <= file_end]
+        for det in detections:
+            background = continuous.slice(
+                starttime=det.detecttime - 0.005,
+                endtime=det.detecttime + 0.015)
+            filename = '{}{}_{}.png'.format(
+                plotdir, det.template_name, det.detecttime)
+            detection_multiplot(
+                stream=background, template=template_dict[det.template_name],
+                times=[det.detecttime], show=False,
+                save=True, savefile=filename)
+    return
+
+
 def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
                       shift_len=0.2, min_cc=0.6, process_cores=1, cores=8):
     """

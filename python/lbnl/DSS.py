@@ -49,9 +49,11 @@ from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             read_gallery_distances, read_gallery_excavation,
                             read_frac_quinn)
 from lbnl.DTS import read_struct
+from lbnl.DAS import extract_channel_timeseries as extract_das
+from lbnl.DAS import integrate_depth_interval as integrate_das
 from lbnl.simfip import (read_excavation, plot_displacement_components,
                          read_collab, rotate_fsb_to_fault,
-                         rotate_fsb_to_borehole)
+                         rotate_fsb_to_borehole, read_FSB_injection)
 from lbnl.hydraulic_data import (read_collab_hydro, read_csd_hydro,
                                  plot_csd_hydro, plot_collab_ALL,
                                  plot_fsb_hydro, read_fsb_hydro)
@@ -491,8 +493,8 @@ def integrate_depth_interval(well_data, depths, well, leg, dates=None):
         integral = trapz(int_data, axis=0)
         integral = np.squeeze(integral) * (depth[1] - depth[0])
     else:
-        d_inds = np.where((dates[0] <= well_data[well]['times']) &
-                           (dates[1] > well_data[well]['times']))
+        d_inds = np.where((times >= dates[0]) &
+                          (times < dates[1]))
         times = times[d_inds]
         int_data = np.squeeze(data[chans[0]:chans[1] + 1, d_inds])
         # Relative to first sample
@@ -2916,7 +2918,7 @@ def plot_D5_with_time(well_data, pot_data, depth, simfip, dates=None):
     pot_strains = pot_d[pind-1:pind+2, :].sum(axis=0) * -0.5
     # Integrate over same depths for DSS for displacement
     integral, _ = integrate_depth_interval(well_data, depths=(19.25, 20.75),
-                                        well='D5', leg='up', dates=dates)
+                                           well='D5', leg='up', dates=dates)
     dss_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
         well_data, 'D5', depth=depth, direction='up')
     if dates:
@@ -4041,6 +4043,61 @@ def martin_plot_fsb(well_data, date_range, autocad_path,
         fig.savefig('{}/{:04d}.png'.format(outdir, i), dpi=300)
         plt.close('all')
     return
+
+
+def plot_fsb_simfip_DSS(well_data, well_data_das, dates, simfip):
+    """
+    Plot comparison of DSS and SIMFIP across injection interval
+
+    :param well_data:
+    :param dates:
+    :param simfip:
+    :return:
+    """
+    fig, ax = plt.subplots(figsize=(12, 7))
+    all_times, dss_strains, _, _, _, _ = extract_channel_timeseries(
+        well_data, 'B2', depth=40.75, direction='up')
+    integrated_strain, dss_times = integrate_depth_interval(
+        well_data, depths=(39.5, 41.5), well='B2', leg='up', dates=dates)
+    # _, das_strains, _, _ = extract_das(
+    #     well_data_das, 'B2', depth=40.75, direction='up')
+    integrated_das, das_times = integrate_depth_interval(
+        well_data_das, depths=(40.5, 41.5), well='B2', leg='up', dates=dates)
+    ax.plot(all_times, dss_strains, color='mediumorchid',
+            label='DSS')
+    ax.plot(das_times, integrated_das, color='purple', label='DAS')
+    df_simfip = read_FSB_injection(simfip)
+    df_simfip = df_simfip.loc[((df_simfip.index < dss_times[-1])
+                               & (df_simfip.index > dss_times[0]))]
+    # Rotate simfip onto BCS-D5
+    df_simfip = rotate_fsb_to_fault(df_simfip, strike=60, dip=70)
+    # df_simfip = rotate_fsb_to_borehole(df_simfip, 'B2')
+    df_simfip['Zf'] = df_simfip['Zf'] - df_simfip['Zf'][0]
+    df_simfip['Yf'] = df_simfip['Yf'] - df_simfip['Yf'][0]
+    df_simfip['Xf'] = df_simfip['Xf'] - df_simfip['Xf'][0]
+    df_simfip['Sf'] = np.sqrt(df_simfip['Xf']**2 + df_simfip['Yf']**2)
+    df_simfip['Synthetic DSS pythag'] = np.sqrt(df_simfip['Zf']**2 +
+                                                df_simfip['Xf']**2 +
+                                                df_simfip['Yf']**2)
+    df_simfip['Zf'].plot(ax=ax, color='steelblue',
+                         label='SIMFIP: Opening')
+    df_simfip['Sf'].plot(ax=ax, color='lightseagreen',
+                         label='SIMFIP: Shear')
+    df_simfip['Synthetic DSS pythag'].plot(ax=ax, color='blue',
+                                           label='SIMFIP: Shear + Opening')
+    # df_simfip[['Dstrike', 'Dupdip', 'Dnormal']].plot(ax=ax)
+    ax.set_facecolor('lightgray')
+    ax.set_ylabel('Microns', fontsize=14)
+    ax.xaxis.set_major_formatter(DateFormatter('%m-%d-%H'))
+    ax.set_title('DSS, DAS, and SIMFIP: Injection Interval',
+                 fontsize=16)
+    ax.legend()
+    # ax.margins(0.)
+    if dates:
+        ax.set_xlim(dates)
+    plt.show()
+    return
+
 
 def martin_plot_frame(well_data, time, vrange=(-100, 100),
                       autocad_path=None, strike=120., hydro_path=None,

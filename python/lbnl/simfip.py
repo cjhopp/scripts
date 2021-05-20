@@ -41,7 +41,7 @@ CO1 = np.array([0.001196667, 0, 3.375e-07, 0, 0.0023775, 0, 0, 0.001197333, 0,
 # Borehole inclination and azimuth
 csd_boreholes = {'D6': (90.0, 0.0), 'D3': (48.0, 324.0), 'D5': (49.7, 316.9),
                  'D2': (90.0, 0.0), 'D4': (48.0, 324.0), 'D7': (90.0, 0.0),
-                 'D1': (90.0, 0.0)}
+                 'D1': (90.0, 0.0), 'B2': (80., 318.)}
 
 
 def raw_simfip_correction(files, angles, clamps=False, resample='S'):
@@ -297,26 +297,22 @@ def read_FSB_injection(path):
     :param path: Path to file from Yves
     :return:
     """
-    col_names = ['date', 'time', 'Pz1', 'Pz2', 'S1Yates', 'S1Top',
-                 'S1WellAxial', 'S1YatesE', 'S1TopE', 'S1WellAxialE',
-                 'S1YatesIE', 'S1TopIE', 'S1WellAxialIE', 'S2YatesIE',
-                 'S2TopIE', 'S2WellAxialIE', 'blank']
+    col_names = ['date', 'datenum', 'Dx1', 'Dy1', 'Dz1', 'Xc',
+                 'Yc', 'Zc', 'Dstrike', 'Dupdip',
+                 'Dnormal', 'Pressure', 'Flow']
     # Use Dask as its significantly faster for this many data points
-    df = pd.read_csv(path, sep=' ', names=col_names, header=0)
-    df['dt'] = pd.to_datetime(df['date'], format='%d/%b/%YT%H:%M:%S.%f')
+    df = pd.read_csv(path, names=col_names, header=0)
+    df['dt'] = pd.to_datetime(df['date'], format='%d-%b-%Y %H:%M:%S')
     df = df.set_index('dt')
     df = df.drop(['date'], axis=1)
+    df = df.drop(['datenum'], axis=1)
     # Sort index as this isn't forced by pandas for DateTime indices
     df = df.sort_index()
-    df.index = df.index.tz_localize('US/Mountain')
-    df.index = df.index.tz_convert('UTC')
-    df.index = df.index.tz_convert(None)
+    # df.index = df.index.tz_localize('CET')
+    # df.index = df.index.tz_convert('UTC')
+    # df.index = df.index.tz_convert(None)
     df.index.name = None
     # Seems like Yates and Axial are swapped??
-    df.rename(columns={
-        'S2TopIE': 'P Top', 'S2YatesIE': 'P Yates', 'S2WellAxialIE': 'P Axial',
-        'S1TopIE': 'I Top', 'S1YatesIE': 'I Yates', 'S1WellAxialIE': 'I Axial'},
-        inplace=True)
     return df
 
 ################### Plotting functions below here #######################
