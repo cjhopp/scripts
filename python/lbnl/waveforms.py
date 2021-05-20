@@ -821,13 +821,13 @@ def party_multiplot_h5(party, h5_dir, plotdir, start, end):
             filt_order=party[0].template.filt_order)
         for det in detections:
             background = continuous.slice(
-                starttime=det.detecttime - 0.005,
-                endtime=det.detecttime + 0.015)
+                starttime=det.detect_time - 0.005,
+                endtime=det.detect_time + 0.015)
             filename = '{}{}_{}.png'.format(
-                plotdir, det.template_name, det.detecttime)
+                plotdir, det.template_name, det.detect_time)
             detection_multiplot(
                 stream=background, template=template_dict[det.template_name],
-                times=[det.detecttime], show=False,
+                times=[det.detect_time], show=False,
                 save=True, savefile=filename)
     return
 
