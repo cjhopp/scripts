@@ -91,6 +91,9 @@ def read_fsb_hydro(path):
     df['dt'] = pd.to_datetime(df['Time'], format='%m/%d/%Y %H:%M:%S.%f')
     df = df.set_index('dt')
     df = df.drop(['Time'], axis=1)
+    df.index = df.index.tz_localize('CET')
+    df.index = df.index.tz_convert('UTC')
+    df.index = df.index.tz_convert(None)
     return df
 
 
@@ -339,10 +342,10 @@ def plot_fsb_hydro(df_hydro, title='Flow and Pressure', axes=None, show=False):
     else:
         lab = 'Flow'
     # Mask funky signal between tests
-    df_hydro_mask = df_hydro[((df_hydro.index > '2020-11-21 10:07') &
-                               (df_hydro.index < '2020-11-21 10:58'))]
-    df_hydro = df_hydro[~((df_hydro.index > '2020-11-21 10:07') &
-                          (df_hydro.index < '2020-11-21 10:58'))]
+    df_hydro_mask = df_hydro[((df_hydro.index > '2020-11-21 9:07') &
+                               (df_hydro.index < '2020-11-21 9:58'))]
+    df_hydro = df_hydro[~((df_hydro.index > '2020-11-21 9:07') &
+                          (df_hydro.index < '2020-11-21 9:58'))]
     df_hydro_mask['Flow'].plot(ax=ax, color='steelblue', alpha=0.15,
                                legend=False, label='')
     df_hydro['Flow'].plot(ax=ax, color='steelblue', label=lab)
