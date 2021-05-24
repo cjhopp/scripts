@@ -25,8 +25,8 @@ wav_dir = '/bear0-data/chopp/chet-amplify/waveforms/patua'
 outdir = '/bear0-data/chopp/chet-amplify/parties'
 
 param_dict = {'threshold': 8., 'threshold_type': 'MAD', 'trig_int': 5.,
-              'cores': 8, 'save_progress': False, 'parallel_process': False,
-              'plot': False}
+              'cores': 16, 'save_progress': False, 'parallel_process': True,
+              'plot': False, 'process_cores': 8, 'overlap': None}
 
 ##### end user-defined stuff #####
 
