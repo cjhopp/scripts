@@ -103,7 +103,7 @@ else:
 
 logging.basicConfig(
     filename='tribe-detect_{}.txt'.format(instance),
-    level=logging.ERROR,
+    level=logging.DEBUG,
     format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
 # Make datetime list
@@ -131,7 +131,6 @@ else:
 
 # Reading tribe
 tribe = Tribe().read(tribe_file)
-print(tribe)
 party = Party()
 net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                pk.waveform_id.station_code,
@@ -139,7 +138,6 @@ net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                pk.waveform_id.channel_code)
                               for temp in tribe
                               for pk in temp.event.picks]))
-print(net_sta_loc_chans)
 for date in date_generator(inst_dats[0], inst_dats[-1]):
     dto = UTCDateTime(date)
     jday = dto.julday
@@ -147,7 +145,6 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     wav_files = ['{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
         wav_dir, date.year, nslc[0], nslc[1], nslc[3], nslc[0], nslc[1],
         nslc[2], nslc[3], date.year, jday) for nslc in net_sta_loc_chans]
-    print(wav_files)
     daylong = Stream()
     print('Reading wavs')
     for wav_file in wav_files:
@@ -156,7 +153,6 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
         except FileNotFoundError as e:
             print(e)
             continue
-    print(daylong)
     # Deal with shitty sampling rates
     for tr in daylong:
         if not ((1 / tr.stats.delta).is_integer() and
