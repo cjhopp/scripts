@@ -139,6 +139,7 @@ net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                pk.waveform_id.channel_code)
                               for temp in tribe
                               for pk in temp.event.picks]))
+print(net_sta_loc_chans)
 for date in date_generator(inst_dats[0], inst_dats[-1]):
     dto = UTCDateTime(date)
     jday = dto.julday
@@ -150,6 +151,7 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
             nslc[2], nslc[3], date.year, jday),
                           recursive=True)
         wav_files.extend(day_wav_fs)
+    print(wav_files)
     daylong = Stream()
     print('Reading wavs')
     for wav_file in wav_files:
@@ -161,7 +163,6 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     #             tr.stats.sampling_rate.is_integer()):
     #         tr.stats.sampling_rate = round(tr.stats.sampling_rate)
     daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
-    print(daylong)
     print('Running detect')
     try:
         party += tribe.detect(stream=daylong, **param_dict)
