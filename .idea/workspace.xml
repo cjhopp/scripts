@@ -34,6 +34,9 @@
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/modules.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../FatCrayonToolkit/exp2_4100_Design_Study.py" beforeDir="false" afterPath="$PROJECT_DIR$/../FatCrayonToolkit/exp2_4100_Design_Study.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/vibbox.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/vibbox.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/Lawrencium/Lawrencium_MF_mseed.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/Lawrencium/Lawrencium_MF_mseed.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/Lawrencium/Patua_MF_mseed_10-21.sl" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/Lawrencium/Patua_MF_mseed_10-21.sl" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,7 +59,7 @@
         <entry key="$PROJECT_DIR$/../EQcorrscan" value="4d9b72b3993ff77f7511f71a7cacfa0b39880e86" />
       </map>
     </option>
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../EQcorrscan" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="SYNC" />
   </component>
   <component name="GitSEFilterConfiguration">
