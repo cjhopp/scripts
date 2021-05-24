@@ -143,17 +143,17 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     dto = UTCDateTime(date)
     jday = dto.julday
     print('Running {}\nJday: {}'.format(dto, jday))
-    wav_files = []
-    for nslc in net_sta_loc_chans:
-        day_wav_fs = glob('{}/{}/{}/{}/**/{}.{}.{}.{}.{}.{:03d}.ms'.format(
-            wav_dir, date.year, nslc[0], nslc[1], nslc[0], nslc[1],
-            nslc[2], nslc[3], date.year, jday),
-                          recursive=True)
-        wav_files.extend(day_wav_fs)
+    wav_files = ['{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
+        wav_dir, date.year, nslc[0], nslc[1], nslc[3], nslc[0], nslc[1],
+        nslc[2], nslc[3], date.year, jday) for nslc in net_sta_loc_chans]
     daylong = Stream()
     print('Reading wavs')
     for wav_file in wav_files:
-        daylong += read(wav_file)
+        try:
+            daylong += read(wav_file)
+        except FileNotFoundError as e:
+            print(e)
+            continue
     # Deal with shitty CN sampling rates
     for tr in daylong:
         if not ((1 / tr.stats.delta).is_integer() and
