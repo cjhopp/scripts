@@ -131,7 +131,7 @@ else:
 
 # Reading tribe
 tribe = Tribe().read(tribe_file)
-
+print(tribe)
 party = Party()
 net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                pk.waveform_id.station_code,
@@ -154,12 +154,14 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     print('Reading wavs')
     for wav_file in wav_files:
         daylong += read(wav_file)
-    # Deal with shitty CN sampling rates
-    for tr in daylong:
-        if not ((1 / tr.stats.delta).is_integer() and
-                tr.stats.sampling_rate.is_integer()):
-            tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+    print(daylong)
+    # # Deal with shitty CN sampling rates
+    # for tr in daylong:
+    #     if not ((1 / tr.stats.delta).is_integer() and
+    #             tr.stats.sampling_rate.is_integer()):
+    #         tr.stats.sampling_rate = round(tr.stats.sampling_rate)
     daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
+    print(daylong)
     print('Running detect')
     try:
         party += tribe.detect(stream=daylong, **param_dict)
