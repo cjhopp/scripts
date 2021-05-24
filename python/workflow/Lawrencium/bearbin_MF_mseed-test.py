@@ -20,7 +20,7 @@ from timeit import default_timer as timer
 
 ##### User-defined stuff #####
 
-tribe_file = 'chet-amplify/tribes/patua/Patua_tribe_5-24.tgz'
+tribe_file = 'chet-amplify/tribes/patua/Patua_tribe_5-24-21.tgz'
 wav_dir = '/bear0-data/chopp/chet-amplify/waveforms/patua'
 outdir = '/bear0-data/chopp/chet-amplify/parties'
 
