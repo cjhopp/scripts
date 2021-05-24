@@ -151,7 +151,11 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     daylong = Stream()
     print('Reading wavs')
     for wav_file in wav_files:
-        daylong += read(wav_file)
+        try:
+            daylong += read(wav_file)
+        except FileNotFoundError as e:
+            print(e)
+            continue
     print(daylong)
     # # Deal with shitty CN sampling rates
     # for tr in daylong:
