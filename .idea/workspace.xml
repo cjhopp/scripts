@@ -34,6 +34,7 @@
       <change afterPath="$PROJECT_DIR$/../FatCrayonToolkit/.idea/modules.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../FatCrayonToolkit/exp2_4100_Design_Study.py" beforeDir="false" afterPath="$PROJECT_DIR$/../FatCrayonToolkit/exp2_4100_Design_Study.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/vibbox.py" beforeDir="false" afterPath="$PROJECT_DIR$/../SURF_SEIS/surf_seis/vibbox.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/python/workflow/Lawrencium/bearbin_MF_mseed-test.py" beforeDir="false" afterPath="$PROJECT_DIR$/python/workflow/Lawrencium/bearbin_MF_mseed-test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
