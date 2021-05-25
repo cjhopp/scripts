@@ -15,4 +15,4 @@
 module load python/3.7
 source activate eqcorrscan
 
-srun python /global/home/users/chopp/scripts/python/workflow/Lawrencium/Patua_MF_mseed_10-21.py --splits 201 --instance $SLURM_ARRAY_TASK_ID --start 1/1/2010 --end 20/4/2021
+srun python /global/home/users/chopp/scripts/python/workflow/Lawrencium/Patua_MF_mseed_10-21.sl --splits 201 --instance $SLURM_ARRAY_TASK_ID --start 1/1/2010 --end 20/4/2021
