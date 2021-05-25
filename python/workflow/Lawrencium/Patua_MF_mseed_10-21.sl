@@ -15,4 +15,4 @@
 module load python/3.7
 source activate eqcorrscan
 
-srun python3.7 /global/home/users/chopp/scripts/python/workflow/PAN_scripts/PAN_MF_mseed.py --splits 201 --instance $SLURM_ARRAY_TASK_ID --start 1/1/2010 --end 25/4/2021
+srun python /global/home/users/chopp/scripts/python/workflow/PAN_scripts/PAN_MF_mseed.py --splits 201 --instance $SLURM_ARRAY_TASK_ID --start 1/1/2010 --end 25/4/2021
