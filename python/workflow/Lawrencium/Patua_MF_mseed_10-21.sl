@@ -2,6 +2,7 @@
 #SBATCH -J CJH_Patua_MF_10-21
 #SBATCH --partition=lr3
 #SBATCH --account=pc_seisproc
+#SBATCH --qos=lr_normal
 #SBATCH --time=2:00:00
 #SBATCH --mem=64000
 #SBATCH --nodes=1
