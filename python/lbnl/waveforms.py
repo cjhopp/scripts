@@ -831,6 +831,66 @@ def party_multiplot_h5(party, h5_dir, plotdir, start, end):
                 save=True, savefile=filename)
     return
 
+def party_multiplot_wavdir(party, wav_dir, plotdir, start, end):
+    """
+    Plot templates over data at each detection time in a party
+
+    :param party: eqcorrscan Party instance
+    :param wav_dir: Path to waveform directory
+    :param plotdir: Path to plot directory
+    :param start: Start time
+    :param end: End time
+    :return:
+    """
+    # Template lookup dict
+    template_dict = {f.template.name: f.template.st for f in party}
+    net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
+                                   pk.waveform_id.station_code,
+                                   pk.waveform_id.location_code,
+                                   pk.waveform_id.channel_code)
+                                  for f in party
+                                  for pk in f.template.event.picks]))
+    for date in date_generator(start, end):
+        print('Plotting for {}'.format(date))
+        # Get all detections in this file
+        detections = [d for f in party for d in f
+                      if date <= d.detect_time <= date + timedelta(days=1)]
+        if len(detections) == 0:
+            print('No detections')
+            continue
+        dto = UTCDateTime(date)
+        jday = dto.julday
+        print('Running {}\nJday: {}'.format(dto, jday))
+        wav_files = ['{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
+            wav_dir, date.year, nslc[0], nslc[1], nslc[3], nslc[0], nslc[1],
+            nslc[2], nslc[3], date.year, jday) for nslc in net_sta_loc_chans]
+        daylong = Stream()
+        print('Reading wavs')
+        for wav_file in wav_files:
+            try:
+                daylong += read(wav_file)
+            except FileNotFoundError as e:
+                print(e)
+                continue
+        # Deal with shitty CN sampling rates
+        for tr in daylong:
+            if not ((1 / tr.stats.delta).is_integer() and
+                    tr.stats.sampling_rate.is_integer()):
+                tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+        daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
+        print('Running detect')
+        for det in detections:
+            background = daylong.slice(
+                starttime=det.detect_time - 10,
+                endtime=det.detect_time + 20)
+            filename = '{}{}.png'.format(
+                plotdir, det.id)
+            detection_multiplot(
+                stream=background, template=template_dict[det.template_name],
+                times=[det.detect_time], show=False,
+                save=True, savefile=filename)
+    return
+
 
 def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
                       shift_len=0.2, min_cc=0.6, process_cores=1, cores=8):
