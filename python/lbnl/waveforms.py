@@ -1028,6 +1028,41 @@ def stack_CASSM_shots(st, length):
     return shots
 
 
+def svd_denoise(st, plot=False, plot_tr=None):
+    """
+    Remove first input singular vector from stream to eliminate
+    electrical noise
+
+    :param st: obspy Stream
+    :param plot: Plot flag for denoising
+    :param plot_tr: Station to plot if plotting
+    :return:
+    """
+    stream_list = [st.select(station=tr.stats.station).copy() for tr in st]
+    for str in stream_list:
+        str[0].stats.station = 'XXX'
+    u, s, v, stachans = clustering.svd(stream_list=stream_list, full=False)
+    # Reweight the first singular vector
+    noise_vect = np.dot(u[0][:,0] * s[0][0], v[0][0, 0])
+    st_denoise = st.copy()
+    for tr in st_denoise:
+        tr.data -= noise_vect
+    if plot:
+        fig, axes = plt.subplots(nrows=4, sharex='col', sharey='col')
+        time_vec = np.arange(st[0].data.shape[0]) / 200.
+        plt_ref = st.select(station=plot_tr)[0].data
+        plt_denoise = st_denoise.select(station=plot_tr)[0].data
+        axes[0].plot(time_vec, plt_ref, color='k', label='Raw data')
+        axes[1].plot(time_vec, noise_vect, color='r', label='First SV: reweighted')
+        axes[2].plot(time_vec, plt_ref, alpha=0.6, color='k')
+        axes[2].plot(time_vec, noise_vect, alpha=0.6, color='r')
+        axes[3].plot(time_vec, plt_denoise, color='steelblue', label='Denoised')
+        fig.legend()
+        axes[3].set_xlabel('ms')
+        plt.show()
+    return
+
+
 def SNR(signal, noise, log=True):
     """
     Simple SNR calculation (in decibels)
