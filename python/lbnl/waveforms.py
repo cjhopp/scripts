@@ -823,8 +823,8 @@ def party_multiplot_h5(party, h5_dir, plotdir, start, end):
             background = continuous.slice(
                 starttime=det.detect_time - 0.005,
                 endtime=det.detect_time + 0.015)
-            filename = '{}{}_{}.png'.format(
-                plotdir, det.template_name, det.detect_time)
+            filename = '{}{}.png'.format(
+                plotdir, det.id)
             detection_multiplot(
                 stream=background, template=template_dict[det.template_name],
                 times=[det.detect_time], show=False,
