@@ -881,10 +881,14 @@ def party_multiplot_wavdir(party, wav_dir, plotdir, start, end):
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
+        temp = party[0].template
+        daylong = dayproc(st=daylong, lowcut=temp.lowcut, highcut=temp.highcut,
+                          samp_rate=temp.samp_rate, filt_order=temp.filt_order,
+                          starttime=date)
         for det in detections:
             background = daylong.slice(
                 starttime=det[0].detect_time - 10,
-                endtime=det[0].detect_time + 20)
+                endtime=det[0].detect_time + 40)
             filename = '{}/{}.png'.format(
                 plotdir, det[0].id)
             print('Writing {}'.format(filename))
