@@ -4,8 +4,8 @@
 Functions for reading/writing and processing waveform data
 """
 
-import matplotlib
-matplotlib.use('Agg')
+# import matplotlib
+# matplotlib.use('Agg')
 
 import os
 import copy
@@ -1044,21 +1044,38 @@ def svd_denoise(st, plot=False, plot_tr=None):
     u, s, v, stachans = clustering.svd(stream_list=stream_list, full=False)
     # Reweight the first singular vector
     noise_vect = np.dot(u[0][:,0] * s[0][0], v[0][0, 0])
+    sv2 = np.dot(u[0][:,1] * s[0][1], v[0][1, 1])
+    sv3 = np.dot(u[0][:,2] * s[0][2], v[0][2, 2])
     st_denoise = st.copy()
     for tr in st_denoise:
         tr.data -= noise_vect
     if plot:
-        fig, axes = plt.subplots(nrows=4, sharex='col', sharey='col')
+        fig, axes = plt.subplots(nrows=6, sharex='col', figsize=(5, 10))
         time_vec = np.arange(st[0].data.shape[0]) / 200.
         plt_ref = st.select(station=plot_tr)[0].data
         plt_denoise = st_denoise.select(station=plot_tr)[0].data
         axes[0].plot(time_vec, plt_ref, color='k', label='Raw data')
         axes[1].plot(time_vec, noise_vect, color='r', label='First SV: reweighted')
+        axes[1].plot(time_vec, sv2, color='b', label='Second SV: reweighted')
+        axes[1].plot(time_vec, sv3, color='g', label='Third SV: reweighted')
         axes[2].plot(time_vec, plt_ref, alpha=0.6, color='k')
         axes[2].plot(time_vec, noise_vect, alpha=0.6, color='r')
         axes[3].plot(time_vec, plt_denoise, color='steelblue', label='Denoised')
         fig.legend()
-        axes[3].set_xlabel('ms')
+        labs = []
+        for i, tr in enumerate(st_denoise):
+            labs.append(tr.stats.station)
+            norm = tr.copy().data / np.max(tr.data)
+            raw_norm = st.select(station=tr.stats.station)[0].copy().data
+            raw_norm /= np.max(raw_norm)
+            axes[4].plot(time_vec, raw_norm + i, color='black')
+            axes[5].plot(time_vec, norm + i, color='darkgray')
+        axes[4].set_yticks(np.arange(len(st_denoise.traces)))
+        axes[4].set_yticklabels(labs)
+        axes[5].set_yticks(np.arange(len(st_denoise.traces)))
+        axes[5].set_yticklabels(labs)
+        axes[5].set_xlabel('ms')
+        fig.suptitle(plot_tr, fontsize=16)
         plt.show()
     return
 
