@@ -4096,7 +4096,7 @@ def plot_fsb_simfip_DSS(well_data, well_data_das, dates, simfip):
     if dates:
         ax.set_xlim(dates)
     plt.show()
-    return
+    return das_times, integrated_das
 
 
 def martin_plot_frame(well_data, time, vrange=(-100, 100),
