@@ -259,10 +259,11 @@ def plot_mags(cats, dates=None, metric='time', ax=None, title=None, show=True,
                     mag_tup.append(
                         (pytz.utc.localize(ev.origins[-1].time.datetime),
                          ev.magnitudes[-1].mag))
-                    if fm_id in sdrs:
-                        fm_tup.append(sdrs[fm_id])
-                    else:
-                        fm_tup.append(None)
+                    if fm_file:
+                        if fm_id in sdrs:
+                            fm_tup.append(sdrs[fm_id])
+                        else:
+                            fm_tup.append(None)
                 elif metric == 'depth':
                     if ev.preferred_origin().method_id:
                         if ev.preferred_origin().method_id.id.endswith('GrowClust'):
@@ -315,7 +316,7 @@ def plot_mags(cats, dates=None, metric='time', ax=None, title=None, show=True,
         ax1.set_xlim([0, 5000])
     elif metric == 'time':
         mkline, stlines, bsline = ax1.stem(xs, ys, markerfmt='o',
-                                           label='Magnitudes', alpha=0.5)
+                                           label='Magnitudes')#, alpha=0.5)
         plt.setp(stlines, 'color', 'darkgray')
         plt.setp(stlines, 'linewidth', 1.)
         plt.setp(bsline, 'color', 'black')
