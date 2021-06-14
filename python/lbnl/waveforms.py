@@ -854,12 +854,10 @@ def party_multiplot_wavdir(party, wav_dir, plotdir, start, end):
             continue
         fns = [os.path.exists('{}/{}.png'.format(plotdir, det[0].id))
                for det in detections]
-        print(fns)
         if all(fns):
             print('All plots saved. Next')
             continue
-        detections = [d for d, f in zip(detections, fns) if f]
-        print(detections)
+        detections = [d for d, f in zip(detections, fns) if not f]
         net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                        pk.waveform_id.station_code,
                                        pk.waveform_id.location_code,
