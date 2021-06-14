@@ -502,7 +502,7 @@ def integrate_depth_interval(well_data, depths, well, leg, dates=None):
         integral = trapz(int_data, axis=0)
         # Squeeze and scale to channel spacing
         integral = np.squeeze(integral) * (depth[1] - depth[0])
-    return integral, times # units are displacement
+    return integral, times#, int_data, depth[chans[0]: chans[1]] # units are displacement
 
 
 def scale_to_gain(data, gain, offset_samps):
