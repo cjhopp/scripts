@@ -183,11 +183,11 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     print('Extracting event waveforms')
     # Extract the days detection waveforms
     pp = extract_params['prepick']
-    len = extract_params['length']
+    length = extract_params['length']
     outd = extract_params['outdir']
     for d in day_dets:
         d_st = daylong.slice(starttime=d.detect_time - pp,
-                             endtime=d.detect_time - pp + len)
+                             endtime=d.detect_time - pp + length)
         d_st.write('{}/{}.ms'.format(outd, d.id), format='MSEED')
 # Write out the Party object
 print('Writing instance party object to file')
