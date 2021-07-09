@@ -174,7 +174,6 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     print('Declustering')
     # Decluster day party
     day_party.decluster(trig_int=match_params['trig_int'])
-    day_party.min_chans(match_params['min_chan'])
     day_dets = [d for f in day_party for d in f]
     # Do the lag calcing
     print('Lag calc')
