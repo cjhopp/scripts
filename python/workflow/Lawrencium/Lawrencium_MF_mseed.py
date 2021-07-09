@@ -20,8 +20,8 @@ from timeit import default_timer as timer
 ##### User-defined stuff #####
 
 tribe_file = '/global/home/users/chopp/chet-amplify/tribes/patua/Patua_tribe_5-24-21.tgz'
-wav_dir = '/bear0-data/chopp/chet-amplify/waveforms/patua'
-outdir = '/bear0-data/chopp/chet-amplify/parties'
+wav_dir = '/clusterfs/bear/chopp/chet-amplify/waveforms/patua'
+outdir = '/clusterfs/bear/chopp/chet-amplify/parties'
 
 match_params = {'threshold': 10., 'threshold_type': 'MAD', 'trig_int': 5.,
               'cores': 16, 'save_progress': False, 'parallel_process': True,
@@ -29,10 +29,10 @@ match_params = {'threshold': 10., 'threshold_type': 'MAD', 'trig_int': 5.,
 
 lag_params = {'min_cc': 0.7, 'shift_len': 0.4, 'interpolate': True,
               'cores': 16, 'process_cores': 8, 'plot': True,
-              'plotdir': '/bear0-data/chopp/chet-amplify/lag_calc_plots/'}
+              'plotdir': '/clusterfs/bear/chopp/chet-amplify/lag_calc_plots/'}
 
 extract_params = {'prepick': 30., 'length': 90.,
-                  'outdir': '/bear0-data/chopp/chet-amplify/event_wavs/'}
+                  'outdir': '/clusterfs/bear/chopp/chet-amplify/event_wavs/'}
 
 ##### end user-defined stuff #####
 
