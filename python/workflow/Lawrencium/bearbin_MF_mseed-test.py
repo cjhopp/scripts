@@ -8,7 +8,6 @@ a waveform directory (formatted as in above Tribe construction func)
 import sys
 import logging
 
-from glob import glob
 from datetime import datetime, timedelta
 from obspy import UTCDateTime, Stream, read
 from eqcorrscan.core.match_filter import Tribe, Party, MatchFilterError
@@ -24,9 +23,16 @@ tribe_file = 'chet-amplify/tribes/patua/Patua_tribe_5-24-21.tgz'
 wav_dir = '/bear0-data/chopp/chet-amplify/waveforms/patua'
 outdir = '/bear0-data/chopp/chet-amplify/parties'
 
-param_dict = {'threshold': 8., 'threshold_type': 'MAD', 'trig_int': 5.,
+match_params = {'threshold': 10., 'threshold_type': 'MAD', 'trig_int': 5.,
               'cores': 16, 'save_progress': False, 'parallel_process': True,
               'plot': False, 'process_cores': 8, 'overlap': None}
+
+lag_params = {'min_cc': 0.7, 'shift_len': 0.4, 'interpolate': True,
+              'cores': 16, 'process_cores': 8, 'plot': True,
+              'plotdir': '/bear0-data/chopp/chet-amplify/lag_calc_plots/'}
+
+extract_params = {'prepick': 30., 'length': 90.,
+                  'outdir': '/bear0-data/chopp/chet-amplify/event_wavs/'}
 
 ##### end user-defined stuff #####
 
@@ -161,10 +167,29 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
     print('Running detect')
     try:
-        party += tribe.detect(stream=daylong, **param_dict)
+        day_party = tribe.detect(stream=daylong, **match_params)
     except (OSError, IndexError, MatchFilterError) as e:
         print(e)
         continue
+    print('Declustering')
+    # Decluster day party
+    day_party.decluster(trig_int=match_params['trig_int'])
+    day_party.min_chans(match_params['min_chan'])
+    day_dets = [d for f in day_party for d in f]
+    # Do the lag calcing
+    print('Lag calc')
+    day_party.lag_calc(
+        stream=daylong, pre_processed=False, **lag_params)
+    party += day_party
+    print('Extracting event waveforms')
+    # Extract the days detection waveforms
+    pp = extract_params['prepick']
+    len = extract_params['length']
+    outd = extract_params['outdir']
+    for d in day_dets:
+        d_st = daylong.slice(starttime=d.detect_time - pp,
+                             endtime=d.detect_time - pp + len)
+        d_st.write('{}/{}.ms'.format(outd, d.id), format='MSEED')
 # Write out the Party object
 print('Writing instance party object to file')
 party.write('{}/Party_{}_{}'.format(outdir,

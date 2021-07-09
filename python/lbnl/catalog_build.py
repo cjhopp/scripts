@@ -58,6 +58,22 @@ cascadia_colors = {'NSMTC.B1': '#c6dbef', 'NSMTC.B2': '#6aaed6',
                    'NSMTC.G2': '#d65f5f', 'PGC.': '#ee854a',
                    'B011.': '#6acc64'}
 
+patua_well_cols = {'14-28': 'pink', '14-28 ST1': 'pink', '16-29': 'black',
+                  '16-29 ST1': 'black', '16-29 ST2': 'black', '21-19': 'red',
+                  '21-19 ST1': 'red', '21A-19': 'lightgray', '21-28': 'gray',
+                  '23-17': 'blue', '23-17 ST1': 'blue', '23-17 ST2': 'blue',
+                  '23A-17': 'lightgray', '24-29': 'black', '27-29': 'lightgray',
+                  '28-13': 'darkgray', '33-23': 'lightgray',
+                   '36-15': 'lightgray', '36A-15': 'blue', '36-17': 'blue',
+                   '36-17 ST1': 'blue', '37-17': 'blue', '37-17 ST1': 'blue',
+                   '38-21': 'blue', '38-21 ST1': 'blue', '38-21 ST2': 'blue',
+                   '38-21 ST3': 'blue', '44-1': 'darkgray', '44-19': 'black',
+                   '44-19 ST1': 'black', '44-21': 'blue', '45-27': 'lightgray',
+                   '45-9': 'lightgray', '58-29': 'black', '77-19': 'red',
+                   '77A-19': 'red', '78-20': 'red', '85-19': 'blue',
+                   '85-19 ST1': 'blue', '85-19 ST2': 'blue', '88-19': 'red',
+                   '88-19 ST1': 'red'}
+
 def read_tremor(path, lats=(46.5, 50.), lons=(-126.5, -121.5)):
     """Read in a tremor catalog from PNSN"""
     trems = pd.read_csv(path, parse_dates=[3])
@@ -1018,7 +1034,7 @@ def plot_cascadia_3D(slab_file, catalog, outfile):
                                      slab_grd[:, 1])
     slab = go.Mesh3d(x=pts_trans[:, 0], y=pts_trans[:, 1],
                      z=slab_grd[:, 2] * 1000,
-                     name='Slab model', color='gray', opacity=0.3,
+                     name='Slab model', color='gray', opacity=0.15,
                      delaunayaxis='z', showlegend=True, hoverinfo='skip')
     cat = add_catalog(catalog)
     # Map limits are catalog extents
@@ -1054,6 +1070,81 @@ def plot_cascadia_3D(slab_file, catalog, outfile):
                        legend=dict(title=dict(text='Legend',
                                               font=dict(size=18)),
                                    traceorder='normal',
+                                   itemsizing='constant',
+                                   font=dict(
+                                       family="sans-serif",
+                                       size=14,
+                                       color="black"),
+                                   bgcolor='whitesmoke',
+                                   bordercolor='gray',
+                                   borderwidth=1,
+                                   tracegroupgap=3))
+    fig.update_layout(layout)
+    plotly.offline.iplot(fig, filename='{}.html'.format(outfile))
+    return
+
+
+def plot_patua_3D(well_file, outfile, topography=None, wells='all',
+                  catalog=None):
+    """
+    Plot Cascadia locations in 3D with slab model and coastlines
+
+    :param slab_mod: Path to slab model file
+    :param catalog: Catalog of seismicity
+
+    :return:
+    """
+    # Plot rough slab interface
+    well_dict = pd.read_excel(well_file, sheet_name=None)
+    objects = []
+    for i, (key, pts) in enumerate(well_dict.items()):
+        if key in wells or wells == 'all':
+            wellpath = pts.to_numpy()
+        else:
+            continue
+        try:
+            col = patua_well_cols[key]
+        except KeyError:
+            continue
+        objects.append(go.Scatter3d(x=wellpath[:, 0],
+                                    y=wellpath[:, 1],
+                                    z=wellpath[:, 2],
+                                    mode='lines',
+                                    name=key, line=dict(color=col, width=6),
+                                    hoverinfo='skip'))
+    if topography:
+        topo = np.loadtxt(topography, skiprows=1, delimiter=',')
+        topo_mesh = go.Mesh3d(x=topo[:, 0], y=topo[:, 1],
+                              z=topo[:, 2], name='Topography', color='gray',
+                              opacity=0.3, delaunayaxis='z', showlegend=True,
+                              hoverinfo='skip')
+        objects.append(topo_mesh)
+    if catalog:
+        pass
+    # Start figure
+    fig = go.Figure(data=objects)
+    xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Easting (m)',
+                                showline=True, mirror=True,
+                                linecolor='black', linewidth=2.)
+    yax = go.layout.scene.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Northing (m)',
+                                showline=True, mirror=True,
+                                linecolor='black', linewidth=2.)
+    zax = go.layout.scene.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
+                                gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
+                                zerolinewidth=2, title='Elevation (m)')
+    layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
+                                  xaxis_showspikes=False,
+                                  yaxis_showspikes=False,
+                                  aspectmode='data',
+                                  aspectratio=dict(x=1, y=1, z=1.),
+                                  bgcolor="rgb(244, 244, 248)"),
+                       # autosize=True,
+                       title='Patua',
+                       legend=dict(traceorder='normal',
                                    itemsizing='constant',
                                    font=dict(
                                        family="sans-serif",

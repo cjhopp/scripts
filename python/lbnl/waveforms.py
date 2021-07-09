@@ -905,7 +905,7 @@ def party_multiplot_wavdir(party, wav_dir, plotdir, start, end):
     return
 
 
-def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
+def party_lag_extract(party, wav_dir, out_dir, prepick=30, length=90,
                       shift_len=0.2, min_cc=0.6, process_cores=1, cores=8):
     """
     Perform lag_calc and extract raw wav snippets for each detection in a party
@@ -913,7 +913,6 @@ def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
     :param party: EQcorrscan Party object
     :param wav_dir: Path to root waveform directory
     :param out_dir: Output directory for trimmed waveforms
-    :param plot_dir: Output directory for repicked plots
     :param prepick: Length to extract before anticipated pick time
     :param length: Total length of waveform to extract for each trace
     :param shift_len: Seconds to allow lag_calc shift (absolute value)
@@ -967,8 +966,7 @@ def party_lag_extract(party, wav_dir, out_dir, plot_dir, prepick=30, length=90,
         print('Lag calc-ing')
         repicked_cat += party.lag_calc(
             stream=daylong, pre_processed=False, shift_len=shift_len,
-            min_cc=min_cc, plot=True, plotdir=plot_dir,
-            process_cores=process_cores, cores=cores, check_full_seed=True)
+            min_cc=min_cc, plot=True, process_cores=process_cores, cores=cores)
         print('Writing waveforms')
         # Extract and write streams
         for d in day_dets:
