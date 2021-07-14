@@ -587,6 +587,7 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
             if not ((1 / tr.stats.delta).is_integer() and
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+        print(daylong)
         for temp in day_trb:
             name = temp.name
             print('Extracting {}'.format(name))
@@ -595,6 +596,7 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
                                       endtime=o.time - prepick + length)
             # Write event waveform
             outwav = '{}/{}.ms'.format(outdir, name)
+            print('Writing {}'.format(outwav))
             wav_slice.write(outwav, format='MSEED')
     return
 
