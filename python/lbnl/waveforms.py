@@ -561,8 +561,9 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
                                   for temp in tribe
                                   for pk in temp.event.picks]))
     for date in date_generator(start, end):
-        day_trb = Tribe(templates=[t for t in tribe
-                                   if start <= t.event.origins[0].time < end])
+        day_trb = Tribe(
+            templates=[t for t in tribe
+                       if date <= t.event.origins[0].time < date + 86400.])
         if len(day_trb.templates) == 0:
             continue
         dto = UTCDateTime(date)
