@@ -552,8 +552,8 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
 
 def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
     tribe.templates.sort(key=lambda x: x.event.origins[0].time)
-    start = tribe[0].event.origins[-1].time.datetime
-    end = tribe[-1].event.origins[-1].time.datetime
+    start = tribe[0].event.origins[-1].time.datetime.date
+    end = tribe[-1].event.origins[-1].time.datetime.date
     print(start, end)
     net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                    pk.waveform_id.station_code,
