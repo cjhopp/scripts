@@ -554,6 +554,7 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
     tribe.templates.sort(key=lambda x: x.event.origins[0].time)
     start = tribe[0].event.origins[-1].time.datetime
     end = tribe[-1].event.origins[-1].time.datetime
+    print(start, end)
     net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                    pk.waveform_id.station_code,
                                    pk.waveform_id.location_code,
@@ -561,14 +562,13 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
                                   for temp in tribe
                                   for pk in temp.event.picks]))
     for date in date_generator(start, end):
-        ds = UTCDateTime(date)
-        de = UTCDateTime(date) + 86400
+        print(date)
+        dto = UTCDateTime(date)
         day_trb = Tribe(
             templates=[t for t in tribe
-                       if ds <= t.event.origins[0].time < de])
+                       if dto <= t.event.origins[0].time < dto + 86400])
         if len(day_trb.templates) == 0:
             continue
-        dto = UTCDateTime(date)
         jday = dto.julday
         print('Running {}\nJday: {}'.format(dto, jday))
         wav_files = ['{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
