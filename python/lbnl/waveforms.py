@@ -592,6 +592,7 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
             name = temp.name
             print('Extracting {}'.format(name))
             o = temp.event.origins[-1]
+            print(o.time)
             wav_slice = daylong.slice(starttime=o.time - prepick,
                                       endtime=o.time - prepick + length)
             # Write event waveform
