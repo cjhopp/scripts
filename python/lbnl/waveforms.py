@@ -550,6 +550,52 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
     return tribe
 
 
+def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
+    tribe.sort(key=lambda x: x.event.origins[0].time)
+    start = tribe[0].event.origins[-1].time.datetime
+    end = tribe[-1].evemt.origins[-1].time.datetime
+    net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
+                                   pk.waveform_id.station_code,
+                                   pk.waveform_id.location_code,
+                                   pk.waveform_id.channel_code)
+                                  for temp in tribe
+                                  for pk in temp.event.picks]))
+    for date in date_generator(start, end):
+        day_trb = Tribe(templates=[t for t in tribe
+                                   if start <= t.event.origins[0].time < end])
+        if len(day_trb.templates) == 0:
+            continue
+        dto = UTCDateTime(date)
+        jday = dto.julday
+        print('Running {}\nJday: {}'.format(dto, jday))
+        wav_files = ['{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
+            wav_dir, date.year, nslc[0], nslc[1], nslc[3], nslc[0], nslc[1],
+            nslc[2], nslc[3], date.year, jday) for nslc in net_sta_loc_chans]
+        daylong = Stream()
+        print('Reading wavs')
+        for wav_file in wav_files:
+            try:
+                daylong += read(wav_file)
+            except FileNotFoundError as e:
+                print(e)
+                continue
+        # Deal with shitty sampling rates
+        for tr in daylong:
+            if not ((1 / tr.stats.delta).is_integer() and
+                    tr.stats.sampling_rate.is_integer()):
+                tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+        for temp in day_trb:
+            name = temp.name
+            print('Extracting {}'.format(name))
+            o = temp.event.origins[-1]
+            wav_slice = daylong.slice(starttime=o.time - prepick,
+                                      endtime=o.time - prepick + length)
+            # Write event waveform
+            outwav = '{}/{}.ms'.format(outdir, name)
+            wav_slice.write(outwav, format='MSEED')
+    return
+
+
 def detect_tribe_client(tribe, client, start, end, param_dict,
                         daylong_dir=None):
     """
