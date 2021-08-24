@@ -202,10 +202,10 @@ def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, seismic, packers=None,
 
 def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 wells=None, title=None, offline=True, dd_only=False,
-                surface=None, DSS_picks=None, structures=None, meshes=None,
-                line=None, simfip=None, fracs=False, xrange=(2579250, 2579400),
-                yrange=(1247500, 1247650), zrange=(450, 500), sampling=0.5,
-                eye=None, export=False):
+                surface=None, fault=None, DSS_picks=None, structures=None,
+                meshes=None, line=None, simfip=None, fracs=False, surfaces=None,
+                xrange=(2579250, 2579400), yrange=(1247500, 1247650),
+                zrange=(450, 500), sampling=0.5, eye=None, export=False):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -221,6 +221,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param dd_only: Are we only plotting dd locations?
     :param surface: What type of surface to fit to points? Supports 'plane'
         and 'ellipsoid' for now.
+    :param fault: Tuple of 2D arrays for X, Y, Z of fault
     :param DSS_picks: Dictionary {well name: {'heights': array,
                                               'widths': array,
                                               'depths': list}}
@@ -231,6 +232,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     :param line: Bool to add excavation progress at Mont Terri
     :param simfip: Dict of {well name: (top packer depth, bottom packer depth)}
     :param fracs: bool plot fracture planes at surf or not
+    :param surfaces: Plot CASSM result surfaces as FSB or empty
     :param xrange: List of min and max x of volume to interpolate DSS over
     :param yrange: List of min and max y of volume to interpolate DSS over
     :param zrange: List of min and max z of volume to interpolate DSS over
@@ -274,7 +276,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                well_dict=well_dict)
     if catalog:
         datas = add_catalog(catalog=catalog, dd_only=dd_only, objects=datas,
-                            surface=surface)
+                            surface=surface, location=location)
     if line:
         add_time_colored_line(objects=datas)
     if simfip:
@@ -282,6 +284,10 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
             add_fsb_simfip(datas, wl, deps)
     if fracs:
         add_4850_fracs(datas, well_file)
+    if surfaces:
+        add_surface(surfaces, datas)
+    if fault:
+        add_fault(fault[0], fault[1], fault[2], datas)
     # Start figure
     fig = go.Figure(data=datas)
     # Manually find the data limits, and scale appropriately
@@ -297,7 +303,7 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
     xrange = np.abs(np.max(all_x) - np.min(all_x))
     yrange = np.abs(np.max(all_y) - np.min(all_y))
     if location == 'fsb':
-        zmin = 300.
+        zmin = 400.
     else:
         zmin = np.min(all_z)
     zrange = np.abs(np.max(all_z) - zmin)
@@ -315,6 +321,18 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
                                 zerolinewidth=2, title='Elevation (m)',
                                 range=(zmin, np.max(all_z)))
+
+    def rotate_z(x, y, z, theta):
+        w = x + 1j * y
+        return np.real(np.exp(1j * theta) * w), np.imag(np.exp(1j * theta) * w), z
+
+    frames = []
+    for t in np.arange(0, 6.26, 0.1):
+        xe, ye, ze = rotate_z(eye[0], eye[1], eye[2], -t)
+        frames.append(dict(
+            layout=dict(scene=dict(camera=dict(eye=dict(x=xe, y=ye, z=ze))))))
+
+    fig.frames = frames
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
                                   xaxis_showspikes=False,
                                   yaxis_showspikes=False,
@@ -337,7 +355,28 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                    bgcolor='whitesmoke',
                                    bordercolor='gray',
                                    borderwidth=1,
-                                   tracegroupgap=3))
+                                   tracegroupgap=3),
+                       updatemenus=[dict(type='buttons',
+                                         showactive=False,
+                                         direction="left",
+                                         pad={"r": 10, "t": 70},
+                                         x=0.1, y=0.1,
+                                         buttons=[dict(label="&#9654;",
+                                                       method='animate',
+                                                       args=[None, dict(frame=dict(duration=1, redraw=False),
+                                                                        transition=dict(duration=1, easing='linear'),
+                                                                        fromcurrent=True,
+                                                                        mode='immediate'
+                                                                        )]
+                                                       ),
+                                                  {"args": [[None], {"frame": {"duration": 0, "redraw": False},
+                                                                        "mode": "immediate",
+                                                                        "transition": {"duration": 0}}],
+                                                   "label": "&#9724;",
+                                                   "method": "animate"}]
+                                         )
+                                    ]
+                       )
     fig.update_layout(layout)
     if export:
         return fig
@@ -1392,6 +1431,9 @@ def add_wells(well_dict, objects, structures, wells):
         elif key.startswith('B'):
             group = 'FS-B'
             viz = True
+        elif len(key) == 1:
+            group = 'FS'
+            viz = True
         elif key[0] in ['O', 'P', 'I', 'P']:
             group = 'Collab'
             viz = True
@@ -1499,6 +1541,33 @@ def add_meshes(meshes, objects):
                 hoverinfo='skip'))
     return objects
 
+
+def add_surface(surface_file, objects):
+    """
+    Read Tanners CASSM results and add to plotly
+    """
+    cassm = loadmat(surface_file)['DataSet']
+    for i in range(6):
+        surf = go.Surface(x=cassm[:, 0].reshape(76, 116),
+                          y=cassm[:, 1].reshape(76, 116),
+                          z=cassm[:, 2].reshape(76, 116),
+                          surfacecolor=cassm[:, 3+i].reshape(76, 116),
+                          showlegend=True,
+                          name='Cycle {}'.format(i),
+                          opacity=0.5, hoverinfo='skip',
+                          colorbar=dict(x=1.02, len=0.5, y=0.25,
+                                        title='dVp [m/s]'),
+                          colorscale='Cividis', cmin=-16, cmax=5)
+        objects.append(surf)
+    return
+
+def add_fault(x, y, z, objects):
+    fault = go.Surface(x=x, y=y, z=z,
+                      showlegend=True,
+                      name='Fault fit',
+                      opacity=0.5, hoverinfo='skip')
+    objects.append(fault)
+    return
 
 def add_structures(structures, objects, well_dict):
     struct_files = glob('{}/**/B*_structures.xlsx'.format(structures),
@@ -1619,16 +1688,33 @@ def add_surf_sources(well_dict, objects):
     return objects
 
 
-def add_catalog(catalog, dd_only, objects, surface):
+def add_catalog(catalog, dd_only, objects, surface, location=None):
     # Establish color scales from colorlover (import colorlover as cl)
     colors = cycle(cl.scales['11']['qual']['Paired'])
     pt_lists = []
     pt_list = []
     for ev in catalog:
-        o = ev.origins[-1]
-        ex = float(o.extra.hmc_east.value)
-        ey = float(o.extra.hmc_north.value)
-        ez = float(o.extra.hmc_elev.value)
+        try:
+            o = ev.origins[-1]
+        except IndexError:
+            continue
+        if location == 'fsb':
+            try:
+                ex = float(o.extra.ch1903_east.value)
+                ey = float(o.extra.ch1903_north.value)
+                ez = float(o.extra.ch1903_elev.value)
+            except AttributeError:  # Case of only dug-seis location
+                ex = float(ev.extra.x.value)
+                ey = float(ev.extra.y.value)
+                ez = float(o.depth) - 500.
+        elif location == 'surf':
+            ex = float(o.extra.hmc_east.value)
+            ey = float(o.extra.hmc_north.value)
+            ez = float(o.extra.hmc_elev.value)
+        else:
+            ex = float(o.longitude)
+            ey = float(o.latitude)
+            ez = float(o.depth)
         if dd_only and not o.method_id:
             print('Not accepting non-dd locations')
             continue
@@ -1638,8 +1724,8 @@ def add_catalog(catalog, dd_only, objects, surface):
         try:
             m = ev.magnitudes[-1].mag
         except IndexError:
-            print('No magnitude. Wont plot.')
-            continue
+            # Default to M 1
+            m = 1
         t = o.time.datetime.timestamp()
         pt_list.append((ex, ey, ez, m, t,
                         ev.resource_id.id.split('/')[-1]))
@@ -1658,8 +1744,8 @@ def add_catalog(catalog, dd_only, objects, surface):
         scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=np.array(z),
                                 mode='markers',
                                 name='Seismic event',
-                                # hoverinfo='text',
-                                # text='{}:\n{}'.format(i),
+                                hoverinfo='text',
+                                text=np.array(id),
                                 marker=dict(color=t,
                                             cmin=min(tickvals),
                                             cmax=max(tickvals),
@@ -1675,7 +1761,7 @@ def add_catalog(catalog, dd_only, objects, surface):
                                                 ticktext=ticktext,
                                                 tickvals=tickvals),
                                             colorscale='Plotly3',
-                                            opacity=0.8))
+                                            opacity=0.5))
         objects.append(scat_obj)
         if surface == 'plane':
             if len(x) <= 2:

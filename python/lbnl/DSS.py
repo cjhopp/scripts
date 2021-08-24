@@ -183,7 +183,8 @@ fiber_depths_surf = {'OT': 60., 'OB': 60., 'PDT': 59.7, 'PDB': 59.9,
 fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
                 'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
                 'D7': (22.46, 25.54), 'B2': (41.25, 45.65), 'B1': (34.8, 42.25),
-                'B9': (55.7, 55.7), 'B10': (17.75, 21.7)}
+                'B9': (55.7, 55.7), 'B10': (17.75, 21.7), '1': (38.15, 45.15),
+                '2': (44.23, 49.62), '3': (38.62, 43.39)}
 
 scaly_clay_depths = {'D3': [(14.8, 15.), (16.1, 16.2)],
                      'D5': [(19.65, 19.75), (20.4, 20.45), (22.65, 22.7)],
@@ -578,6 +579,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
         we use? The preferred mappings are now 'excavation' or 'co2_injection'
     :param wells: List of well name strings to return
     :param fibers: Optionally specify individual fiber loops (FSB, CSD3 or CSD5)
+    :param location: 'fsb' or 'surf'
     :param noise_method: 'majdabadi' or 'by_channel' to estimate noise.
         'majdabadi' returns scalar, 'by_channel' an array
     :param convert_freq: Convert Absolute Freq to Relative strain?

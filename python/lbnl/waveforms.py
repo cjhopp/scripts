@@ -10,7 +10,6 @@ Functions for reading/writing and processing waveform data
 import os
 import copy
 
-import pyasdf
 import scipy
 import itertools
 import yaml
@@ -52,7 +51,12 @@ from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
-from pyasdf import WaveformNotInFileException
+
+try:
+    import pyasdf
+    from pyasdf import WaveformNotInFileException
+except:
+    print('No pyasdf in this env')
 
 # Local imports
 try:
@@ -76,11 +80,42 @@ cascadia_colors = {'NSMTC.B1': '#c6dbef', 'NSMTC.B2': '#6aaed6',
                    'NSMTC.G2': '#d65f5f', 'PGC.': '#ee854a',
                    'B011.': '#6acc64'}
 
+
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
+
+
+def read_rosemanowes_segy(segy_file):
+    """
+    Read the crap seg-y data from rosemanowes
+
+    ..note Need to be in a modified env with edited obspy (to correct the trace
+        header values)
+
+    ..note GN* For 4 kHz sampling, optical accelerometers
+    """
+
+    rmws_ids = ['RMNW.REF1..GN1', 'RMNW.REF1..GN2', 'RMNW.REF1..GNZ',
+                'RMNW.REF2..GN1', 'RMNW.REF2..GN2', 'RMNW.REF2..GNZ',
+                'RMNW.REF3..GN1', 'RMNW.REF3..GN2', 'RMNW.REF3..GNZ',
+                'RMNW.US04..GN1', 'RMNW.US04..GN2', 'RMNW.US04..GNZ',
+                'RMNW.US05..GN1', 'RMNW.US05..GN2', 'RMNW.US05..GNZ',
+                'RMNW.US06..GN1', 'RMNW.US06..GN2', 'RMNW.US06..GNZ',
+                ]
+
+    st = read(segy_file, unpack_trace_headers=True,
+              textual_header_encoding='EBCDIC', format='SEGY')
+    # Grab start time out of textual header (who knows why...)
+    starttime = str(st.stats.textual_file_header).split()[-42]
+    print(starttime)
+    starttime = UTCDateTime(starttime)
+    for i, tr in enumerate(st):
+        tr.id = rmws_ids[i]
+        tr.stats.starttime = starttime
+    return st
 
 
 def read_raw_wavs(wav_dir, event_type='MEQ'):
@@ -554,7 +589,6 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
     tribe.templates.sort(key=lambda x: x.event.origins[0].time)
     start = tribe[0].event.origins[-1].time.datetime.date()
     end = tribe[-1].event.origins[-1].time.datetime.date()
-    print(start, end)
     net_sta_loc_chans = list(set([(pk.waveform_id.network_code,
                                    pk.waveform_id.station_code,
                                    pk.waveform_id.location_code,
@@ -562,7 +596,6 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
                                   for temp in tribe
                                   for pk in temp.event.picks]))
     for date in date_generator(start, end):
-        print(date)
         dto = UTCDateTime(date)
         day_trb = Tribe(
             templates=[t for t in tribe
@@ -587,7 +620,6 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
             if not ((1 / tr.stats.delta).is_integer() and
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
-        print(daylong)
         for temp in day_trb:
             name = temp.name
             print('Extracting {}'.format(name))
@@ -2770,6 +2802,20 @@ def plot_noise_and_sig_bands(axes=None, plot_source_spec=False):
     ln_periods, ln_psd = get_nlnm()
     ax.plot(1 / hn_periods, hn_psd, color='gray')
     ax.plot(1 / ln_periods, ln_psd, color='gray')
+    moments = Mw_to_moment()
+    mag_cols = cycle(sns.color_palette('muted'))
+    Mws = ['-3', '-2', '-1', '0', '1']
+    freq = np.logspace(-2, 4, 1000)
+    for i, mom in enumerate(moments):
+        mcol = next(mag_cols)
+        abercrom_spec = abercrombie_disp(freq, M0=mom, Q=100, rad=1000,
+                                         sig0=10)
+        pow_spec = disp_spec_to_psd(freq, abercrom_spec)
+        ax.plot(freq, pow_spec, linestyle=':', c=mcol)
+        maxx = freq[np.argmax(pow_spec)]
+        maxy = np.max(pow_spec)
+        ax.text(x=maxx, y=maxy * 0.98, s='$M_W$ {}'.format(Mws[i]),
+                color=mcol, fontsize=11, horizontalalignment='center')
     if axes:
         ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red',
                          alpha=0.1)
@@ -3025,8 +3071,8 @@ def plot_stacked_wavs(events, streams, station, prepick, postpick,
             labs.append('')
             continue
         # Filter
-        raw = raw.copy().filter('bandpass', freqmin=500.,
-                                freqmax=15000., corners=3)
+        raw = raw.copy().filter('bandpass', freqmin=1000.,
+                                freqmax=12000., corners=3)
         # Trim
         data = raw.trim(starttime=ptime - prepick,
                         endtime=ptime + postpick).data

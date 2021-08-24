@@ -380,7 +380,7 @@ def plot_fsb_hydro(df_hydro, title='Flow and Pressure', axes=None, show=False):
     return [ax, ax2]
 
 def plot_fsb_hydro_panels(df_hydro, title='Flow and Pressure',
-                          meq_times=None):
+                          meq_times=None, big_times=None):
     """
     Plot same data as above, but zoom into each cycle in separate panels
 
@@ -398,18 +398,18 @@ def plot_fsb_hydro_panels(df_hydro, title='Flow and Pressure',
     ax5 = fig.add_subplot(spec[8:, :4])
     ax6 = fig.add_subplot(spec[8:, 4:])
     cycle_ranges = [
+        (datetime(2020, 11, 21, 7, 10), datetime(2020, 11, 21, 7, 40)),
         (datetime(2020, 11, 21, 8, 10), datetime(2020, 11, 21, 8, 40)),
-        (datetime(2020, 11, 21, 9, 10), datetime(2020, 11, 21, 9, 40)),
-        (datetime(2020, 11, 21, 10, 54), datetime(2020, 11, 21, 11, 30)),
-        (datetime(2020, 11, 21, 12, 34), datetime(2020, 11, 21, 13, 17)),
-        (datetime(2020, 11, 21, 14, 17), datetime(2020, 11, 21, 15)),
-        (datetime(2020, 11, 21, 16), datetime(2020, 11, 21, 17)),
+        (datetime(2020, 11, 21, 9, 54), datetime(2020, 11, 21, 10, 30)),
+        (datetime(2020, 11, 21, 11, 34), datetime(2020, 11, 21, 12, 17)),
+        (datetime(2020, 11, 21, 13, 17), datetime(2020, 11, 21, 14)),
+        (datetime(2020, 11, 21, 15), datetime(2020, 11, 21, 16)),
     ]
     # Mask funky signal between tests
-    df_hydro_mask = df_hydro[((df_hydro.index > '2020-11-21 10:07') &
-                               (df_hydro.index < '2020-11-21 10:58'))]
-    df_hydro = df_hydro[~((df_hydro.index > '2020-11-21 10:07') &
-                          (df_hydro.index < '2020-11-21 10:58'))]
+    df_hydro_mask = df_hydro[((df_hydro.index > '2020-11-21 9:07') &
+                               (df_hydro.index < '2020-11-21 9:58'))]
+    df_hydro = df_hydro[~((df_hydro.index > '2020-11-21 9:07') &
+                          (df_hydro.index < '2020-11-21 9:58'))]
     time = df_hydro.index.values
     pressure = df_hydro['Pressure']
     flow = df_hydro['Flow']
@@ -432,8 +432,10 @@ def plot_fsb_hydro_panels(df_hydro, title='Flow and Pressure',
             ax.set_yticklabels([])
         # Plot stems for eq times
         if meq_times:
-            ax.stem(meq_times, [6 for i in range(len(meq_times))],
+            ax.stem(big_times, [6 for i in range(len(big_times))],
                     markerfmt='ro', linefmt=':k')
+            ax.step(meq_times, np.arange(0, len(meq_times)) * (8 / 32.),
+                    color='k')
         # Cycle label
         ax.text(0.9, 0.8, i + 1, fontweight='bold', fontsize=16,
                 transform=ax.transAxes)

@@ -400,7 +400,7 @@ def Mc_test(cat, n_bins, start_mag=None):
     :param show: Plotting flag
     :return: (matplotlib.pyplot.Figure, best bval, cutoff mag)
     """
-    mags = np.array([round(ev.magnitudes[-1].mag, 1)
+    mags = np.array([round(ev.preferred_magnitude().mag, 1)
                     for ev in cat if len(ev.magnitudes) > 0])
     mags = mags[np.isfinite(mags)].tolist()
     mags.sort()
@@ -460,13 +460,13 @@ def bval_calc(cat, bin_size, MC, weight=False):
     bval_wts = []
     for i, val in enumerate(bin_vals):
         cum_val_count = len([ev for ev in cat if len(ev.magnitudes) > 0
-                             and ev.magnitudes[-1].mag >= val])
+                             and ev.preferred_magnitude().mag >= val])
         if i < len(bin_vals) - 1:
             non_cum_val_cnt = len([ev for ev in cat
                                    if len(ev.magnitudes) > 0
-                                   and val < ev.magnitudes[-1].mag
+                                   and val < ev.preferred_magnitude().mag
                                    and bin_vals[i + 1] >=
-                                   ev.magnitudes[-1].mag])
+                                   ev.preferred_magnitude().mag])
             non_cum_bins.append(non_cum_val_cnt)
         cum_bins.append(cum_val_count)
         if val >= Mc:
@@ -530,17 +530,25 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
     std_errs = []
     for i, (cat, name) in enumerate(zip(catalogs, cat_names)):
         mags = [ev.preferred_magnitude().mag for ev in cat]
-        b_dict = bval_calc(cat, bin_size, MC, weight=weight)
+        if MC:
+            mc = MC[i]
+        else:
+            mc = None
+        b_dict = bval_calc(cat, bin_size, mc, weight=weight)
         if not b_dict:
             print('b_dict went wrong. Next catalog.')
             continue
         bcalc = calc_b_value(
             magnitudes=mags,
-            completeness=np.arange(min(mags), max(mags), 0.1),
+            # completeness=np.arange(min(mags), max(mags), 0.1),
+            completeness=list(np.arange(-1, 8., 0.1)),
             plotvar=bplotvar)
         bcalc.sort(key=lambda x: x[2])
-        # b = bcalc[-1][1]
+        # Fitting procedure
         Mc = bcalc[-1][0]
+        # Maximum curvature
+        Mc = b_dict['Mc']
+        print('foo')
         comp_mags = [m for m in mags if m > Mc]
         print(max(comp_mags))
         mean_mag = np.mean(comp_mags)

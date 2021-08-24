@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 
 from itertools import cycle
 from glob import glob
+from scipy.interpolate import Rbf
+from skspatial.objects import Plane
 from pathlib import Path
 from matplotlib.dates import date2num, num2date
 
@@ -535,6 +537,122 @@ def fsb_to_xyz(well_dict, strike, dip, outfile):
     with open(outfile, 'w') as f:
         f.write('\n'.join(lines))
     return
+
+
+def fit_mt_main_fault(well_dict, section='all', function='thin_plate_spline'):
+    fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39),
+                    'D3': (17.98, 20.58), 'D4': (27.05, 28.44),
+                    'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
+                    'D7': (22.46, 25.54), 'B2': (41.25, 45.65),
+                    'B1': (34.8, 42.25), 'B9': (None, 55.7),
+                    'B10': (17.75, 21.7), '1': (38.15, 45.15),
+                    '2': (44.23, 49.62), '3': (38.62, 43.39)}
+    if section == 'FS':
+        fault_depths = {k: fault_depths[k] for k in ('1', '2', '3')}
+    elif section == 'FSB':
+        fault_depths = {k: fault_depths[k] for k in fault_depths.keys()
+                        if k[0] == 'B'}
+    elif section == 'CSD':
+        fault_depths = {k: fault_depths[k] for k in fault_depths.keys()
+                        if k[0] == 'D'}
+    elif section == 'west':
+        fault_depths = {k: fault_depths[k] for k in fault_depths.keys()
+                        if k[0] == 'D' or k in ('B2')}
+    elif section == 'east':
+        fault_depths = {k: fault_depths[k] for k in fault_depths.keys()
+                        if k[0] == 'B' or k in ('1', '2', '3')}
+    elif section == 'all':
+        pass
+    else:
+        print('Section {} is invalid'.format(section))
+        return
+    print('Section: {}'.format(section))
+    # Do best fit plane
+    tops = [depth_to_xyz(well_dict, well, d[0])
+            for well, d in fault_depths.items() if d[0]
+            and well in fault_depths]
+    bottoms = [depth_to_xyz(well_dict, well, d[1])
+               for well, d in fault_depths.items() if well in fault_depths]
+    A_top = np.array(tops).T
+    A_bot = np.array(bottoms).T
+    c_top = A_top.sum(axis=1) / A_top.shape[1]
+    c_bot = A_top.sum(axis=1) / A_top.shape[1]
+    # Top first
+    u, s, v = np.linalg.svd(A_top - c_top[:, np.newaxis])
+    # Lsqr quadratic fit
+    X, Y = np.meshgrid(np.arange(np.min(A_top[0, :]), np.max(A_top[0, :]), 2),
+                       np.arange(np.min(A_top[1, :]), np.max(A_top[1, :]), 2))
+    tops_array = np.array(tops)
+    spline = Rbf(tops_array[:, 0], tops_array[:, 1],
+                 tops_array[:, 2], function=function,
+                 smooth=0)
+    Z = spline(X, Y)
+    u1, u2, u3 = u[:, -1]
+    if u3 < 0:
+        easting = u2
+    else:
+        easting = -u2
+    if u3 > 0:
+        northing = u1
+    else:
+        northing = -u1
+    dip = np.rad2deg(np.arctan(np.sqrt(easting**2 + northing**2) / u3))
+    if easting >= 0:
+        partA_strike = easting**2 + northing**2
+        strike = np.rad2deg(np.arccos(northing / np.sqrt(partA_strike)))
+    else:
+        partA_strike = northing / np.sqrt(easting**2 + northing**2)
+        strike = np.rad2deg(2 * np.pi - np.arccos(partA_strike))
+    print('SVD strike Top: {}'.format(strike))
+    print('SVD dip Top: {}'.format(dip))
+    # Now bottom
+    u, s, v = np.linalg.svd(A_bot - c_bot[:, np.newaxis])
+    u1, u2, u3 = u[:, -1]
+    if u3 < 0:
+        easting = u2
+    else:
+        easting = -u2
+    if u3 > 0:
+        northing = u1
+    else:
+        northing = -u1
+    dip = np.rad2deg(np.arctan(np.sqrt(easting**2 + northing**2) / u3))
+    if easting >= 0:
+        partA_strike = easting**2 + northing**2
+        strike = np.rad2deg(np.arccos(northing / np.sqrt(partA_strike)))
+    else:
+        partA_strike = northing / np.sqrt(easting**2 + northing**2)
+        strike = np.rad2deg(2 * np.pi - np.arccos(partA_strike))
+    print('SVD strike Bottom: {}'.format(strike))
+    print('SVD dip Bottom: {}'.format(dip))
+    # Now compute fit for all possible planes
+    dips = np.arange(90)
+    strikes = np.arange(360)
+    dip_rads = np.deg2rad(dips)
+    strike_rads = np.deg2rad(strikes)
+    S, D = np.meshgrid(strike_rads, dip_rads)
+    # Normal to plane
+    a = np.sin(D.flatten()) * np.cos(S.flatten())  # East
+    b = -np.sin(D.flatten()) * np.sin(S.flatten())  # North
+    c = np.cos(D.flatten())
+    c_top = c_top.squeeze()
+    planes = [Plane(point=c_top.squeeze(), normal=np.array([a[i], b[i], c[i]]))
+              for i in range(a.shape[0])]
+    rmss = np.array([np.sqrt(np.mean([p.distance_point_signed(t)**2
+                                      for t in tops]))
+                     for p in planes])
+    rmss = rmss.reshape(S.shape)
+    print('Gridsearch Strike: {}'.format(np.rad2deg(S.flatten()[np.argmin(rmss)])))
+    print('Grid search Dip: {}'.format(np.rad2deg(D.flatten()[np.argmin(rmss)])))
+    print('Grid search RMS: {}'.format(np.min(rmss)))
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    ax.plot_surface(np.rad2deg(S), np.rad2deg(D), rmss, cmap='viridis')
+    ax.set_xlabel('Strike [deg]')
+    ax.set_ylabel('Dip [deg]')
+    ax.set_zlabel('RMS for plane [meters]')
+    plt.show()
+    return X, Y, Z
 
 # Plotting
 

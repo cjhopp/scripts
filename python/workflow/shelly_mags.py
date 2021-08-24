@@ -4,16 +4,18 @@ Spitballing recreating David Shelly's methodology on the Long Valley catalog
 for magnitudes and focal mechanisms
 """
 
-import csv
+import os
 import copy
 import scipy
 import numpy as np
 import matplotlib.pyplot as plt
 
 from glob import glob
+from copy import deepcopy
 from collections import Counter
 from obspy import Stream, read, Catalog
 from obspy.core.event import Magnitude, Comment
+from eqcorrscan import Detection
 from eqcorrscan.utils import stacking
 from eqcorrscan.utils.mag_calc import svd_moments
 from eqcorrscan.utils.pre_processing import shortproc
@@ -62,38 +64,22 @@ def CUSP_to_SC3_rel_mags(det_cat, temp_cat, selfs):
         det.magnitudes.append(
             Magnitude(mag=new_det_ML, magnitude_type='ML',
                       comments=[Comment(text='rel_mo={}'.format(rel_mo))]))
-        det.preferred_magnitude_id = det.magnitudes[-1].resource_id.id
+        det.preferred_magnitude_id = det.magnitudes[-2].resource_id.id
     return
 
-def Mw_to_M0(Mw):
+def Mw_to_M0(M, inverse=False):
     """Simple Hanks and Kanamori calc"""
-    M0 = 10 ** (1.5 * (Mw + 9.0))
-    return M0
+    if inverse:
+        return (np.log10(M) / 1.5) - 9.
+    else:
+        return 10 ** (1.5 * (M + 9.0))
 
-def ML_to_Mw(ML, m=0.97, c=0.14):
-    """Simple calc for ML to Mw using Ristau et al., 2016 scaling relation"""
-    Mw = (ML - c) * m
-    return Mw
-
-def local_to_moment(mag, m=0.88, c=0.73):
-    """
-    From Gabe and/or Calum?
-    Function to convert local magnitude to seismic moment - defaults to use
-    the linear estimate from Ristau 2009 (BSSA) for shallow earthquakes in
-    New Zealand.
-
-    :type mag: float
-    :param mag: Local Magnitude
-    :type m: float
-    :param m: The m in the relationship Ml = m * Mw + c
-    :type c: constant
-    :param c: See m
-    """
-    # Fist convert to moment magnitude
-    Mw = ( mag - c ) / m
-    # Then convert to seismic moment following (Hanks Kanamori)
-    Moment = 10.0 ** (1.5 * Mw + 9.0 )
-    return Moment
+def ML_to_Mw(M, m, c, inverse=False):
+    """Simple calc for ML to Mw any regression parameters"""
+    if inverse:
+        return (M - c) / m
+    else:
+        return (M * m) + c
 
 def local_to_moment_Majer(Ml):
     """
@@ -122,14 +108,14 @@ def remove_outliers(M, ev_out, m=4):
             new_evs.append(ev_out[i])
     return np.array(new_M), new_evs
 
-def cc_coh_dets(streams, detections, length, corr_prepick, shift):
+def cc_coh_dets(streams, events, length, corr_prepick, shift):
     # Loop over detections and return list of ccc with template
     # Trim all wavs to desired length
     # Assumes the first entry is template
     for i, st in enumerate(streams):
-        det = detections[i]
+        ev = events[i]
         for tr in st:
-            pk = [pk for pk in det.event.picks
+            pk = [pk for pk in ev.picks
                   if pk.waveform_id.get_seed_string() == tr.id][0]
             strt = pk.time - corr_prepick - (shift / 2.)
             tr.trim(starttime=strt, endtime=strt + length + (shift / 2.),
@@ -147,7 +133,7 @@ def cc_coh_dets(streams, detections, length, corr_prepick, shift):
 
 
 def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
-                        reject, wav_dir, min_amps, calibrate=False,
+                        reject, wav_dir, min_amps, m, c, calibrate=False,
                         method='PCA', plot_svd=False):
     """
     Calculate the relative moments for detections in a Family using
@@ -161,34 +147,33 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
     :param reject: Min cc threshold for accepted measurement
     :param wav_dir: Root directory of waveforms
     :param min_amps: Minimum number of relative measurements per pair
+    :param m: m in Mw = (m * ML) + c regression between Ml and Mw
+    :param c: c in Mw = (m * ML) + c regression between Ml and Mw
     :param calibrate: Flag for calibration to a priori Ml's
     :param method: 'PCA' or 'LSQR'
     :param plot_svd: Bool to plot results of svd relative amplitude calcs
     :return:
     """
     pty = party.copy()
+    # sort self files and parties by template name
+    pty.families.sort(key=lambda x: x.template.name)
+    self_files.sort()
+    ev_files = glob('{}/*'.format(wav_dir))
+    ev_files.sort()
+    ev_files = {os.path.basename(f).rstrip('.ms'): f for f in ev_files}
     for i, fam in enumerate(pty.families):
+        temp_wav = read(self_files[i])
         print('Starting work on family %s' % fam.template.name)
-        if len(fam) == 1:
-            print('Only self-detection. Moving on.')
+        if len(fam) == 0:
+            print('No detections. Moving on.')
             continue
         temp = fam.template
         prepick = temp.prepick
-        # Here we'll read in the waveforms and trim from stefan's directory
-        # of SAC files so as not to duplicate data
-        ev_files = glob('{}/*'.format(wav_dir))
-        ev_files.sort()
-        streams = []
-        self_ind = [j for j, ev_f in enumerate(ev_files)
-                    if ev_f == self_files[i]][0]
-        # Read in Z components of events which we wrote for stefan
-        # Many of these ev_dirs will not exist!
-        for ev_w in ev_files:
-            print('Reading %s' % ev_w)
-            streams.append(read(ev_w))
-        print('Moving self detection to top of list')
-        # Move the self detection to the first element
-        streams.insert(0, streams.pop(self_ind))
+        det_ids = [d.id for d in fam]
+        # Read in waveforms for detections in family
+        streams = [read(ev_files[id]) for id in det_ids]
+        # Add template wav as the first element
+        streams.insert(0, temp_wav)
         print('Template Stream: %s' % str(streams[0]))
         if len(streams[0]) == 0:
             print('Template %s waveforms did not get written. Investigate.' %
@@ -196,20 +181,30 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             continue
         # Process streams then copy to both ccc_streams and svd_streams
         print('Shortproc-ing streams')
+        breakit = False
         for st in streams:
             rms = [tr for tr in st if tr.stats.sampling_rate < temp.samp_rate]
             for rm in rms:
                 st.traces.remove(rm)
-            shortproc(st=st, lowcut=temp.lowcut,
-                      highcut=temp.highcut, filt_order=temp.filt_order,
-                      samp_rate=temp.samp_rate)
+            try:
+                shortproc(st=st, lowcut=temp.lowcut,
+                          highcut=temp.highcut, filt_order=temp.filt_order,
+                          samp_rate=temp.samp_rate)
+            except ValueError as e:
+                    breakit = True
+        if breakit:
+            print('Something wrong in shortproc. Skip family')
+            continue
         # Remove all traces with no picks before copying
         for str_ind, st in enumerate(streams):
-            det = fam.detections[str_ind]
+            if str_ind == 0:
+                event = temp.event
+            else:
+                event = fam.detections[str_ind-1].event
             rms = []
             for tr in st:
                 try:
-                    [pk for pk in det.event.picks
+                    [pk for pk in event.picks
                      if pk.waveform_id.get_seed_string() == tr.id][0]
                 except IndexError:
                     rms.append(tr)
@@ -217,16 +212,25 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
                 st.traces.remove(rm)
         print('Copying streams')
         wrk_streams = copy.deepcopy(streams)
-        svd_streams = copy.deepcopy(streams) # For svd
+        svd_streams = copy.deepcopy(streams)  # For svd
         ccc_streams = copy.deepcopy(streams)
-        # work out cccoh for each event with template
-        cccohs = cc_coh_dets(streams=ccc_streams, detections=fam.detections,
-                             length=svd_len, corr_prepick=prepick,
-                             shift=shift_len)
+        event_list = [temp.event] + [d.event for d in fam.detections]
+        try:
+            # work out cccoh for each event with template
+            cccohs = cc_coh_dets(streams=ccc_streams, events=event_list,
+                                 length=svd_len, corr_prepick=prepick,
+                                 shift=shift_len)
+        except (AssertionError, ValueError) as e:
+            # Issue with trimming above?
+            print(e)
+            continue
         for eind, st in enumerate(wrk_streams):
-            det = fam.detections[eind]
+            if eind == 0:
+                event = temp.event
+            else:
+                event = fam.detections[eind-1].event
             for tr in st:
-                pk = [pk for pk in det.event.picks
+                pk = [pk for pk in event.picks
                       if pk.waveform_id.get_seed_string() == tr.id][0]
                 tr.trim(starttime=pk.time - prepick - shift_len,
                         endtime=pk.time + shift_len + align_len)
@@ -249,12 +253,15 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             # larger wavs for svd
             for j, shift in enumerate(shifts):
                 st = svd_streams[inds[j]]
-                det = fam.detections[inds[j]]
+                if inds[j] == 0:
+                    event = temp.event
+                else:
+                    event = fam.detections[inds[j]-1].event
                 if ccs[j] < reject:
                     svd_streams[inds[j]].remove(st.select(id=st_seed)[0])
                     print('Removing trace due to low cc value: %s' % ccs[j])
                     continue
-                pk = [pk for pk in det.event.picks
+                pk = [pk for pk in event.picks
                       if pk.waveform_id.get_seed_string() == st_seed][0]
                 strt_tr = pk.time - prepick - shift
                 st.select(id=st_seed)[0].trim(strt_tr, strt_tr + svd_len)
@@ -279,15 +286,19 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             M, events_out = svd_relative_amps(fam, svd_streams, min_amps,
                                               plot=plot_svd)
             print(M, events_out)
+            if len(M) == 0:
+                print('No amplitudes calculated, skipping')
+                continue
         else:
             print('{} not valid argument for mag calc method'.format(method))
             return
         # If we have a Mag for template, calibrate moments
         if calibrate and len(fam.template.event.magnitudes) > 0:
-            print('Converting relative amps to magniutdes')
+            print('Converting relative amps to magnitudes')
             # Convert the template magnitude to seismic moment
             temp_mag = fam.template.event.magnitudes[-1].mag
-            temp_mo = local_to_moment(temp_mag)
+            temp_Mw = ML_to_Mw(temp_mag, m, c)
+            temp_mo = Mw_to_M0(temp_Mw)
             # Extrapolate from the template moment - relative moment relationship to
             # Get the moment for relative moment = 1.0
             norm_mo = temp_mo / M[0]
@@ -295,13 +306,15 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
             # Now these are weights which we can multiple the moments by
             moments = np.multiply(M, norm_mo)
             # Now convert to Mw
-            Mw = [2.0 / 3.0 * (np.log10(m) - 9.0) for m in moments]
-            # Mw2, evs2 = remove_outliers(Mw, events_out)
+            Mw = [Mw_to_M0(mo, inverse=True) for mo in moments]
             # Convert to local
-            Ml = [0.88 * m + 0.73 for m in Mw]
+            Ml = [ML_to_Mw(mm, m, c, inverse=True) for mm in Mw]
             #Normalize moments to template mag
             # Add calibrated mags to detection events
             for jabba, eind in enumerate(events_out):
+                # Skip template waveform
+                if eind == 0:
+                    continue
                 fam.detections[eind].event.magnitudes = [
                     Magnitude(mag=Mw[jabba], magnitude_type='Mw')]
                 fam.detections[eind].event.comments.append(
@@ -353,8 +366,8 @@ def svd_relative_amps(fam, streams, min_amps, plot):
                                   label='Template' if tr_ind == 0 else "")
                     ax[ax_i].plot(time, det_tr.data, color='b',
                                   label='Detection' if tr_ind == 0 else "")
-                    ax[ax_i].annotate(xy=(0.03, 0.7), text=tr.id, fontsize=8,
-                                        xycoords='axes fraction')
+                    ax[ax_i].annotate(xy=(0.03, 0.7), s=tr.id, fontsize=8,
+                                      xycoords='axes fraction')
                     ax[ax_i + 1].plot(time, tr.data / np.linalg.norm(tr.data),
                                       color='k')
                     ax[ax_i + 1].plot(time,
@@ -371,16 +384,86 @@ def svd_relative_amps(fam, streams, min_amps, plot):
                 plt.close('all')
             continue
         M.append(np.median(ev_r_amps))
-        events_out.append(svd_ind)
+        events_out.append(svd_ind - 1)
         if plot:
             fig.legend()
-            fig.suptitle('{}: {:0.3f}'.format(
-                fam.detections[svd_ind].detect_time.strftime(
-                    '%Y/%m/%dT%H:%M:%S'),
-                np.median(ev_r_amps)))
-            p_nm = '{}_svd_plot.png'.format(fam.detections[svd_ind].detect_time)
+            if svd_ind == 0:
+                fig.suptitle('{} self detection'.format(fam.template.name))
+                p_nm = '{}_self.png'.format(fam.template.name)
+            else:
+                fig.suptitle('{}: {:0.3f}'.format(
+                    fam.detections[svd_ind].detect_time.strftime(
+                        '%Y/%m/%dT%H:%M:%S'),
+                    np.median(ev_r_amps)))
+                p_nm = '{}_svd_plot.png'.format(
+                    fam.detections[svd_ind].detect_time)
             ax[-1].set_xlabel('Time [sec]')
             ax[-1].margins(x=0)
             plt.savefig(p_nm, dpi=300)
     return M, events_out
 
+
+def correct_self_detections(party, m, c, mag_tol=0.05):
+    """
+    Use in place of Party.get_catalog()
+
+    After party_mag_calc, sort through which families have self detections
+    and which don't. If they do, replace that event with template event, if not
+    add template event to catalog.
+
+    :param m: m in the Mw to Ml relationship
+    :param c: c in the Mw to Ml relationship
+
+    """
+    wrk_party = party.copy()
+    template_events = Catalog()
+    for fam in wrk_party:
+        print('Template {}'.format(fam.template.name))
+        tev = fam.template.event.copy()
+        if len(tev.magnitudes) == 0:
+            continue
+        # Add Mw into tev
+        ml = tev.magnitudes[0].mag
+        mw = ML_to_Mw(ml, m=m, c=c)
+        Mw = Magnitude(mag=mw, magnitude_type='Mw')
+        tev.magnitudes.append(Mw)
+        # Default preferred is ML right now
+        tev.preferred_magnitude_id = tev.magnitudes[0].resource_id.id
+        template_events.events.append(tev)
+        mags = []
+        det_inds = []
+        for i, d in enumerate(fam.detections):
+            if d.event.preferred_magnitude():
+                det_inds.append(i)
+                mags.append(d.event.preferred_magnitude().mag)
+        mags = np.array(mags)
+        diffs = np.abs(mags - tev.preferred_magnitude().mag)
+        if len(mags) == 0:
+            print('No detections in family. Adding self detection')
+            fam.detections.append(Detection(
+                template_name=fam.template.name,
+                detect_time=tev.origins[-1].time,
+                no_chans=len(fam.template.st),
+                detect_val=float(len(fam.template.st)),
+                threshold=2.0, typeofdet='corr', threshold_type='MAD',
+                threshold_input=10, chans=[(tr.stats.station, tr.stats.channel)
+                                          for tr in fam.template.st],
+                event=tev,
+                id=''.join(fam.template.name.split(' ')) + '_' +
+                           tev.origins[-1].time.strftime('%Y%m%d_%H%M%S%f')))
+        elif np.min(diffs) < mag_tol:
+            fam.detections[det_inds[np.argmin(diffs)]].event = tev
+        else:
+            fam.detections.append(Detection(
+                template_name=fam.template.name,
+                detect_time=tev.origins[-1].time,
+                no_chans=len(fam.template.st),
+                detect_val=float(len(fam.template.st)),
+                threshold=2.0, typeofdet='corr', threshold_type='MAD',
+                threshold_input=10, chans=[(tr.stats.station, tr.stats.channel)
+                                          for tr in fam.template.st],
+                event=tev,
+                id=''.join(fam.template.name.split(' ')) + '_' +
+                           tev.origins[-1].time.strftime('%Y%m%d_%H%M%S%f')))
+    cat = wrk_party.get_catalog()
+    return cat, wrk_party, template_events
