@@ -2788,14 +2788,21 @@ def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
     return
 
 
-def plot_noise_and_sig_bands(axes=None, plot_source_spec=False):
-    """Overview of signal bands and noise levels"""
-    if not axes and not plot_source_spec:
+def plot_noise_and_sig_bands(axes=None, sig0=10, Q=100, radius=1000,
+                             Vp=3600, Vs=2100):
+    """
+    Overview of signal bands, noise levels
+
+    :param axes: mpl axes to plot into (optional)
+    :param sig0: Stress drop [MPa]
+    :param Q: Quality factor
+    :param radius: Source-receiver distance [meters]
+    :param Vp: P velocity [m/s]
+    :param Vs: S velocity [m/s]
+    :plot_source_spec
+    """
+    if not axes:
         fig, ax = plt.subplots()
-    elif not axes and plot_source_spec:
-        fig, axs = plt.subplots(nrows=2, figsize=(6, 8), sharex='col')
-        ax = axs[0]
-        ax2 = axs[1]
     else:
         ax = axes
     hn_periods, hn_psd = get_nhnm()
@@ -2808,8 +2815,8 @@ def plot_noise_and_sig_bands(axes=None, plot_source_spec=False):
     freq = np.logspace(-2, 4, 1000)
     for i, mom in enumerate(moments):
         mcol = next(mag_cols)
-        abercrom_spec = abercrombie_disp(freq, M0=mom, Q=100, rad=1000,
-                                         sig0=10)
+        abercrom_spec = abercrombie_disp(freq, M0=mom, Q=Q, rad=radius,
+                                         sig0=sig0, Vr=Vs, Vs=Vp)
         pow_spec = disp_spec_to_psd(freq, abercrom_spec)
         ax.plot(freq, pow_spec, linestyle=':', c=mcol)
         maxx = freq[np.argmax(pow_spec)]
@@ -2840,10 +2847,6 @@ def plot_noise_and_sig_bands(axes=None, plot_source_spec=False):
         ax.legend()
         ax.set_xlabel('Frequency [Hz]')
         ax.set_ylabel('Noise [dB]')
-        if plot_source_spec:
-            ax.set_xlabel('')
-            plot_meq_brune(ax=ax2)
-            plt.tight_layout()
         plt.show()
     return ax
 
@@ -2972,7 +2975,18 @@ def Mw_to_moment():
     return moments
 
 
-def abercrombie_disp(freqs, M0, sig0=10, Vs=3400, Vr=3060, Q=100, rad=10000):
+def abercrombie_disp(freqs, M0, sig0, Vs, Vr, Q, rad):
+    """
+    Return displacement spectra
+
+    :param freqs: frequencies at which to calculate displacement
+    :param M0: Moment for this event N-m
+    :param sig0: Stress drop MPa
+    :param Vs: P velocity m/s
+    :param Vr: S velocity m/s [why these terms in Eaton]
+    :param Q: Quality factor
+    :param rad: Source-reciever distance meters
+    """
     mom_dyn = M0 / 1e-7
     vs_ft = Vs * 3.28
     vr_ft = Vr * 3.28
