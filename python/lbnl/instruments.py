@@ -8,20 +8,181 @@ For SURF, the arbitrary zero depth point is elev = 130 m
 ***********************************************
 
 """
-
-import obspy
+import os
 
 import numpy as np
 import pandas as pd
 import math as M
+import matplotlib.pyplot as plt
+
+from glob import glob
+from obspy import read_inventory
+from obspy.core.util import AttribDict
+from obspy.core.inventory import Inventory, Network, Station, Channel, Response
+from obspy.core.inventory import ResponseListResponseStage
+from obspy.core.inventory.response import ResponseListElement, InstrumentPolynomial
+from obspy.core.inventory.response import InstrumentSensitivity
+from obspy.core.inventory.util import Latitude, Longitude, Equipment
 
 from lbnl.coordinates import SURF_converter, FSB_converter
 from lbnl.boreholes import create_FSB_boreholes
-from obspy.core.util import AttribDict
-from obspy.core.inventory import Inventory, Network, Station, Channel, Response
+
 
 fsb_accelerometers = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647',
                       'B659', 'B748', 'B75']
+
+nsmtc_orientation = {'NSMTC.G1': {'E': 90., 'N': 0., 'Z': 0},
+                     'NSMTC.B1': {'1': 56.27, '2': 146.27, 'Z': 0},
+                     'NSMTC.B2': {'1': 303.99, '2': 33.99, 'Z': 0},
+                     'NSMTC.B3': {'1': 84.39, '2': 174.39, 'Z': 0},
+                     'NSMTC.G2': {'1': 326.88, '2': 56.88, 'Z': 0}}
+
+resp_labl_map = {'RESP.XX.NS491..BNZ.LowNoise.0_005_1000.60V.2G': 'Silicon Audio ULN Accelerometer',
+                 'RESP.XX.NS126..BNZ.Titan.DC_430.20V.0_5G': 'Nanometrics Titan Accelerometer',
+                 'RESP.XX.NS380..SLZ.HS1LT.3810.115000.2.76': 'Geospace HS-1-LT Geophone',
+                 'RESP.XX.NS391..SHZ.GS11D.10.380.NONE.32': 'Geospace GS-11D Geophone',
+                 'RESP.XX.NS539..BHZ.Trillium120Q.120.1500': 'Nanometrics Trillium 120s PH broadband'}
+
+resp_outp_map = {'RESP.XX.NS491..BNZ.LowNoise.0_005_1000.60V.2G': 'ACC',
+                 'RESP.XX.NS126..BNZ.Titan.DC_430.20V.0_5G': 'ACC',
+                 'RESP.XX.NS380..SLZ.HS1LT.3810.115000.2.76': 'VEL',
+                 'RESP.XX.NS391..SHZ.GS11D.10.380.NONE.32': 'VEL',
+                 'RESP.XX.NS539..BHZ.Trillium120Q.120.1500': 'VEL'}
+
+resp_color_map = {'Silicon Audio ULN Accelerometer': '#2070b4',
+                  'Nanometrics Titan Accelerometer': '#ee854a',
+                  'Geospace HS-1-LT Geophone': '#6acc64',
+                  'Geospace GS-11D Geophone': '#d65f5f',
+                  'Nanometrics Trillium 120s PH broadband': '#ee854a'}
+
+resp_ls_map = {'Silicon Audio ULN Accelerometer': '-',
+               'Nanometrics Titan Accelerometer': ':',
+               'Geospace HS-1-LT Geophone': '-',
+               'Geospace GS-11D Geophone': '-',
+               'Nanometrics Trillium 120s PH broadband': '-'}
+
+def plot_resp(resp_dir, min_freq, sampling_rate):
+    """
+    Plot the RESP curves in a directory
+
+    :param resp_dir: Directory containing RESP files
+    :param min_freq: Minimum frequency to plot
+    :param sampling_rate: Sampling rate for theoretical data
+    """
+    resps = glob('{}/RESP*'.format(resp_dir))
+    file_order = []
+    fig, axes = plt.subplots(nrows=2, figsize=(9, 9))
+    for i, resp in enumerate(resps):
+        base = os.path.basename(resp)
+        file_order.append(base)
+        lab = resp_labl_map[base]
+        output = resp_outp_map[base]
+        read_inventory(resp)[0][0][0].response.plot(
+            output=output,
+            min_freq=min_freq, sampling_rate=sampling_rate,
+            label=lab, axes=fig.axes, unwrap_phase=True, show=False)
+    # Edit linestyle after the fact
+    inds = []  # Labels are only assigned to amplitude axes, save inds of lines
+    ind_labs = []
+    for i, ln in enumerate(axes[0].get_lines()):
+        label = ln.get_label()
+        ind_labs.append(label)
+        if label in resp_color_map:
+            inds.append(i)
+            ln.set_color(resp_color_map[label])
+            ln.set_linestyle(resp_ls_map[label])
+    ax2_lines = axes[1].get_lines()
+    for ind in inds:
+        ln = ax2_lines[ind]
+        ln.set_color(resp_color_map[ind_labs[ind]])
+        ln.set_linestyle(resp_ls_map[ind_labs[ind]])
+    axes[0].grid(True)
+    axes[1].grid(True)
+    axes[1].set_yticks([-2 * np.pi, -(3/2) * np.pi, -np.pi, -np.pi / 2, 0,
+                        np.pi / 2, np.pi])
+    axes[1].set_yticklabels([r'$-2\pi$', r'$-\frac{3\pi}{2}$', r'$\pi$',
+                             r'$\frac{\pi}{2}$', r'$0$', r'$\frac{\pi}{2}$',
+                             r'$\pi$'])
+    axes[0].set_ylabel('Amplitude')
+    axes[1].set_ylabel('Phase [rad]')
+    fig.legend()
+    plt.show()
+    return
+
+
+def MMF_calibration_to_response(directory, plot=False):
+    """
+    Take directory of MMF calibration spreadsheets and convert to Obspy
+    inventory object
+    """
+    inv = Inventory(networks=[Network(code='MMF')])
+    lat = Latitude(0.)
+    lon = Longitude(0.)
+    chan_map = {'Tabellenblatt3': 'X',
+                'Tabellenblatt4': 'Y',
+                'Tabellenblatt5': 'Z'}
+    calibs = glob('{}/*.xls'.format(directory))
+    for c in calibs:
+        serial = c.split()[-2]
+        sta = Station(code=serial[1:], latitude=lat, longitude=lon,
+                      elevation=0.)
+        # Tables slightly shifted for each channel due to comments
+        dict_xyz = pd.read_excel(
+            c, sheet_name=['Tabellenblatt3'], header=14,
+            usecols=list(np.arange(4, 14)), nrows=37)
+        dict_xyz.update(pd.read_excel(
+            c, sheet_name=['Tabellenblatt4'], header=14,
+            usecols=list(np.arange(5, 15)), nrows=37))
+        dict_xyz.update(pd.read_excel(
+            c, sheet_name=['Tabellenblatt5'], header=13,
+            usecols=list(np.arange(9, 20)), nrows=37))
+        # Get array of sensitivities at 80 Hz for X, Y, Z
+        sens = pd.read_excel(
+            c, sheet_name=['Tabellenblatt2'], header=84,
+            usecols=[27], nrows=3)['Tabellenblatt2'].values.squeeze()
+        # mV/m/s**2 to V/m/s**2
+        sens_dict = {'Tabellenblatt3': float(sens[0].replace(',', '.')) * 1e-3,
+                     'Tabellenblatt4': float(sens[1].replace(',', '.')) * 1e-3,
+                     'Tabellenblatt5': float(sens[2].replace(',', '.')) * 1e-3}
+        # Resp for each channel
+        for nm, df in dict_xyz.items():
+            # Dummy channel
+            # Set samp_rate to 40 kHz so that Nyquist is below max shake freq
+            chan = Channel(code='XN{}'.format(chan_map[nm]), location_code='',
+                           latitude=lat, longitude=lon, elevation=0., depth=0.,
+                           sample_rate=40000.,
+                           sensor=Equipment(
+                               type='IEPE Accelerometer',
+                               description='Piezoelectric accelerometer',
+                               manufacturer='MMF',
+                               model='KS943B.100',
+                               serial_number=serial))
+            values = df[['[Hz]', '[m/s²]', '[°]']].values
+            response_elements = [ResponseListElement(
+                frequency=values[i][0], amplitude=values[i][1],
+                phase=values[i][2])
+                                 for i in range(values.shape[0])]
+            resp_stage = ResponseListResponseStage(
+                response_list_elements=response_elements, stage_gain=1,
+                stage_gain_frequency=80., input_units='M/S**2',
+                output_units='V',
+                stage_sequence_number=1
+            )
+            sensitivity = InstrumentSensitivity(
+                value=float(sens_dict[nm]), frequency=80.,
+                input_units='M/S**2', output_units='V', frequency_range_start=5,
+                frequency_range_end=15850,
+                frequency_range_db_variation=3)
+            response = Response(instrument_sensitivity=sensitivity,
+                                response_stages=[resp_stage])
+            chan.response = response
+            sta.channels.append(chan)
+            # chan.response.plot(min_freq=2.4, sampling_rate=40000.)
+        inv[0].stations.append(sta)
+    if plot:
+        inv.plot_response(min_freq=2.4, plot_degrees=True)
+    return inv
+
 
 def read_fsb_asbuilt(excel_path, gocad_dir, asbuilt_dir):
     """
@@ -380,20 +541,25 @@ def update_G2(inv):
         for sta in net:
             if sta.code == 'NSMTC':
                 for chan in sta:
+                    staloc = '{}.{}'.format(sta.code, chan.location_code)
+                    chan.azimuth = nsmtc_orientation[staloc][chan.code[-1]]
                     if chan.location_code == 'G2':
                         # update pole & zero
-                        chan.response.response_stages[0]._poles = poles_mod3
+                        # chan.response.response_stages[0]._poles = poles_mod3
                         # update sensitivity value
                         # also x -1 to polarity flip for Z comp
                         if chan.code == 'CHZ':
                             chan.response.response_stages[0].stage_gain = (
                                     G_mod3 * -1)
+                            chan.dip = 90.
                         else:
                             chan.response.response_stages[0].stage_gain = G_mod3
                         # # Normalization factor
                         # chan.response.response_stages[0].normalization_factor = 0.9998924742191032
+                        # Recompute sensitivity
                     if chan.location_code == 'G1' and chan.code[-1] == 'Z':
                         chan.response.response_stages[0].stage_gain *= -1.
+                        chan.dip = 90.
     return inv
 
 
@@ -404,6 +570,7 @@ def update_BX(inv):
             for chan in sta:
                 if sta.code == 'NSMTC' and chan.code == 'CNZ':
                     chan.response.response_stages[0].stage_gain = (40.0 / 9.80665) * -1
+                    chan.dip = 90.
                 elif sta.code == 'NSMTC' and chan.code in ['CN2', 'CN1']:
                     chan.response.response_stages[0].stage_gain = (40.0 / 9.80665)
     return inv
@@ -412,4 +579,13 @@ def update_BX(inv):
 def modify_SAULN_inventory(inv):
     inv = update_BX(inv)
     inv = update_G2(inv)
+    # Lowercase units
+    for net in inv:
+        for sta in net:
+            for chan in sta:
+                for stage in chan.response.response_stages:
+                    if stage.input_units != 'V':
+                        stage.input_units = stage.input_units.lower()
+                    if stage.output_units != 'V':
+                        stage.output_units = stage.output_units.lower()
     return inv

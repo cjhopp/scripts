@@ -3961,6 +3961,54 @@ def plot_csd_deep(well_data, date, wells, tv_picks,
     return
 
 
+def plot_in_out_borehole_strain(well_data):
+    """
+    Plot a comparison contourf of in-borehole and out-of-borehole strain
+    for CSD excavation dataset (borehole D5 and in-gallery section between
+    interrogator and borehole entry
+
+    :param well_data: Well data dict with fiber
+    """
+    fig, axes = plt.subplots(nrows=2, figsize=(8, 12), sharex='col')
+    deps = well_data['CSD5']['depth']
+    dep_inds = np.where((deps < 220) & (deps > 155))[0]
+    tray_inds = np.where((deps > 10) & (deps < 30))[0]
+    bottom = np.argmin(np.abs(deps - 187.535))
+    bottom -= dep_inds[0]
+    times = well_data['CSD5']['times'][:250]
+    Z = well_data['CSD5']['data'][dep_inds, :250]
+    cmap = ListedColormap(sns.color_palette('RdBu_r', 21).as_hex())
+    levels = np.linspace(-500, 500, 21)
+    D5 = axes[0].contourf(Z, cmap=cmap, extend='both', levels=levels)
+    Zout = well_data['CSD5']['data'][tray_inds, :250]
+    in_tray = axes[1].contourf(Zout, cmap=cmap, extend='both',
+                               levels=levels)
+    axes[0].axhline(bottom, linestyle='--', color='firebrick',
+                    label='Borehole bottom')
+    axes[0].legend()
+    # Tick label reassignment
+    d5_deps = deps[dep_inds]
+    d5_ylabs = [round(d) for d in d5_deps]
+    tray_deps = deps[tray_inds]
+    tray_ylabs = [round(t) for t in tray_deps]
+    axes[0].set_yticks(np.arange(len(d5_deps))[::20])
+    axes[0].set_yticklabels(d5_ylabs[::20])
+    axes[1].set_yticks(np.arange(len(tray_deps))[::5])
+    axes[1].set_yticklabels(tray_ylabs[::5])
+    axes[1].set_xticks(np.arange(250)[::50])
+    axes[1].set_xticklabels([t.date() for t in times[::50]])
+    fig.autofmt_xdate()
+    fig.colorbar(D5, ax=axes, label=r'$\mu\epsilon$', fraction=0.05,
+                 extend='both')
+    # Formatting
+    axes[0].set_title('Cable grouted in BCS-D5', fontsize=14)
+    axes[1].set_title('"Strain-free" cable on gallery wall or cable tray',
+                      fontsize=14)
+    axes[0].set_ylabel('Distance along fiber [m]')
+    axes[1].set_ylabel('Distance along fiber [m]')
+    return
+
+
 def plot_strain_gain(well_data, well, depth, direction, title=''):
     """Compare strain and gain timeseries"""
     dss_times, dss_strains, _, _, _, dss_gain = extract_channel_timeseries(

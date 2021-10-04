@@ -7,6 +7,8 @@ Script to handle pick refinement/removal and relocation of catalog earthquakes.
 import os
 import locale
 import warnings
+import uuid
+import copy
 import pyproj
 import numpy as np
 
@@ -19,10 +21,59 @@ from obspy.core.event import Arrival, QuantityError, ResourceIdentifier, \
 from obspy.core import AttribDict
 from obspy.geodetics import kilometer2degrees
 
+fsb_coords = {
+    'FS.B31..XNZ': [2579324.461294, 1247590.3884, 488.9207],
+    'FS.B32..XNZ': [2579324.127923, 1247564.5962, 458.3487],
+    'FS.B42..XNZ': [2579329.86015, 1247595.4255, 488.2790],
+    'FS.B43..XNZ': [2579335.9162, 1247574.0129, 455.0401],
+    'FS.B551..XNZ': [2579328.42237, 1247584.2444, 500.6040],
+    'FS.B585..XNZ': [2579321.582, 1247563.2318, 478.8632],
+    'FS.B647..XNZ': [2579334.79024, 1247589.14718, 501.6884],
+    'FS.B659..XNZ': [2579337.27833, 1247570.6516, 476.9351],
+    'FS.B748..XNZ': [2579340.15296, 1247593.54974, 503.0410],
+    'FS.B75..XNZ': [2579351.2349, 1247579.5168, 477.7178],
+    # Hydrophones
+    'FS.B301..XN1': [2579324.496867, 1247592.9675, 491.9781],
+    'FS.B303..XN1': [2579324.451961, 1247589.7436, 488.1565],
+    'FS.B305..XN1': [2579324.405486, 1247586.5206, 484.3342],
+    'FS.B307..XN1': [2579324.365244, 1247583.3001, 480.5097],
+    'FS.B309..XN1': [2579324.324412, 1247580.0796, 476.6852],
+    'FS.B310..XN1': [2579324.304438, 1247578.4679, 474.7741],
+    'FS.B311..XN1': [2579324.286077, 1247576.8557, 472.8636],
+    'FS.B312..XN1': [2579324.267101, 1247575.2429, 470.9534],
+    'FS.B314..XN1': [2579324.22945, 1247572.0169, 467.1336],
+    'FS.B316..XN1': [2579324.185952, 1247568.7916, 463.3131],
+    'FS.B318..XN1': [2579324.14131, 1247565.5641, 459.4946],
+    'FS.B320..XN1': [2579324.091171, 1247562.3397, 455.6735],
+    'FS.B322..XN1': [2579324.032701, 1247559.1223, 451.8467],
+    'FS.B401..XN1': [2579329.17688, 1247597.8316, 492.0198],
+    'FS.B403..XN1': [2579329.93608, 1247595.1581, 487.8633],
+    'FS.B405..XN1': [2579330.69621, 1247592.4842, 483.7073],
+    'FS.B407..XN1': [2579331.45355, 1247589.8114, 479.5501],
+    'FS.B409..XN1': [2579332.20912, 1247587.1386, 475.3925],
+    'FS.B410..XN1': [2579332.58727, 1247585.8011, 473.3145],
+    'FS.B411..XN1': [2579332.96631, 1247584.4626, 471.2373],
+    'FS.B412..XN1': [2579333.34493, 1247583.1243, 469.1600],
+    'FS.B414..XN1': [2579334.09847, 1247580.4462, 465.0054],
+    'FS.B416..XN1': [2579334.85297, 1247577.7667, 460.8520],
+    'FS.B418..XN1': [2579335.6125, 1247575.0857, 456.7004],
+    'FS.B420..XN1': [2579336.3728, 1247572.4026, 452.5504],
+    'FS.B422..XN1': [2579337.1362, 1247569.7158, 448.4033],
+    # AE sensors
+    'FS.B81..XN1': [2579328.5556, 1247576.5273, 488.0782],
+    'FS.B82..XN1': [2579328.4572, 1247575.8272, 487.3333],
+    'FS.B83..XN1': [2579328.1675, 1247573.7658, 485.1397],
+    'FS.B84..XN1': [2579328.0746, 1247573.1047, 484.4361],
+    'FS.B85..XN1': [2579327.7849, 1247571.0433, 482.2426],
+    'FS.B86..XN1': [2579327.6919, 1247570.3821, 481.5390],
+    'FS.B91..XN1': [2579332.5541, 1247582.7914, 476.1047],
+    'FS.B92..XN1': [2579332.6601, 1247582.2005, 475.2683],
+    'FS.B93..XN1': [2579332.9658, 1247580.4972, 472.8576],
+    'FS.B94..XN1': [2579333.0719, 1247579.9063, 472.0213],
+    'FS.B95..XN1': [2579333.3776, 1247578.2031, 469.6106],
+    'FS.B96..XN1': [2579333.4837, 1247577.6122, 468.7742]
+}
 
-"""
-Now running NLLoc from subprocess call and reading new origin back into catalog
-"""
 
 # origin = [-38.3724, 175.9577]
 
@@ -85,6 +136,15 @@ def fsb_xyz2latlon(x, y):
                for pt in pts]
     utmx, utmy = zip(*pts_utm)
     lon, lat = utm(utmx, utmy, inverse=True)
+    return (lon, lat)
+
+
+def fsb_simple_conversion(x, y):
+    """
+    Convert from fsb xyz to lat lon
+    """
+    utm = pyproj.Proj(init='EPSG:2056')
+    lon, lat = utm(x, y, inverse=True)
     return (lon, lat)
 
 
@@ -160,6 +220,178 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
         # ev.origins.append(new_o_obj)
         # ev.preferred_origin_id = new_o_obj.resource_id.id
     return cat
+
+
+def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
+                     delta, epsilon, aniso_azi, aniso_inc):
+    """
+    Locate an event in a homogeneous background medium from a list of picks
+    using travel times.
+
+    This version will only consider P phase picks and ignores all other picks.
+
+    Args:
+        catalog: Catalog of events to relocate
+        coordinates: Dictionary mapping channel ids to cartesian coordinates.
+        conversion: Function to convert xyz to lat/lon
+        Vp0: P wave velocity or the minimum velocity in the anisotropic case.
+        damping: Damping.
+        delta: Thomsen parameter delta describing break from elipticity
+        epsilon: Thomsen parameter epsilon
+        aniso_azi: Azimuth of pole to the plane of anisotropy
+        aniso_inc: Inclination of the pole to plane of anisotropy
+        verbose: Print a short summary when an event is found.
+
+    Returns:
+        A complete event with a location origin. Will be returned regardless of
+        how well the location works so a subsequent QC check is advisable.
+    """
+    for event in catalog:
+        print('Relocating {}'.format(event.resource_id.id))
+        # Filter to only use P-phase picks.
+        event_picks = []
+        for pick in event.picks:
+            pick = copy.deepcopy(pick)
+            if pick.phase_hint and pick.phase_hint.lower() != "p":
+                continue
+            event_picks.append(pick)
+
+        if len(event_picks) < 3:
+            print(">= 3 P phase picks are required for an event location.")
+            continue
+        starttime = min([p.time for p in event_picks])
+
+        # time relative to startime of snippets, in milliseconds.
+        t_relative = []
+        for pick in event_picks:
+            t_relative.append((pick.time - starttime) * 1000)
+
+        npicks = len(t_relative)
+
+        # Assemble sensor coordinate array for the actually used picks.
+        sensor_coords = np.zeros((npicks, 3), dtype=np.float64)
+        for i, p in enumerate(event_picks):
+            sensor_coords[i, :] = coordinates[p.waveform_id.id]
+
+        vp = Vp0 * np.ones([npicks]) / 1000.0
+
+        loc = sensor_coords[t_relative.index(min(t_relative)), :] + 0.1
+        t0 = min(t_relative)
+        nit = 0
+        jacobian = np.zeros([npicks, 4])
+        dm = 1.0 * np.ones(4)
+
+        # Actual optimization.
+        while nit < 100 and np.linalg.norm(dm) > 0.00001:
+            nit = nit + 1
+            for i in range(npicks):
+                azi = np.arctan2(
+                    sensor_coords[i, 0] - loc[0], sensor_coords[i, 1] - loc[1]
+                )
+                inc = np.arctan2(
+                    sensor_coords[i, 2] - loc[2],
+                    np.linalg.norm(sensor_coords[i, range(2)] - loc[range(2)]),
+                )
+                theta = np.arccos(
+                    np.cos(inc)
+                    * np.cos(azi)
+                    * np.cos(aniso_inc)
+                    * np.cos(aniso_azi)
+                    + np.cos(inc)
+                    * np.sin(azi)
+                    * np.cos(aniso_inc)
+                    * np.sin(aniso_azi)
+                    + np.sin(inc) * np.sin(aniso_inc)
+                )
+                vp[i] = (
+                        Vp0
+                        / 1000.0
+                        * (
+                                1.0
+                                + delta
+                                * np.sin(theta) ** 2
+                                * np.cos(theta) ** 2
+                                + epsilon * np.sin(theta) ** 4
+                        )
+                )
+
+            dist = [np.linalg.norm(loc - sensor_coords[i, :]) for i in range(npicks)]
+            tcalc = [dist[i] / vp[i] + t0 for i in range(npicks)]
+
+            res = [t_relative[i] - tcalc[i] for i in range(npicks)]
+            rms = np.linalg.norm(res) / npicks
+            for j in range(3):
+                for i in range(npicks):
+                    jacobian[i, j] = -(sensor_coords[i, j] - loc[j]) / (vp[i] * dist[i])
+            jacobian[:, 3] = np.ones(npicks)
+
+            dm = np.matmul(
+                np.matmul(
+                    np.linalg.inv(
+                        np.matmul(np.transpose(jacobian), jacobian)
+                        + pow(damping, 2) * np.eye(4)
+                    ),
+                    np.transpose(jacobian),
+                ),
+                res,
+            )
+            loc = loc + dm[0:3]
+            t0 = t0 + dm[3]
+
+        # Finally create the event object with the used picks and arrivals.
+        # Try to specify as many details as possible.
+        origin_time = starttime + t0 / 1000.0
+
+        # Convert local coordinates to WGS84.
+        longitude, latitude = conversion(np.array([loc[0]]),
+                                         np.array([loc[1]]))
+        depth = loc[-1]
+        print(latitude, longitude, depth)
+        s = "anisotropic"
+        earth_model_id = ResourceIdentifier(
+            id=f"earth_model/homogeneous/{s}/velocity={int(round(Vp0))}"
+        )
+        method_id = "method/p_wave_travel_time/homogeneous_model"
+
+        extra = AttribDict({'ch1903_east': {'value': loc[0],
+                                            'namespace': 'smi:local/ch1903'},
+                            'ch1903_north': {'value': loc[1],
+                                             'namespace': 'smi:local/ch1903'},
+                            'ch1903_elev': {'value': depth,  # Extra attribs maintain absolute elevation
+                                            'namespace': 'smi:local/ch1903'}})
+
+        # Create origin.
+        o = Origin(
+            resource_id=f"origin/p_wave_travel_time/homogeneous_model/{uuid.uuid4()}",
+            time=origin_time,
+            longitude=longitude[0],
+            latitude=latitude[0],
+            depth=depth,
+            depth_type="from location",
+            time_fixed=False,
+            epicenter_fixed=False,
+            method_id=method_id,
+            earth_model_id=earth_model_id,
+        )
+        o.extra = extra
+        # And fill with arrivals.
+        for _i, pick in enumerate(event_picks):
+            o.arrivals.append(
+                Arrival(
+                    resource_id=f"arrival/{_i}/{o.resource_id.id}",
+                    pick_id=pick.resource_id,
+                    time_residual=res[_i] / 1000,
+                    phase="P",
+                    earth_model_id=earth_model_id,
+                )
+            )
+
+        o.time_errors = QuantityError(uncertainty=rms / 1000)
+
+        event.origins.append(o)
+        event.preferred_origin_id = o.resource_id
+    return
+
 
 def dicts2NLLocPhases(ev, location):
     """

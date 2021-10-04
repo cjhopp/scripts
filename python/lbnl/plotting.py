@@ -326,13 +326,13 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         w = x + 1j * y
         return np.real(np.exp(1j * theta) * w), np.imag(np.exp(1j * theta) * w), z
 
-    frames = []
-    for t in np.arange(0, 6.26, 0.1):
-        xe, ye, ze = rotate_z(eye[0], eye[1], eye[2], -t)
-        frames.append(dict(
-            layout=dict(scene=dict(camera=dict(eye=dict(x=xe, y=ye, z=ze))))))
-
-    fig.frames = frames
+    # frames = []
+    # for t in np.arange(0, 6.26, 0.1):
+    #     xe, ye, ze = rotate_z(eye[0], eye[1], eye[2], -t)
+    #     frames.append(dict(
+    #         layout=dict(scene=dict(camera=dict(eye=dict(x=xe, y=ye, z=ze))))))
+    #
+    # fig.frames = frames
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
                                   xaxis_showspikes=False,
                                   yaxis_showspikes=False,
@@ -356,26 +356,27 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                                    bordercolor='gray',
                                    borderwidth=1,
                                    tracegroupgap=3),
-                       updatemenus=[dict(type='buttons',
-                                         showactive=False,
-                                         direction="left",
-                                         pad={"r": 10, "t": 70},
-                                         x=0.1, y=0.1,
-                                         buttons=[dict(label="&#9654;",
-                                                       method='animate',
-                                                       args=[None, dict(frame=dict(duration=1, redraw=False),
-                                                                        transition=dict(duration=1, easing='linear'),
-                                                                        fromcurrent=True,
-                                                                        mode='immediate'
-                                                                        )]
-                                                       ),
-                                                  {"args": [[None], {"frame": {"duration": 0, "redraw": False},
-                                                                        "mode": "immediate",
-                                                                        "transition": {"duration": 0}}],
-                                                   "label": "&#9724;",
-                                                   "method": "animate"}]
-                                         )
-                                    ]
+                       # updatemenus=[dict(type='buttons',
+                       #                   showactive=True,
+                       #                   active=-1,
+                       #                   direction="left",
+                       #                   pad={"r": 10, "t": 70},
+                       #                   x=0.1, y=0.1,
+                       #                   buttons=[dict(label="&#9654;",
+                       #                                 method='animate',
+                       #                                 args=[None, dict(frame=dict(duration=1, redraw=False),
+                       #                                                  transition=dict(duration=1, easing='linear'),
+                       #                                                  fromcurrent=True,
+                       #                                                  mode='immediate'
+                       #                                                  )]
+                       #                                 ),
+                       #                            {"args": [[None], {"frame": {"duration": 0, "redraw": False},
+                       #                                               "mode": "immediate",
+                       #                                               "transition": {"duration": 0}}],
+                       #                             "label": "&#9724;",
+                       #                             "method": "animate"}]
+                       #                   )
+                       #              ]
                        )
     fig.update_layout(layout)
     if export:
@@ -1693,6 +1694,12 @@ def add_catalog(catalog, dd_only, objects, surface, location=None):
     colors = cycle(cl.scales['11']['qual']['Paired'])
     pt_lists = []
     pt_list = []
+    if len(catalog) < 100:
+        mfact = 3.
+    elif len(catalog) < 1000:
+        mfact = 1.5
+    else:
+        mfact = 0.5
     for ev in catalog:
         try:
             o = ev.origins[-1]
@@ -1749,7 +1756,7 @@ def add_catalog(catalog, dd_only, objects, surface, location=None):
                                 marker=dict(color=t,
                                             cmin=min(tickvals),
                                             cmax=max(tickvals),
-                                            size=(1.5 * np.array(m)) ** 2,
+                                            size=(mfact * np.array(m)) ** 2,
                                             symbol='circle',
                                             line=dict(color=t,
                                                       width=1,

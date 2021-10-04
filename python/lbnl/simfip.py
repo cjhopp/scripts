@@ -216,8 +216,7 @@ def read_excavation(path):
     :return:
     """
     # Use Dask as its significantly faster for this many data points
-    dask_df = dd.read_csv(path)
-    df = dask_df.compute()
+    df = pd.read_csv(path)
     try:
         df['dt'] = pd.to_datetime(df['TIME (UTC+2)'], format='%d.%m.%y %H:%M:%S')
     except KeyError:
