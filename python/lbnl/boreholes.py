@@ -12,7 +12,10 @@ import matplotlib.pyplot as plt
 
 from itertools import cycle
 from glob import glob
-from scipy.interpolate import Rbf
+try:
+    from scipy.interpolate import Rbf
+except ModuleNotFoundError:
+    print('No skspatial here')
 from skspatial.objects import Plane
 from pathlib import Path
 from matplotlib.dates import date2num, num2date
