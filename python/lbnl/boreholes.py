@@ -14,9 +14,9 @@ from itertools import cycle
 from glob import glob
 try:
     from scipy.interpolate import Rbf
+    from skspatial.objects import Plane
 except ModuleNotFoundError:
     print('No skspatial here')
-from skspatial.objects import Plane
 from pathlib import Path
 from matplotlib.dates import date2num, num2date
 
