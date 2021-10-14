@@ -16,7 +16,7 @@ import matplotlib.gridspec as gridspec
 
 from obspy import UTCDateTime
 from glob import glob
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import cycle
 from matplotlib.collections import LineCollection
 
@@ -277,16 +277,17 @@ def read_3D(data_dir):
     for fl in flz:
         nm = 'Z{}'.format(fl[-5])
         tdf = pd.read_csv(fl, header=0, names=['time', '{}E'.format(nm),
-                          '{}N'.format(nm), '{}U'.format(nm), 'P{}'.format(nm)])
+                          '{}N'.format(nm), '{}U'.format(nm)])
         tdf['dt'] = pd.to_datetime(tdf['time'], format='%d-%b-%Y %H:%M:%S.%f')
         tdf = tdf.set_index('dt')
         tdf = tdf.drop(['time'], axis=1)
+        # tdf = tdf.sort_index()
         # tdf.interpolate(inplace=True)
         tdf['{} Sum'.format(nm)] = np.sqrt(tdf['{}E'.format(nm)]**2 +
                                            tdf['{}N'.format(nm)]**2 +
                                            tdf['{}U'.format(nm)]**2)
         df = pd.concat([df, tdf])
-    return df.sort_index()#.interpolate()
+    return df.sort_index().interpolate()
 
 
 def read_FSB_injection(path):
@@ -315,6 +316,46 @@ def read_FSB_injection(path):
     return df
 
 ################### Plotting functions below here #######################
+
+def plot_dorsa_simfip_seis(df_simfip, df_dorsa, catalog):
+    """
+    Compare DORSA/SIMFIP/catalog of seismicity fsb
+    """
+    df_simfip['Sum'] = np.sqrt(df_simfip['Xc'] ** 2 + df_simfip['Yc'] ** 2 +
+                               df_simfip['Zc'] ** 2)
+    df_dorsa_c3 = df_dorsa.loc['2020-11-21 10:40':'2020-11-21 11:40']
+    dorsa_t = df_dorsa_c3.index.values
+    dorsa_v = df_dorsa_c3['Z3 Sum']
+    df_simfip_c3 = df_simfip.loc['2020-11-21 10:40':'2020-11-21 11:40']
+    simfip_t = df_simfip_c3.index.values
+    simfip_v = df_simfip_c3['Sum'].values
+    cat_times = [ev.picks[-1].time.datetime + timedelta(seconds=3600)
+                 for ev in catalog if UTCDateTime(2020, 11, 21, 12, 40) >
+                 ev.picks[-1].time > UTCDateTime(2020, 11, 21, 9, 40)]
+    cat_values = np.arange(len(cat_times))
+    fig, axes = plt.subplots()
+    ax2 = axes.twinx()
+    print('foo')
+    axes.plot(dorsa_t, dorsa_v - dorsa_v[0], color='green', label='DORSA: B1')
+    ax2.plot(simfip_t, simfip_v, color='purple',
+             label='SIMFIP: D7')
+    ax2.step(cat_times, cat_values, color='k', label='Seismicity',
+             where='post')
+    ax2.set_ylabel('No. events or SIMFIP displacement [microns]')
+    axes.tick_params(axis='y', which='major', labelcolor='green',
+                   color='green')
+    ax2.tick_params(axis='y', which='major', labelcolor='purple',
+                    color='purple')
+    axes.set_ylabel('Microns', color='firebrick')
+    axes.set_xlim([datetime(2020, 11, 21, 10, 40),
+                   datetime(2020, 11, 21, 11, 40)])
+    axes.set_ylim(bottom=0)
+    ax2.set_ylim(bottom=0)
+    fig.legend()
+    plt.show()
+    fig.autofmt_xdate()
+    return
+
 
 def plot_drive2production(df_simfip, DSS_dict, DAS_dict):
     """

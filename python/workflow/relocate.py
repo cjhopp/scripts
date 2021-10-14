@@ -10,16 +10,29 @@ import warnings
 import uuid
 import copy
 import pyproj
+
 import numpy as np
+import matplotlib.pyplot as plt
 
 from glob import glob
 from subprocess import call
 from datetime import datetime
+from scipy.io import loadmat
+from scipy.optimize import curve_fit
 from obspy import UTCDateTime
 from obspy.core.event import Arrival, QuantityError, ResourceIdentifier, \
     OriginUncertainty, Origin, CreationInfo, OriginQuality
 from obspy.core import AttribDict
 from obspy.geodetics import kilometer2degrees
+from matplotlib.widgets import LassoSelector
+from matplotlib.path import Path
+from sklearn.cluster import KMeans
+
+# Local import
+try:
+    from lbnl.boreholes import create_FSB_boreholes
+except ImportError:
+    print('Something wrong with local import')
 
 fsb_coords = {
     'FS.B31..XNZ': [2579324.461294, 1247590.3884, 488.9207],
@@ -73,6 +86,11 @@ fsb_coords = {
     'FS.B95..XN1': [2579333.3776, 1247578.2031, 469.6106],
     'FS.B96..XN1': [2579333.4837, 1247577.6122, 468.7742]
 }
+
+fsb_well_colors = {'B1': 'k', 'B2': 'steelblue', 'B3': 'goldenrod',
+                   'B4': 'goldenrod', 'B5': 'goldenrod', 'B6': 'goldenrod',
+                   'B7': 'goldenrod', 'B8': 'firebrick', 'B9': 'firebrick',
+                   'B10': 'k'}
 
 
 # origin = [-38.3724, 175.9577]
@@ -220,6 +238,230 @@ def relocate(cat, root_name, in_file, pick_uncertainty, location='SURF'):
         # ev.origins.append(new_o_obj)
         # ev.preferred_origin_id = new_o_obj.resource_id.id
     return cat
+
+
+def thomsen_full(x, delta, epsilon, vp0):
+    """
+    Thomsens full anisotropy treatment for P waves
+    """
+    VpVs = 1.77
+    VsVp = 1 / VpVs
+    dstar = (1 - VsVp**2) * ((2 * delta) - epsilon)
+    Dstar = 0.5 * (1 - VsVp**2) * (np.sqrt((1 + (4 * dstar * np.sin(x)**2 *
+                                                 np.cos(x)**2) /
+                                            (1 - VsVp**2)**2) +
+                                           (4 * (1 - VsVp**2 + epsilon) * epsilon *
+                                            np.sin(x)**4 / (1 - VsVp**2)**2)) - 1)
+    return np.sqrt(vp0**2 * (1 + (epsilon * np.sin(x)**2) + Dstar))
+
+
+def thomsen_weak(x, delta, epsilon, vp0):
+    """
+    Thomsens weak anisotropy for P waves
+    """
+    return np.sqrt(vp0**2 * (1 + (delta * np.sin(x)**2 * np.cos(x)**2) +
+                             (epsilon * np.sin(x)**4)))
+
+
+def fit_thomsen(tt_file, aniso_azi=307, aniso_inc=60, plot_fit=True,
+                plot_paths=False):
+    """
+    Fit thomsen weak anisotropy to list of cassm travel times
+    """
+    aniso_angle = 450 - aniso_azi
+    if aniso_angle > 360:
+        aniso_angle -= 360
+    strike = aniso_azi + 90
+    if strike > 360:
+        strike -= 360.
+    dip = 90 - aniso_inc
+    # To radians
+    ani_az_rad = np.deg2rad(aniso_angle)
+    ani_inc_rad = np.deg2rad(aniso_inc)
+    aniso_pole = np.array([np.cos(ani_inc_rad) * np.cos(ani_az_rad),
+                           np.cos(ani_inc_rad) * np.sin(ani_az_rad),
+                           -np.sin(ani_inc_rad)])
+    aniso_pole /= np.linalg.norm(aniso_pole)
+    aniso_pole_ten = aniso_pole * 10
+    tt_array = loadmat(tt_file)['data']
+    dists = np.sqrt((tt_array[:, 2] - tt_array[:, 5])**2 +
+                    (tt_array[:, 1] - tt_array[:, 4])**2 +
+                    (tt_array[:, 3] - tt_array[:, 6])**2)
+    avg_depths = (tt_array[:, 3] + tt_array[:, 6]) / 2
+    src_dep = tt_array[:, 3]
+    rec_dep = tt_array[:, 6]
+    src_east = tt_array[:, 2]
+    Vps = dists / tt_array[:, 0]
+    cluster_arr = tt_array[:, 1:4].copy()
+    cluster_arr[:, 0] -= cluster_arr[0, 0]
+    cluster_arr[:, 1] -= cluster_arr[0, 1]
+    cluster_arr[:, 2] -= cluster_arr[0, 2]
+    well5 = np.ones(352) * 5
+    well6 = well5 + 1
+    well7 = well6 + 1
+    well_no = np.hstack([well5, well6, well7])
+    x = tt_array[:, 5] - tt_array[:, 2]
+    y = tt_array[:, 4] - tt_array[:, 1]
+    z = tt_array[:, 6] - tt_array[:, 3]
+    paz = np.rad2deg(np.arctan(x / y))
+    paths = np.vstack([x, y, z]).T
+    # L2 norm along rows
+    pnorm = paths / np.sqrt((paths * paths).sum(axis=1))[:, np.newaxis]
+    angles = np.arccos(np.dot(pnorm, aniso_pole))
+    angles = np.rad2deg(angles)
+
+    # Now select points to fit
+    fig, ax_pick = plt.subplots()
+    pts = ax_pick.scatter(angles, Vps)
+    selector = SelectFromCollection(ax_pick, pts)
+    selection = {}
+    def accept(event):
+        if event.key == "enter":
+            print("Selected points:")
+            indices = selector.ind
+            selector.disconnect()
+            ax_pick.set_title("")
+            selection['indices'] = indices
+
+    fig.canvas.mpl_connect("key_press_event", accept)
+    plt.show(block=True)
+    indices = selection['indices']
+
+    # Take only the selected indices for fitting
+    Vps = Vps[indices]
+    well_no = well_no[indices]
+    angles = angles[indices]
+    dists = dists[indices]
+    avg_depths = avg_depths[indices]
+    src_dep = src_dep[indices]
+    rec_dep = rec_dep[indices]
+    src_east = src_east[indices]
+    if plot_paths:
+        fig3d = plt.figure()
+        ax3d = fig3d.add_subplot(projection='3d')
+        ax3d.plot(xs=np.array([0, aniso_pole_ten[0]]) + tt_array[0, 2],
+                  ys=np.array([0, aniso_pole_ten[1]]) + tt_array[0, 1],
+                  zs=np.array([0, aniso_pole_ten[2]]) + tt_array[0, 3],
+                  color='b')
+        ax3d.scatter(tt_array[indices, 2], tt_array[indices, 1],
+                     tt_array[indices, 3], c=well_no)
+        # Plot up the well bores
+        for w, pts in create_FSB_boreholes().items():
+            if w.startswith('B'):
+                wx = pts[:, 0]  # + 579300
+                wy = pts[:, 1]  # + 247500
+                wz = pts[:, 2]  # + 500
+                ax3d.scatter(wx[0], wy[0], wz[0], s=10., marker='s',
+                             color=fsb_well_colors[w])
+                ax3d.plot(wx, wy, wz, color=fsb_well_colors[w])
+        for i in range(tt_array.shape[0]):
+            if i not in indices:
+                continue
+            ax3d.plot(xs=[tt_array[i, 2], tt_array[i, 5]],
+                      ys=[tt_array[i, 1], tt_array[i, 4]],
+                      zs=[tt_array[i, 3], tt_array[i, 6]], color='k',
+                      alpha=0.1)
+    if plot_fit:
+        fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(12, 10))
+        vars = [('Ray length [m]', dists), ('Source easting', src_east),
+                ('Receiver elevation', rec_dep), ('Well no', well_no)]
+        for i, ax in enumerate(axes.flatten()):
+            mpbl = ax.scatter(angles, Vps, alpha=0.2, c=vars[i][1])
+            fig.colorbar(mpbl, label=vars[i][0], ax=ax)
+    # Fit a curve
+    fit_vps = Vps[np.isfinite(Vps)]
+    fit_bed_rad = np.deg2rad(angles[np.isfinite(Vps)])
+    popt_f, pcov_f = curve_fit(thomsen_full, fit_bed_rad, fit_vps)
+    std_f = np.sqrt(np.diag(pcov_f))
+    if plot_fit:
+        for ax in axes.flatten():
+            ax.annotate(
+                'Vp0: {:.2f}$\pm${:.2f}\ndelta: {:.2f}$\pm${:.2f}\nepsilon: {:.2f}$\pm${:.2f}'.format(
+                popt_f[2], std_f[2], popt_f[0], std_f[0], popt_f[1], std_f[1]),
+                xy=(0.6, 0.75), xytext=(0.55, 0.05), xycoords='axes fraction')
+            df, ef, vp0f = popt_f
+            xline = np.arange(0, np.pi / 2, 0.1)
+            yline_f = thomsen_full(xline, df, ef, vp0f)
+            ax.plot(np.rad2deg(xline), yline_f)
+            ax.set_ylabel('Vp [m/s]')
+            ax.set_xlabel('Angle to bedding normal [degrees]')
+            ax.set_title('Bedding Strike: {} Dip: {}'.format(strike, dip))
+        plt.show()
+    return popt_f, pcov_f
+
+
+def search_aniso(tt_file, min_az, max_az, min_inc, max_inc):
+    """
+    Grid search orientation of anisotropy for best fitting Thomsen
+    """
+    azs = np.arange(min_az, max_az, 2)
+    incs = np.arange(min_inc, max_inc, 2)
+    Azs, Incs = np.meshgrid(azs, incs)
+    results = []
+    for a, i in zip(Azs.flatten(), Incs.flatten()):
+        print('Searching az: {} inc: {}'.format(a, i))
+        popt, pcov = fit_thomsen(tt_file, a, i, plot_fit=False)
+        results.append(np.sqrt(np.diag(pcov))[0])
+    best = np.array(results).argmin()
+    print(best)
+    popt, pcov = fit_thomsen(tt_file, Azs.flatten()[best], Incs.flatten()[best])
+    return
+
+
+class SelectFromCollection:
+    """
+    Select indices from a matplotlib collection using `LassoSelector`.
+
+    Selected indices are saved in the `ind` attribute. This tool fades out the
+    points that are not part of the selection (i.e., reduces their alpha
+    values). If your collection has alpha < 1, this tool will permanently
+    alter the alpha values.
+
+    Note that this tool selects collection objects based on their *origins*
+    (i.e., `offsets`).
+
+    Parameters
+    ----------
+    ax : `~matplotlib.axes.Axes`
+        Axes to interact with.
+    collection : `matplotlib.collections.Collection` subclass
+        Collection you want to select from.
+    alpha_other : 0 <= float <= 1
+        To highlight a selection, this tool sets all selected points to an
+        alpha value of 1 and non-selected points to *alpha_other*.
+    """
+
+    def __init__(self, ax, collection, alpha_other=0.3):
+        self.canvas = ax.figure.canvas
+        self.collection = collection
+        self.alpha_other = alpha_other
+
+        self.xys = collection.get_offsets()
+        self.Npts = len(self.xys)
+
+        # Ensure that we have separate colors for each object
+        self.fc = collection.get_facecolors()
+        if len(self.fc) == 0:
+            raise ValueError('Collection must have a facecolor')
+        elif len(self.fc) == 1:
+            self.fc = np.tile(self.fc, (self.Npts, 1))
+
+        self.lasso = LassoSelector(ax, onselect=self.onselect)
+        self.ind = []
+
+    def onselect(self, verts):
+        path = Path(verts)
+        self.ind = np.nonzero(path.contains_points(self.xys))[0]
+        self.fc[:, -1] = self.alpha_other
+        self.fc[self.ind, -1] = 1
+        self.collection.set_facecolors(self.fc)
+        self.canvas.draw_idle()
+
+    def disconnect(self):
+        self.lasso.disconnect_events()
+        self.fc[:, -1] = 1
+        self.collection.set_facecolors(self.fc)
+        self.canvas.draw_idle()
 
 
 def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,

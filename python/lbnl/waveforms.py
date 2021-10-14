@@ -13,6 +13,7 @@ import copy
 import scipy
 import itertools
 import yaml
+import joblib
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -259,7 +260,8 @@ def combine_ppsds(npz_dir, netstalocchans, outdir):
     return
 
 
-def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
+def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir, inventory=None,
+                    cores=8):
     """
     Crawl a waveform directory structure and calculate ppsds for each file.
 
@@ -270,53 +272,60 @@ def calculate_ppsds(netstalocchans, wav_dir, date_range, outdir):
     :param wav_dir: Path to root waveform directory
     :param date_range: (start, end)
     :param outdir: Output directory for both numpy arrays of PPSD and plots
+    :param inventory: Optional inventory object, otherwise pulls from fdsn
+    :param cores: Number of core to run this on
 
     :return:
     """
     # Get the raw inventory and then modify the resp information
     cli = Client('IRIS')
-    bulk = [n.split('.') for n in netstalocchans]
-    for b in bulk:
-        b.extend([UTCDateTime(date_range[0]), UTCDateTime(date_range[1])])
-    inventory = cli.get_stations_bulk(bulk, level='response')
-    inventory = modify_SAULN_inventory(inventory)
-    for nsl in netstalocchans:
-        print('Running station {}'.format(nsl))
-        nsl_split = nsl.split('.')
-        for date in date_generator(date_range[0], date_range[1]):
-            f = '{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
-                    wav_dir, date.year, nsl_split[0], nsl_split[1],
-                    nsl_split[3], nsl_split[0], nsl_split[1],
-                    nsl_split[2], nsl_split[3], date.year,
-                    UTCDateTime(date).julday)
-            print('Calculating {}'.format(f))
-            root_name = os.path.basename(f).rstrip('.ms')
-            # Check if output file exists
-            out_file = '{}/ppsds/{}.npz'.format(outdir, root_name)
-            if os.path.isfile(out_file):
-                print('{} already exists. Skipping'.format(out_file))
-                continue
-            try:
-                st = read(f)
-            except FileNotFoundError:
-                print('{} doesnt exist'.format(f))
-                continue
-            # Deal with shitty CN sampling rates
-            for tr in st:
-                if not ((1 / tr.stats.delta).is_integer() and
-                        tr.stats.sampling_rate.is_integer()):
-                    tr.stats.sampling_rate = round(tr.stats.sampling_rate)
-            lil_ppsd = PPSD(st[0].stats, inventory)
-            flag = lil_ppsd.add(st)
-            if not flag:
-                print('Failed to add {}'.format(f))
-                continue
-            lil_ppsd.save_npz('{}/ppsds/{}.npz'.format(outdir, root_name))
-            lil_ppsd.plot(filename='{}/plots/{}.png'.format(outdir, root_name),
-                          show_earthquakes=(0, 1.5, 10), xaxis_frequency=True,
-                          show_noise_models=False)
+    if not inventory:
+        bulk = [n.split('.') for n in netstalocchans]
+        for b in bulk:
+            b.extend([UTCDateTime(date_range[0]), UTCDateTime(date_range[1])])
+        inventory = cli.get_stations_bulk(bulk, level='response')
+        inventory = modify_SAULN_inventory(inventory)
+    results = Parallel(n_jobs=cores, verbose=10)(
+        delayed(ppsd_channel_loop)(nsl, date_range, outdir, inventory, wav_dir)
+        for nsl in netstalocchans)
     return
 
+def ppsd_channel_loop(nsl, date_range, outdir, inventory, wav_dir):
+    print('Running station {}'.format(nsl))
+    nsl_split = nsl.split('.')
+    for date in date_generator(date_range[0], date_range[1]):
+        f = '{}/{}/{}/{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
+            wav_dir, date.year, nsl_split[0], nsl_split[1],
+            nsl_split[3], nsl_split[0], nsl_split[1],
+            nsl_split[2], nsl_split[3], date.year,
+            UTCDateTime(date).julday)
+        print('Calculating {}'.format(f))
+        root_name = os.path.basename(f).rstrip('.ms')
+        # Check if output file exists
+        out_file = '{}/ppsds/{}.npz'.format(outdir, root_name)
+        if os.path.isfile(out_file):
+            print('{} already exists. Skipping'.format(out_file))
+            continue
+        try:
+            st = read(f)
+        except FileNotFoundError:
+            print('{} doesnt exist'.format(f))
+            continue
+        # Deal with shitty CN sampling rates
+        for tr in st:
+            if not ((1 / tr.stats.delta).is_integer() and
+                    tr.stats.sampling_rate.is_integer()):
+                tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+        lil_ppsd = PPSD(st[0].stats, inventory)
+        flag = lil_ppsd.add(st)
+        if not flag:
+            print('Failed to add {}'.format(f))
+            continue
+        lil_ppsd.save_npz('{}/ppsds/{}.npz'.format(outdir, root_name))
+        lil_ppsd.plot(filename='{}/plots/{}.png'.format(outdir, root_name),
+                      show_earthquakes=(0, 1.5, 10), xaxis_frequency=True,
+                      show_noise_models=False)
+    return
 
 def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
     """
@@ -2871,7 +2880,8 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
     for s in seeds:
         ppsd = PPSD.load_npz('{}/{}.FEB_MAR.npz'.format(psd_dir, s))
         ppsds[s]['ppsd'] = ppsd
-        ppsds[s]['mean'] = ppsd.get_mean()
+        ppsds[s]['mean'] = ppsd.get_mode()
+        print()
     for seed, pds_dict in ppsds.items():
         try:
             pds_dict['diff'] = (pds_dict['mean'][1] -

@@ -16,7 +16,7 @@ import math as M
 import matplotlib.pyplot as plt
 
 from glob import glob
-from obspy import read_inventory
+from obspy import read_inventory, UTCDateTime
 from obspy.core.util import AttribDict
 from obspy.core.inventory import Inventory, Network, Station, Channel, Response
 from obspy.core.inventory import ResponseListResponseStage
@@ -32,10 +32,10 @@ fsb_accelerometers = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647',
                       'B659', 'B748', 'B75']
 
 nsmtc_orientation = {'NSMTC.G1': {'E': 90., 'N': 0., 'Z': 0},
-                     'NSMTC.B1': {'1': 56.27, '2': 146.27, 'Z': 0},
-                     'NSMTC.B2': {'1': 303.99, '2': 33.99, 'Z': 0},
-                     'NSMTC.B3': {'1': 84.39, '2': 174.39, 'Z': 0},
-                     'NSMTC.G2': {'1': 326.88, '2': 56.88, 'Z': 0}}
+                     'NSMTC.B1': {'1': 231.31, '2': 321.31, 'Z': 0},
+                     'NSMTC.B2': {'1': 119.56, '2': 209.56, 'Z': 0},
+                     'NSMTC.B3': {'1': 252.60, '2': 342.60, 'Z': 0},
+                     'NSMTC.G2': {'1': 147.75, '2': 237.75, 'Z': 0}}
 
 resp_labl_map = {'RESP.XX.NS491..BNZ.LowNoise.0_005_1000.60V.2G': 'Silicon Audio ULN Accelerometer',
                  'RESP.XX.NS126..BNZ.Titan.DC_430.20V.0_5G': 'Nanometrics Titan Accelerometer',
@@ -184,7 +184,7 @@ def MMF_calibration_to_response(directory, plot=False):
     return inv
 
 
-def read_fsb_asbuilt(excel_path, gocad_dir, asbuilt_dir):
+def read_fsb_asbuilt(excel_path):
     """
     Read the as-built excel spreadsheet for FSB and return a dictionary of all
     the stations and sources containing locations
@@ -196,8 +196,7 @@ def read_fsb_asbuilt(excel_path, gocad_dir, asbuilt_dir):
     # Read excel spreadsheet of sensor wells and depths
     sensors = pd.read_excel(excel_path, sheet_name=None, skiprows=np.arange(5),
                             usecols=np.arange(1, 10), header=None)
-    well_dict = create_FSB_boreholes(gocad_dir=gocad_dir,
-                                     asbuilt_dir=asbuilt_dir)
+    well_dict = create_FSB_boreholes()
     # Hydrophones first
     for i, sens in sensors['Hydrophones'].iterrows():
         if sens[3] != ' -- ': # B3
@@ -268,7 +267,7 @@ def read_fsb_asbuilt(excel_path, gocad_dir, asbuilt_dir):
     return sens_dict
 
 
-def fsb_to_inv(path, gocad_dir, asbuilt_dir, orientations=False, debug=0):
+def fsb_to_inv(path, orientations=False, debug=0):
     """
     Take excel file of sensor locations and build an Inventory
 
@@ -278,7 +277,7 @@ def fsb_to_inv(path, gocad_dir, asbuilt_dir, orientations=False, debug=0):
     :return:
     """
     converter = FSB_converter()
-    sens_dict = read_fsb_asbuilt(path, gocad_dir, asbuilt_dir)
+    sens_dict = read_fsb_asbuilt(path)
     # Assemble dictionary of {station: {channel: infoz}}
     # Create dict before, then build inventory from channel level upwards
     sta_dict = {}
@@ -530,13 +529,6 @@ def consolidate_inv_channels(inventory):
 def update_G2(inv):
     """Helper to modify response for G2 borehole geophone"""
     G_mod3 = 81.82  # V/m/s
-    fc_mod3 = 8.0  # corner frequency
-    damp_mod3 = 0.70  # damping
-    # pole & zero
-    poles_mod3 = [-(damp_mod3 + M.sqrt(1 - damp_mod3 ** 2) * 1j) *
-                  2 * np.pi * fc_mod3,
-                  -(damp_mod3 - M.sqrt(1 - damp_mod3 ** 2) * 1j) *
-                  2 * np.pi * fc_mod3]
     for net in inv:
         for sta in net:
             if sta.code == 'NSMTC':
@@ -544,22 +536,14 @@ def update_G2(inv):
                     staloc = '{}.{}'.format(sta.code, chan.location_code)
                     chan.azimuth = nsmtc_orientation[staloc][chan.code[-1]]
                     if chan.location_code == 'G2':
-                        # update pole & zero
-                        # chan.response.response_stages[0]._poles = poles_mod3
-                        # update sensitivity value
-                        # also x -1 to polarity flip for Z comp
                         if chan.code == 'CHZ':
-                            chan.response.response_stages[0].stage_gain = (
-                                    G_mod3 * -1)
+                            chan.response.response_stages[0].stage_gain = G_mod3
                             chan.dip = 90.
                         else:
                             chan.response.response_stages[0].stage_gain = G_mod3
-                        # # Normalization factor
-                        # chan.response.response_stages[0].normalization_factor = 0.9998924742191032
-                        # Recompute sensitivity
                     if chan.location_code == 'G1' and chan.code[-1] == 'Z':
-                        chan.response.response_stages[0].stage_gain *= -1.
                         chan.dip = 90.
+                    chan.response.recalculate_overall_sensitivity()
     return inv
 
 
@@ -567,12 +551,19 @@ def update_BX(inv):
     """Helper for modifying the B* channels"""
     for net in inv:
         for sta in net:
+            if not sta.code == 'NSMTC':
+                continue
             for chan in sta:
-                if sta.code == 'NSMTC' and chan.code == 'CNZ':
-                    chan.response.response_stages[0].stage_gain = (40.0 / 9.80665) * -1
+                if chan.location_code[0] != 'B':
+                    continue
+                if chan.code == 'CNZ':
                     chan.dip = 90.
-                elif sta.code == 'NSMTC' and chan.code in ['CN2', 'CN1']:
-                    chan.response.response_stages[0].stage_gain = (40.0 / 9.80665)
+                if chan.start_date == UTCDateTime(2017, 8, 20):
+                    chan.response.response_stages[0].stage_gain = (60.0 /
+                                                                   9.80665)
+                else:
+                    chan.response.response_stages[0].stage_gain = (40.0 /
+                                                                   9.80665)
     return inv
 
 

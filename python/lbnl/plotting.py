@@ -549,6 +549,66 @@ def plot_dug_seis_locations_fsb(well_dict, active_events=None,
     return fig,
 
 
+def plot_fsb_inventory(well_dict, inventory, plot_asbuilt=False):
+    """
+    Plot stations on boreholes
+
+    :param well_dict: Dictionary of well tracks
+    :param inventory: obspy Inventory object
+    :param stas: List of stas in inventory to plot
+    """
+    if plot_asbuilt:
+        stas = [sta.code for sta in inventory[0] if sta.code[0] != 'S']
+    else:
+        stas = [
+            'B301', 'B302', 'B303', 'B304', 'B305', 'B306', 'B307', 'B308',
+            'B309', 'B310', 'B311', 'B312', 'B313', 'B314', 'B315', 'B316',
+            'B317', 'B318', 'B319', 'B320', 'B321', 'B322',
+            'B401', 'B402', 'B403', 'B404', 'B405', 'B406', 'B407', 'B408',
+            'B409', 'B410', 'B411', 'B412', 'B413', 'B414', 'B415', 'B416',
+            'B417', 'B418', 'B419', 'B420', 'B421', 'B422',
+            'B81', 'B82', 'B83', 'B91'
+        ]
+    fig = plt.figure()
+    print('fo')
+    ax = fig.add_subplot(projection='3d')
+    ax.view_init(elev=90, azim=-90)
+    # Plot up the well bores
+    for w, pts in well_dict.items():
+        if w.startswith('B'):
+            wx = pts[:, 0]# + 579300
+            wy = pts[:, 1]# + 247500
+            wz = pts[:, 2]# + 500
+            ax.scatter(wx[0], wy[0], wz[0], s=10., marker='s',
+                       color=fsb_well_colors[w])
+            ax.plot(wx, wy, wz, color=fsb_well_colors[w])
+    for sta in stas:
+        # Plot ray
+        xyz = inventory.select(station=sta)[0][0].extra
+        xyz = [float(xyz.ch1903_east.value),
+               float(xyz.ch1903_north.value),
+               float(xyz.ch1903_elev.value)]
+        if sta[:2] in ['B8', 'B9']:
+            color = 'r'
+            label = 'AE'
+        elif len(sta) == 3 or sta[:2] in ['B5', 'B6', 'B7']:
+            color = 'b'
+            label = 'Accelerometer'
+        elif len(sta) == 4:
+            color = 'g'
+            label = 'Hydrophone'
+        ax.scatter(xyz[0], xyz[1], xyz[2], marker='x',
+                   color=color, label=label)
+    legend_without_duplicate_labels(ax)
+    return
+
+
+def legend_without_duplicate_labels(ax):
+    handles, labels = ax.get_legend_handles_labels()
+    unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
+    ax.legend(*zip(*unique))
+
+
 def plot_4850_2D(autocad_path, strike=347.,
                  origin=np.array((811.61, -1296.63, 105.28)),
                  seismicity=None):
