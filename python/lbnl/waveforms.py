@@ -217,7 +217,7 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     return st
 
 
-def combine_ppsds(npz_dir, netstalocchans, outdir):
+def combine_ppsds(npz_dir, netstalocchans, outdir, inventory=None):
     """
     Combine a number of npz files (daylong) into one large one
 
@@ -229,8 +229,9 @@ def combine_ppsds(npz_dir, netstalocchans, outdir):
     bulk = [n.split('.') for n in netstalocchans]
     for b in bulk:
         b.extend([UTCDateTime(2019, 2, 1), UTCDateTime(2019, 3, 31)])
-    inventory = cli.get_stations_bulk(bulk, level='response')
-    inventory = modify_SAULN_inventory(inventory)
+    if not inventory:
+        inventory = cli.get_stations_bulk(bulk, level='response')
+        inventory = modify_SAULN_inventory(inventory)
     for nsl in netstalocchans:
         print('Combining {}'.format(nsl))
         wavs = glob(
