@@ -254,8 +254,8 @@ def combine_ppsds(npz_dir, netstalocchans, outdir, inventory=None):
         if not os.path.isdir(outdir):
             os.makedirs(os.path.join(outdir, 'ppsds'))
             os.makedirs(os.path.join(outdir, 'plots'))
-        ppsd.save_npz('{}/ppsds/{}_FEB_MAR.npz'.format(outdir, nsl))
-        ppsd.plot(filename='{}/plots/{}_FEB_MAR.png'.format(outdir, nsl),
+        ppsd.save_npz('{}/ppsds/{}_combined.npz'.format(outdir, nsl))
+        ppsd.plot(filename='{}/plots/{}_combined.png'.format(outdir, nsl),
                   show_earthquakes=(0, 1.5, 10), xaxis_frequency=True,
                   show_noise_models=False)
     return
