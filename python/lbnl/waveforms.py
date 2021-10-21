@@ -2002,7 +2002,7 @@ def geores_read(fname):
 
 
 def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
-                       log=False):
+                       log=False, plot_spectra=False):
     """
     Plot signal comparison between SA-ULNs and Geophone (B3 and G2)
 
@@ -2012,10 +2012,11 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
     :param signal_len: Length of signal for SNR calcs
     :param outdir: Output directory for plots
     :param log: Log SNR or not?
+    :param plot_spectra: Plot the spectra in a bottom panel?
 
     :return:
     """
-    inv = modify_SAULN_inventory(inv)
+    # inv = modify_SAULN_inventory(inv)
     snrs = {}
     for wav_file in wav_files:
         eid = wav_file.split('_')[-1].rstrip('.ms')
@@ -2038,6 +2039,7 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
         dist = dist_calc((o.latitude, o.longitude, o.depth / 1000.),
                          (sta.latitude, sta.longitude, 0.))
         if dist > 100:
+            print('Too far away: {}'.format(dist))
             continue
         st = read(wav_file)
         # Remove response
@@ -2049,7 +2051,7 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
         st.detrend()
         st.detrend('demean')
         st.taper(0.05)
-        st.filter(type='bandpass', freqmin=2., freqmax=15, corners=3)
+        st.filter(type='bandpass', freqmin=2, freqmax=20, corners=3)
         try:
             pk_P = [pk for pk in ev.picks if pk.waveform_id.location_code
                     in ['B3', 'G2', 'G1'] and pk.phase_hint == 'P'][0]
@@ -2097,26 +2099,30 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
                               endtime=pk_P.time + 15).copy()
         pgc_plot = st_pgc.slice(starttime=pk_P.time - 5,
                                 endtime=pk_P.time + 15).copy()
-        fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(8, 10))
+        if plot_spectra:
+            fig, axes = plt.subplots(nrows=3, figsize=(8, 13))
+        else:
+            fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(8, 10))
         start = g2_plot[0].stats.starttime.datetime
         dt = g2_plot[0].stats.delta
         time_vect = [start + timedelta(seconds=dt * i)
                      for i in range(g2_plot[0].data.shape[0])]
         axes[0].plot(time_vect, g1_plot[0].data,
                      color=cascadia_colors['NSMTC.G1'], alpha=0.6,
-                     linewidth=1.5, label='Geophone (surface)')
+                     linewidth=1.5, label='NV.NSMTC.G1.CHZ')
         axes[0].plot(time_vect, pgc_plot[0].data, color=cascadia_colors['PGC.'],
-                     alpha=0.6, linewidth=1.5, label='Broadband')
+                     alpha=0.6, linewidth=1.5, label='CN.PGC..HHZ')
         axes[1].plot(time_vect, g2_plot[0].data,
                      color=cascadia_colors['NSMTC.G2'],
-                     alpha=0.6, linewidth=1.5, label='Geophone (borehole)')
+                     alpha=0.6, linewidth=1.5, label='NV.NSMTC.G2.CNZ')
         axes[1].plot(time_vect, b3_plot[0].data,
                      color=cascadia_colors['NSMTC.B3'],
-                     alpha=0.6, linewidth=1.5, label='SA-ULN')
+                     alpha=0.6, linewidth=1.5, label='NV.NSMTC.B3.CNZ')
         props = dict(boxstyle='round', facecolor='whitesmoke', alpha=0.5)
         axes[0].annotate(xy=(0.7, 0.9), text='SNR: {:0.2f} dB'.format(pgc_snr),
-                      color=cascadia_colors['PGC.'], xycoords='axes fraction',
-                      fontsize=16, bbox=props)
+                         color=cascadia_colors['PGC.'],
+                         xycoords='axes fraction',
+                         fontsize=16, bbox=props)
         axes[0].annotate(xy=(0.7, 0.8), text='SNR: {:0.2f} dB'.format(g1_snr),
                          color=cascadia_colors['NSMTC.G1'],
                          xycoords='axes fraction', fontsize=16, bbox=props)
@@ -2126,6 +2132,21 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
         axes[1].annotate(xy=(0.7, 0.8), text='SNR: {:0.2f} dB'.format(b3_snr),
                          color=cascadia_colors['NSMTC.B3'],
                          xycoords='axes fraction', fontsize=16, bbox=props)
+        if plot_spectra:
+            axes[2].magnitude_spectrum(g1_plot[0].data,
+                                       color=cascadia_colors['NSMTC.G1'],
+                                       Fs=g1_plot[0].stats.sampling_rate)
+            axes[2].magnitude_spectrum(pgc_plot[0].data, #scale='dB',
+                                       color=cascadia_colors['PGC.'],
+                                       Fs=pgc_plot[0].stats.sampling_rate)
+            axes[2].magnitude_spectrum(g2_plot[0].data, #scale='dB',
+                                       color=cascadia_colors['NSMTC.G2'],
+                                       Fs=g2_plot[0].stats.sampling_rate)
+            axes[2].magnitude_spectrum(b3_plot[0].data, #scale='dB',
+                                       color=cascadia_colors['NSMTC.B3'],
+                                       Fs=b3_plot[0].stats.sampling_rate)
+            # axes[2].set_xscale('log')
+            axes[2].set_xlim([1, 25])
         axes[1].xaxis_date()
         axes[0].legend(loc=2, fontsize=16)
         axes[1].legend(loc=2, fontsize=16)
@@ -2136,7 +2157,7 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
                      fontsize=18)
         fig.autofmt_xdate()
         plt.tight_layout()
-        plt.savefig(dpi=300, fname='{}/{}.png'.format(outdir, eid))
+        plt.savefig(fname='{}/{}.pdf'.format(outdir, eid))
         plt.close()
     return snrs
 
@@ -2798,12 +2819,14 @@ def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
     return
 
 
-def plot_noise_and_sig_bands(axes=None, sig0=10, Q=100, radius=1000,
-                             Vp=3600, Vs=2100):
+def plot_noise_and_sig_bands(axes=None, plot_brune=False, plot_bands=False,
+                             sig0=10, Q=100, radius=1000, Vs=3600, Vr=2100):
     """
     Overview of signal bands, noise levels
 
     :param axes: mpl axes to plot into (optional)
+    :param plot_brune: Bool for plotting eq models
+    :param plot_bands: Plot background bands for various signals
     :param sig0: Stress drop [MPa]
     :param Q: Quality factor
     :param radius: Source-receiver distance [meters]
@@ -2817,53 +2840,56 @@ def plot_noise_and_sig_bands(axes=None, sig0=10, Q=100, radius=1000,
         ax = axes
     hn_periods, hn_psd = get_nhnm()
     ln_periods, ln_psd = get_nlnm()
-    ax.plot(1 / hn_periods, hn_psd, color='gray')
-    ax.plot(1 / ln_periods, ln_psd, color='gray')
-    moments = Mw_to_moment()
-    mag_cols = cycle(sns.color_palette('muted'))
-    Mws = ['-3', '-2', '-1', '0', '1']
-    freq = np.logspace(-2, 4, 1000)
-    for i, mom in enumerate(moments):
-        mcol = next(mag_cols)
-        abercrom_spec = abercrombie_disp(freq, M0=mom, Q=Q, rad=radius,
-                                         sig0=sig0, Vr=Vs, Vs=Vp)
-        pow_spec = disp_spec_to_psd(freq, abercrom_spec)
-        ax.plot(freq, pow_spec, linestyle=':', c=mcol)
-        maxx = freq[np.argmax(pow_spec)]
-        maxy = np.max(pow_spec)
-        ax.text(x=maxx, y=maxy * 0.98, s='$M_W$ {}'.format(Mws[i]),
-                color=mcol, fontsize=11, horizontalalignment='center')
-    if axes:
-        ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red',
-                         alpha=0.1)
-        ax.fill_betweenx(y=[-200, -40], x1=1.25, x2=5., color='purple',
-                         alpha=0.1)
-        ax.fill_betweenx(y=[-200, -40], x1=5., x2=1000., color='green',
-                         alpha=0.1)
-        ax.fill_betweenx(y=[-200, -40], x1=0., x2=0.05, color='lightgray',
-                         alpha=0.1)
-    else:
-        ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red',
-                        alpha=0.1, label='microseism')
-        ax.fill_betweenx(y=[-200, -40], x1=1.25, x2=5., color='purple',
-                        alpha=0.1, label='Tremor')
-        ax.fill_betweenx(y=[-200, -40], x1=5., x2=100000., color='green',
-                        alpha=0.1, label=r'$M_{w} < 1$')
-        ax.fill_betweenx(y=[-200, -40], x1=0., x2=0.05, color='lightgray',
-                         alpha=0.1, label='Quasi-static')
-        ax.set_xscale('log')
-        ax.set_xlim([0.001, 1000])
-        ax.set_ylim([-200, -60])
-        ax.legend()
-        ax.set_xlabel('Frequency [Hz]')
-        ax.set_ylabel('Noise [dB]')
-        plt.show()
+    ax.plot(1 / hn_periods, hn_psd, color='lightgray')
+    ax.plot(1 / ln_periods, ln_psd, color='lightgray')
+    if plot_brune:
+        moments = Mw_to_moment()
+        mag_cols = cycle(sns.color_palette('muted'))
+        Mws = ['-3', '-2', '-1', '0', '1']
+        freq = np.logspace(-2, 4, 1000)
+        for i, mom in enumerate(moments):
+            mcol = next(mag_cols)
+            abercrom_spec = abercrombie_disp(freq, M0=mom, Q=Q, rad=radius,
+                                             sig0=sig0, Vr=Vr, Vs=Vs)
+            pow_spec = disp_spec_to_psd(freq, abercrom_spec)
+            ax.plot(freq, pow_spec, linestyle=':', c=mcol)
+            maxx = freq[np.argmax(pow_spec)]
+            maxy = np.max(pow_spec)
+            ax.text(x=maxx, y=maxy * 0.98, s='$M_W$ {}'.format(Mws[i]),
+                    color=mcol, fontsize=11, horizontalalignment='center')
+    if plot_bands:
+        if axes:
+            ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red',
+                             alpha=0.1)
+            ax.fill_betweenx(y=[-200, -40], x1=1.25, x2=5., color='purple',
+                             alpha=0.1)
+            ax.fill_betweenx(y=[-200, -40], x1=5., x2=1000., color='green',
+                             alpha=0.1)
+            ax.fill_betweenx(y=[-200, -40], x1=0., x2=0.05, color='lightgray',
+                             alpha=0.1)
+        else:
+            ax.fill_betweenx(y=[-200, -40], x1=0.05, x2=1.25, color='red',
+                            alpha=0.1, label='microseism')
+            ax.fill_betweenx(y=[-200, -40], x1=1.25, x2=5., color='purple',
+                            alpha=0.1, label='Tremor')
+            ax.fill_betweenx(y=[-200, -40], x1=5., x2=100000., color='green',
+                            alpha=0.1, label=r'$M_{w} < 1$')
+            ax.fill_betweenx(y=[-200, -40], x1=0., x2=0.05, color='lightgray',
+                             alpha=0.1, label='Quasi-static')
+            ax.set_xscale('log')
+            ax.set_xlim([0.001, 1000])
+            ax.set_ylim([-200, -60])
+            ax.legend()
+            ax.set_xlabel('Frequency [Hz]')
+            ax.set_ylabel('Noise [dB]')
+            plt.show()
     return ax
 
 
 def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
-                               plot_brune=False, distance=2000, Q=50,
-                               stress_drop=30):
+                               plot_brune=False, plot_bands=False,
+                               distance=2000, Q=50, stress_drop=30,
+                               Vs=5000, Vr=3000):
     """
     Plot change in noise spectra for surface and deep geophone
 
@@ -2879,10 +2905,9 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
     """
     ppsds = {s: {} for s in seeds}
     for s in seeds:
-        ppsd = PPSD.load_npz('{}/{}.FEB_MAR.npz'.format(psd_dir, s))
+        ppsd = PPSD.load_npz('{}/{}_combined.npz'.format(psd_dir, s))
         ppsds[s]['ppsd'] = ppsd
-        ppsds[s]['mean'] = ppsd.get_mode()
-        print()
+        ppsds[s]['mean'] = ppsd.get_mean()
     for seed, pds_dict in ppsds.items():
         try:
             pds_dict['diff'] = (pds_dict['mean'][1] -
@@ -2897,24 +2922,8 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
         fig, axes = plt.subplots(nrows=2, figsize=(9, 9), sharex='col')
     else:
         fig, axes = plt.subplots(nrows=2, figsize=(6, 10), sharex='col')
-    plot_noise_and_sig_bands(axes[0])
-    # Get earthquake psds
-    # Now power spectra
-    if plot_brune:
-        moments = Mw_to_moment()
-        mag_cols = cycle(sns.color_palette('muted'))
-        Mws = ['-3', '-2', '-1', '0', '1']
-        freq = np.logspace(-2, 4, 1000)
-        for i, mom in enumerate(moments):
-            mcol = next(mag_cols)
-            abercrom_spec = abercrombie_disp(freq, M0=mom, Q=Q, rad=distance,
-                                             sig0=stress_drop)
-            pow_spec = disp_spec_to_psd(freq, abercrom_spec)
-            axes[0].plot(freq, pow_spec, linestyle=':', c=mcol)
-            maxx = freq[np.argmax(pow_spec)]
-            maxy = np.max(pow_spec)
-            axes[0].text(x=maxx, y=maxy * 0.98, s='$M_W$ {}'.format(Mws[i]),
-                         color=mcol, fontsize=11, horizontalalignment='center')
+    plot_noise_and_sig_bands(axes[0], plot_brune, plot_bands, sig0=stress_drop,
+                             Q=Q, radius=distance, Vs=Vs, Vr=Vr)
     if eq_psd:
         df = pd.read_csv(eq_psd)
         pds = df['periods']
@@ -2948,6 +2957,7 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
     axes[0].set_xscale('log')
     axes[0].set_ylabel('Amplitude [dB]', fontsize=12)
     axes[0].set_facecolor('whitesmoke')
+    print('foo')
     axes[0].margins(0.)
     axes[0].set_ylim([-180, -40])
     axes[1].set_xscale('log')
@@ -2955,7 +2965,7 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
     axes[1].set_ylabel('Noise relative to SA-ULN [dB]', fontsize=12)
     axes[1].set_facecolor('whitesmoke')
     axes[1].margins(0.)
-    axes[1].set_xlim([0.001, 1000])
+    axes[1].set_xlim([0.002, 1000])
     fig.legend()
     plt.show()
     return
@@ -2993,8 +3003,8 @@ def abercrombie_disp(freqs, M0, sig0, Vs, Vr, Q, rad):
     :param freqs: frequencies at which to calculate displacement
     :param M0: Moment for this event N-m
     :param sig0: Stress drop MPa
-    :param Vs: P velocity m/s
-    :param Vr: S velocity m/s [why these terms in Eaton]
+    :param Vs: Velocity at source
+    :param Vr: Velocity at receiver
     :param Q: Quality factor
     :param rad: Source-reciever distance meters
     """
@@ -3014,7 +3024,7 @@ def abercrombie_disp(freqs, M0, sig0, Vs, Vr, Q, rad):
 
 def disp_spec_to_psd(freq, disp_spec):
     """
-    Use Eaton 2012 method for comparing disp spectra with Clinton&Heaton psd
+    Use Ackerley 2012 method for comparing disp spectra with Clinton&Heaton psd
     https://geoconvention.com/wp-content/uploads/abstracts/2012/273_GC2012_Estimating_the_Spectra_of_Small_Events.pdf
     :return:
     """
