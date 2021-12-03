@@ -48,6 +48,7 @@ from eqcorrscan.utils.plotting import _match_filter_plot, detection_multiplot
 from scipy.stats import special_ortho_group, median_absolute_deviation
 from scipy.signal import find_peaks
 from scipy import fftpack
+from scipy.io import savemat
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
@@ -3134,4 +3135,22 @@ def plot_stacked_wavs(events, streams, station, prepick, postpick,
     fig.suptitle(station, fontsize=20, fontweight='bold')
     fig.legend()
     plt.show()
+    return
+
+
+def mseed_to_mat(ms_dir, datestr='202110*'):
+    """
+    Convert a directory of mseed files to matlab structs with a time and
+    data key
+    """
+    mseeds = glob('{}/*C?..{}*.mseed'.format(ms_dir, datestr))
+    mseeds.sort()
+    for mseed in mseeds:
+        tr = read(mseed)[0]
+        mat_name = mseed.replace('mseed', 'mat')
+        mdict = {k: str(v) for k, v in tr.stats.items()}
+        mdict['data'] = tr.data
+        mdict['times'] = tr.times(type='timestamp')
+        print('Saving {}'.format(mat_name))
+        savemat(mat_name, mdict)
     return

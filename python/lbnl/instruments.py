@@ -110,6 +110,7 @@ def plot_resp(resp_dir, min_freq, sampling_rate):
     return
 
 
+def
 def MMF_calibration_to_response(directory, plot=False):
     """
     Take directory of MMF calibration spreadsheets and convert to Obspy
@@ -372,6 +373,97 @@ def fsb_to_inv(path, orientations=False, debug=0):
     inventory = Inventory(networks=[Network(code='FS', stations=stas)],
                           source='FSB')
     return inventory
+
+
+def surf_4100_to_inv(location_file, response_inv, plot=False):
+    """
+    Combine the xyz Homestake locations and MMF calibration responses into
+    an Inventory object for the 4100L
+    """
+    converter = SURF_converter()
+    sta_df = pd.read_csv(location_file)
+    for row in sta_df.iterrows():
+        sta_code = row['Sensor name']
+        # Station location
+        # Convert from SURF coords to lat lon, but keep local for actual use
+        lon, lat, elev = converter.to_lonlat((row['x_ft'] * 0.3048,
+                                              row['y_ft'] * 0.3048,
+                                              row['z_ft'] * 0.3048))
+        # Just leave as zero here and convert HMC feet elevation to m
+        depth = 0.0
+        # Save HMC coords to custom attributes of Station and Channel
+        extra = AttribDict({
+            'hmc_east': {
+                'value': row['x_ft'],
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_north': {
+                'value': row['y_ft'],
+                'namespace': 'smi:local/hmc'
+            },
+            'hmc_elev': {
+                'value': row['z_ft'] * 0.3048,
+                'namespace': 'smi:local/hmc'
+            }
+        })
+        if sta_code.startswith('TS'):
+            # Hydrophone or CASSM, wet well
+            if 'SS' in sta_code:
+                # Cassm (Y for unspecified instrument)
+                chan_code = 'XY1'
+                chans = [Channel(code=chan_code, location_code='', latitude=lat,
+                                 longitude=lon, elevation=elev, depth=depth,
+                                 response=Response())]
+            else:
+                # Hydrophone (D), Downhole (H) per SEED manual
+                chan_code = 'XDH'
+                chans = [Channel(code=chan_code, location_code='', latitude=lat,
+                                 longitude=lon, elevation=elev, depth=depth,
+                                 response=Response())]
+        elif 'S' in sta_code:
+            # Grouted CASSM
+            chan_code = 'XY1'
+            chans = [Channel(code=chan_code, location_code='', latitude=lat,
+                             longitude=lon, elevation=elev, depth=depth,
+                             response=Response())]
+        else:
+            # Grouted accelerometer
+            for chan_code in ['XNX', 'XNY', 'XNZ']:
+                # Set samp_rate to 40 kHz so that Nyquist is below max shake freq
+                chan = Channel(code='XN{}'.format(chan_map[nm]), location_code='',
+                               latitude=lat, longitude=lon, elevation=0., depth=0.,
+                               sample_rate=40000.,
+                               sensor=Equipment(
+                                   type='IEPE Accelerometer',
+                                   description='Piezoelectric accelerometer',
+                                   manufacturer='MMF',
+                                   model='KS943B.100',
+                                   serial_number=serial))
+                values = df[['[Hz]', '[m/s²]', '[°]']].values
+                response_elements = [ResponseListElement(
+                    frequency=values[i][0], amplitude=values[i][1],
+                    phase=values[i][2])
+                    for i in range(values.shape[0])]
+                resp_stage = ResponseListResponseStage(
+                    response_list_elements=response_elements, stage_gain=1,
+                    stage_gain_frequency=80., input_units='M/S**2',
+                    output_units='V',
+                    stage_sequence_number=1
+                )
+                sensitivity = InstrumentSensitivity(
+                    value=float(sens_dict[nm]), frequency=80.,
+                    input_units='M/S**2', output_units='V', frequency_range_start=5,
+                    frequency_range_end=15850,
+                    frequency_range_db_variation=3)
+                response = Response(instrument_sensitivity=sensitivity,
+                                    response_stages=[resp_stage])
+                chan.response = response
+
+        sta = Station(code=sta_code, latitude=chans[0].latitude,
+                      longitude=chans[0].longitude,
+                      elevation=chans[0].elevation,
+                      channels=chans)
+    return
 
 
 def surf_stations_to_inv(excel_file, debug=0):

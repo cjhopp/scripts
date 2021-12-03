@@ -16,6 +16,7 @@ import matplotlib.patches as mpatches
 
 from scipy.io import loadmat, savemat
 from lxml import etree
+from lxml.etree import XMLSyntaxError
 from copy import deepcopy
 from glob import glob
 from obspy import UTCDateTime
@@ -66,19 +67,27 @@ chan_map_injection_fsb = {
     'B1': 98.5, 'B2': 1515.3, 'B3': 888., 'B4': 1062., 'B5': 709., 'B6': 1216.,
     'B7': 1320., 'B8': 428., 'B9': 267., 'B10': 565.}
 
+chan_map_EFSL = {'3359': (76.56, 5358.7), '3339': (99.25, 5193.25)}
+
+channel_mapping = {'fsb': chan_map_injection_fsb, 'efsl': chan_map_EFSL}
+
 ######### Degree of fiber winding #########
 
 fsb_wind = 10  # Degree of "winding" in Corning MMF fiber
 
 surf_wind = 25  # Degree for 4850 fiber package
 
+efsl_wind = 0
+
 ######### DRILLING FAULT DEPTH ############
 # Dict of drilled depths
 # CS-D depths taken from COTDR in SolExp fiber install report (p. 22)
-fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.42, 'D4': 35.99, 'D5': 31.38,
-                'D6': 36.28, 'D7': 29.7, 'B1': 51.0, 'B2': 53.5, 'B3': 84.8,
-                'B4': 80., 'B5': 59., 'B6': 49.5, 'B7': 49.3, 'B8': 61.,
-                'B9': 61., 'B10': 35.5}
+fiber_depths_fsb = {'D1': 21.26, 'D2': 17.1, 'D3': 31.42, 'D4': 35.99,
+                    'D5': 31.38, 'D6': 36.28, 'D7': 29.7, 'B1': 51.0,
+                    'B2': 53.5, 'B3': 84.8, 'B4': 80., 'B5': 59., 'B6': 49.5,
+                    'B7': 49.3, 'B8': 61., 'B9': 61., 'B10': 35.5}
+
+fiber_depth_efsl = {'3359': 5399.617, '3339': 5249.653}
 
 fiber_depths_surf = {'OT': 60., 'OB': 60., 'PDT': 59.7, 'PDB': 59.9,
                      'PST': 41.8, 'PSB': 59.7}
@@ -89,6 +98,14 @@ fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58)
                 'B9': (55.7, 55.7), 'B10': (17.75, 21.7)}
 
 simfip_depths = {'B2': (40.47, 41.47)}
+
+
+def minute_generator(start_date, end_date):
+    # Generator for date looping (every 5 min in this case)
+    from datetime import timedelta
+    for n in range(int(((end_date - start_date).seconds) / 60.) + 1):
+        yield start_date + timedelta(seconds=n * 60)
+
 
 def datenum_to_datetime(datenums):
     # Helper to correctly convert matlab datenum to python datetime
@@ -126,9 +143,12 @@ def read_struct(struct_dir):
     return well_dict
 
 
-def read_XTDTS(path):
+def read_XTDTS(path, no_cols):
     # Read single xml file and return array for all values and time
-    dts = etree.parse(path)
+    try:
+        dts = etree.parse(path)
+    except XMLSyntaxError as e:
+        return None
     # Get root element
     root = dts.getroot()
     # Create one string for all values, comma sep
@@ -137,47 +157,67 @@ def read_XTDTS(path):
          for l in root[0].find('{*}logData').findall('{*}data')]),
         sep=',')
     # 6 columns in original data
-    measurements = measurements.reshape(-1, 6)
+    measurements = measurements.reshape(-1, no_cols)
     # Get time
     dto = UTCDateTime(root[0].find('{*}endDateTimeIndex').text).datetime
     return dto, measurements
 
 
-def read_XTDTS_dir(dir_path, wells, noise_method='madjdabadi'):
+def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
+                   noise_method='madjdabadi'):
     """
     Read all files in a directory to 2D DTS arrays
 
     :param dir_path: Path to root dir
+    :param wells: List of well names
+    :param mapping: String for field location ('fsb' or 'efsl')
+    :param no_cols: Number of columns in XT-DTS data file
+    :param noise method: Method string for noise calculation
+
     :return:
     """
     files = glob('{}/*.xml'.format(dir_path))
     files.sort()
-    results = [read_XTDTS(f) for f in files]
+    results = [read_XTDTS(f, no_cols) for f in files]
+    results = [r for r in results if r]
     times, measures = zip(*results)
     times = np.array(times)
     measures = np.stack(measures, axis=-1)
     # Make same dict as for other sources
-    fiber_data = {'times': times, 'anti-stokes': measures[:, 2, :],
-                  'stokes': measures[:, 1, :], 'data': measures[:, 5, :],
-                  'depth': measures[:, 0, 0]}
+    if mapping == 'fsb':  # For case of FSB 6-column files
+        fiber_data = {'times': times, 'anti-stokes': measures[:, 2, :],
+                      'stokes': measures[:, 1, :], 'data': measures[:, 5, :],
+                      'depth': measures[:, 0, 0]}
+        fiber_depths = fiber_depths_fsb
+        fiber_wind = fsb_wind
+    elif mapping == 'efsl':  # EFSL 4-column file
+        fiber_data = {'times': times, 'anti-stokes': measures[:, 2, :],
+                      'stokes': measures[:, 1, :], 'data': measures[:, 3, :],
+                      'depth': measures[:, 0, 0]}
+        fiber_depths = fiber_depth_efsl
+        fiber_wind = efsl_wind
     well_data = {}
-    chan_map = chan_map_injection_fsb
+    chan_map = channel_mapping[mapping]
     for well in wells:
         if well not in chan_map:
             print('{} not in mapping'.format(well))
             continue
         # For FSB B* wells, this accounts for XX% greater fiber depth than TD
-        fiber_depth = (fiber_depths[well] / np.cos(np.deg2rad(fsb_wind)))
+        fiber_depth = (fiber_depths[well] / np.cos(np.deg2rad(fiber_wind)))
         depth = fiber_data['depth'].copy()
         data = fiber_data['data'].copy()
         times = fiber_data['times'].copy()
-        start_chan = np.abs(depth - (chan_map[well] - fiber_depth))
-        end_chan = np.abs(depth - (chan_map[well] + fiber_depth))
+        if mapping == 'fsb':  # Case of one symmetry point on looped wells
+            start_chan = np.abs(depth - (chan_map[well] - fiber_depth))
+            end_chan = np.abs(depth - (chan_map[well] + fiber_depth))
+        elif mapping == 'efsl':  # Non-looped well
+            start_chan = np.abs(depth - chan_map[well][0])
+            end_chan = np.abs(depth - chan_map[well][1])
         # Find the closest integer channel to meter mapping
         data_tmp = data[np.argmin(start_chan):np.argmin(end_chan), :]
         depth_tmp = depth[np.argmin(start_chan):np.argmin(end_chan)]
         # Account for cable winding
-        depth_tmp *= np.cos(np.deg2rad(fsb_wind))
+        depth_tmp *= np.cos(np.deg2rad(fiber_wind))
         noise = estimate_noise(data_tmp, method=noise_method)
         well_data[well] = {'data': data_tmp, 'depth': depth_tmp,
                            'noise': noise, 'times': times, 'mode': None,
@@ -365,9 +405,16 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
         label = r'$\Delta^O$C'
     elif type == None:
         label = r'$^O$C'
-    # Split the array in two and plot both separately
-    down_data, up_data = np.array_split(data, 2, axis=0)
-    down_d, up_d = np.array_split(depth_vect - depth_vect[0], 2)
+    if well in ['3339', '3359']:
+        # Split the array in two and plot both separately
+        down_data = data
+        up_data = data[::-1, :]
+        down_d = depth_vect
+        up_d = depth_vect
+    else:
+        # Split the array in two and plot both separately
+        down_data, up_data = np.array_split(data, 2, axis=0)
+        down_d, up_d = np.array_split(depth_vect - depth_vect[0], 2)
     if down_d.shape[0] != up_d.shape[0]:
         # prepend last element of down to up if unequal lengths by 1
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
@@ -464,8 +511,13 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
         # Plot reference time (first point)
         reference_vect = data[:, 0]
         ref_time = times[0]
-        # Also reference vector
-        down_ref, up_ref = np.array_split(reference_vect, 2)
+        if well in ['3339', '3359']:
+            # Also reference vector
+            down_ref = reference_vect
+            up_ref = reference_vect[::-1]
+        else:
+            # Also reference vector
+            down_ref, up_ref = np.array_split(reference_vect, 2)
         # Again account for unequal down and up arrays
         if down_ref.shape[0] != up_ref.shape[0]:
             up_ref = np.insert(up_ref, 0, down_ref[-1])
@@ -508,10 +560,16 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
         axes4.set_xlim([vrange[0], vrange[1]])
         axes4.set_ylim([down_d[-1], down_d[0]])
         axes5.set_ylim([up_d[-1] - up_d[0], 0])
-        axes5.yaxis.set_major_locator(ticker.MultipleLocator(5.))
-        axes5.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
-        axes4.yaxis.set_major_locator(ticker.MultipleLocator(5.))
-        axes4.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+        if well in ['3339', '3359']:
+            axes5.yaxis.set_major_locator(ticker.MultipleLocator(500.))
+            axes5.yaxis.set_minor_locator(ticker.MultipleLocator(100.))
+            axes4.yaxis.set_major_locator(ticker.MultipleLocator(500.))
+            axes4.yaxis.set_minor_locator(ticker.MultipleLocator(100.))
+        else:
+            axes5.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+            axes5.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
+            axes4.yaxis.set_major_locator(ticker.MultipleLocator(5.))
+            axes4.yaxis.set_minor_locator(ticker.MultipleLocator(1.))
         axes4.set_title('Downgoing')
         log_ax.set_ylabel('Depth [m]', fontsize=16)
         axes4.set_xlabel(label, fontsize=16)
@@ -579,7 +637,11 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
                 self.figure.axes[2].margins(x=0.)
                 # Plot two traces for downgoing and upgoing trace at user-
                 # picked time
-                down_vect, up_vect = np.array_split(fiber_vect, 2)
+                if well in ['3339', '3359']:
+                    down_vect = fiber_vect
+                    up_vect = fiber_vect[::-1]
+                else:
+                    down_vect, up_vect = np.array_split(fiber_vect, 2)
                 # Adjustment flag for pick plotting on upgoing vector
                 pick_adjust = 0
                 # Again account for unequal down and up arrays
@@ -692,11 +754,110 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
     return plotter.pick_dict
 
 
-def minute_generator(start_date, end_date):
-    # Generator for date looping (every 5 min in this case)
-    from datetime import timedelta
-    for n in range(int(((end_date - start_date).seconds) / 60.) + 1):
-        yield start_date + timedelta(seconds=n * 60)
+def plot_EFSL_QC(well_data, well, depths, baseline, date_range=None,
+                 vrange_T=(0, 110), vrange_dT=(-5, 5)):
+    """
+    Multi-panel QC plot of EFSL DTS data
+
+    :param well_data: Dict output from read_XTDTS_dir
+    :param well: String for which well to plot
+    :param depths: List of depths to plot timeseries for
+    :param baseline: Path to npy binary with baseline T vector
+    :param date_range: Tuple of start and end datetimes to plot
+    :param vrange_T: Tuple of top and bottom temperature for colormap
+    :param vrange_dT: Tuple of top and bottom dT for colormap
+    """
+    # Set up figure
+    fig = plt.figure(constrained_layout=False, figsize=(22, 14))
+    gs = GridSpec(ncols=12, nrows=12, figure=fig)
+    axes_depth = fig.add_subplot(gs[:, :2])
+    axes_T = fig.add_subplot(gs[:5, 2:-1])
+    axes_dT = fig.add_subplot(gs[5:-2, 2:-1], sharex=axes_T)
+    axes_ts = fig.add_subplot(gs[-2:, 2:-1], sharex=axes_T)
+    cax_T = fig.add_subplot(gs[:5, -1])
+    cax_dT = fig.add_subplot(gs[5:-2, -1])
+    # Pull out the datetime vector
+    times = well_data[well]['times']
+    # Grab T data, np.gradient for dT
+    T = well_data[well]['data']
+    # dT = T.copy() - T[:, 0, np.newaxis]
+    dT = np.gradient(T, axis=1)
+    if date_range:
+        indices = np.where((date_range[0] < times) & (times < date_range[1]))
+        times = times[indices]
+        T = np.squeeze(T[:, indices])
+        dT = np.squeeze(dT[:, indices])
+    # Set up depth and time vectors for plotting
+    depth = well_data[well]['depth']
+    # Make depth relative to "wellhead"
+    depth = depth - depth[0]
+    mpl_times = mdates.date2num(times)
+    # Two different colormaps
+    cmap_T = ListedColormap(sns.color_palette('magma', 40).as_hex())
+    cmap_dT = ListedColormap(sns.color_palette('vlag', 40).as_hex())
+    # Latex labels
+    label_T = r'$^O$C'
+    label_dT = r'$\Delta^O$C'
+    # Plot waterfalls
+    im_T = axes_T.imshow(T, cmap=cmap_T, origin='upper',
+                         extent=[mpl_times[0], mpl_times[-1],
+                                 depth[-1], depth[0]],
+                         aspect='auto', vmin=vrange_T[0], vmax=vrange_T[1])
+    im_dT = axes_dT.imshow(np.flip(dT, axis=0), cmap=cmap_dT, origin='lower',
+                           extent=[mpl_times[0], mpl_times[-1],
+                                   depth[-1], depth[0]],
+                           aspect='auto', vmin=vrange_dT[0], vmax=vrange_dT[1])
+    cbar_T = fig.colorbar(im_T, cax=cax_T, orientation='vertical')
+    cbar_T.ax.set_ylabel(label_T, fontsize=16)
+    cbar_dT = fig.colorbar(im_dT, cax=cax_dT, orientation='vertical')
+    cbar_dT.ax.set_ylabel(label_dT, fontsize=16)
+    # Now time snapshots along the well
+    # By default, do baseline, and two equally spaced slices in date_range
+    # Read in baseline
+    baseline = np.load(baseline)
+    axes_depth.plot(baseline, depth, label='Baseline')
+    third = T.shape[1] // 3
+    t1 = T[:,third]
+    t2 = T[:,2 * third]
+    axes_depth.plot(t1, depth, label=times[third], color='darkgray')
+    axes_depth.plot(t2, depth, label=times[2*third], color='darkblue')
+    # Plot times on T waterfall
+    axes_T.axvline(mpl_times[third], linestyle=':', color='darkgray')
+    axes_T.axvline(mpl_times[2 * third], linestyle=':', color='darkblue')
+    # Now do depth timeseries
+    cols = ['firebrick', 'steelblue']
+    for i, d in enumerate(depths):
+        d_ind = np.argmin(np.abs(d - depth))
+        d_ts = T[d_ind, :]
+        axes_ts.plot(mpl_times, d_ts, color=cols[i], label='{} m'.format(d))
+        # Plot depth on waterfall
+        axes_T.axhline(d, linestyle='--', color=cols[i])
+    # Axes formatting
+    axes_depth.invert_yaxis()
+    axes_depth.margins(0.)
+    axes_depth.set_xlim(vrange_T)
+    axes_depth.set_xlabel(label_T)
+    axes_depth.set_ylabel('Measured Depth [m]')
+    axes_depth.legend(loc=2, bbox_to_anchor=(-0.2, 1.08),
+                      framealpha=1.).set_zorder(103)
+    axes_ts.margins(0.)
+    axes_ts.set_ylim(vrange_T)
+    axes_ts.xaxis_date()
+    axes_ts.legend()
+    date_formatter = mdates.DateFormatter('%m-%d %H:%M')
+    axes_ts.xaxis.set_major_formatter(date_formatter)
+    axes_ts.set_ylabel(label_T)
+    plt.setp(axes_ts.xaxis.get_majorticklabels(), rotation=30, ha='right',
+             fontsize=14)
+    plt.setp(axes_T.get_xticklabels(), visible=False)
+    plt.setp(axes_dT.get_xticklabels(), visible=False)
+    axes_T.set_ylabel('MD [m]')
+    axes_dT.set_ylabel('MD [m]')
+    plt.subplots_adjust(wspace=1.)
+    plt.suptitle('ACEFFL DTS: {}\n{} -- {}'.format(well, times[0], times[-1]),
+                 fontsize=18)
+    plt.show()
+    return
 
 
 def martin_plot_fsb(well_data, date_range, autocad_path,
