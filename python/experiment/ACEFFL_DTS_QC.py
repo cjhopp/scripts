@@ -265,14 +265,13 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
         indices_39 = np.where((start <= np.array(times_39)) &
                               (start + timedelta(seconds=plot_length_seconds) >
                                np.array(times_39)))[0]
-        print(indices_39)
         indices_59 = np.where((start <= np.array(times_59)) &
                               (start + timedelta(seconds=plot_length_seconds) >
                                np.array(times_59)))[0]
         well_data_39 = read_XTDTS_dir([files_39[i] for i in list(indices_39)],
-                                      wells='3339', mapping='efsl', no_cols=4)
+                                      wells=['3339'], mapping='efsl', no_cols=4)
         well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
-                                      wells='3339', mapping='efsl', no_cols=4)
+                                      wells=['3359'], mapping='efsl', no_cols=4)
         plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
                      baseline=baseline_39, outpath=outpath)
         plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
@@ -360,9 +359,9 @@ while True:
                           (np.array(times_59) < endtime_59))[0]
     # Read them in
     well_data_39 = read_XTDTS_dir([all_files_3339[i] for i in list(indices_39)],
-                                  wells='3339', mapping='efsl', no_cols=4)
+                                  wells=['3339'], mapping='efsl', no_cols=4)
     well_data_59 = read_XTDTS_dir([all_files_3359[i] for i in list(indices_59)],
-                                  wells='3339', mapping='efsl', no_cols=4)
+                                  wells=['3359'], mapping='efsl', no_cols=4)
     # Plot them
     plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
                  baseline=baseline_39, outpath=outpath)
