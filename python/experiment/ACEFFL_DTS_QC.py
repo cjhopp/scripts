@@ -234,6 +234,7 @@ def plot_EFSL_QC(well_data, well, depths, baseline, outpath,
     outfile = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(well, times[0], times[-1])
     print('Writing {}'.format(outfile))
     full_path = outpath.append(outfile)
+    print(full_path)
     plt.savefig(os.path.join(full_path))
     return
 
