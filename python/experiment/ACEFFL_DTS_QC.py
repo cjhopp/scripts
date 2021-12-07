@@ -265,6 +265,7 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
         indices_39 = np.where((start <= np.array(times_39)) &
                               (start + timedelta(seconds=plot_length_seconds) >
                                np.array(times_39)))
+        print(indices_39)
         indices_59 = np.where((start <= np.array(times_59)) &
                               (start + timedelta(seconds=plot_length_seconds) >
                                np.array(times_59)))
