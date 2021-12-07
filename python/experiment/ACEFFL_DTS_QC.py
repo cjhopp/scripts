@@ -261,7 +261,8 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
     tstrings_59 = [''.join(str(f).split('_')[-2:])[:-8] for f in files_59]
     times_39 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_39]
     times_59 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_59]
-    print(times_39[-1], times_59[-1])
+    print('Producing plots for back-recorded data:\n{} to {}'.format(
+        times_39[0], times_39[-1]))
     # Now loop over the number of intervals for this file list
     used_39 = set()
     used_59 = set()
@@ -351,7 +352,7 @@ while True:
     endtime_59 = ''.join(str(sorted(new_files_59)[-1]).split('_')[-2:])[:-8]
     endtime_59 = datetime.strptime(endtime_59, '%Y%m%d%H%M%S')
     starttime_59 = endtime_59 - timedelta(seconds=plot_length_seconds)
-
+    print('Producing plot for {} to {}'.format(starttime_39, endtime_39))
     # Get the appropriate files
     all_files_3339 = sorted(all_files_3339)
     all_files_3359 = sorted(all_files_3359)
