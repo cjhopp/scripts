@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from lxml import etree
+from glob import glob
 from obspy import UTCDateTime
 from lxml.etree import XMLSyntaxError
 from datetime import datetime, timedelta
@@ -260,8 +261,8 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
     # Sort files by date (filename)
     files_39 = sorted(files_39)
     files_59 = sorted(files_59)
-    tstrings_39 = [''.join(str(f).split('_')[-2:])[:-8] for f in files_39]
-    tstrings_59 = [''.join(str(f).split('_')[-2:])[:-8] for f in files_59]
+    tstrings_39 = [''.join(f.split('_')[-2:])[:-8] for f in files_39]
+    tstrings_59 = [''.join(f.split('_')[-2:])[:-8] for f in files_59]
     times_39 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_39]
     times_59 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_59]
     print('Producing plots for back-recorded data:\n{} to {}'.format(
@@ -301,16 +302,13 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
         # Update which files have been used
         used_39.update(set([files_39[i] for i in list(indices_39)]))
         used_59.update(set([files_59[i] for i in list(indices_59)]))
-        print(used_39)
     return used_39, used_59
 
 
 ### Stolen from DUG-seis live processing script
 
-f_3339 = pathlib.Path(
-    r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 4').absolute()
-f_3359 = pathlib.Path(
-    r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 1').absolute()
+f_3339 = glob(r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 4\*.xml')
+f_3359 = glob(r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 1\*.xml')
 
 outpath = 'Z:\91_QC\DTS'
 
@@ -324,10 +322,8 @@ plot_length_seconds = 7200  # Length of each plot in seconds
 # Monitor directory for files and wait until there are some
 while True:
     try:  # Wait till arbitrary number of files in directory
-        first_files_3339 = list(f_3339.glob('*.xml'))
-        first_files_3359 = list(f_3359.glob('*.xml'))
-        test39 = first_files_3339[150]
-        test59 = first_files_3359[150]
+        test39 = f_3339[150]
+        test59 = f_3359[150]
     except IndexError as err:
         print("Not enough data yet - trying again in {} seconds".format(
             ping_interval_in_seconds))
@@ -337,7 +333,7 @@ while True:
 
 
 used_39, used_59 = launch_processing(
-    files_39=first_files_3339, files_59=first_files_3359,
+    files_39=f_3339, files_59=f_3359,
     baseline_39=baseline_39, baseline_59=baseline_59,
     ping_interval=ping_interval_in_seconds,
     plot_length_seconds=plot_length_seconds,
@@ -351,8 +347,8 @@ time.sleep(ping_interval_in_seconds)
 while True:
     all_files_3339 = set()
     all_files_3359 = set()
-    all_files_3339 = all_files_3339.union(f_3339.glob("*.xml"))
-    all_files_3359 = all_files_3359.union(f_3359.glob("*.xml"))
+    all_files_3339 = all_files_3339.union(set(f_3339))
+    all_files_3359 = all_files_3359.union(set(f_3359))
 
     new_files_39 = all_files_3339.difference(used_39)
     new_files_59 = all_files_3359.difference(used_59)
@@ -373,8 +369,8 @@ while True:
     # Get the appropriate files
     all_files_3339 = sorted(all_files_3339)
     all_files_3359 = sorted(all_files_3359)
-    tstrings_39 = [''.join(str(f).split('_')[-2:])[:-8] for f in all_files_3339]
-    tstrings_59 = [''.join(str(f).split('_')[-2:])[:-8] for f in all_files_3359]
+    tstrings_39 = [''.join(f.split('_')[-2:])[:-8] for f in all_files_3339]
+    tstrings_59 = [''.join(f.split('_')[-2:])[:-8] for f in all_files_3359]
     times_39 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_39]
     times_59 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_59]
     indices_39 = np.where((starttime_39 <= np.array(times_39)) &
