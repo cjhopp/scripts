@@ -306,7 +306,7 @@ plot_length_seconds = 7200  # Length of each plot in seconds
 while True:
     try:  # Wait till arbitrary number of files in directory
         first_files_3339 = list(f_3339.glob('*.xml'))
-        first_files_3359 = list(f_3339.glob('*.xml'))
+        first_files_3359 = list(f_3359.glob('*.xml'))
         test39 = first_files_3359[150]
         test59 = first_files_3359[150]
     except IndexError as err:
