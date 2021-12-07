@@ -261,6 +261,7 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
     tstrings_59 = [''.join(str(f).split('_')[-2:])[:-8] for f in files_59]
     times_39 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_39]
     times_59 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_59]
+    print(times_39[-1], times_59[-1])
     # Now loop over the number of intervals for this file list
     used_39 = set()
     used_59 = set()
@@ -282,7 +283,7 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
                      baseline=baseline_59, outpath=outpath)
         # Update which files have been used
         used_39.update(set([files_39[i] for i in list(indices_39)]))
-        used_59.update(set([files_39[i] for i in list(indices_59)]))
+        used_59.update(set([files_59[i] for i in list(indices_59)]))
     return used_39, used_59
 
 
@@ -307,7 +308,7 @@ while True:
     try:  # Wait till arbitrary number of files in directory
         first_files_3339 = list(f_3339.glob('*.xml'))
         first_files_3359 = list(f_3359.glob('*.xml'))
-        test39 = first_files_3359[150]
+        test39 = first_files_3339[150]
         test59 = first_files_3359[150]
     except IndexError as err:
         print("Not enough data yet - trying again in {} seconds".format(
@@ -325,6 +326,7 @@ used_39, used_59 = launch_processing(
     outpath=outpath)
 
 # Wait
+print('Done with back-recorded data')
 time.sleep(ping_interval_in_seconds)
 
 # Monitor the folders and launch the processing again.
@@ -358,7 +360,7 @@ while True:
     times_39 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_39]
     times_59 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_59]
     indices_39 = np.where((starttime_39 <= np.array(times_39)) &
-                          (np.array(times_59) < endtime_39))[0]
+                          (np.array(times_39) < endtime_39))[0]
     indices_59 = np.where((starttime_59 <= np.array(times_59)) &
                           (np.array(times_59) < endtime_59))[0]
     # Read them in
