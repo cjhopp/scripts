@@ -155,8 +155,8 @@ def plot_EFSL_QC(well_data, well, depths, baseline, outpath,
     times = well_data[well]['times']
     # Grab T data, np.gradient for dT
     T = well_data[well]['data']
-    dT = T.copy() - T[:, 0, np.newaxis]
-    # dT = np.gradient(T, axis=1)
+    # dT = T.copy() - T[:, 0, np.newaxis]
+    dT = np.gradient(T, axis=1)
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
