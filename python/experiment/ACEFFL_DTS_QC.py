@@ -280,15 +280,15 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
                                np.array(times_59)))[0]
         these_times_39 = [times_39[i] for i in list(indices_39)]
         these_times_59 = [times_39[i] for i in list(indices_59)]
-        out_39 = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(
-            '3339', these_times_39[0].strftime('%Y-%m-%dT%H-%M'),
+        out_39 = '{}\ACEFFL_DTS_QC_{}_{}_{}.png'.format(
+            outpath, '3339', these_times_39[0].strftime('%Y-%m-%dT%H-%M'),
             these_times_39[-1].strftime('%Y-%m-%dT%H-%M'))
-        out_59 = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(
-            '3359', these_times_59[0].strftime('%Y-%m-%dT%H-%M'),
+        out_59 = '{}\ACEFFL_DTS_QC_{}_{}_{}.png'.format(
+            outpath, '3359', these_times_59[0].strftime('%Y-%m-%dT%H-%M'),
             these_times_59[-1].strftime('%Y-%m-%dT%H-%M'))
+        print(out_59, out_39)
         # If plots exist, skip this
-        if not (os.path.isfile('{}\{}'.format(outpath, out_39))
-                and os.path.isfile('{}\{}'.format(outpath, out_59))):
+        if not (os.path.isfile(out_39) and os.path.isfile(out_59)):
             well_data_39 = read_XTDTS_dir([files_39[i] for i in list(indices_39)],
                                           wells=['3339'], mapping='efsl', no_cols=4)
             well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
