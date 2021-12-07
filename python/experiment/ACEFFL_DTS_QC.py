@@ -268,17 +268,17 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
         indices_59 = np.where((start <= np.array(times_59)) &
                               (start + timedelta(seconds=plot_length_seconds) >
                                np.array(times_59)))
-        well_data_39 = read_XTDTS_dir([files_39[i] for i in indices_39],
+        well_data_39 = read_XTDTS_dir([files_39[i] for i in list(indices_39)],
                                       wells='3339', mapping='efsl', no_cols=4)
-        well_data_59 = read_XTDTS_dir([files_59[i] for i in indices_59],
+        well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
                                       wells='3339', mapping='efsl', no_cols=4)
         plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
                      baseline=baseline_39, outpath=outpath)
         plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
                      baseline=baseline_59, outpath=outpath)
         # Update which files have been used
-        used_39.update(set([files_39[i] for i in indices_39]))
-        used_59.update(set([files_39[i] for i in indices_59]))
+        used_39.update(set([files_39[i] for i in list(indices_39)]))
+        used_59.update(set([files_39[i] for i in list(indices_59)]))
     return used_39, used_59
 
 
@@ -358,9 +358,9 @@ while True:
     indices_59 = np.where((starttime_59 <= np.array(times_59)) &
                           (np.array(times_59) < endtime_59))
     # Read them in
-    well_data_39 = read_XTDTS_dir([all_files_3339[i] for i in indices_39],
+    well_data_39 = read_XTDTS_dir([all_files_3339[i] for i in list(indices_39)],
                                   wells='3339', mapping='efsl', no_cols=4)
-    well_data_59 = read_XTDTS_dir([all_files_3359[i] for i in indices_59],
+    well_data_59 = read_XTDTS_dir([all_files_3359[i] for i in list(indices_59)],
                                   wells='3339', mapping='efsl', no_cols=4)
     # Plot them
     plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
@@ -368,5 +368,5 @@ while True:
     plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
                  baseline=baseline_59, outpath=outpath)
     # Update which files have been used
-    used_39.update(set([all_files_3339[i] for i in indices_39]))
-    used_59.update(set([all_files_3359[i] for i in indices_59]))
+    used_39.update(set([all_files_3339[i] for i in list(indices_39)]))
+    used_59.update(set([all_files_3359[i] for i in list(indices_59)]))
