@@ -131,7 +131,7 @@ def read_XTDTS_dir(files, wells, mapping, no_cols,
     return well_data
 
 
-def plot_EFSL_QC(well_data, well, depths, baseline, outpath,
+def plot_EFSL_QC(well_data, well, depths, baseline, outfile,
                  date_range=None, vrange_T=(0, 110), vrange_dT=(-5, 5)):
     """
     Multi-panel QC plot of EFSL DTS data
@@ -140,7 +140,7 @@ def plot_EFSL_QC(well_data, well, depths, baseline, outpath,
     :param well: String for which well to plot
     :param depths: List of depths to plot timeseries for
     :param baseline: Path to npy binary with baseline T vector
-    :param outpath: Path to directory for plots
+    :param outfile: Absolute path to output plot
     :param date_range: Tuple of start and end datetimes to plot
     :param vrange_T: Tuple of top and bottom temperature for colormap
     :param vrange_dT: Tuple of top and bottom dT for colormap
@@ -234,13 +234,7 @@ def plot_EFSL_QC(well_data, well, depths, baseline, outpath,
     plt.subplots_adjust(wspace=1.)
     plt.suptitle('ACEFFL DTS: {}\n{} -- {}'.format(well, times[0], times[-1]),
                  fontsize=18)
-    # No colons in Windows paths....but spaces allowed...
-    outfile = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(
-        well, times[0].strftime('%Y-%m-%dT%H-%M'),
-        times[-1].strftime('%Y-%m-%dT%H-%M'))
-    full_path = '{}\{}'.format(outpath, outfile)
-    print('Writing {}'.format(full_path))
-    plt.savefig(full_path)
+    plt.savefig(outfile)
     plt.close('all')
     return
 
@@ -286,7 +280,6 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
         out_59 = '{}\ACEFFL_DTS_QC_{}_{}_{}.png'.format(
             outpath, '3359', these_times_59[0].strftime('%Y-%m-%dT%H-%M'),
             these_times_59[-1].strftime('%Y-%m-%dT%H-%M'))
-        print(out_59, out_39)
         # If plots exist, skip this
         if not (os.path.isfile(out_39) and os.path.isfile(out_59)):
             well_data_39 = read_XTDTS_dir([files_39[i] for i in list(indices_39)],
@@ -294,9 +287,9 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
             well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
                                           wells=['3359'], mapping='efsl', no_cols=4)
             plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
-                         baseline=baseline_39, outpath=outpath)
+                         baseline=baseline_39, outfile=out_39)
             plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
-                         baseline=baseline_59, outpath=outpath)
+                         baseline=baseline_59, outpath=out_59)
         else:
             print('{}\n{}\nAlready plotted'.format(out_39, out_59))
         # Update which files have been used
@@ -383,10 +376,18 @@ while True:
     well_data_59 = read_XTDTS_dir([all_files_3359[i] for i in list(indices_59)],
                                   wells=['3359'], mapping='efsl', no_cols=4)
     # Plot them
+    these_times_39 = [times_39[i] for i in list(indices_39)]
+    these_times_59 = [times_39[i] for i in list(indices_59)]
+    out_39 = '{}\ACEFFL_DTS_QC_{}_{}_{}.png'.format(
+        outpath, '3339', these_times_39[0].strftime('%Y-%m-%dT%H-%M'),
+        these_times_39[-1].strftime('%Y-%m-%dT%H-%M'))
+    out_59 = '{}\ACEFFL_DTS_QC_{}_{}_{}.png'.format(
+        outpath, '3359', these_times_59[0].strftime('%Y-%m-%dT%H-%M'),
+        these_times_59[-1].strftime('%Y-%m-%dT%H-%M'))
     plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
-                 baseline=baseline_39, outpath=outpath)
+                 baseline=baseline_39, outfile=out_39)
     plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
-                 baseline=baseline_59, outpath=outpath)
+                 baseline=baseline_59, outfile=out_59)
     # Update which files have been used
     used_39.update(set([all_files_3339[i] for i in list(indices_39)]))
     used_59.update(set([all_files_3359[i] for i in list(indices_59)]))
