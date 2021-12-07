@@ -232,6 +232,7 @@ def plot_EFSL_QC(well_data, well, depths, baseline, date_range=None,
     plt.suptitle('ACEFFL DTS: {}\n{} -- {}'.format(well, times[0], times[-1]),
                  fontsize=18)
     outfile = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(well, times[0], times[-1])
+    print('Writing {}'.format(outfile))
     plt.savefig(os.path.join(outpath, outfile))
     return
 
