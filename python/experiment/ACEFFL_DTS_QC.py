@@ -286,8 +286,10 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
                                           wells=['3339'], mapping='efsl', no_cols=4)
             well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
                                           wells=['3359'], mapping='efsl', no_cols=4)
+            print('Plotting {}'.format(out_39))
             plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
                          baseline=baseline_39, outfile=out_39)
+            print('Plotting {}'.format(out_59))
             plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
                          baseline=baseline_59, outfile=out_59)
         else:
