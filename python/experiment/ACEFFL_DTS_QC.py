@@ -231,7 +231,10 @@ def plot_EFSL_QC(well_data, well, depths, baseline, outpath,
     plt.subplots_adjust(wspace=1.)
     plt.suptitle('ACEFFL DTS: {}\n{} -- {}'.format(well, times[0], times[-1]),
                  fontsize=18)
-    outfile = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(well, times[0], times[-1])
+    # No colons in Windows paths....but spaces allowed...
+    outfile = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(
+        well, times[0].strftime('%Y-%m-%dT%H-%M'),
+        times[-1].strftime('%Y-%m-%dT%H-%M'))
     full_path = '{}\{}'.format(outpath, outfile)
     print('Writing {}'.format(full_path))
     plt.savefig(full_path)
