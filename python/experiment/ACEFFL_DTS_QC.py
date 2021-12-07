@@ -261,10 +261,12 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
     used_59 = set()
     for start in starttime_generator(times_39[0], times_39[1], ping_interval):
         # Get the file indices for this plot
-        indices_39 = np.where(start <= np.array(times_39) <
-                              start + timedelta(seconds=plot_length_seconds))
-        indices_59 = np.where(start <= np.array(times_59) <
-                              start + timedelta(seconds=plot_length_seconds))
+        indices_39 = np.where((start <= np.array(times_39)) &
+                              (start + timedelta(seconds=plot_length_seconds) >
+                               np.array(times_39)))
+        indices_59 = np.where((start <= np.array(times_59)) &
+                              (start + timedelta(seconds=plot_length_seconds) >
+                               np.array(times_59)))
         well_data_39 = read_XTDTS_dir(files_39[indices_39], wells='3339',
                                       mapping='efsl', no_cols=4)
         well_data_59 = read_XTDTS_dir(files_59[indices_59], wells='3339',
@@ -286,10 +288,10 @@ f_3339 = pathlib.Path(
 f_3359 = pathlib.Path(
     r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 1').absolute()
 
-outpath = ''
+outpath = r'Z:\91_QC\DTS'
 
-baseline_39 = ''
-baseline_59 = ''
+baseline_39 = r'Z:\91_QC\DTS\3339_baseline.npy'
+baseline_59 = r'Z:\91_QC\DTS\3359_baseline.npy'
 
 ping_interval_in_seconds = 600  # How often to attempt to generate a plot
 
@@ -350,8 +352,10 @@ while True:
     tstrings_59 = [''.join(str(f).split('_')[-2:])[:-8] for f in all_files_3359]
     times_39 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_39]
     times_59 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_59]
-    indices_39 = np.where(starttime_39 <= np.array(times_39) < endtime_39)
-    indices_59 = np.where(starttime_59 <= np.array(times_59) < endtime_59)
+    indices_39 = np.where((starttime_39 <= np.array(times_39)) &
+                          (np.array(times_59) < endtime_39))
+    indices_59 = np.where((starttime_59 <= np.array(times_59)) &
+                          (np.array(times_59) < endtime_59))
     # Read them in
     well_data_39 = read_XTDTS_dir(all_files_3339[indices_39], wells='3339',
                                   mapping='efsl', no_cols=4)
