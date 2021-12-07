@@ -31,7 +31,7 @@ fiber_depth_efsl = {'3359': 5399.617, '3339': 5249.653}
 
 
 def starttime_generator(start_date, end_date, stride):
-    # Generator for date looping (every 5 min in this case)
+    # Generator for date looping
     from datetime import timedelta
     for n in range(int(((end_date - start_date).seconds) / stride) + 1):
         yield start_date + timedelta(seconds=n * stride)
@@ -264,7 +264,7 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
     # Now loop over the number of intervals for this file list
     used_39 = set()
     used_59 = set()
-    for start in starttime_generator(times_39[0], times_39[1], ping_interval):
+    for start in starttime_generator(times_39[0], times_39[-1], ping_interval):
         # Get the file indices for this plot
         indices_39 = np.where((start <= np.array(times_39)) &
                               (start + timedelta(seconds=plot_length_seconds) >
