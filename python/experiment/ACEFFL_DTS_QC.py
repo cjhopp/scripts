@@ -33,7 +33,9 @@ fiber_depth_efsl = {'3359': 5399.617, '3339': 5249.653}
 def starttime_generator(start_date, end_date, stride):
     # Generator for date looping
     from datetime import timedelta
-    for n in range(int(((end_date - start_date).seconds) / stride) + 1):
+    total_sec = (end_date - start_date).seconds + ((end_date -
+                                                    start_date).days * 86400)
+    for n in range(int(total_sec / stride) + 1):
         yield start_date + timedelta(seconds=n * stride)
 
 
@@ -275,17 +277,31 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
         indices_59 = np.where((start <= np.array(times_59)) &
                               (start + timedelta(seconds=plot_length_seconds) >
                                np.array(times_59)))[0]
-        well_data_39 = read_XTDTS_dir([files_39[i] for i in list(indices_39)],
-                                      wells=['3339'], mapping='efsl', no_cols=4)
-        well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
-                                      wells=['3359'], mapping='efsl', no_cols=4)
-        plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
-                     baseline=baseline_39, outpath=outpath)
-        plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
-                     baseline=baseline_59, outpath=outpath)
+        these_times_39 = [times_39[i] for i in list(indices_39)]
+        these_times_59 = [times_39[i] for i in list(indices_59)]
+        out_39 = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(
+            '3339', these_times_39[0].strftime('%Y-%m-%dT%H-%M'),
+            these_times_39[-1].strftime('%Y-%m-%dT%H-%M'))
+        out_59 = 'ACEFFL_DTS_QC_{}_{}_{}.png'.format(
+            '3359', these_times_59[0].strftime('%Y-%m-%dT%H-%M'),
+            these_times_59[-1].strftime('%Y-%m-%dT%H-%M'))
+        # If plots exist, skip this
+        if not (os.path.isfile('{}\{}'.format(outpath, out_39))
+                and os.path.isfile('{}\{}'.format(outpath, out_59))):
+            well_data_39 = read_XTDTS_dir([files_39[i] for i in list(indices_39)],
+                                          wells=['3339'], mapping='efsl', no_cols=4)
+            well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
+                                          wells=['3359'], mapping='efsl', no_cols=4)
+            plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
+                         baseline=baseline_39, outpath=outpath)
+            plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
+                         baseline=baseline_59, outpath=outpath)
+        else:
+            print('{}\n{}\nAlready plotted'.format(out_39, out_59))
         # Update which files have been used
         used_39.update(set([files_39[i] for i in list(indices_39)]))
         used_59.update(set([files_59[i] for i in list(indices_59)]))
+        print(used_39)
     return used_39, used_59
 
 
