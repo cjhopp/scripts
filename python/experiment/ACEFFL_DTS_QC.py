@@ -289,7 +289,7 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
             plot_EFSL_QC(well_data_39, well='3339', depths=[2000, 5080],
                          baseline=baseline_39, outfile=out_39)
             plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
-                         baseline=baseline_59, outpath=out_59)
+                         baseline=baseline_59, outfile=out_59)
         else:
             print('{}\n{}\nAlready plotted'.format(out_39, out_59))
         # Update which files have been used
