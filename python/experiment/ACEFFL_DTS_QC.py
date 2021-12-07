@@ -238,6 +238,7 @@ def plot_EFSL_QC(well_data, well, depths, baseline, outpath,
     full_path = '{}\{}'.format(outpath, outfile)
     print('Writing {}'.format(full_path))
     plt.savefig(full_path)
+    plt.close('all')
     return
 
 
