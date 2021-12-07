@@ -290,7 +290,7 @@ f_3339 = pathlib.Path(
 f_3359 = pathlib.Path(
     r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 1').absolute()
 
-outpath = ['Z:', '91_QC', '\DTS']
+outpath = 'Z:\91_QC\DTS'
 
 baseline_39 = r'Z:\91_QC\DTS\3339_baseline.npy'
 baseline_59 = r'Z:\91_QC\DTS\3359_baseline.npy'
