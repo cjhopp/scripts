@@ -264,11 +264,11 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
         # Get the file indices for this plot
         indices_39 = np.where((start <= np.array(times_39)) &
                               (start + timedelta(seconds=plot_length_seconds) >
-                               np.array(times_39)))
+                               np.array(times_39)))[0]
         print(indices_39)
         indices_59 = np.where((start <= np.array(times_59)) &
                               (start + timedelta(seconds=plot_length_seconds) >
-                               np.array(times_59)))
+                               np.array(times_59)))[0]
         well_data_39 = read_XTDTS_dir([files_39[i] for i in list(indices_39)],
                                       wells='3339', mapping='efsl', no_cols=4)
         well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
@@ -355,9 +355,9 @@ while True:
     times_39 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_39]
     times_59 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_59]
     indices_39 = np.where((starttime_39 <= np.array(times_39)) &
-                          (np.array(times_59) < endtime_39))
+                          (np.array(times_59) < endtime_39))[0]
     indices_59 = np.where((starttime_59 <= np.array(times_59)) &
-                          (np.array(times_59) < endtime_59))
+                          (np.array(times_59) < endtime_59))[0]
     # Read them in
     well_data_39 = read_XTDTS_dir([all_files_3339[i] for i in list(indices_39)],
                                   wells='3339', mapping='efsl', no_cols=4)
