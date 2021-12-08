@@ -6,7 +6,7 @@ Monitor the DTS xml directories and plot QC plots periodically
 
 import os
 import time
-import pathlib
+import matplotlib
 
 import numpy as np
 import seaborn as sns
@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 from matplotlib.gridspec import GridSpec
 from matplotlib.colors import ListedColormap
 
+# Avoid potential memory leaks
+matplotlib.use('agg')
 
 chan_map_EFSL = {'3359': (76.56, 5358.7), '3339': (99.25, 5193.25)}
 
