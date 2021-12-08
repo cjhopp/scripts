@@ -262,8 +262,6 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
     print('Producing plots for back-recorded data:\n{} to {}'.format(
         times_39[0], times_39[-1]))
     # Now loop over the number of intervals for this file list
-    used_39 = set()
-    used_59 = set()
     for start in starttime_generator(times_39[0], times_39[-1], ping_interval):
         # Get the file indices for this plot
         indices_39 = np.where((start <= np.array(times_39)) &
@@ -294,16 +292,16 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
                          baseline=baseline_59, outfile=out_59)
         else:
             print('{}\n{}\nAlready plotted'.format(out_39, out_59))
-        # Update which files have been used
-        used_39.update(set([files_39[i] for i in list(indices_39)]))
-        used_59.update(set([files_59[i] for i in list(indices_59)]))
-    return used_39, used_59
+    return
 
 
 ### Stolen from DUG-seis live processing script
 
-f_3339 = glob(r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 4\*.xml')
-f_3359 = glob(r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 1\*.xml')
+path_39 = r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 4\*.xml'
+path_59 = r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 1\*.xml'
+
+f_3339 = glob(path_39)
+f_3359 = glob(path_59)
 
 outpath = 'Z:\91_QC\DTS'
 
@@ -327,7 +325,7 @@ while True:
     break
 
 
-used_39, used_59 = launch_processing(
+launch_processing(
     files_39=f_3339, files_59=f_3359,
     baseline_39=baseline_39, baseline_59=baseline_59,
     ping_interval=ping_interval_in_seconds,
@@ -340,30 +338,25 @@ time.sleep(ping_interval_in_seconds)
 
 # Monitor the folders and launch the processing again.
 while True:
-    all_files_3339 = set()
-    all_files_3359 = set()
-    all_files_3339 = all_files_3339.union(set(f_3339))
-    all_files_3359 = all_files_3359.union(set(f_3359))
 
-    new_files_39 = all_files_3339.difference(used_39)
-    new_files_59 = all_files_3359.difference(used_59)
+    all_files_39 = glob(path_39)
+    all_files_59 = glob(path_59)
 
-    if not (new_files_39 and new_files_59):
-        print("No new files yet - trying again in {} seconds".format(
-            ping_interval_in_seconds))
+    if all_files_39 == f_3339:
+        print('No new files written. Waiting')
         time.sleep(ping_interval_in_seconds)
         continue
     # Determine endtime and backcalculate start
-    endtime_39 = ''.join(str(sorted(new_files_39)[-1]).split('_')[-2:])[:-8]
+    endtime_39 = ''.join(str(sorted(all_files_39)[-1]).split('_')[-2:])[:-8]
     endtime_39 = datetime.strptime(endtime_39, '%Y%m%d%H%M%S')
     starttime_39 = endtime_39 - timedelta(seconds=plot_length_seconds)
-    endtime_59 = ''.join(str(sorted(new_files_59)[-1]).split('_')[-2:])[:-8]
+    endtime_59 = ''.join(str(sorted(all_files_59)[-1]).split('_')[-2:])[:-8]
     endtime_59 = datetime.strptime(endtime_59, '%Y%m%d%H%M%S')
     starttime_59 = endtime_59 - timedelta(seconds=plot_length_seconds)
     print('Producing plot for {} to {}'.format(starttime_39, endtime_39))
     # Get the appropriate files
-    all_files_3339 = sorted(all_files_3339)
-    all_files_3359 = sorted(all_files_3359)
+    all_files_3339 = sorted(all_files_39)
+    all_files_3359 = sorted(all_files_59)
     tstrings_39 = [''.join(f.split('_')[-2:])[:-8] for f in all_files_3339]
     tstrings_59 = [''.join(f.split('_')[-2:])[:-8] for f in all_files_3359]
     times_39 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_39]
@@ -390,6 +383,3 @@ while True:
                  baseline=baseline_39, outfile=out_39)
     plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
                  baseline=baseline_59, outfile=out_59)
-    # Update which files have been used
-    used_39.update(set([all_files_3339[i] for i in list(indices_39)]))
-    used_59.update(set([all_files_3359[i] for i in list(indices_59)]))
