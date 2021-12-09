@@ -164,7 +164,7 @@ def read_XTDTS(path, no_cols):
 
 
 def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
-                   noise_method='madjdabadi'):
+                   noise_method='madjdabadi', dates=None):
     """
     Read all files in a directory to 2D DTS arrays
 
@@ -173,11 +173,20 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
     :param mapping: String for field location ('fsb' or 'efsl')
     :param no_cols: Number of columns in XT-DTS data file
     :param noise method: Method string for noise calculation
+    :param dates: Start and end datetimes to read in
 
     :return:
     """
     files = glob('{}/*.xml'.format(dir_path))
     files.sort()
+    if dates:
+        tstrings = [''.join(f.split('_')[-2:])[:-8] for f in files]
+        times = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings]
+        # Now loop over the number of intervals for this file list
+        # Get the file indices for this plot
+        indices = np.where((dates[0] <= np.array(times)) &
+                           (dates[1] > np.array(times)))[0]
+        files = [files[i] for i in indices]
     results = [read_XTDTS(f, no_cols) for f in files]
     results = [r for r in results if r]
     times, measures = zip(*results)

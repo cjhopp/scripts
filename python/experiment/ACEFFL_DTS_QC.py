@@ -22,6 +22,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.colors import ListedColormap
 
 # Avoid potential memory leaks
+# See: https://github.com/matplotlib/matplotlib/issues/20490
 matplotlib.use('agg')
 
 chan_map_EFSL = {'3359': (76.56, 5358.7), '3339': (99.25, 5193.25)}
@@ -385,3 +386,4 @@ while True:
                  baseline=baseline_39, outfile=out_39)
     plot_EFSL_QC(well_data_59, well='3359', depths=[2000, 5080],
                  baseline=baseline_59, outfile=out_59)
+    time.sleep(ping_interval_in_seconds)
