@@ -2009,7 +2009,7 @@ def plot_well_timeslices(well_data, wells, ref_date, date, remove_ref=True,
 
 
 def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
-             inset_channels=True, simfip=False, pick_mode='auto', thresh=1.,
+             inset_channels=True, simfip=False, pick_mode='manual', thresh=1.,
              date_range=None, denoise_method=None, window='2h',
              vrange=(-60, 60), title=None, tv_picks=None, prominence=30.,
              pot_data=None, hydro_data=None, offset_samps=120,

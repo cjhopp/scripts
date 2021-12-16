@@ -300,6 +300,10 @@ def fit_thomsen(tt_file, aniso_azi=307, aniso_inc=60, plot_fit=True,
     well6 = well5 + 1
     well7 = well6 + 1
     well_no = np.hstack([well5, well6, well7])
+    hyd_well_3 = np.ones(22)
+    hyd_well_4 = hyd_well_3 + 1
+    hyd_well_no = np.tile(np.hstack([hyd_well_3, hyd_well_4]), 24)
+    hydro_no = np.tile(np.arange(44), 24)
     x = tt_array[:, 5] - tt_array[:, 2]
     y = tt_array[:, 4] - tt_array[:, 1]
     z = tt_array[:, 6] - tt_array[:, 3]
@@ -330,6 +334,8 @@ def fit_thomsen(tt_file, aniso_azi=307, aniso_inc=60, plot_fit=True,
     # Take only the selected indices for fitting
     Vps = Vps[indices]
     well_no = well_no[indices]
+    hydro_no = hydro_no[indices]
+    hyd_well_no = hyd_well_no[indices]
     angles = angles[indices]
     dists = dists[indices]
     avg_depths = avg_depths[indices]
@@ -363,8 +369,8 @@ def fit_thomsen(tt_file, aniso_azi=307, aniso_inc=60, plot_fit=True,
                       alpha=0.1)
     if plot_fit:
         fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(12, 10))
-        vars = [('Ray length [m]', dists), ('Source easting', src_east),
-                ('Receiver elevation', rec_dep), ('Well no', well_no)]
+        vars = [('Rec. well no', hyd_well_no), ('Source easting', src_east),
+                ('Receiver no', hydro_no), ('Well no', well_no)]
         for i, ax in enumerate(axes.flatten()):
             mpbl = ax.scatter(angles, Vps, alpha=0.2, c=vars[i][1])
             fig.colorbar(mpbl, label=vars[i][0], ax=ax)

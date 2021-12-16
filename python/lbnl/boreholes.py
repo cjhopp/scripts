@@ -23,6 +23,17 @@ from matplotlib.dates import date2num, num2date
 # local imports
 from lbnl.coordinates import cartesian_distance
 
+fsb_wellheads = {'B1': (2579341.176, 1247584.889, 513.378),
+                 'B2': (2579334.480, 1247570.980, 513.200),
+                 'B3': (2579324.915, 1247611.678, 514.132),
+                 'B4': (2579325.497, 1247612.048, 514.067),
+                 'B5': (2579332.571, 1247597.289, 513.782),
+                 'B6': (2579333.568, 1247598.048, 513.701),
+                 'B7': (2579335.555, 1247599.383, 513.702),
+                 'B8': (2579331.968, 1247600.540, 513.757),
+                 'B9': (2579327.803, 1247608.908, 513.951),
+                 'B10': (2579335.483, 1247593.244, 513.951)}
+
 
 def depth_to_xyz(well_dict, well, depth):
     """
@@ -363,7 +374,9 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
         asbuilt_dir = '/media/chet/hdd/seismic/chet_FS-B/wells/'
     if not os.path.isdir(asbuilt_dir):
         asbuilt_dir = 'data/chet-FS-B/wells'
-    excel_asbuilts = glob('{}/**/*Gamma_Deviation.xlsx'.format(asbuilt_dir))
+    excel_asbuilts = glob('{}/**/*Gamma_Deviation.xlsx'.format(asbuilt_dir),
+                          recursive=True)
+    print(excel_asbuilts)
     well_dict = {}
     if not os.path.isdir(gocad_dir):
         gocad_dir = '/media/chet/hdd/seismic/chet_FS-B/Mont_Terri_model'
@@ -372,6 +385,7 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
     gocad_asbuilts =  glob('{}/*.wl'.format(gocad_dir))
     for gocad_f in gocad_asbuilts:
         name = str(gocad_f).split('-')[-1].split('.')[0]
+        print(name)
         well_dict[name] = []
         # Multispace delimiter
         top = pd.read_csv(gocad_f, header=None, skiprows=np.arange(13),
@@ -381,15 +395,21 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
                            delimiter='\s+', index_col=False, engine='python',
                            skipfooter=1)
         lab, x_top, y_top, z_top = top.values.flatten()
+        try:
+            x_top, y_top, z_top = fsb_wellheads[name]
+        except (ValueError, KeyError):
+            pass
         well_dict[name] = np.stack(((x_top + rows.iloc[:, 3]).values,
                                     (y_top + rows.iloc[:, 4]).values,
                                     rows.iloc[:, 2].values,
                                     rows.iloc[:, 1].values)).T
         if well_dict[name].shape[0] < 10000:
+            print('Going for excel')
             try:
                 excel_f = [f for f in excel_asbuilts
-                           if f.split('-')[-1][:2] == name][0]
+                           if f.split('-')[-1].split('_')[0] == name][0]
             except IndexError:
+                print('Interpolating')
                 # If so, make a more highly-sampled interpolation
                 x, y, z, d = zip(*well_dict[name])
                 td = d[-1]

@@ -110,7 +110,6 @@ def plot_resp(resp_dir, min_freq, sampling_rate):
     return
 
 
-def
 def MMF_calibration_to_response(directory, plot=False):
     """
     Take directory of MMF calibration spreadsheets and convert to Obspy
