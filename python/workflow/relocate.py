@@ -19,9 +19,11 @@ from subprocess import call
 from datetime import datetime
 from scipy.io import loadmat
 from scipy.optimize import curve_fit
-from obspy import UTCDateTime
+from joblib import Parallel, delayed
+from obspy import UTCDateTime, Catalog
 from obspy.core.event import Arrival, QuantityError, ResourceIdentifier, \
-    OriginUncertainty, Origin, CreationInfo, OriginQuality
+    OriginUncertainty, Origin, CreationInfo, OriginQuality, Event, \
+    WaveformStreamID, Pick, Comment
 from obspy.core import AttribDict
 from obspy.geodetics import kilometer2degrees
 from matplotlib.widgets import LassoSelector
@@ -47,44 +49,89 @@ fsb_coords = {
     'FS.B75..XNZ': [2579351.2349, 1247579.5168, 477.7178],
     # Hydrophones
     'FS.B301..XN1': [2579324.496867, 1247592.9675, 491.9781],
+    'FS.B302..XN1': [2579324.474816, 1247591.3557, 490.0691],
     'FS.B303..XN1': [2579324.451961, 1247589.7436, 488.1565],
+    'FS.B304..XN1': [2579324.4286640002, 1247588.132, 486.2473],
     'FS.B305..XN1': [2579324.405486, 1247586.5206, 484.3342],
+    'FS.B306..XN1': [2579324.384642, 1247584.9097, 482.4244],
     'FS.B307..XN1': [2579324.365244, 1247583.3001, 480.5097],
+    'FS.B308..XN1': [2579324.345286, 1247581.6901, 478.59919999999994],
     'FS.B309..XN1': [2579324.324412, 1247580.0796, 476.6852],
     'FS.B310..XN1': [2579324.304438, 1247578.4679, 474.7741],
     'FS.B311..XN1': [2579324.286077, 1247576.8557, 472.8636],
     'FS.B312..XN1': [2579324.267101, 1247575.2429, 470.9534],
+    'FS.B313..XN1': [2579324.248199, 1247573.6299, 469.04549999999995],
     'FS.B314..XN1': [2579324.22945, 1247572.0169, 467.1336],
+    'FS.B315..XN1': [2579324.20813, 1247570.4047, 465.22499999999997],
     'FS.B316..XN1': [2579324.185952, 1247568.7916, 463.3131],
+    'FS.B317..XN1': [2579324.163273, 1247567.1781000001, 461.40569999999997],
     'FS.B318..XN1': [2579324.14131, 1247565.5641, 459.4946],
+    'FS.B319..XN1': [2579324.118188, 1247563.9509, 457.58689999999996],
     'FS.B320..XN1': [2579324.091171, 1247562.3397, 455.6735],
+    'FS.B321..XN1': [2579324.062039, 1247560.7305, 453.76259999999996],
     'FS.B322..XN1': [2579324.032701, 1247559.1223, 451.8467],
     'FS.B401..XN1': [2579329.17688, 1247597.8316, 492.0198],
+    'FS.B402..XN1': [2579329.55651, 1247596.4949999999, 489.93850000000003],
     'FS.B403..XN1': [2579329.93608, 1247595.1581, 487.8633],
+    'FS.B404..XN1': [2579330.31607, 1247593.8213, 485.7822],
     'FS.B405..XN1': [2579330.69621, 1247592.4842, 483.7073],
+    'FS.B406..XN1': [2579331.07555, 1247591.1471, 481.6262],
     'FS.B407..XN1': [2579331.45355, 1247589.8114, 479.5501],
+    'FS.B408..XN1': [2579331.83095, 1247588.4749999999, 477.4683],
     'FS.B409..XN1': [2579332.20912, 1247587.1386, 475.3925],
     'FS.B410..XN1': [2579332.58727, 1247585.8011, 473.3145],
     'FS.B411..XN1': [2579332.96631, 1247584.4626, 471.2373],
     'FS.B412..XN1': [2579333.34493, 1247583.1243, 469.1600],
+    'FS.B413..XN1': [2579333.7226299997, 1247581.7854, 467.0797],
     'FS.B414..XN1': [2579334.09847, 1247580.4462, 465.0054],
+    'FS.B415..XN1': [2579334.4751399998, 1247579.1062999999, 462.9257],
     'FS.B416..XN1': [2579334.85297, 1247577.7667, 460.8520],
+    'FS.B417..XN1': [2579335.23231, 1247576.4266, 458.7729],
     'FS.B418..XN1': [2579335.6125, 1247575.0857, 456.7004],
+    'FS.B419..XN1': [2579335.9923, 1247573.7445999999, 454.622],
     'FS.B420..XN1': [2579336.3728, 1247572.4026, 452.5504],
+    'FS.B421..XN1': [2579336.7543, 1247571.0595, 450.47360000000003],
     'FS.B422..XN1': [2579337.1362, 1247569.7158, 448.4033],
     # AE sensors
-    'FS.B81..XN1': [2579328.5556, 1247576.5273, 488.0782],
-    'FS.B82..XN1': [2579328.4572, 1247575.8272, 487.3333],
-    'FS.B83..XN1': [2579328.1675, 1247573.7658, 485.1397],
-    'FS.B84..XN1': [2579328.0746, 1247573.1047, 484.4361],
-    'FS.B85..XN1': [2579327.7849, 1247571.0433, 482.2426],
-    'FS.B86..XN1': [2579327.6919, 1247570.3821, 481.5390],
-    'FS.B91..XN1': [2579332.5541, 1247582.7914, 476.1047],
-    'FS.B92..XN1': [2579332.6601, 1247582.2005, 475.2683],
-    'FS.B93..XN1': [2579332.9658, 1247580.4972, 472.8576],
-    'FS.B94..XN1': [2579333.0719, 1247579.9063, 472.0213],
-    'FS.B95..XN1': [2579333.3776, 1247578.2031, 469.6106],
-    'FS.B96..XN1': [2579333.4837, 1247577.6122, 468.7742]
+    'FS.B81..XN1': [2579328.4993, 1247576.6989, 487.7793],
+    'FS.B82..XN1': [2579328.4046, 1247576.0296, 487.0424],
+    'FS.B83..XN1': [2579328.1213, 1247574.0238, 484.8296],
+    'FS.B84..XN1': [2579328.0271, 1247573.3558, 484.0914],
+    'FS.B85..XN1': [2579327.7444, 1247571.3531, 481.8757],
+    'FS.B86..XN1': [2579327.6501, 1247570.6865, 481.1363],
+    'FS.B91..XN1': [2579332.2996, 1247583.0459, 476.5476],
+    'FS.B92..XN1': [2579332.4017, 1247582.4843, 475.7265],
+    'FS.B93..XN1': [2579332.7086, 1247580.8020, 473.2617],
+    'FS.B94..XN1': [2579332.8113, 1247580.2412, 472.4401],
+    'FS.B95..XN1': [2579333.1193, 1247578.5590, 469.9753],
+    'FS.B96..XN1': [2579333.2203, 1247577.9980, 469.1537]
+}
+
+source_coords = {
+    'S1': [2579328.2022, 1247583.5615, 499.90950000000004],
+    'S2': [2579327.21299, 1247580.4926, 496.77040000000005],
+    'S3': [2579326.22299, 1247577.4319000002, 493.62370000000004],
+    'S4': [2579325.22981, 1247574.3779000002, 490.4714],
+    'S5': [2579324.2343, 1247571.3303, 487.31370000000004],
+    'S6': [2579323.24033, 1247568.2886, 484.1498],
+    'S7': [2579322.2461, 1247565.2523, 480.9809],
+    'S8': [2579321.25, 1247562.2222000002, 477.80660000000006],
+    'S9': [2579334.87098, 1247588.55173, 500.89000000000004],
+    'S10': [2579335.2342499997, 1247585.8715, 497.2936],
+    'S11': [2579335.59656, 1247583.1888, 493.69890000000004],
+    'S12': [2579335.95866, 1247580.5041, 490.1057],
+    'S13': [2579336.3183399998, 1247577.8177999998, 486.51340000000005],
+    'S14': [2579336.67692, 1247575.1325, 482.9203],
+    'S15': [2579337.0372099997, 1247572.4442999999, 479.32950000000005],
+    'S16': [2579337.39851, 1247569.7554, 475.73940000000005],
+    'S17': [2579340.51113, 1247593.09901, 502.2253],
+    'S18': [2579342.12396, 1247591.0687199999, 498.5474],
+    'S19': [2579343.73466, 1247589.0359, 494.87],
+    'S20': [2579345.3438600004, 1247587.0004, 491.1935],
+    'S21': [2579346.9505000003, 1247584.9625, 487.5171],
+    'S22': [2579348.5567, 1247582.9235999999, 483.8411],
+    'S23': [2579350.1638, 1247580.8810999999, 480.1675],
+    'S24': [2579351.7701000003, 1247578.8351999999, 476.4954]
 }
 
 fsb_well_colors = {'B1': 'k', 'B2': 'steelblue', 'B3': 'goldenrod',
@@ -263,7 +310,47 @@ def thomsen_weak(x, delta, epsilon, vp0):
                              (epsilon * np.sin(x)**4)))
 
 
-def fit_thomsen(tt_file, aniso_azi=307, aniso_inc=60, plot_fit=True,
+def tt_to_cat(tt_file):
+    """
+    Return a synthetic catalog of picks from Tanners sample CASSM travel times
+    """
+    cat = Catalog()
+    tt_array = loadmat(tt_file)['data']
+    src_names = np.repeat(np.arange(24), 44)
+    src_names = np.array(['S{:d}'.format(src_names[i] + 1)
+                          for i in range(src_names.shape[0])])
+    twtwos = np.arange(22) + 1
+    b3 = ['B3{:02d}'.format(twtwos[i]) for i in range(22)]
+    b4 = ['B4{:02d}'.format(twtwos[i]) for i in range(22)]
+    b3.extend(b4)
+    rec_names = np.tile(np.array(b3), 24)
+    counter = 1
+    for i in range(tt_array.shape[0]):
+        if i % 44 == 0:
+            if i != 0:
+                cat.append(ev)
+            ev = Event(id=ResourceIdentifier(id=str(counter)))
+            counter += 1
+            ot = UTCDateTime(1970, 1, 1)
+        if counter in [10, 24]:  # Bad sources
+            continue
+        pt = ot + tt_array[i][0]
+        pk = Pick(time=pt, time_errors=QuantityError(1e-5), phase_hint='P',
+                  waveform_id=WaveformStreamID(
+                      network_code='FS', station_code=rec_names[i],
+                      location_code='', channel_code='XN1'))
+        if pk.waveform_id.id not in fsb_coords:
+            continue
+        ev.picks.append(pk)
+        if len(ev.comments) == 0:
+            extra = AttribDict({'CASSM': {'value': source_coords[src_names[i]],
+                                          'namespace': 'smi:local/cassm_loc'}})
+            ev.extra = extra
+    cat.append(ev)
+    return cat
+
+
+def fit_thomsen(tt_file, aniso_azi=323, aniso_inc=44, plot_fit=True,
                 plot_paths=False):
     """
     Fit thomsen weak anisotropy to list of cassm travel times
@@ -284,9 +371,19 @@ def fit_thomsen(tt_file, aniso_azi=307, aniso_inc=60, plot_fit=True,
     aniso_pole /= np.linalg.norm(aniso_pole)
     aniso_pole_ten = aniso_pole * 10
     tt_array = loadmat(tt_file)['data']
-    dists = np.sqrt((tt_array[:, 2] - tt_array[:, 5])**2 +
-                    (tt_array[:, 1] - tt_array[:, 4])**2 +
-                    (tt_array[:, 3] - tt_array[:, 6])**2)
+    twtwos = np.arange(22) + 1
+    b3 = ['FS.B3{:02d}..XN1'.format(twtwos[i]) for i in range(22)]
+    b4 = ['FS.B4{:02d}..XN1'.format(twtwos[i]) for i in range(22)]
+    b3.extend(b4)
+    rec_names = np.tile(np.array(b3), 24)
+    src_names = np.repeat(np.arange(24), 44)
+    src_names = np.array(['S{:d}'.format(src_names[i] + 1)
+                          for i in range(src_names.shape[0])])
+    rec_locs = [np.array(fsb_coords[nm]) for nm in rec_names]
+    src_locs = [np.array(source_coords[nm]) for nm in src_names]
+    dists = [np.sqrt(np.sum((rec_locs[i] - src_locs[i])**2))
+             for i in range(src_names.shape[0])]
+    dists = np.array(dists)
     avg_depths = (tt_array[:, 3] + tt_array[:, 6]) / 2
     src_dep = tt_array[:, 3]
     rec_dep = tt_array[:, 6]
@@ -470,6 +567,24 @@ class SelectFromCollection:
         self.canvas.draw_idle()
 
 
+def search_thomsen(cassm_cat, Vp_range, delta_range, epsilon_range, cores=8):
+    """
+    Search the Thomsen parameters to get lowest misfit for each CASSM source
+    at FSB
+    """
+    vps, deltas, epsilons = np.meshgrid(
+        np.arange(Vp_range[0], Vp_range[1], 100),
+        np.arange(delta_range[0], delta_range[1], 0.05),
+        np.arange(epsilon_range[0], epsilon_range[1], 0.05))
+    variables = np.vstack([vps.flatten(), deltas.flatten(), epsilons.flatten()])
+    results = Parallel(n_jobs=cores, verbose=10)(
+        delayed(relocate_thomsen)(cassm_cat, fsb_coords, fsb_simple_conversion,
+                                  variables[0, i], 0.01, variables[1, i],
+                                  variables[2, i], 323., 46.)
+        for i in range(variables.shape[1]))
+    return variables, results, variables[:, np.argmin(results)]
+
+
 def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
                      delta, epsilon, aniso_azi, aniso_inc):
     """
@@ -494,6 +609,7 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
         A complete event with a location origin. Will be returned regardless of
         how well the location works so a subsequent QC check is advisable.
     """
+    misfits = []
     for event in catalog:
         print('Relocating {}'.format(event.resource_id.id))
         # Filter to only use P-phase picks.
@@ -607,7 +723,13 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
                                              'namespace': 'smi:local/ch1903'},
                             'ch1903_elev': {'value': depth,  # Extra attribs maintain absolute elevation
                                             'namespace': 'smi:local/ch1903'}})
-
+        try:
+            source = np.array(event.extra.CASSM.value)
+            location = np.array([loc[0], loc[1], loc[-1]])
+            misfit = np.sqrt(np.sum((location - source)**2))
+            misfits.append(misfit)
+        except AttributeError as e:
+            pass
         # Create origin.
         o = Origin(
             resource_id=f"origin/p_wave_travel_time/homogeneous_model/{uuid.uuid4()}",
@@ -638,7 +760,8 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
 
         event.origins.append(o)
         event.preferred_origin_id = o.resource_id
-    return
+    total_rms = np.sqrt(np.mean(np.array(misfits)**2))
+    return total_rms
 
 
 def dicts2NLLocPhases(ev, location):

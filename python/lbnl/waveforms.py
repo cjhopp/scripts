@@ -353,8 +353,11 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
             for sta in net.stations:
                 _check_dir(os.path.join(output_root, year, net.code,
                                         sta.code))
+                used_chans = []
                 for chan in sta.channels:
                     loc = chan.location_code
+                    if '{}.{}'.format(loc, chan.code) in used_chans:
+                        continue
                     _check_dir(os.path.join(output_root, year, net.code,
                                             sta.code, chan.code))
                     fname = '{}.{}.{}.{}.{}.{:03d}.ms'.format(
@@ -379,6 +382,7 @@ def get_IRIS_waveforms(start_date, end_date, inventory, output_root):
                         st.select(location=loc,
                                   channel=chan.code).write(out_path,
                                                            format="MSEED")
+                        used_chans.append('{}.{}'.format(loc, chan.code))
                     except ObsPyException as e:
                         print(e)
                         continue

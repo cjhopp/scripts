@@ -376,7 +376,6 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
         asbuilt_dir = 'data/chet-FS-B/wells'
     excel_asbuilts = glob('{}/**/*Gamma_Deviation.xlsx'.format(asbuilt_dir),
                           recursive=True)
-    print(excel_asbuilts)
     well_dict = {}
     if not os.path.isdir(gocad_dir):
         gocad_dir = '/media/chet/hdd/seismic/chet_FS-B/Mont_Terri_model'
@@ -385,7 +384,6 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
     gocad_asbuilts =  glob('{}/*.wl'.format(gocad_dir))
     for gocad_f in gocad_asbuilts:
         name = str(gocad_f).split('-')[-1].split('.')[0]
-        print(name)
         well_dict[name] = []
         # Multispace delimiter
         top = pd.read_csv(gocad_f, header=None, skiprows=np.arange(13),
@@ -398,33 +396,31 @@ def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/
         try:
             x_top, y_top, z_top = fsb_wellheads[name]
         except (ValueError, KeyError):
+            print('Cant read top for {}'.format(name))
             pass
         well_dict[name] = np.stack(((x_top + rows.iloc[:, 3]).values,
                                     (y_top + rows.iloc[:, 4]).values,
                                     rows.iloc[:, 2].values,
                                     rows.iloc[:, 1].values)).T
-        if well_dict[name].shape[0] < 10000:
-            print('Going for excel')
-            try:
-                excel_f = [f for f in excel_asbuilts
-                           if f.split('-')[-1].split('_')[0] == name][0]
-            except IndexError:
-                print('Interpolating')
-                # If so, make a more highly-sampled interpolation
-                x, y, z, d = zip(*well_dict[name])
-                td = d[-1]
-                if td == 'Top':
-                    td = float(d[-3])
-                well_dict[name] = np.stack((np.linspace(x_top, x[-1], 1000),
-                                            np.linspace(y_top, y[-1], 1000),
-                                            np.linspace(z_top, z[-1], 1000),
-                                            np.linspace(0, td, 1000))).T
-                continue
-            df = pd.read_excel(excel_f, header=6, skiprows=[7])
-            well_dict[name] = np.stack(((x_top + df['Easting']).values,
-                                        (y_top + df['Northing']).values,
-                                        (z_top - df['TVD']).values,
-                                        df['Depth'].values)).T
+        try:
+            excel_f = [f for f in excel_asbuilts
+                       if f.split('-')[-1].split('_')[0] == name][0]
+        except IndexError:
+            # If so, make a more highly-sampled interpolation
+            x, y, z, d = zip(*well_dict[name])
+            td = d[-1]
+            if td == 'Top':
+                td = float(d[-3])
+            well_dict[name] = np.stack((np.linspace(x_top, x[-1], 1000),
+                                        np.linspace(y_top, y[-1], 1000),
+                                        np.linspace(z_top, z[-1], 1000),
+                                        np.linspace(0, td, 1000))).T
+            continue
+        df = pd.read_excel(excel_f, header=6, skiprows=[7])
+        well_dict[name] = np.stack(((x_top + df['Easting']).values,
+                                    (y_top + df['Northing']).values,
+                                    (z_top - df['TVD']).values,
+                                    df['Depth'].values)).T
     return well_dict
 
 
