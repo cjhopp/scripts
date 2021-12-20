@@ -564,6 +564,7 @@ def trigger(param_file, plot=False):
             day_wavs = glob('{}/**/*.{:03d}'.format(
                 paramz['General']['wav_directory'], jday),
                 recursive=True)
+            print(day_wavs)
         st = Stream()
         for w in day_wavs:
             seed_parts = os.path.basename(w).split('.')
