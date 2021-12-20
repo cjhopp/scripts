@@ -7,8 +7,8 @@ Database:
   name: 'patua_test'
 
 Trigger:
-  start_time: 2021-5-1
-  end_time: 2021-12-31
+  start_time: 2021-7-1
+  end_time: 2021-7-31
   sta: 1.0
   lta: 10.0
   lowcut: 3.
@@ -21,7 +21,7 @@ Trigger:
   trigger_off_extension: 5.
   max_trigger_length: 30.
   plot_outdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/triggers/test_12-20'
-  coincidence_sum: 5.
+  coincidence_sum: 3.
   network_specific_params:
     {'PT': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
     }
