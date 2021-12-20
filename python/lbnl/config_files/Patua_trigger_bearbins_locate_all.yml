@@ -23,7 +23,7 @@ Trigger:
   plot_outdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/triggers/test_12-20'
   coincidence_sum: 3.
   network_specific_params:
-    {'PT': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+    {'': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
     }
   # Channel specific parameters take precedence
   channel_specific_params:
