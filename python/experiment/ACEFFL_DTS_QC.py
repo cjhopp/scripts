@@ -345,7 +345,7 @@ while True:
     all_files_39 = glob(path_39)
     all_files_59 = glob(path_59)
 
-    if all_files_39 == f_3339:
+    if all_files_59 == f_3359:
         print('No new files written. Waiting')
         time.sleep(ping_interval_in_seconds)
         continue

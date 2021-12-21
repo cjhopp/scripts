@@ -30,7 +30,7 @@ Trigger:
     {'PT.2221.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
      'PT.2128.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
      'PT.2115.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
-#     'PT.4509.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'PT.4509.10.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
      'PT.5230.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 1.5},
 
     }
