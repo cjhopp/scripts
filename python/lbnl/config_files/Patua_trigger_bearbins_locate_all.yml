@@ -55,10 +55,10 @@ Picker:
   plotdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/picks/test_12-20'
 
 Associator:
-  max_dist: 200
-  dist_spacing: 0.5
+  max_dist: 350
+  dist_spacing: 1
   max_depth: 50
-  depth_spacing: 0.5
+  depth_spacing: 1
   max_km: 350
   aggregation: 1
   aggr_norm: 'L2'
