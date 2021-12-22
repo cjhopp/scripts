@@ -682,8 +682,6 @@ def picker(param_file):
         for tr in st:
             # TODO Should process trace before picking!!
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
-            print(picks)
-            print(scnl)
             if len(picks) == 0:
                 continue
             # Always take pick with largest SNR
@@ -694,16 +692,14 @@ def picker(param_file):
             else:
                 ind = 0
             pick = picks[ind]
-            seed = scnl[ind]
-            print(pick)
-            print(seed)
+            seed = scnl.split('.')
             ev.picks.append(Pick(
                 time=pick.time,
                 waveform_id=WaveformStreamID(
-                    network_code=pick.net,
-                    station_code=pick.sta,
-                    location_code=pick.loc,
-                    channel_code=pick.chan),
+                    network_code=seed[2],
+                    station_code=seed[0],
+                    location_code=seed[3],
+                    channel_code=seed[1]),
                 method_id=pick_p['method'],
                 time_error=QuantityError(uncertainty=pick.error),
                 phase_hint=pick.phase,
