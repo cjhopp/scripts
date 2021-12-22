@@ -57,13 +57,13 @@ Picker:
 Associator:
   # Grid parameters
   inventory: 'chet-amplify/instruments/Patua_initial_boreholes_w_surface_w_depths_nexus.xml'
-  grid_origin_lat: 46.1593
-  grid_origin_lon: -126.3779 # Lat, Lon
+  grid_origin_lat: 39.337757
+  grid_origin_lon: -119.695906 # Lat, Lon
   grid_shape_lat: 40
   grid_shape_lon: 50 # Rows, Columns
-  grid_spacing: 0.1 # Degrees
-  max_depth: 60 # km
-  depth_spacing: 10. # km
+  grid_spacing: 0.05 # Degrees
+  max_depth: 25 # km
+  depth_spacing: 1. # km
   # Associator parameters
   max_km: 150
   aggregation: 1
