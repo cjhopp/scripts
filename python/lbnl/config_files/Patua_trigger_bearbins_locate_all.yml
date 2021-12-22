@@ -55,18 +55,22 @@ Picker:
   plotdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/picks/test_12-20'
 
 Associator:
-  max_dist: 350
-  dist_spacing: 1
-  max_depth: 50
-  depth_spacing: 1
-  max_km: 350
+  # Grid parameters
+  inventory: 'chet-amplify/instruments/Patua_initial_boreholes_w_surface_w_depths_nexus.xml'
+  grid_origin_lat: 46.1593
+  grid_origin_lon: -126.3779 # Lat, Lon
+  grid_shape_lat: 40
+  grid_shape_lon: 50 # Rows, Columns
+  grid_spacing: 0.1 # Degrees
+  max_depth: 60 # km
+  depth_spacing: 10. # km
+  # Associator parameters
+  max_km: 150
   aggregation: 1
   aggr_norm: 'L2'
   cutoff_outlier: 10
   assoc_ot_uncert: 7
   nsta_declare: 3
   loc_uncert_thresh: 0.2
-  grid_shape_lat: 100
-  grid_shape_lon: 100
 
 
