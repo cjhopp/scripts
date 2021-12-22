@@ -253,10 +253,8 @@ def associator(param_file):
     associator = LocalAssociator(
         db_assoc, db_tt, max_km=assoc_p['max_km'],
         aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
-        cutoff_outlier=assoc_p['cutoff_outlier'],
         assoc_ot_uncert=assoc_p['assoc_ot_uncert'],
-        nsta_declare=assoc_p['nsta_declare'],
-        loc_uncert_thresh=assoc_p['loc_uncert_thresh'])
+        nsta_declare=assoc_p['nsta_declare'])
     # Run over all days individually
     start = UTCDateTime(trig_p['start_time']).datetime
     end = UTCDateTime(trig_p['end_time']).datetime
@@ -303,7 +301,7 @@ def associator(param_file):
     print('Associating events')
     associator.id_candidate_events()
     associator.associate_candidates()
-    associator.single_phase()
+    # associator.single_phase()
     return db_sesh, db_assoc, db_tt
 
 
