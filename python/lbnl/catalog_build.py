@@ -692,14 +692,13 @@ def picker(param_file):
             else:
                 ind = 0
             pick = picks[ind]
-            seed = scnl.split('.')
             ev.picks.append(Pick(
                 time=pick.time,
                 waveform_id=WaveformStreamID(
-                    network_code=seed[2],
-                    station_code=seed[0],
-                    location_code=seed[3],
-                    channel_code=seed[1]),
+                    network_code=scnl.network,
+                    station_code=scnl.station,
+                    location_code=scnl.location,
+                    channel_code=scnl.channel),
                 method_id=pick_p['method'],
                 time_error=QuantityError(uncertainty=pick.error),
                 phase_hint=pick.phase,
