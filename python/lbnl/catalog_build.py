@@ -679,7 +679,7 @@ def picker(param_file):
     trigger_files.sort()
     for trig_f in trigger_files:
         # Make new db_assoc for each event
-        db_sesh, db_assoc, db_tt = build_databases(param_file, which='assoc')
+        db_sesh, db_assoc, db_tt = build_databases(param_file, which='both')
         associator = LocalAssociator(
             db_assoc, db_tt, max_km=assoc_p['max_km'],
             aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
