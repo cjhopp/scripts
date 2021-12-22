@@ -684,10 +684,10 @@ def picker(param_file):
             db_assoc, db_tt, max_km=assoc_p['max_km'],
             aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
             assoc_ot_uncert=assoc_p['assoc_ot_uncert'],
-            nsta_declare=assoc_p['nsta_declare'],
-            nt=assoc_p['grid_shape_lat'] + 1,
-            np=assoc_p['grid_shape_lon'] + 1,
-            nr=(assoc_p['max_depth'] / assoc_p['depth_spacing']) + 1)
+            nsta_declare=assoc_p['nsta_declare'])
+            # nt=assoc_p['grid_shape_lat'] + 1,
+            # np=assoc_p['grid_shape_lon'] + 1,
+            # nr=(assoc_p['max_depth'] / assoc_p['depth_spacing']) + 1)
         ev = Event()
         print('Picking {}'.format(trig_f))
         st = read(trig_f)
