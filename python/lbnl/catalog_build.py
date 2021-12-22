@@ -676,16 +676,6 @@ def picker(param_file):
     # Force chronological order
     trigger_files.sort()
     for trig_f in trigger_files:
-        # Make new db_assoc for each event
-        db_sesh, db_assoc, db_tt = build_databases(param_file, which='both')
-        associator = LocalAssociator(
-            db_assoc, db_tt, max_km=assoc_p['max_km'],
-            aggregation=assoc_p['aggregation'], aggr_norm=assoc_p['aggr_norm'],
-            assoc_ot_uncert=assoc_p['assoc_ot_uncert'],
-            nsta_declare=assoc_p['nsta_declare'])
-            # nt=assoc_p['grid_shape_lat'] + 1,
-            # np=assoc_p['grid_shape_lon'] + 1,
-            # nr=(assoc_p['max_depth'] / assoc_p['depth_spacing']) + 1)
         ev = Event()
         print('Picking {}'.format(trig_f))
         st = read(trig_f)
@@ -699,25 +689,9 @@ def picker(param_file):
                 ind = np.argmax(snr)
             elif pick_p['pick_measure'] == 'earliest':
                 ind = 0
-            # Do association?
-            t_create = UTCDateTime().datetime
-            for i in range(len(picks)):
-                new_pick = tables3D.Pick(scnl, picks[i].datetime,
-                                         polarity[i], snr[i], uncert[i],
-                                         t_create)
-                db_sesh.add(new_pick)  # Add pick i to the database
-            db_sesh.commit()  # Commit the pick to the database
-        print('Associating events')
-        associator.id_candidate_events()
-        associator.associate_candidates()
-        # Query database for associated events
-        try:
-            event = db_sesh.query(Associated).all()[0]
-        except IndexError:
-            print('No event associated for these picks')
-            continue
-        picks = db_sesh.query(PickModified).filter(PickModified.assoc_id==event.id)
-        for pick in picks:
+            else:
+                ind = 0
+            pick = picks[ind]
             ev.picks.append(Pick(
                 time=pick.time,
                 waveform_id=WaveformStreamID(
