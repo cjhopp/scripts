@@ -683,6 +683,7 @@ def picker(param_file):
             # TODO Should process trace before picking!!
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
             print(picks)
+            print(scnl)
             if len(picks) == 0:
                 continue
             # Always take pick with largest SNR
