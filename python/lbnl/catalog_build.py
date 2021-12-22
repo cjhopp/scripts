@@ -693,7 +693,9 @@ def picker(param_file):
             else:
                 ind = 0
             pick = picks[ind]
+            seed = scnl[ind]
             print(pick)
+            print(seed)
             ev.picks.append(Pick(
                 time=pick.time,
                 waveform_id=WaveformStreamID(
