@@ -682,6 +682,7 @@ def picker(param_file):
         for tr in st:
             # TODO Should process trace before picking!!
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
+            print(picks)
             if len(picks) == 0:
                 continue
             # Always take pick with largest SNR
@@ -692,6 +693,7 @@ def picker(param_file):
             else:
                 ind = 0
             pick = picks[ind]
+            print(pick)
             ev.picks.append(Pick(
                 time=pick.time,
                 waveform_id=WaveformStreamID(
