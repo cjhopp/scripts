@@ -265,7 +265,7 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
     print('Producing plots for back-recorded data:\n{} to {}'.format(
         times_39[0], times_39[-1]))
     # Now loop over the number of intervals for this file list
-    for start in starttime_generator(times_39[0], times_39[-1], ping_interval):
+    for start in starttime_generator(times_59[0], times_59[-1], ping_interval):
         # Get the file indices for this plot
         indices_39 = np.where((start <= np.array(times_39)) &
                               (start + timedelta(seconds=plot_length_seconds) >
