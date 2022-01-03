@@ -282,7 +282,7 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
             outpath, '3359', these_times_59[0].strftime('%Y-%m-%dT%H-%M'),
             these_times_59[-1].strftime('%Y-%m-%dT%H-%M'))
         # If plots exist, skip this
-        if not os.path.isfile(out_39):
+        if not os.path.isfile(out_59):
             well_data_39 = read_XTDTS_dir([files_39[i] for i in list(indices_39)],
                                           wells=['3339'], mapping='efsl', no_cols=4)
             well_data_59 = read_XTDTS_dir([files_59[i] for i in list(indices_59)],
@@ -301,7 +301,7 @@ def launch_processing(files_39, files_59, baseline_39, baseline_59,
 ### Stolen from DUG-seis live processing script
 
 path_39 = r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 4\*.xml'
-path_59 = r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL 24 Nov 2021\channel 1\*.xml'
+path_59 = r'C:\Program Files (x86)\XT Client\XTClientCore\app data\data\XT20018\XT20018\temperature\ACEFFL Chan 1 30 s Dec 19\channel 1\*.xml'
 
 f_3339 = glob(path_39)
 f_3359 = glob(path_59)

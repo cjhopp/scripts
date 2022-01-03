@@ -700,7 +700,7 @@ def picker(param_file):
                     location_code=scnl.location,
                     channel_code=scnl.channel),
                 method_id=pick_p['method'],
-                time_error=QuantityError(uncertainty=pick.error),
+                time_error=QuantityError(uncertainty=uncert[ind]),
                 phase_hint=pick.phase,
                 ))
         cat.events.append(ev)
