@@ -565,40 +565,37 @@ def trigger(param_file, plot=False):
                 recursive=True)
         st = Stream()
         for w in day_wavs:
-            seed_parts = os.path.basename(w).split('.')
-            seed_id = '.'.join([seed_parts[0], seed_parts[1], seed_parts[2],
-                                seed_parts[3][:3]])
-            if seed_id in sta_lta_params:
-                print('Reading in {}'.format(w))
-                try:
-                    st += read(w)
-                except FileNotFoundError as e:
-                    print(e)
-                    continue
-            elif (seed_id[:2] in network_sta_lta and
-                  seed_id[-1] == 'Z'):  # Triggering on Z comps only
-                print('Reading in {}'.format(w))
-                st += read(w)
-        if len(st) == 0:
+            st += read(w)
+        st_trigger = st.copy()
+        # Now loop st_trigger and remove unwanted traces
+        for i in range(len(st_trigger.traces)):
+            seed_id = st_trigger[i].id
+            if seed_id not in sta_lta_params:
+                _ = st_trigger.traces.pop(i)
+            elif (seed_id[:2] not in network_sta_lta and
+                  seed_id[-1] != 'Z'):  # Triggering on Z comps only
+                _ = st_trigger.traces.pop(i)
+        if len(st_trigger) == 0:
             print('All traces removed. Next.')
             continue
         # Deal with shitty CN sampling rates
-        for tr in st:
+        for tr in st_trigger:
             if not ((1 / tr.stats.delta).is_integer() and
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         st = clean_daylong(st.merge(fill_value='interpolate'))
-        if len(st) == 0:
+        if len(st_trigger) == 0:
             continue
         # Filter and downsample the wavs
         print('Preprocessing')
-        st = dayproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
-                     highcut=trig_p['highcut'], filt_order=trig_p['corners'],
-                     samp_rate=trig_p['sampling_rate'], starttime=utcdto,
-                     ignore_length=True)
+        st_trigger = dayproc(
+            st_trigger, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
+            highcut=trig_p['highcut'], filt_order=trig_p['corners'],
+            samp_rate=trig_p['sampling_rate'], starttime=utcdto,
+            ignore_length=True)
         # Precompute characteristic functions for each station as tuned manually
         trigger_stream = Stream()
-        for tr in st:
+        for tr in st_trigger:
             try:
                 seed_params = sta_lta_params[tr.id]
             except KeyError as e:  # Take network general parameters
@@ -623,7 +620,7 @@ def trigger(param_file, plot=False):
                          and len([sta for sta in t['stations']
                                  if sta not in olympic_bhs]) > 4]
         if plot:
-            plot_triggers(day_trigs, st, trigger_stream,
+            plot_triggers(day_trigs, st_trigger, trigger_stream,
                           sta_lta_params, network_sta_lta,
                           outdir=trig_p['plot_outdir'])
         if not trig_p['output']['write_wavs']:
