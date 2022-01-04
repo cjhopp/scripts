@@ -51,7 +51,7 @@ Picker:
   pol_len: 10
   pol_coeff: 10
   uncert_coeff: 3
-  pick_measure: earliest  # snr or earliest
+  pick_measure: snr  # snr or earliest
   plotdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/picks/test_12-20'
 
 Associator:

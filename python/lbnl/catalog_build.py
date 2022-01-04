@@ -692,8 +692,14 @@ def picker(param_file):
             else:
                 ind = 0
             pick = picks[ind]
+            if scnl.channel[-1] == 'Z':
+                phase = 'P'
+            elif scnl.channel[-1] in ['E', 'N', '1', '2']:
+                phase = 'S'
+            else:
+                phase = ''
             ev.picks.append(Pick(
-                time=pick.time,
+                time=pick,
                 waveform_id=WaveformStreamID(
                     network_code=scnl.network,
                     station_code=scnl.station,
@@ -701,7 +707,7 @@ def picker(param_file):
                     channel_code=scnl.channel),
                 method_id=pick_p['method'],
                 time_error=QuantityError(uncertainty=uncert[ind]),
-                phase_hint=pick.phase,
+                phase_hint=phase,
                 ))
         cat.events.append(ev)
         if 'plotdir' in pick_p:
