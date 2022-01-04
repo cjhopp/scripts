@@ -53,6 +53,7 @@ Picker:
   uncert_coeff: 3
   pick_measure: snr  # snr or earliest
   plotdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/picks/test_12-20'
+  station_ignore: ['4509']
 
 Associator:
   # Grid parameters

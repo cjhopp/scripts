@@ -654,7 +654,6 @@ def picker(param_file):
     cat = Catalog()
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
-    assoc_p = paramz['Associator']
     pick_p = paramz['Picker']
     if pick_p['method'] == 'aicd':
         picker = aicdpicker.AICDPicker(
@@ -680,11 +679,11 @@ def picker(param_file):
         print('Picking {}'.format(trig_f))
         st = read(trig_f)
         for tr in st:
-            # TODO Should process trace before picking!!
+            if tr.stats.station in pick_p['station_ignore']:
+                continue
             scnl, picks, polarity, snr, uncert = picker.picks(tr)
             if len(picks) == 0:
                 continue
-            # Always take pick with largest SNR
             if pick_p['pick_measure'] == 'snr':
                 ind = np.argmax(snr)
             elif pick_p['pick_measure'] == 'earliest':
@@ -872,7 +871,7 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
                         endtime=first_pick + postpick)
     time_v = np.arange(st_slice[0].data.shape[0]) * st_slice[0].stats.delta
     fig, ax = plt.subplots(nrows=len(seeds), sharex='col',
-                           figsize=(6, len(seeds) / 2.), dpi=200)
+                           figsize=(6, len(seeds) / 2.), dpi=300)
     fig.suptitle('Detection: {}'.format(name))
     fig.subplots_adjust(hspace=0.)
     for i, sid in enumerate(seeds):
@@ -902,8 +901,9 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         ax[i].annotate(text=sid, xy=(0.0, 0.8), xycoords='axes fraction',
                        bbox=bbox_props, ha='center')
         ax[i].set_yticks([])
-    plt.tight_layout()
-    fig.savefig('{}/Picks_{}.png'.format(outdir, name), dpi=200)
+    ax[-1].set_xlabel('Seconds')
+    ax[-1].margins(x=0.)
+    fig.savefig('{}/Picks_{}.png'.format(outdir, name))
     plt.close('all')
     return
 
