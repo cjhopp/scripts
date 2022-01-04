@@ -549,6 +549,7 @@ def trigger(param_file, plot=False):
     for date in date_generator(start.date(), end.date()):
         print('Triggering on {}'.format(date))
         utcdto = UTCDateTime(date)
+        print(utcdto)
         jday = utcdto.julday
         if 'seeds' in trig_p:
             day_wavs = []
