@@ -582,6 +582,7 @@ def trigger(param_file, plot=False):
         if len(st) == 0:
             print('All traces removed. Next.')
             continue
+        st.merge()
         # Deal with shitty CN sampling rates
         for tr in st:
             if not ((1 / tr.stats.delta).is_integer() and
