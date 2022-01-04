@@ -881,7 +881,8 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
     for i, sid in enumerate(seeds):
         tr_raw = st_slice.select(id=sid)[0]
         time_vect = np.arange(time_v.shape[0]) * tr_raw.stats.delta
-        ax[i].plot(time_vect, tr_raw.data / np.max(tr_raw.data), color='k')
+        ax[i].plot(time_vect, tr_raw.data / np.max(tr_raw.data), color='k',
+                   linewidth=0.7)
         try:
             pk = [pk for pk in ev.picks
                   if '{}.{}.{}.{}'.format(pk.waveform_id.network_code,
