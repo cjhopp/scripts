@@ -560,8 +560,8 @@ def trigger(param_file, plot=False):
                         paramz['General']['wav_directory'], date.year, net, sta,
                         chan, seed, date.year, jday))
         else:
-            day_wavs = glob('{}/**/*__{}__*.mseed'.format(
-                paramz['General']['wav_directory'], utcdto),
+            day_wavs = glob('{}/**/*__{}T*.mseed'.format(
+                paramz['General']['wav_directory'], date),
                 recursive=True)
         st = Stream()
         for w in day_wavs:
