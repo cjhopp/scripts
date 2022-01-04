@@ -565,16 +565,17 @@ def trigger(param_file, plot=False):
                 recursive=True)
         st = Stream()
         for w in day_wavs:
+            print('Reading {}'.format(w))
             st += read(w)
-        st_trigger = st.copy()
+        st_trigger = Stream()
         # Now loop st_trigger and remove unwanted traces
-        for i in range(len(st_trigger.traces)):
-            seed_id = st_trigger[i].id
-            if seed_id not in sta_lta_params:
-                _ = st_trigger.traces.pop(i)
-            elif (seed_id[:2] not in network_sta_lta and
-                  seed_id[-1] != 'Z'):  # Triggering on Z comps only
-                _ = st_trigger.traces.pop(i)
+        for tr in st:
+            seed_id = tr.id
+            if seed_id in sta_lta_params:
+                st_trigger.traces.append(tr.copy())
+            elif (seed_id[:2] in network_sta_lta and
+                  seed_id[-1] == 'Z'):  # Triggering on Z comps only
+                st_trigger.traces.appen(tr.copy())
         if len(st_trigger) == 0:
             print('All traces removed. Next.')
             continue
@@ -584,6 +585,7 @@ def trigger(param_file, plot=False):
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
         st = clean_daylong(st.merge(fill_value='interpolate'))
+        st_trigger = clean_daylong(st_trigger.merge(fill_value='interpolate'))
         if len(st_trigger) == 0:
             continue
         # Filter and downsample the wavs
