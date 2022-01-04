@@ -563,12 +563,12 @@ def trigger(param_file, plot=False):
             day_wavs = glob('{}/**/*__{}__*.mseed'.format(
                 paramz['General']['wav_directory'], utcdto),
                 recursive=True)
-        print(day_wavs)
         st = Stream()
         for w in day_wavs:
             seed_parts = os.path.basename(w).split('.')
             seed_id = '.'.join([seed_parts[0], seed_parts[1], seed_parts[2],
                                 seed_parts[3]])
+            print(seed_id)
             if seed_id in sta_lta_params:
                 print('Reading in {}'.format(w))
                 try:
