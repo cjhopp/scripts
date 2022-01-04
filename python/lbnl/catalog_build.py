@@ -866,9 +866,10 @@ def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):
 
 def plot_picks(st, ev, prepick, postpick, name, outdir):
     seeds = [tr.id for tr in st]
+    first_pick = np.min([pk.time for pk in ev.picks])
     # Clip around trigger time
-    st_slice = st.slice(starttime=prepick,
-                        endtime=postpick)
+    st_slice = st.slice(starttime=first_pick - prepick,
+                        endtime=first_pick + postpick)
     time_v = np.arange(st_slice[0].data.shape[0]) * st_slice[0].stats.delta
     fig, ax = plt.subplots(nrows=len(seeds), sharex='col',
                            figsize=(6, len(seeds) / 2.), dpi=200)
@@ -901,7 +902,8 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         ax[i].annotate(text=sid, xy=(0.0, 0.8), xycoords='axes fraction',
                        bbox=bbox_props, ha='center')
         ax[i].set_yticks([])
-    fig.savefig('{}/Picks_{}.png'.format(outdir, name))
+    plt.tight_layout()
+    fig.savefig('{}/Picks_{}.png'.format(outdir, name), dpi=200)
     plt.close('all')
     return
 
