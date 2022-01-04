@@ -655,6 +655,7 @@ def picker(param_file):
     with open(param_file, 'r') as f:
         paramz = yaml.load(f, Loader=yaml.FullLoader)
     pick_p = paramz['Picker']
+    trig_p = paramz['Trigger']
     if pick_p['method'] == 'aicd':
         picker = aicdpicker.AICDPicker(
             t_ma=pick_p['t_ma'], nsigma=pick_p['nsigma'], t_up=pick_p['t_up'],
@@ -678,6 +679,9 @@ def picker(param_file):
         ev = Event()
         print('Picking {}'.format(trig_f))
         st = read(trig_f)
+        st = shortproc(st, lowcut=trig_p['lowcut'], num_cores=trig_p['ncores'],
+                       highcut=trig_p['highcut'], filt_order=trig_p['corners'],
+                       samp_rate=trig_p['sampling_rate'])
         for tr in st:
             if tr.stats.station in pick_p['station_ignore']:
                 continue
