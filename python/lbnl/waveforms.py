@@ -593,7 +593,7 @@ def tribe_from_catalog(catalog, wav_dir, param_dict, single_station=False,
                 trb = Tribe().construct(method='from_meta_file', st=daylong,
                                         meta_file=tmp_cat,
                                         **param_dict)
-            except ValueError as e:
+            except (ValueError, IndexError) as e:
                 print(e)
                 continue
             tribe += trb
