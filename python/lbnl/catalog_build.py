@@ -712,6 +712,8 @@ def picker(param_file):
                 time_error=QuantityError(uncertainty=uncert[ind]),
                 phase_hint=phase,
                 ))
+        if len(ev.picks) == 0:
+            continue
         cat.events.append(ev)
         if 'plotdir' in pick_p:
             plot_picks(
