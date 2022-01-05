@@ -19,7 +19,7 @@ from timeit import default_timer as timer
 
 ##### User-defined stuff #####
 
-tribe_file = '/global/home/users/chopp/chet-amplify/tribes/jvtm/JVTM_top25-stations_2012-2021.tgz'
+tribe_file = '/clusterfs/bear/GMF_1/Amplify_EGS/tribes/jvtm/JVTM_top25-stations_2012-2021.tgz'
 wav_dir = '/clusterfs/bear/chopp/chet-amplify/waveforms/patua'
 outdir = '/clusterfs/bear/chopp/chet-amplify/parties/jvtm'
 
