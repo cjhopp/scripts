@@ -303,7 +303,7 @@ plot_length_seconds = 7200  # Length of each plot in seconds
 # Monitor directory for files and wait until there are some
 while True:
     try:  # Wait till arbitrary number of files in directory
-        test39 = f_c1[150]
+        test39 = f_c1[15]
     except IndexError as err:
         print("Not enough data yet - trying again in {} seconds".format(
             ping_interval_in_seconds))
