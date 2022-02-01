@@ -271,7 +271,7 @@ def launch_processing(files_c1, baselines, ping_interval, plot_length_seconds,
         these_times_c1 = [times_c1[i] for i in list(indices_c1)]
         well_data_c1 = read_XTDTS_dir(
             [files_c1[i] for i in list(indices_c1)],
-            wells=['3339'], mapping='collab41', no_cols=6)
+            wells=['AMU', 'AML', 'DMU', 'DML'], mapping='collab41', no_cols=6)
         for w in well_data_c1.keys():
             out_c1 = '{}\Collab_4100_DTS_QC_{}_{}_{}.png'.format(
                 outpath, w, these_times_c1[0].strftime('%Y-%m-%dT%H-%M'),
@@ -346,7 +346,8 @@ while True:
                           (np.array(times_c1) < endtime_c1))[0]
     # Read them in
     well_data_c1 = read_XTDTS_dir([all_files_chan1[i] for i in list(indices_c1)],
-                                  wells=['3339'], mapping='collab41', no_cols=6)
+                                  wells=['AMU', 'AML', 'DMU', 'DML'],
+                                  mapping='collab41', no_cols=6)
     # Plot them
     these_times_c1 = [times_c1[i] for i in list(indices_c1)]
     for w in well_data_c1.keys():
