@@ -261,7 +261,7 @@ def launch_processing(files_c1, baselines, ping_interval, plot_length_seconds,
     print('Producing plots for back-recorded data:\n{} to {}'.format(
         times_c1[0], times_c1[-1]))
     baselines = glob('{}\*.npy'.format(baselines))
-    base_dict = {f.split('/')[-1].split('_')[0]: f for f in baselines}
+    base_dict = {f.split(os.sep)[-1].split('_')[0]: f for f in baselines}
     # Now loop over the number of intervals for this file list
     for start in starttime_generator(times_c1[0], times_c1[-1], ping_interval):
         # Get the file indices for this plot
@@ -332,7 +332,7 @@ while True:
         time.sleep(ping_interval_in_seconds)
         continue
     baselines = glob('{}\*.npy'.format(baselines))
-    base_dict = {f.split('/')[-1].split('_')[0]: f for f in baselines}
+    base_dict = {f.split(os.sep)[-1].split('_')[0]: f for f in baselines}
     # Determine endtime and backcalculate start
     endtime_c1 = str(sorted(all_files_c1)[-1]).split('_')[-1][:-7]
     endtime_c1 = datetime.strptime(endtime_c1, '%Y%m%d%H%M%S')
