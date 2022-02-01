@@ -1,0 +1,2347 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<seiscomp xmlns="http://geofon.gfz-potsdam.de/ns/seiscomp3-schema/0.11" version="0.11">
+  <EventParameters>
+    <pick publicID="20181224.094257.69-AIC-2C.URD20..EHZ">
+      <time>
+        <value>2018-12-24T09:42:57.695Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.117085Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094359.92-AIC-2C.LAM08..HHZ">
+      <time>
+        <value>2018-12-24T09:43:59.92Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="LAM08" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.177303Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094419.77-AIC-2C.URD20..EHZ">
+      <time>
+        <value>2018-12-24T09:44:19.77Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.194051Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094420.64-S-AIC-2C.URD20..EHN">
+      <time>
+        <value>2018-12-24T09:44:20.645Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.194959Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094419.77-AIC-2C.URD20..EHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094432.74-AIC-2C.URD20..EHZ">
+      <time>
+        <value>2018-12-24T09:44:32.745Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.208553Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094507.40-AIC-2C.URD20..EHZ">
+      <time>
+        <value>2018-12-24T09:45:07.4Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.244838Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094547.68-AIC-ON.SKEGG.00.HHZ">
+      <time>
+        <value>2018-12-24T09:45:47.68Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.295918Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094547.90-AIC-ON.GRAFN.00.HHZ">
+      <time>
+        <value>2018-12-24T09:45:47.9036Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.298661Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094547.82-AIC-ON.KOLDU.00.HHZ">
+      <time>
+        <value>2018-12-24T09:45:47.825Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.301467Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094548.39-S-AIC-ON.KOLDU.00.HHN">
+      <time>
+        <value>2018-12-24T09:45:48.395Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.302623Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094547.82-AIC-ON.KOLDU.00.HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094548.83-AIC-2C.OLF42.00.HHZ">
+      <time>
+        <value>2018-12-24T09:45:48.83Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.305163Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094549.89-S-AIC-2C.OLF42.00.HHN">
+      <time>
+        <value>2018-12-24T09:45:49.89Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.306321Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094548.83-AIC-2C.OLF42.00.HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094548.24-AIC-2C.GAN02..HHZ">
+      <time>
+        <value>2018-12-24T09:45:48.245Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.308418Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094549.18-S-AIC-2C.GAN02..HHN">
+      <time>
+        <value>2018-12-24T09:45:49.185Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.30943Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094548.24-AIC-2C.GAN02..HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094548.68-AIC-2C.KAT03..HHZ">
+      <time>
+        <value>2018-12-24T09:45:48.68Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.311518Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094549.70-S-AIC-2C.KAT03..HHN">
+      <time>
+        <value>2018-12-24T09:45:49.7Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.312544Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094548.68-AIC-2C.KAT03..HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094549.48-AIC-2C.SKA10..HHZ">
+      <time>
+        <value>2018-12-24T09:45:49.48Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="SKA10" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.314735Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094549.85-S-AIC-2C.SKA10..HHN">
+      <time>
+        <value>2018-12-24T09:45:49.855Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="SKA10" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.315807Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094549.48-AIC-2C.SKA10..HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094548.98-AIC-ON.INNST.00.HHZ">
+      <time>
+        <value>2018-12-24T09:45:48.984999Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.318027Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094549.28-S-AIC-ON.INNST.00.HHN">
+      <time>
+        <value>2018-12-24T09:45:49.289999Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.319679Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094548.98-AIC-ON.INNST.00.HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094549.00-AIC-2C.OLK26..EHZ">
+      <time>
+        <value>2018-12-24T09:45:49.0000Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.322077Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094549.32-S-AIC-2C.OLK26..EHN">
+      <time>
+        <value>2018-12-24T09:45:49.325Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.323368Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094549.00-AIC-2C.OLK26..EHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094608.13-AIC-ON.SKEGG.00.HHZ">
+      <time>
+        <value>2018-12-24T09:46:08.13Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.341765Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094608.71-S-AIC-ON.SKEGG.00.HHN">
+      <time>
+        <value>2018-12-24T09:46:08.71Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.34282Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094608.13-AIC-ON.SKEGG.00.HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094609.27-AIC-2C.OLF42.00.HHZ">
+      <time>
+        <value>2018-12-24T09:46:09.27Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.344365Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094608.27-AIC-ON.KOLDU.00.HHZ">
+      <time>
+        <value>2018-12-24T09:46:08.27Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.346787Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094608.81-S-AIC-ON.KOLDU.00.HHN">
+      <time>
+        <value>2018-12-24T09:46:08.81Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.347885Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094608.27-AIC-ON.KOLDU.00.HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094609.39-AIC-2C.OLK26..EHZ">
+      <time>
+        <value>2018-12-24T09:46:09.395Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.349477Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094609.74-S-AIC-2C.OLK26..EHN">
+      <time>
+        <value>2018-12-24T09:46:09.745Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.350358Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094609.39-AIC-2C.OLK26..EHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094608.34-AIC-ON.GRAFN.00.HHZ">
+      <time>
+        <value>2018-12-24T09:46:08.3436Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.352235Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094608.65-S-AIC-ON.GRAFN.00.HHN">
+      <time>
+        <value>2018-12-24T09:46:08.6536Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.353522Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094608.34-AIC-ON.GRAFN.00.HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094608.69-AIC-2C.GAN02..HHZ">
+      <time>
+        <value>2018-12-24T09:46:08.69Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.355036Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094609.63-S-AIC-2C.GAN02..HHN">
+      <time>
+        <value>2018-12-24T09:46:09.635Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.356275Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094608.69-AIC-2C.GAN02..HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094609.44-AIC-ON.INNST.00.HHZ">
+      <time>
+        <value>2018-12-24T09:46:09.44Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.35767Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094609.11-AIC-2C.KAT03..HHZ">
+      <time>
+        <value>2018-12-24T09:46:09.115Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.363178Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094610.13-S-AIC-2C.KAT03..HHN">
+      <time>
+        <value>2018-12-24T09:46:10.135Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.364166Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094609.11-AIC-2C.KAT03..HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094609.19-AIC-2C.THJ07..HHZ">
+      <time>
+        <value>2018-12-24T09:46:09.19Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="THJ07" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.367348Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094610.28-S-AIC-2C.THJ07..HHN">
+      <time>
+        <value>2018-12-24T09:46:10.28Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="THJ07" channelCode="HHN"/>
+      <filterID>BW(3,3,15)</filterID>
+      <methodID>L2-AIC-GRID</methodID>
+      <phaseHint>S</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.368539Z</creationTime>
+      </creationInfo>
+      <comment>
+        <text>20181224.094609.19-AIC-2C.THJ07..HHZ</text>
+        <id>RefPickID</id>
+      </comment>
+    </pick>
+    <pick publicID="20181224.094644.72-AIC-ON.SKEGG.00.HHZ">
+      <time>
+        <value>2018-12-24T09:46:44.725Z</value>
+      </time>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.458541Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094645.30-AIC-2C.GAN02..HHZ">
+      <time>
+        <value>2018-12-24T09:46:45.305Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.462559Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094838.50-AIC-2C.URD20..EHZ">
+      <time>
+        <value>2018-12-24T09:48:38.505Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.707565Z</creationTime>
+      </creationInfo>
+    </pick>
+    <pick publicID="20181224.094838.87-AIC-2C.LAM08..HHZ">
+      <time>
+        <value>2018-12-24T09:48:38.875Z</value>
+      </time>
+      <waveformID networkCode="2C" stationCode="LAM08" channelCode="HHZ"/>
+      <filterID>BW(4,2,50)</filterID>
+      <methodID>AIC</methodID>
+      <phaseHint>P</phaseHint>
+      <evaluationMode>automatic</evaluationMode>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.729616Z</creationTime>
+      </creationInfo>
+    </pick>
+    <amplitude publicID="20181224.094257.69-AIC-2C.URD20..EHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>4.619057925</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:42:57.695Z</reference>
+        <begin>-2.675</begin>
+        <end>3.325</end>
+      </timeWindow>
+      <snr>4.619057925</snr>
+      <pickID>20181224.094257.69-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.117085Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094257.69-AIC-2C.URD20..EHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>1669.767473</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:43:04.415Z</reference>
+        <begin>-11.72</begin>
+        <end>23.28</end>
+      </timeWindow>
+      <period>
+        <value>6.646</value>
+      </period>
+      <snr>3.909230609</snr>
+      <pickID>20181224.094257.69-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.150185Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094257.69-AIC-2C.URD20..EHZ.mB">
+      <type>mB</type>
+      <amplitude>
+        <value>243047.6087</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:43:51.475Z</reference>
+        <begin>-58.78</begin>
+        <end>6.22</end>
+      </timeWindow>
+      <snr>10.16743093</snr>
+      <pickID>20181224.094257.69-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.175559Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094359.92-AIC-2C.LAM08..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>9.441915516</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:43:59.92Z</reference>
+        <begin>-2.405</begin>
+        <end>3.595</end>
+      </timeWindow>
+      <snr>9.441915516</snr>
+      <pickID>20181224.094359.92-AIC-2C.LAM08..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="LAM08" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.177303Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094419.77-AIC-2C.URD20..EHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>9.113632887</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:44:19.77Z</reference>
+        <begin>-1.27</begin>
+        <end>4.73</end>
+      </timeWindow>
+      <snr>9.113632887</snr>
+      <pickID>20181224.094419.77-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.194051Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094359.92-AIC-2C.LAM08..HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>113.6010697</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:44:07.085Z</reference>
+        <begin>-12.165</begin>
+        <end>22.835</end>
+      </timeWindow>
+      <period>
+        <value>1.72125</value>
+      </period>
+      <snr>1.210849972</snr>
+      <pickID>20181224.094359.92-AIC-2C.LAM08..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="LAM08" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.206332Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094432.74-AIC-2C.URD20..EHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>4.678410043</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:44:32.745Z</reference>
+        <begin>-2.035</begin>
+        <end>3.965</end>
+      </timeWindow>
+      <snr>4.678410043</snr>
+      <pickID>20181224.094432.74-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.208553Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094419.77-AIC-2C.URD20..EHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>6053.203687</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:44:55.26Z</reference>
+        <begin>-40.49</begin>
+        <end>-5.49</end>
+      </timeWindow>
+      <period>
+        <value>50.34</value>
+      </period>
+      <snr>4.176574077</snr>
+      <pickID>20181224.094419.77-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.226524Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094432.74-AIC-2C.URD20..EHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>7532.564269</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:08.72Z</reference>
+        <begin>-40.975</begin>
+        <end>-5.975</end>
+      </timeWindow>
+      <period>
+        <value>33.43666667</value>
+      </period>
+      <snr>4.787987157</snr>
+      <pickID>20181224.094432.74-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.241583Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094507.40-AIC-2C.URD20..EHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>4.116759926</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:07.4Z</reference>
+        <begin>-2.775</begin>
+        <end>3.225</end>
+      </timeWindow>
+      <snr>4.116759926</snr>
+      <pickID>20181224.094507.40-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.244838Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094257.69-AIC-2C.URD20..EHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.293594385</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:44:33.915Z</reference>
+        <begin>-101.22</begin>
+        <end>53.78</end>
+      </timeWindow>
+      <snr>2.025205859</snr>
+      <pickID>20181224.094257.69-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.271632Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094507.40-AIC-2C.URD20..EHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>559.426273</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:19.055Z</reference>
+        <begin>-16.655</begin>
+        <end>18.345</end>
+      </timeWindow>
+      <period>
+        <value>12.62333333</value>
+      </period>
+      <snr>2.205209042</snr>
+      <pickID>20181224.094507.40-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.285262Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.68-AIC-ON.SKEGG.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>84.30283288</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:47.68Z</reference>
+        <begin>-2.98</begin>
+        <end>3.02</end>
+      </timeWindow>
+      <snr>84.30283288</snr>
+      <pickID>20181224.094547.68-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.295918Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.90-AIC-ON.GRAFN.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>6.688436942</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:47.9036Z</reference>
+        <begin>-2.245</begin>
+        <end>3.755</end>
+      </timeWindow>
+      <snr>6.688436942</snr>
+      <pickID>20181224.094547.90-AIC-ON.GRAFN.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.298661Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.82-AIC-ON.KOLDU.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>15.63556954</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:47.825Z</reference>
+        <begin>-2.345</begin>
+        <end>3.655</end>
+      </timeWindow>
+      <snr>15.63556954</snr>
+      <pickID>20181224.094547.82-AIC-ON.KOLDU.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.301467Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.83-AIC-2C.OLF42.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>8.728629965</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:48.83Z</reference>
+        <begin>-2.71</begin>
+        <end>3.29</end>
+      </timeWindow>
+      <snr>8.728629965</snr>
+      <pickID>20181224.094548.83-AIC-2C.OLF42.00.HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.305163Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.24-AIC-2C.GAN02..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>23.49032915</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:48.245Z</reference>
+        <begin>-2.95</begin>
+        <end>3.05</end>
+      </timeWindow>
+      <snr>23.49032915</snr>
+      <pickID>20181224.094548.24-AIC-2C.GAN02..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.308418Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.68-AIC-2C.KAT03..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>14.24632974</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:48.68Z</reference>
+        <begin>-2.225</begin>
+        <end>3.775</end>
+      </timeWindow>
+      <snr>14.24632974</snr>
+      <pickID>20181224.094548.68-AIC-2C.KAT03..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.311518Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094549.48-AIC-2C.SKA10..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>5.497707077</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:49.48Z</reference>
+        <begin>-2.125</begin>
+        <end>3.875</end>
+      </timeWindow>
+      <snr>5.497707077</snr>
+      <pickID>20181224.094549.48-AIC-2C.SKA10..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="SKA10" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.314735Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.98-AIC-ON.INNST.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>6.838706818</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:48.984999Z</reference>
+        <begin>-2.58</begin>
+        <end>3.42</end>
+      </timeWindow>
+      <snr>6.838706818</snr>
+      <pickID>20181224.094548.98-AIC-ON.INNST.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.318027Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094549.00-AIC-2C.OLK26..EHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>6.820793657</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:49.0000Z</reference>
+        <begin>-2.535</begin>
+        <end>3.465</end>
+      </timeWindow>
+      <snr>6.820793657</snr>
+      <pickID>20181224.094549.00-AIC-2C.OLK26..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.322077Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.13-AIC-ON.SKEGG.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>107.6741502</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:08.13Z</reference>
+        <begin>-2.985</begin>
+        <end>3.015</end>
+      </timeWindow>
+      <snr>107.6741502</snr>
+      <pickID>20181224.094608.13-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.341765Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.27-AIC-2C.OLF42.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>11.02460876</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:09.27Z</reference>
+        <begin>-2.71</begin>
+        <end>3.29</end>
+      </timeWindow>
+      <snr>11.02460876</snr>
+      <pickID>20181224.094609.27-AIC-2C.OLF42.00.HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.344365Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.27-AIC-ON.KOLDU.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>18.44733839</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:08.27Z</reference>
+        <begin>-2.4</begin>
+        <end>3.6</end>
+      </timeWindow>
+      <snr>18.44733839</snr>
+      <pickID>20181224.094608.27-AIC-ON.KOLDU.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.346787Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.39-AIC-2C.OLK26..EHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>5.6473896</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:09.395Z</reference>
+        <begin>-2.51</begin>
+        <end>3.49</end>
+      </timeWindow>
+      <snr>5.6473896</snr>
+      <pickID>20181224.094609.39-AIC-2C.OLK26..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.349477Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.34-AIC-ON.GRAFN.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>6.902471495</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:08.3436Z</reference>
+        <begin>-2.275</begin>
+        <end>3.725</end>
+      </timeWindow>
+      <snr>6.902471495</snr>
+      <pickID>20181224.094608.34-AIC-ON.GRAFN.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.352235Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.69-AIC-2C.GAN02..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>23.56293827</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:08.69Z</reference>
+        <begin>-2.95</begin>
+        <end>3.05</end>
+      </timeWindow>
+      <snr>23.56293827</snr>
+      <pickID>20181224.094608.69-AIC-2C.GAN02..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.355036Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.44-AIC-ON.INNST.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>6.581317141</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:09.44Z</reference>
+        <begin>-2.71</begin>
+        <end>3.29</end>
+      </timeWindow>
+      <snr>6.581317141</snr>
+      <pickID>20181224.094609.44-AIC-ON.INNST.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.35767Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.11-AIC-2C.KAT03..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>14.69619855</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:09.115Z</reference>
+        <begin>-2.185</begin>
+        <end>3.815</end>
+      </timeWindow>
+      <snr>14.69619855</snr>
+      <pickID>20181224.094609.11-AIC-2C.KAT03..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.363178Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.19-AIC-2C.THJ07..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>4.936369107</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:09.19Z</reference>
+        <begin>-1.4</begin>
+        <end>4.6</end>
+      </timeWindow>
+      <snr>4.936369107</snr>
+      <pickID>20181224.094609.19-AIC-2C.THJ07..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="THJ07" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.367348Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.68-AIC-ON.SKEGG.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>7036.590258</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:55.865Z</reference>
+        <begin>-13.185</begin>
+        <end>21.815</end>
+      </timeWindow>
+      <period>
+        <value>8.058</value>
+      </period>
+      <snr>2.417060058</snr>
+      <pickID>20181224.094547.68-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.379038Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.90-AIC-ON.GRAFN.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>450154.534</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:21.7886Z</reference>
+        <begin>-38.885</begin>
+        <end>-3.885</end>
+      </timeWindow>
+      <period>
+        <value>123.56</value>
+      </period>
+      <snr>2.283865498</snr>
+      <pickID>20181224.094547.90-AIC-ON.GRAFN.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.381922Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.68-AIC-2C.KAT03..HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>88.11423036</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:45.46Z</reference>
+        <begin>-1.78</begin>
+        <end>33.22</end>
+      </timeWindow>
+      <period>
+        <value>1.69625</value>
+      </period>
+      <snr>1.048088454</snr>
+      <pickID>20181224.094548.68-AIC-2C.KAT03..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.38601Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.24-AIC-2C.GAN02..HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>96.24166082</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:50.725Z</reference>
+        <begin>-7.48</begin>
+        <end>27.52</end>
+      </timeWindow>
+      <period>
+        <value>1.74375</value>
+      </period>
+      <snr>1.526107163</snr>
+      <pickID>20181224.094548.24-AIC-2C.GAN02..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.390147Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.82-AIC-ON.KOLDU.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>102993.0282</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:21.345Z</reference>
+        <begin>-38.52</begin>
+        <end>-3.52</end>
+      </timeWindow>
+      <period>
+        <value>125.07</value>
+      </period>
+      <snr>2.30322548</snr>
+      <pickID>20181224.094547.82-AIC-ON.KOLDU.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.39321Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.83-AIC-2C.OLF42.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>125.9842895</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:15.55Z</reference>
+        <begin>-31.72</begin>
+        <end>3.28</end>
+      </timeWindow>
+      <period>
+        <value>1.84125</value>
+      </period>
+      <snr>1.789109148</snr>
+      <pickID>20181224.094548.83-AIC-2C.OLF42.00.HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.396085Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094549.00-AIC-2C.OLK26..EHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>3074.236962</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:12.595Z</reference>
+        <begin>-28.595</begin>
+        <end>6.405</end>
+      </timeWindow>
+      <period>
+        <value>24.78</value>
+      </period>
+      <snr>3.095139566</snr>
+      <pickID>20181224.094549.00-AIC-2C.OLK26..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.399531Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.98-AIC-ON.INNST.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>10746.58842</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:25.475Z</reference>
+        <begin>-41.49</begin>
+        <end>-6.49</end>
+      </timeWindow>
+      <period>
+        <value>81.95</value>
+      </period>
+      <snr>5.34191538</snr>
+      <pickID>20181224.094548.98-AIC-ON.INNST.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.402507Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094549.48-AIC-2C.SKA10..HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>69.24339369</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:00.845Z</reference>
+        <begin>-16.365</begin>
+        <end>18.635</end>
+      </timeWindow>
+      <period>
+        <value>1.36375</value>
+      </period>
+      <snr>0.8039913102</snr>
+      <pickID>20181224.094549.48-AIC-2C.SKA10..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="SKA10" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.407003Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094359.92-AIC-2C.LAM08..HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.056727369</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:23.445Z</reference>
+        <begin>-148.525</begin>
+        <end>6.475</end>
+      </timeWindow>
+      <snr>1.644154476</snr>
+      <pickID>20181224.094359.92-AIC-2C.LAM08..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="LAM08" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.420385Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.27-AIC-ON.KOLDU.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>116680.307</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:42.61Z</reference>
+        <begin>-39.34</begin>
+        <end>-4.34</end>
+      </timeWindow>
+      <period>
+        <value>122.4966667</value>
+      </period>
+      <snr>2.433879672</snr>
+      <pickID>20181224.094608.27-AIC-ON.KOLDU.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.429351Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.34-AIC-ON.GRAFN.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>655045.6177</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:44.0436Z</reference>
+        <begin>-40.7</begin>
+        <end>-5.7</end>
+      </timeWindow>
+      <period>
+        <value>115.0866667</value>
+      </period>
+      <snr>2.806616062</snr>
+      <pickID>20181224.094608.34-AIC-ON.GRAFN.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.432009Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.13-AIC-ON.SKEGG.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>5474.047125</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:17.04Z</reference>
+        <begin>-13.91</begin>
+        <end>21.09</end>
+      </timeWindow>
+      <period>
+        <value>8.266</value>
+      </period>
+      <snr>2.439537607</snr>
+      <pickID>20181224.094608.13-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.435045Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.11-AIC-2C.KAT03..HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>107.2776166</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:04.565Z</reference>
+        <begin>-0.45</begin>
+        <end>34.55</end>
+      </timeWindow>
+      <period>
+        <value>1.85625</value>
+      </period>
+      <snr>1.432113199</snr>
+      <pickID>20181224.094609.11-AIC-2C.KAT03..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.438791Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.69-AIC-2C.GAN02..HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>100.2564972</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:17.51Z</reference>
+        <begin>-13.82</begin>
+        <end>21.18</end>
+      </timeWindow>
+      <period>
+        <value>1.9575</value>
+      </period>
+      <snr>1.468744216</snr>
+      <pickID>20181224.094608.69-AIC-2C.GAN02..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.44266Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.27-AIC-2C.OLF42.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>120.975817</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:15.55Z</reference>
+        <begin>-11.28</begin>
+        <end>23.72</end>
+      </timeWindow>
+      <period>
+        <value>1.85</value>
+      </period>
+      <snr>1.754795819</snr>
+      <pickID>20181224.094609.27-AIC-2C.OLF42.00.HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.44586Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.44-AIC-ON.INNST.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>31644.65678</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:45.75Z</reference>
+        <begin>-41.31</begin>
+        <end>-6.31</end>
+      </timeWindow>
+      <period>
+        <value>85.5</value>
+      </period>
+      <snr>4.871948932</snr>
+      <pickID>20181224.094609.44-AIC-ON.INNST.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.449058Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.19-AIC-2C.THJ07..HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>123.9308444</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:20.68Z</reference>
+        <begin>-16.49</begin>
+        <end>18.51</end>
+      </timeWindow>
+      <period>
+        <value>2.13125</value>
+      </period>
+      <snr>1.476647111</snr>
+      <pickID>20181224.094609.19-AIC-2C.THJ07..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="THJ07" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.453239Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.39-AIC-2C.OLK26..EHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>2161.433694</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:42.555Z</reference>
+        <begin>-38.16</begin>
+        <end>-3.16</end>
+      </timeWindow>
+      <period>
+        <value>53.24</value>
+      </period>
+      <snr>3.788792909</snr>
+      <pickID>20181224.094609.39-AIC-2C.OLK26..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.456344Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094644.72-AIC-ON.SKEGG.00.HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>21.38653287</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:44.725Z</reference>
+        <begin>-2.96</begin>
+        <end>3.04</end>
+      </timeWindow>
+      <snr>21.38653287</snr>
+      <pickID>20181224.094644.72-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.458541Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094645.30-AIC-2C.GAN02..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>5.253930053</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:45.305Z</reference>
+        <begin>-1.855</begin>
+        <end>4.145</end>
+      </timeWindow>
+      <snr>5.253930053</snr>
+      <pickID>20181224.094645.30-AIC-2C.GAN02..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.462559Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.68-AIC-ON.SKEGG.00.HHZ.mB">
+      <type>mB</type>
+      <amplitude>
+        <value>220704.8682</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:47.675Z</reference>
+        <begin>-64.995</begin>
+        <end>0.005</end>
+      </timeWindow>
+      <snr>35.46465277</snr>
+      <pickID>20181224.094547.68-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.469659Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.82-AIC-ON.KOLDU.00.HHZ.mB">
+      <type>mB</type>
+      <amplitude>
+        <value>947637.2179</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:40.895Z</reference>
+        <begin>-58.07</begin>
+        <end>6.93</end>
+      </timeWindow>
+      <snr>11.93293577</snr>
+      <pickID>20181224.094547.82-AIC-ON.KOLDU.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.47329Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094549.00-AIC-2C.OLK26..EHZ.mB">
+      <type>mB</type>
+      <amplitude>
+        <value>798481.8348</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:48.995Z</reference>
+        <begin>-64.995</begin>
+        <end>0.005</end>
+      </timeWindow>
+      <snr>25.16774383</snr>
+      <pickID>20181224.094549.00-AIC-2C.OLK26..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.48737Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094419.77-AIC-2C.URD20..EHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.110217454</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:45:31.965Z</reference>
+        <begin>-77.195</begin>
+        <end>77.805</end>
+      </timeWindow>
+      <snr>1.707103275</snr>
+      <pickID>20181224.094419.77-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.506967Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094432.74-AIC-2C.URD20..EHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.181143979</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:55.83Z</reference>
+        <begin>-148.085</begin>
+        <end>6.915</end>
+      </timeWindow>
+      <snr>1.756144227</snr>
+      <pickID>20181224.094432.74-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.529277Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.27-AIC-ON.KOLDU.00.HHZ.mB">
+      <type>mB</type>
+      <amplitude>
+        <value>4128145.569</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:08.245Z</reference>
+        <begin>-64.975</begin>
+        <end>0.025</end>
+      </timeWindow>
+      <snr>15.99644312</snr>
+      <pickID>20181224.094608.27-AIC-ON.KOLDU.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.535809Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.34-AIC-ON.GRAFN.00.HHZ.mB">
+      <type>mB</type>
+      <amplitude>
+        <value>2968013.603</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:43.9786Z</reference>
+        <begin>-40.635</begin>
+        <end>24.365</end>
+      </timeWindow>
+      <snr>3.122519293</snr>
+      <pickID>20181224.094608.34-AIC-ON.GRAFN.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.539139Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.44-AIC-ON.INNST.00.HHZ.mB">
+      <type>mB</type>
+      <amplitude>
+        <value>483675.6597</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:09.435Z</reference>
+        <begin>-64.995</begin>
+        <end>0.005</end>
+      </timeWindow>
+      <snr>20.18579048</snr>
+      <pickID>20181224.094609.44-AIC-ON.INNST.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.545279Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.39-AIC-2C.OLK26..EHZ.mB">
+      <type>mB</type>
+      <amplitude>
+        <value>152865.8055</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:05.82Z</reference>
+        <begin>-61.425</begin>
+        <end>3.575</end>
+      </timeWindow>
+      <snr>11.89830219</snr>
+      <pickID>20181224.094609.39-AIC-2C.OLK26..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.556135Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094644.72-AIC-ON.SKEGG.00.HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>35687.15964</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:20.815Z</reference>
+        <begin>-41.09</begin>
+        <end>-6.09</end>
+      </timeWindow>
+      <period>
+        <value>76.45666667</value>
+      </period>
+      <snr>4.948895654</snr>
+      <pickID>20181224.094644.72-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.570142Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094645.30-AIC-2C.GAN02..HHZ.mb">
+      <type>mb</type>
+      <amplitude>
+        <value>88.55667434</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:51.205Z</reference>
+        <begin>-10.9</begin>
+        <end>24.1</end>
+      </timeWindow>
+      <period>
+        <value>1.96</value>
+      </period>
+      <snr>1.19206547</snr>
+      <pickID>20181224.094645.30-AIC-2C.GAN02..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.575034Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094507.40-AIC-2C.URD20..EHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.213322203</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:55.83Z</reference>
+        <begin>-113.43</begin>
+        <end>41.57</end>
+      </timeWindow>
+      <snr>2.096431545</snr>
+      <pickID>20181224.094507.40-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.594049Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.82-AIC-ON.KOLDU.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>2.403325541</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:59.94Z</reference>
+        <begin>-77.115</begin>
+        <end>77.885</end>
+      </timeWindow>
+      <snr>2.740399981</snr>
+      <pickID>20181224.094547.82-AIC-ON.KOLDU.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.634897Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.24-AIC-2C.GAN02..HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.6552906552</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:46.335Z</reference>
+        <begin>-123.09</begin>
+        <end>31.91</end>
+      </timeWindow>
+      <snr>1.705022031</snr>
+      <pickID>20181224.094548.24-AIC-2C.GAN02..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.643985Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.68-AIC-ON.SKEGG.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.280489111</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:11.945Z</reference>
+        <begin>-89.265</begin>
+        <end>65.735</end>
+      </timeWindow>
+      <snr>8.534293988</snr>
+      <pickID>20181224.094547.68-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.650186Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094547.90-AIC-ON.GRAFN.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>13.90246875</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:12.0936Z</reference>
+        <begin>-89.19</begin>
+        <end>65.81</end>
+      </timeWindow>
+      <snr>5.210662739</snr>
+      <pickID>20181224.094547.90-AIC-ON.GRAFN.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.657481Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.68-AIC-2C.KAT03..HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.6480600388</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:32.97Z</reference>
+        <begin>-49.29</begin>
+        <end>105.71</end>
+      </timeWindow>
+      <snr>1.223826415</snr>
+      <pickID>20181224.094548.68-AIC-2C.KAT03..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.664825Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094549.00-AIC-2C.OLK26..EHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.174370298</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:01.705Z</reference>
+        <begin>-77.705</begin>
+        <end>77.295</end>
+      </timeWindow>
+      <snr>2.262356592</snr>
+      <pickID>20181224.094549.00-AIC-2C.OLK26..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.671311Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.83-AIC-2C.OLF42.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.7197744421</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:38.345Z</reference>
+        <begin>-54.515</begin>
+        <end>100.485</end>
+      </timeWindow>
+      <snr>1.601425047</snr>
+      <pickID>20181224.094548.83-AIC-2C.OLF42.00.HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.67794Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094548.98-AIC-ON.INNST.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.077503422</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:38.23Z</reference>
+        <begin>-54.245</begin>
+        <end>100.755</end>
+      </timeWindow>
+      <snr>5.225137771</snr>
+      <pickID>20181224.094548.98-AIC-ON.INNST.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.685035Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094549.48-AIC-2C.SKA10..HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.7739597163</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:14.475Z</reference>
+        <begin>-89.995</begin>
+        <end>65.005</end>
+      </timeWindow>
+      <snr>1.69406592</snr>
+      <pickID>20181224.094549.48-AIC-2C.SKA10..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="SKA10" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.694169Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094838.50-AIC-2C.URD20..EHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>4.757584122</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:48:38.505Z</reference>
+        <begin>-2.605</begin>
+        <end>3.395</end>
+      </timeWindow>
+      <snr>4.757584122</snr>
+      <pickID>20181224.094838.50-AIC-2C.URD20..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="URD20" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.707565Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.13-AIC-ON.SKEGG.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.7708375314</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:11.945Z</reference>
+        <begin>-68.815</begin>
+        <end>86.185</end>
+      </timeWindow>
+      <snr>2.942893611</snr>
+      <pickID>20181224.094608.13-AIC-ON.SKEGG.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="SKEGG" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.717143Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.69-AIC-2C.GAN02..HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.6360857342</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:46.335Z</reference>
+        <begin>-102.645</begin>
+        <end>52.355</end>
+      </timeWindow>
+      <snr>1.365979266</snr>
+      <pickID>20181224.094608.69-AIC-2C.GAN02..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="GAN02" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.729128Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094838.87-AIC-2C.LAM08..HHZ.snr">
+      <type>snr</type>
+      <amplitude>
+        <value>12.49144205</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:48:38.875Z</reference>
+        <begin>-1.87</begin>
+        <end>4.13</end>
+      </timeWindow>
+      <snr>12.49144205</snr>
+      <pickID>20181224.094838.87-AIC-2C.LAM08..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="LAM08" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.729616Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.27-AIC-ON.KOLDU.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>1.962263818</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:48:26.045Z</reference>
+        <begin>-142.775</begin>
+        <end>12.225</end>
+      </timeWindow>
+      <snr>2.222784555</snr>
+      <pickID>20181224.094608.27-AIC-ON.KOLDU.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="KOLDU" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.743249Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094608.34-AIC-ON.GRAFN.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>12.23103709</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:12.0936Z</reference>
+        <begin>-68.75</begin>
+        <end>86.25</end>
+      </timeWindow>
+      <snr>10.91895117</snr>
+      <pickID>20181224.094608.34-AIC-ON.GRAFN.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="GRAFN" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.750549Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.11-AIC-2C.KAT03..HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.6436491298</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:32.97Z</reference>
+        <begin>-28.855</begin>
+        <end>126.145</end>
+      </timeWindow>
+      <snr>1.277758512</snr>
+      <pickID>20181224.094609.11-AIC-2C.KAT03..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="KAT03" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.760633Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.19-AIC-2C.THJ07..HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.7510875904</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:29.21Z</reference>
+        <begin>-25.02</begin>
+        <end>129.98</end>
+      </timeWindow>
+      <snr>1.416294901</snr>
+      <pickID>20181224.094609.19-AIC-2C.THJ07..HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="THJ07" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.769917Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.39-AIC-2C.OLK26..EHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.9178446331</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:47:01.705Z</reference>
+        <begin>-57.31</begin>
+        <end>97.69</end>
+      </timeWindow>
+      <snr>1.737374747</snr>
+      <pickID>20181224.094609.39-AIC-2C.OLK26..EHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLK26" channelCode="EHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.776153Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.27-AIC-2C.OLF42.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.7282787564</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:38.345Z</reference>
+        <begin>-34.075</begin>
+        <end>120.925</end>
+      </timeWindow>
+      <snr>1.760177399</snr>
+      <pickID>20181224.094609.27-AIC-2C.OLF42.00.HHZ</pickID>
+      <waveformID networkCode="2C" stationCode="OLF42" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.782396Z</creationTime>
+      </creationInfo>
+    </amplitude>
+    <amplitude publicID="20181224.094609.44-AIC-ON.INNST.00.HHZ.MLv">
+      <type>MLv</type>
+      <amplitude>
+        <value>0.8110544472</value>
+      </amplitude>
+      <timeWindow>
+        <reference>2018-12-24T09:46:38.23Z</reference>
+        <begin>-33.79</begin>
+        <end>121.21</end>
+      </timeWindow>
+      <snr>2.87086422</snr>
+      <pickID>20181224.094609.44-AIC-ON.INNST.00.HHZ</pickID>
+      <waveformID networkCode="ON" stationCode="INNST" locationCode="00" channelCode="HHZ"/>
+      <creationInfo>
+        <agencyID>gempa</agencyID>
+        <author>l2autopick@gempa-vm</author>
+        <creationTime>2021-09-14T14:07:20.788922Z</creationTime>
+      </creationInfo>
+    </amplitude>
+  </EventParameters>
+</seiscomp>

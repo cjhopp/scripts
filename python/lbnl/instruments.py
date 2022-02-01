@@ -43,8 +43,8 @@ resp_labl_map = {'RESP.XX.NS491..BNZ.LowNoise.0_005_1000.60V.2G': 'Silicon Audio
                  'RESP.XX.NS391..SHZ.GS11D.10.380.NONE.32': 'Geospace GS-11D Geophone',
                  'RESP.XX.NS539..BHZ.Trillium120Q.120.1500': 'Nanometrics Trillium 120s PH broadband'}
 
-resp_outp_map = {'RESP.XX.NS491..BNZ.LowNoise.0_005_1000.60V.2G': 'ACC',
-                 'RESP.XX.NS126..BNZ.Titan.DC_430.20V.0_5G': 'ACC',
+resp_outp_map = {'RESP.XX.NS491..BNZ.LowNoise.0_005_1000.60V.2G': 'VEL',
+                 'RESP.XX.NS126..BNZ.Titan.DC_430.20V.0_5G': 'VEL',
                  'RESP.XX.NS380..SLZ.HS1LT.3810.115000.2.76': 'VEL',
                  'RESP.XX.NS391..SHZ.GS11D.10.380.NONE.32': 'VEL',
                  'RESP.XX.NS539..BHZ.Trillium120Q.120.1500': 'VEL'}
@@ -71,20 +71,31 @@ def plot_resp(resp_dir, min_freq, sampling_rate):
     """
     resps = glob('{}/RESP*'.format(resp_dir))
     file_order = []
-    fig, axes = plt.subplots(nrows=2, figsize=(9, 9))
+    fig, axes = plt.subplots(nrows=3, figsize=(9, 12))
+    dummy_fig = plt.figure()
+    dummy_axes = dummy_fig.add_subplot()
     for i, resp in enumerate(resps):
         base = os.path.basename(resp)
         file_order.append(base)
         lab = resp_labl_map[base]
         output = resp_outp_map[base]
         read_inventory(resp)[0][0][0].response.plot(
-            output=output,
-            min_freq=min_freq, sampling_rate=sampling_rate,
-            label=lab, axes=fig.axes, unwrap_phase=True, show=False)
+            output=output, min_freq=min_freq, sampling_rate=sampling_rate,
+            label=lab, axes=[axes[0], axes[2]], unwrap_phase=True, show=False)
+        read_inventory(resp)[0][0][0].response.plot(
+            output='ACC', min_freq=min_freq, sampling_rate=sampling_rate,
+            axes=[axes[1], dummy_axes], show=False)
     # Edit linestyle after the fact
     inds = []  # Labels are only assigned to amplitude axes, save inds of lines
     ind_labs = []
     for i, ln in enumerate(axes[0].get_lines()):
+        label = ln.get_label()
+        ind_labs.append(label)
+        if label in resp_color_map:
+            inds.append(i)
+            ln.set_color(resp_color_map[label])
+            ln.set_linestyle(resp_ls_map[label])
+    for i, ln in enumerate(axes[1].get_lines()):
         label = ln.get_label()
         ind_labs.append(label)
         if label in resp_color_map:
@@ -98,13 +109,15 @@ def plot_resp(resp_dir, min_freq, sampling_rate):
         ln.set_linestyle(resp_ls_map[ind_labs[ind]])
     axes[0].grid(True)
     axes[1].grid(True)
-    axes[1].set_yticks([-2 * np.pi, -(3/2) * np.pi, -np.pi, -np.pi / 2, 0,
+    axes[2].grid(True)
+    axes[2].set_yticks([-2 * np.pi, -(3/2) * np.pi, -np.pi, -np.pi / 2, 0,
                         np.pi / 2, np.pi])
-    axes[1].set_yticklabels([r'$-2\pi$', r'$-\frac{3\pi}{2}$', r'$\pi$',
+    axes[2].set_yticklabels([r'$-2\pi$', r'$-\frac{3\pi}{2}$', r'$\pi$',
                              r'$\frac{\pi}{2}$', r'$0$', r'$\frac{\pi}{2}$',
                              r'$\pi$'])
-    axes[0].set_ylabel('Amplitude')
-    axes[1].set_ylabel('Phase [rad]')
+    axes[0].set_ylabel('Amplitude [VEL]')
+    axes[1].set_ylabel('Amplitude [ACC]')
+    axes[2].set_ylabel('Phase [rad]')
     fig.legend()
     plt.show()
     return

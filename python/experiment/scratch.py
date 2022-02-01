@@ -153,3 +153,16 @@ uncertainties = [(ev.preferred_origin().origin_uncertainty.min_horizontal_uncert
                  ev.preferred_origin().origin_uncertainty.azimuth_max_horizontal_uncertainty)
                  for ev in cat]
 
+
+from obspy import read_events
+catalog = read_events('path-to-catalog')
+# Catalog object is a list of Event objects
+for event in catalog:
+    lat = event.origins[0].latitude
+    lon = event.origins[0].longitude
+    depth = event.origins[0].depth
+    extra = event.origins[0].extra
+    # Hopefully I can store the HMC locations like this
+    hmc_easting = float(extra.hmc_east.values)
+    hmc_northing = float(extra.hmc_north.values)
+    hmc_elevation = float(extra.hmc_elev.values)
