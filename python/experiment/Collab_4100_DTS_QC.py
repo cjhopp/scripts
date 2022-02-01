@@ -256,7 +256,7 @@ def launch_processing(files_c1, baselines, ping_interval, plot_length_seconds,
     """
     # Sort files by date (filename)
     files_c1 = sorted(files_c1)
-    tstrings_c1 = [''.join(f.split('_')[-2:])[:-8] for f in files_c1]
+    tstrings_c1 = [f.split('_')[-1][:-7] for f in files_c1]
     times_c1 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_c1]
     print('Producing plots for back-recorded data:\n{} to {}'.format(
         times_c1[0], times_c1[-1]))
@@ -334,13 +334,13 @@ while True:
     baselines = glob('{}\*.npy'.format(baselines))
     base_dict = {f.split('/')[-1].split('_')[0]: f for f in baselines}
     # Determine endtime and backcalculate start
-    endtime_c1 = ''.join(str(sorted(all_files_c1)[-1]).split('_')[-2:])[:-8]
+    endtime_c1 = str(sorted(all_files_c1)[-1]).split('_')[-1][:-7]
     endtime_c1 = datetime.strptime(endtime_c1, '%Y%m%d%H%M%S')
     starttime_c1 = endtime_c1 - timedelta(seconds=plot_length_seconds)
     print('Producing plot for {} to {}'.format(starttime_c1, endtime_c1))
     # Get the appropriate files
     all_files_chan1 = sorted(all_files_c1)
-    tstrings_c1 = [''.join(f.split('_')[-2:])[:-8] for f in all_files_chan1]
+    tstrings_c1 = [f.split('_')[-1][:-7] for f in all_files_chan1]
     times_c1 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_c1]
     indices_c1 = np.where((starttime_c1 <= np.array(times_c1)) &
                           (np.array(times_c1) < endtime_c1))[0]
