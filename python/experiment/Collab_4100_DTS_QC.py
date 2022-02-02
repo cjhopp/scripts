@@ -295,7 +295,7 @@ path_c1 = r'C:\Users\loaner\Google Drive\collabDataTransfer\rawDTSdata\data\XT16
 
 f_c1 = glob(path_c1)
 
-outpath = r'C:\Users\loaner\Google Drive\collabDataTransfer\rawDTSplots'
+outpath = r'C:\Users\loaner\Google Drive\collabDataTransfer\rawDTSplots\Collab4100-grouting'
 
 baselines = r'C:\Users\loaner\Google Drive\collabDataTransfer\rawDTSdata\data\baselines'
 
