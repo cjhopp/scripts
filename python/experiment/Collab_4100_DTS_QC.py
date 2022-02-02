@@ -283,7 +283,8 @@ def launch_processing(files_c1, baselines, ping_interval, plot_length_seconds,
             if not os.path.isfile(out_c1):
                 print('Plotting {}'.format(out_c1))
                 plot_4100_QC(well_data_c1, well=w, depths=[20, 40],
-                             baseline=base_dict[w], outfile=out_c1)
+                             baseline=base_dict[w], outfile=out_c1,
+                             vrange_T=(15, 40))
             else:
                 print('Already plotted\n{}'.format(out_c1))
     return
@@ -361,7 +362,8 @@ while True:
         if not os.path.isfile(out_c1):
             print('Plotting {}'.format(out_c1))
             plot_4100_QC(well_data_c1, well=w, depths=[20, 40],
-                         baseline=base_dict[w], outfile=out_c1)
+                         baseline=base_dict[w], outfile=out_c1,
+                         vrange_T=(15, 40))
         else:
             print('Already plotted\n{}'.format(out_c1))
     time.sleep(ping_interval_in_seconds)
