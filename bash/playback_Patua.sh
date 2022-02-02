@@ -7,7 +7,7 @@ end_date=2021-7-26
 startdate=$(date -I -d "$start_date")
 enddate=$(date -I -d "$end_date")
 
-echo Process period $(date -d $startdate +%Y-%m-%d)' 19:00:00~'$(date -d $end_date +%Y-%m-%d)' 19:59:59'
+echo Process period $(date -d $startdate +%Y-%m-%d)' 00:00:00~'$(date -d $end_date +%Y-%m-%d)' 23:59:59'
 
 scart --files 10000 -dsEv -t $(date -d $startdate +%Y-%m-%d)' 19:00:00~'$(date -d $end_date +%Y-%m-%d)' 19:59:59'  -n 'PT' -c '(D)H(Z|N|E|1|2)' /Data2/AmplifyEGS/scarchive | scautopick -vvvv -I - --playback --ep -d localhost --log-file scautopick.log > picks.xml
 scart --files 10000 -dsEv -t $(date -d $startdate +%Y-%m-%d)' 19:00:00~'$(date -d $end_date +%Y-%m-%d)' 19:59:59'  -n 'PT' -c '(D)H(Z|N|E|1|2)' /Data2/AmplifyEGS/scarchive | scautopick00 -vvvv -I - --playback --ep -d localhost --log-file scautopick00.log > picks00.xml

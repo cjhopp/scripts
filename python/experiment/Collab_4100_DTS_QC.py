@@ -326,6 +326,9 @@ launch_processing(
 print('Done with back-recorded data')
 time.sleep(ping_interval_in_seconds)
 
+baselines = glob('{}\*.npy'.format(baselines))
+base_dict = {f.split(os.sep)[-1].split('_')[0]: f for f in baselines}
+print(base_dict.keys())
 # Monitor the folders and launch the processing again.
 while True:
 
@@ -335,8 +338,6 @@ while True:
         print('No new files written. Waiting')
         time.sleep(ping_interval_in_seconds)
         continue
-    baselines = glob('{}\*.npy'.format(baselines))
-    base_dict = {f.split(os.sep)[-1].split('_')[0]: f for f in baselines}
     # Determine endtime and backcalculate start
     endtime_c1 = str(sorted(all_files_c1)[-1]).split('_')[-1][:-7]
     endtime_c1 = datetime.strptime(endtime_c1, '%Y%m%d%H%M%S')
