@@ -219,7 +219,7 @@ def plot_4100_QC(well_data, well, depths, baseline, outfile,
     axes_depth.margins(0.)
     axes_depth.set_xlim(vrange_T)
     axes_depth.set_xlabel(label_T)
-    axes_depth.set_ylabel('Measured Depth [m]')
+    axes_depth.set_ylabel('Fiber length [m]')
     axes_depth.legend(loc=2, bbox_to_anchor=(-0.2, 1.08),
                       framealpha=1.).set_zorder(103)
     axes_ts.margins(0.)
@@ -233,10 +233,10 @@ def plot_4100_QC(well_data, well, depths, baseline, outfile,
              fontsize=14)
     plt.setp(axes_T.get_xticklabels(), visible=False)
     plt.setp(axes_dT.get_xticklabels(), visible=False)
-    axes_T.set_ylabel('MD [m]')
-    axes_dT.set_ylabel('MD [m]')
+    axes_T.set_ylabel('Fiber length [m]')
+    axes_dT.set_ylabel('Fiber length [m]')
     plt.subplots_adjust(wspace=1.)
-    plt.suptitle('ACEFFL DTS: {}\n{} -- {}'.format(well, times[0], times[-1]),
+    plt.suptitle('Collab DTS: {}\n{} -- {}'.format(well, times[0], times[-1]),
                  fontsize=18)
     plt.savefig(outfile)
     plt.close('all')
@@ -260,7 +260,7 @@ def launch_processing(files_c1, baselines, ping_interval, plot_length_seconds,
     times_c1 = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings_c1]
     print('Producing plots for back-recorded data:\n{} to {}'.format(
         times_c1[0], times_c1[-1]))
-    baselines = glob('{}\*.npy'.format(baselines))
+    baselines = glob('{}/*.npy'.format(baselines))
     base_dict = {f.split(os.sep)[-1].split('_')[0]: f for f in baselines}
     # Now loop over the number of intervals for this file list
     for start in starttime_generator(times_c1[0], times_c1[-1], ping_interval):
@@ -269,21 +269,23 @@ def launch_processing(files_c1, baselines, ping_interval, plot_length_seconds,
                               (start + timedelta(seconds=plot_length_seconds) >
                                np.array(times_c1)))[0]
         these_times_c1 = [times_c1[i] for i in list(indices_c1)]
-        if (((these_times_c1[-1] - these_times_c1[0]).seconds + ping_interval) <
-                plot_length_seconds):
+        print((these_times_c1[-1] - these_times_c1[0]).seconds)
+        if ((these_times_c1[-1] - these_times_c1[0]).seconds + ping_interval) < plot_length_seconds:
             return
         well_data_c1 = read_XTDTS_dir(
             [files_c1[i] for i in list(indices_c1)],
             wells=['AMU', 'AML', 'DMU', 'DML'], mapping='collab41', no_cols=6)
+        print(well_data_c1.keys())
         for w in well_data_c1.keys():
-            out_c1 = '{}\Collab_4100_DTS_QC_{}_{}_{}.png'.format(
+            out_c1 = '{}/Collab_4100_DTS_QC_{}_{}_{}.png'.format(
                 outpath, w, these_times_c1[0].strftime('%Y-%m-%dT%H-%M'),
                 these_times_c1[-1].strftime('%Y-%m-%dT%H-%M'))
             # If plots exist, skip this
             if not os.path.isfile(out_c1):
                 print('Plotting {}'.format(out_c1))
                 plot_4100_QC(well_data_c1, well=w, depths=[20, 40],
-                             baseline=base_dict[w], outfile=out_c1)
+                             baseline=base_dict[w], outfile=out_c1,
+                             vrange_T=(15, 30))
             else:
                 print('Already plotted\n{}'.format(out_c1))
     return
@@ -291,13 +293,13 @@ def launch_processing(files_c1, baselines, ping_interval, plot_length_seconds,
 
 ### Stolen from DUG-seis live processing script
 
-path_c1 = r'C:\Users\loaner\Google Drive\collabDataTransfer\rawDTSdata\data\XT16034\temperature\EGSCOLLAB-Grout\channel 1\*.xml'
+path_c1 = r'/media/chet/data/chet-collab/DTS/4100/baselinedts/channel_1/*.xml'
 
 f_c1 = glob(path_c1)
 
-outpath = r'C:\Users\loaner\Google Drive\collabDataTransfer\rawDTSplots'
+outpath = '/media/chet/data/chet-collab/DTS/4100/DTSplots'
 
-baselines = r'C:\Users\loaner\Google Drive\collabDataTransfer\rawDTSdata\data\baselines'
+baselines = '/media/chet/data/chet-collab/DTS/4100'
 
 ping_interval_in_seconds = 1200  # How often to attempt to generate a plot
 
@@ -354,14 +356,15 @@ while True:
     # Plot them
     these_times_c1 = [times_c1[i] for i in list(indices_c1)]
     for w in well_data_c1.keys():
-        out_c1 = '{}\Collab_4100_DTS_QC_{}_{}_{}.png'.format(
+        out_c1 = '{}/Collab_4100_DTS_QC_{}_{}_{}.png'.format(
             outpath, w, these_times_c1[0].strftime('%Y-%m-%dT%H-%M'),
             these_times_c1[-1].strftime('%Y-%m-%dT%H-%M'))
         # If plots exist, skip this
         if not os.path.isfile(out_c1):
             print('Plotting {}'.format(out_c1))
             plot_4100_QC(well_data_c1, well=w, depths=[20, 40],
-                         baseline=base_dict[w], outfile=out_c1)
+                         baseline=base_dict[w], outfile=out_c1,
+                         vrange_T=(15, 30))
         else:
             print('Already plotted\n{}'.format(out_c1))
     time.sleep(ping_interval_in_seconds)
