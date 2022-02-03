@@ -135,6 +135,10 @@ def MMF_calibration_to_response(directory, plot=False):
                 'Tabellenblatt4': 'Y',
                 'Tabellenblatt5': 'Z'}
     calibs = glob('{}/*.xls'.format(directory))
+    avg_amp = {'XNZ': [], 'XNY': [], 'XNX': []}
+    avg_phase = {'XNZ': [], 'XNY': [], 'XNX': []}
+    avg_sensitivity = {'XNZ': [], 'XNY': [], 'XNX': []}
+    avg_freq = []
     for c in calibs:
         serial = c.split()[-2]
         sta = Station(code=serial[1:], latitude=lat, longitude=lon,
@@ -160,8 +164,9 @@ def MMF_calibration_to_response(directory, plot=False):
         # Resp for each channel
         for nm, df in dict_xyz.items():
             # Dummy channel
+            chan_code = 'XN{}'.format(chan_map[nm])
             # Set samp_rate to 40 kHz so that Nyquist is below max shake freq
-            chan = Channel(code='XN{}'.format(chan_map[nm]), location_code='',
+            chan = Channel(code=chan_code, location_code='',
                            latitude=lat, longitude=lon, elevation=0., depth=0.,
                            sample_rate=40000.,
                            sensor=Equipment(
@@ -171,6 +176,11 @@ def MMF_calibration_to_response(directory, plot=False):
                                model='KS943B.100',
                                serial_number=serial))
             values = df[['[Hz]', '[m/s²]', '[°]']].values
+            # Add to dict for average channel estimate later
+            avg_amp[chan_code].append(values[:,1])
+            avg_phase[chan_code].append(values[:,2])
+            avg_sensitivity[chan_code].append(float(sens_dict[nm]))
+            avg_freq = values[:,0]
             response_elements = [ResponseListElement(
                 frequency=values[i][0], amplitude=values[i][1],
                 phase=values[i][2])
@@ -192,6 +202,41 @@ def MMF_calibration_to_response(directory, plot=False):
             sta.channels.append(chan)
             # chan.response.plot(min_freq=2.4, sampling_rate=40000.)
         inv[0].stations.append(sta)
+    # Now make an 'average' channel for the other sensors
+    avg_sta = Station(code='AVG', latitude=lat, longitude=lon,
+                      elevation=0.)
+    for c in ['XNX', 'XNY', 'XNZ']:
+        chan = Channel(code=c, location_code='',
+                       latitude=lat, longitude=lon, elevation=0., depth=0.,
+                       sample_rate=40000.,
+                       sensor=Equipment(
+                           type='IEPE Accelerometer',
+                           description='Piezoelectric accelerometer',
+                           manufacturer='MMF',
+                           model='KS943B.100',
+                           serial_number='9999'))
+        amp = np.array(avg_amp[c]).mean(axis=0)
+        pha = np.array(avg_phase[c]).mean(axis=0)
+        response_elements = [ResponseListElement(
+            frequency=avg_freq[i], amplitude=amp[i],
+            phase=pha[i])
+            for i in range(avg_freq.size)]
+        resp_stage = ResponseListResponseStage(
+            response_list_elements=response_elements, stage_gain=1,
+            stage_gain_frequency=80., input_units='M/S**2',
+            output_units='V',
+            stage_sequence_number=1
+        )
+        sensitivity = InstrumentSensitivity(
+            value=np.array(avg_sensitivity[c]).mean(), frequency=80.,
+            input_units='M/S**2', output_units='V', frequency_range_start=5,
+            frequency_range_end=15850,
+            frequency_range_db_variation=3)
+        response = Response(instrument_sensitivity=sensitivity,
+                            response_stages=[resp_stage])
+        chan.response = response
+        avg_sta.channels.append(chan)
+    inv[0].stations.append(avg_sta)
     if plot:
         inv.plot_response(min_freq=2.4, plot_degrees=True)
     return inv
@@ -289,6 +334,8 @@ def fsb_to_inv(path, orientations=False, debug=0):
     :param debug:
     :return:
     """
+    inventory = Inventory()
+    inventory.networks = [Network(code='FS')]
     converter = FSB_converter()
     sens_dict = read_fsb_asbuilt(path)
     # Assemble dictionary of {station: {channel: infoz}}
@@ -381,9 +428,7 @@ def fsb_to_inv(path, orientations=False, debug=0):
                           elevation=chans[0].elevation,
                           channels=chans)
         station.extra = extra_dict[nm]
-        stas.append(station)
-    inventory = Inventory(networks=[Network(code='FS', stations=stas)],
-                          source='FSB')
+        inventory[0].stations.append(station)
     return inventory
 
 
@@ -394,13 +439,18 @@ def surf_4100_to_inv(location_file, response_inv, plot=False):
     """
     converter = SURF_converter()
     sta_df = pd.read_csv(location_file)
-    for row in sta_df.iterrows():
+    inv = Inventory()
+    serial_map = {'GMF1': '21010', 'GMF2': '21015', 'GMF3': '21027'}
+    inv.networks = [Network(code='CB')]
+    for _, row in sta_df.iterrows():
+        print(row)
         sta_code = row['Sensor name']
         # Station location
         # Convert from SURF coords to lat lon, but keep local for actual use
         lon, lat, elev = converter.to_lonlat((row['x_ft'] * 0.3048,
                                               row['y_ft'] * 0.3048,
                                               row['z_ft'] * 0.3048))
+        print(lon, lat, elev)
         # Just leave as zero here and convert HMC feet elevation to m
         depth = 0.0
         # Save HMC coords to custom attributes of Station and Channel
@@ -440,42 +490,35 @@ def surf_4100_to_inv(location_file, response_inv, plot=False):
                              response=Response())]
         else:
             # Grouted accelerometer
+            chans = []
+            try:
+                serial = serial_map[sta_code]
+            except KeyError:
+                serial = '9999'
             for chan_code in ['XNX', 'XNY', 'XNZ']:
-                # Set samp_rate to 40 kHz so that Nyquist is below max shake freq
-                chan = Channel(code='XN{}'.format(chan_map[nm]), location_code='',
-                               latitude=lat, longitude=lon, elevation=0., depth=0.,
-                               sample_rate=40000.,
+                # Set samp_rate to 40 kHz so that Nyquist is below max shake f
+                chan = Channel(code=chan_code, location_code='',
+                               latitude=lat, longitude=lon, elevation=0.,
+                               depth=0., sample_rate=40000.,
                                sensor=Equipment(
                                    type='IEPE Accelerometer',
                                    description='Piezoelectric accelerometer',
                                    manufacturer='MMF',
                                    model='KS943B.100',
                                    serial_number=serial))
-                values = df[['[Hz]', '[m/s²]', '[°]']].values
-                response_elements = [ResponseListElement(
-                    frequency=values[i][0], amplitude=values[i][1],
-                    phase=values[i][2])
-                    for i in range(values.shape[0])]
-                resp_stage = ResponseListResponseStage(
-                    response_list_elements=response_elements, stage_gain=1,
-                    stage_gain_frequency=80., input_units='M/S**2',
-                    output_units='V',
-                    stage_sequence_number=1
-                )
-                sensitivity = InstrumentSensitivity(
-                    value=float(sens_dict[nm]), frequency=80.,
-                    input_units='M/S**2', output_units='V', frequency_range_start=5,
-                    frequency_range_end=15850,
-                    frequency_range_db_variation=3)
-                response = Response(instrument_sensitivity=sensitivity,
-                                    response_stages=[resp_stage])
-                chan.response = response
-
+                # Apply exact response for the three tested sensors,
+                # ...otherwise use the average
+                avg_resp = response_inv.select(
+                    station='AVG', channel=chan_code)[0][0][0].response
+                chan.response = avg_resp
+                chans.append(chan)
         sta = Station(code=sta_code, latitude=chans[0].latitude,
                       longitude=chans[0].longitude,
                       elevation=chans[0].elevation,
                       channels=chans)
-    return
+        sta.extra = extra
+        inv[0].stations.append(sta)
+    return inv
 
 
 def surf_stations_to_inv(excel_file, debug=0):
