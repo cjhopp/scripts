@@ -12,7 +12,7 @@ echo Process period $(date -d $startdate +%Y-%m-%d)' 00:00:00~'$(date -d $end_da
 scart --files 10000 -dsEv -t $(date -d $startdate +%Y-%m-%d)' 00:00:00~'$(date -d $end_date +%Y-%m-%d)' 23:59:59'  -n 'PT' -c '(D)H(Z|N|E|1|2)' /Data2/AmplifyEGS/scarchive | scautopick -v -I - --playback --ep -d localhost --log-file scautopick.log > picks.xml
 scart --files 10000 -dsEv -t $(date -d $startdate +%Y-%m-%d)' 00:00:00~'$(date -d $end_date +%Y-%m-%d)' 23:59:59'  -n 'PT' -c '(D)H(Z|N|E|1|2)' /Data2/AmplifyEGS/scarchive | scautopick00 -v -I - --playback --ep -d localhost --log-file scautopick00.log > picks00.xml
 scxmlmerge picks.xml picks00.xml > picks_all.xml
-scanloc -vv --ep picks_all.xml -d localhost --log-file scanloc.log > origins.xml
+scanloc -vv --ep picks_all.xml -d localhost --log-file scanloc.log --cluster-search-log-file cluster.log > origins.xml
 scamp -vv --ep origins.xml -d localhost -I sdsarchive:///Data2/AmplifyEGS/scarchive --log-file scamp.log > amps.xml
 scmag -vv --ep amps.xml -d localhost --log-file scmag.log > mags.xml
 scevent -vv --ep mags.xml -d localhost --log-file scevent.log > events.xml

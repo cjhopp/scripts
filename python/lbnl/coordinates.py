@@ -27,15 +27,23 @@ def cartesian_distance(pt1, pt2):
 
 
 class SURF_converter:
+    """
+    0, 0 for HMC:
+    NAD27: 44.358982 -103.76546
+    WGS84: 44.35894 -103.76604
+    UTM Z13 WGS84: 4912481 N 598334 E
+    """
     def __init__(self):
-        self.orig_utm = (598420.3842806489, 4912272.275375654)
+        # self.orig_utm = (598334.1035272244, 4912479.756701191)  # WGS84 UTM
+        self.orig_utm = (598420.3842806489, 4912272.275375654)  # NAD27 UTM
         # Create the Proj for each
-        self.utm = Proj(init="EPSG:26713")
+        # self.utm = Proj(init="EPSG:32613")  # WGS84UTM
+        self.utm = Proj(init="EPSG:26713") # NAD27UTM
 
     def to_lonlat(self, point):
         """
         Take (y, x, z) point in HMC, rough convert to UTM, then convert to
-        cartesian coords.
+        global coords.
 
         :param point: Tuple of (easting, northing, elevation)
         :return: tuple of (lon, lat, elev)

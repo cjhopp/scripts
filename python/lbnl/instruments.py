@@ -38,13 +38,13 @@ nsmtc_orientation = {'NSMTC.G1': {'E': 90., 'N': 0., 'Z': 0},
                      'NSMTC.G2': {'1': 147.75, '2': 237.75, 'Z': 0}}
 
 resp_labl_map = {'RESP.XX.NS491..BNZ.LowNoise.0_005_1000.60V.2G': 'Silicon Audio ULN Accelerometer',
-                 'RESP.XX.NS126..BNZ.Titan.DC_430.20V.0_5G': 'Nanometrics Titan Accelerometer',
+                 'RESP.XX.NS129..BNZ.Titan.DC_430.20V.4G': 'Nanometrics Titan Accelerometer',
                  'RESP.XX.NS380..SLZ.HS1LT.3810.115000.2.76': 'Geospace HS-1-LT Geophone',
                  'RESP.XX.NS391..SHZ.GS11D.10.380.NONE.32': 'Geospace GS-11D Geophone',
                  'RESP.XX.NS539..BHZ.Trillium120Q.120.1500': 'Nanometrics Trillium 120s PH broadband'}
 
 resp_outp_map = {'RESP.XX.NS491..BNZ.LowNoise.0_005_1000.60V.2G': 'VEL',
-                 'RESP.XX.NS126..BNZ.Titan.DC_430.20V.0_5G': 'VEL',
+                 'RESP.XX.NS129..BNZ.Titan.DC_430.20V.4G': 'VEL',
                  'RESP.XX.NS380..SLZ.HS1LT.3810.115000.2.76': 'VEL',
                  'RESP.XX.NS391..SHZ.GS11D.10.380.NONE.32': 'VEL',
                  'RESP.XX.NS539..BHZ.Trillium120Q.120.1500': 'VEL'}
@@ -71,9 +71,7 @@ def plot_resp(resp_dir, min_freq, sampling_rate):
     """
     resps = glob('{}/RESP*'.format(resp_dir))
     file_order = []
-    fig, axes = plt.subplots(nrows=3, figsize=(9, 12))
-    dummy_fig = plt.figure()
-    dummy_axes = dummy_fig.add_subplot()
+    fig, axes = plt.subplots(nrows=4, figsize=(9, 12))
     for i, resp in enumerate(resps):
         base = os.path.basename(resp)
         file_order.append(base)
@@ -84,7 +82,7 @@ def plot_resp(resp_dir, min_freq, sampling_rate):
             label=lab, axes=[axes[0], axes[2]], unwrap_phase=True, show=False)
         read_inventory(resp)[0][0][0].response.plot(
             output='ACC', min_freq=min_freq, sampling_rate=sampling_rate,
-            axes=[axes[1], dummy_axes], show=False)
+            axes=[axes[1], axes[3]], unwrap_phase=True, show=False)
     # Edit linestyle after the fact
     inds = []  # Labels are only assigned to amplitude axes, save inds of lines
     ind_labs = []
@@ -115,9 +113,17 @@ def plot_resp(resp_dir, min_freq, sampling_rate):
     axes[2].set_yticklabels([r'$-2\pi$', r'$-\frac{3\pi}{2}$', r'$\pi$',
                              r'$\frac{\pi}{2}$', r'$0$', r'$\frac{\pi}{2}$',
                              r'$\pi$'])
+    axes[3].grid(True)
+    axes[3].set_yticks([-2 * np.pi, -(3/2) * np.pi, -np.pi, -np.pi / 2, 0,
+                        np.pi / 2, np.pi])
+    axes[3].set_yticklabels([r'$-2\pi$', r'$-\frac{3\pi}{2}$', r'$\pi$',
+                             r'$\frac{\pi}{2}$', r'$0$', r'$\frac{\pi}{2}$',
+                             r'$\pi$'])
     axes[0].set_ylabel('Amplitude [VEL]')
     axes[1].set_ylabel('Amplitude [ACC]')
-    axes[2].set_ylabel('Phase [rad]')
+    axes[2].set_ylabel('Velocity phase [rad]')
+    axes[3].set_ylabel('Acceleration phase [rad]')
+    axes[3].set_xlabel('Frequency [Hz]')
     fig.legend()
     plt.show()
     return
@@ -185,6 +191,10 @@ def MMF_calibration_to_response(directory, plot=False):
                 frequency=values[i][0], amplitude=values[i][1],
                 phase=values[i][2])
                                  for i in range(values.shape[0])]
+            # Add a value at zero to avoid deconvolution errors
+            response_elements.insert(0, ResponseListElement(
+                frequency=0., amplitude=values[0][1], phase=values[0][2]
+            ))
             resp_stage = ResponseListResponseStage(
                 response_list_elements=response_elements, stage_gain=1,
                 stage_gain_frequency=80., input_units='M/S**2',
@@ -221,6 +231,10 @@ def MMF_calibration_to_response(directory, plot=False):
             frequency=avg_freq[i], amplitude=amp[i],
             phase=pha[i])
             for i in range(avg_freq.size)]
+        # Add a value at zero to avoid deconvolution errors
+        response_elements.insert(0, ResponseListElement(
+            frequency=0., amplitude=amp[0], phase=pha[0]
+        ))
         resp_stage = ResponseListResponseStage(
             response_list_elements=response_elements, stage_gain=1,
             stage_gain_frequency=80., input_units='M/S**2',
@@ -421,7 +435,6 @@ def fsb_to_inv(path, orientations=False, debug=0):
                 channels = [channel]
         extra_dict[sta_name] = extra
         sta_dict[sta_name] = channels
-    stas = []
     for nm, chans in sta_dict.items():
         station = Station(code=nm, latitude=chans[0].latitude,
                           longitude=chans[0].longitude,
@@ -498,7 +511,7 @@ def surf_4100_to_inv(location_file, response_inv, plot=False):
             for chan_code in ['XNX', 'XNY', 'XNZ']:
                 # Set samp_rate to 40 kHz so that Nyquist is below max shake f
                 chan = Channel(code=chan_code, location_code='',
-                               latitude=lat, longitude=lon, elevation=0.,
+                               latitude=lat, longitude=lon, elevation=elev,
                                depth=0., sample_rate=40000.,
                                sensor=Equipment(
                                    type='IEPE Accelerometer',

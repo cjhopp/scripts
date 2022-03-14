@@ -2048,7 +2048,7 @@ def compare_NSMTC_inst(wav_files, cat, inv, signal_len, outdir='.',
             continue
         st = read(wav_file)
         # Remove response
-        st = st.select(station='[NP]*C')
+        st = st.select(station='[NP]*C', channel='*Z')
         st.detrend()
         st.detrend('demean')
         st.taper(0.05)
@@ -2891,10 +2891,10 @@ def plot_noise_and_sig_bands(axes=None, plot_brune=False, plot_bands=False,
     return ax
 
 
-def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
-                               plot_brune=False, plot_bands=False,
+def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, daily_psd_dir,
+                               eq_psd=None, plot_brune=False, plot_bands=False,
                                distance=2000, Q=50, stress_drop=30,
-                               Vs=5000, Vr=3000):
+                               Vs=5000, Vr=3000, self_noise=False):
     """
     Plot change in noise spectra for surface and deep geophone
 
@@ -2906,23 +2906,22 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
     :param distance: Source-receiver distance for brune (meters)
     :param Q: Quality factor for brune
     :param stress_drop: Stress drop (bar) for brune
+    :param Vs: Velocity at source
+    :param Vr: Velocity at receiver
+    :param self_noise: Path to csv of SA-ULN self noise estimate
+
     :return:
     """
     ppsds = {s: {} for s in seeds}
+    files = glob('{}/*.npz'.format(psd_dir))
     for s in seeds:
-        ppsd = PPSD.load_npz('{}/{}_combined.npz'.format(psd_dir, s))
+        ppsd = PPSD.load_npz([f for f in files if s in f][0])
         ppsds[s]['ppsd'] = ppsd
-        ppsds[s]['mean'] = ppsd.get_mean()
-    for seed, pds_dict in ppsds.items():
-        try:
-            pds_dict['diff'] = (pds_dict['mean'][1] -
-                                ppsds[reference_seed]['mean'][1])
-        except ValueError:
-            # Interpolate onto reference samples
-            x, y = pds_dict['mean']
-            refx, refy = ppsds[reference_seed]['mean']
-            f = interp1d(x, y, bounds_error=False, fill_value=np.nan)
-            ppsds[seed]['diff'] = f(refx) - refy
+        ppsds[s]['median'] = ppsd.get_percentile(50)
+        ppsds[s]['10'] = ppsd.get_percentile(10)
+        ppsds[s]['90'] = ppsd.get_percentile(90)
+    # Calucalte the stats on the relative psds
+    calculate_psd_diff_stats(daily_psd_dir, ppsds, reference_seed)
     if plot_brune:
         fig, axes = plt.subplots(nrows=2, figsize=(9, 9), sharex='col')
     else:
@@ -2936,24 +2935,50 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
         axes[0].plot(1 / pds, psds, color='gray', linestyle=':')
         # Interpolate onto reference freqs
         f = interp1d(pds, psds, bounds_error=False, fill_value=np.nan)
-        refx, refy = ppsds[reference_seed]['mean']
+        refx, refy = ppsds[reference_seed]['median']
         diffx = refx
         diffy = f(refx) - refy
         axes[1].plot(1 / diffx, diffy, label='MEQ', color='gray',
                      linestyle=':')
     # Plot vs frequency
+    axes[1].fill_between(np.array([1e-3, 1e3]), -55, 0., color='lightgray')
     for seed, psd_dict in ppsds.items():
         col_code = '.'.join(seed.split('.')[1:3])
         col = cascadia_colors[col_code]
-        x, y = psd_dict['mean']
+        x, y = psd_dict['median']
+        x10, y10 = psd_dict['10']
+        x90, y90 = psd_dict['90']
         diff = psd_dict['diff']
-        axes[0].plot(1 / x, y, label=seed, color=col)
+        diff10 = psd_dict['diff10']
+        diff90 = psd_dict['diff90']
+        axes[0].fill_between(1 / x, y1=y10, y2=y90, color=col,
+                             alpha=0.2)
+        axes[0].plot(1 / x, y, label=seed, color=col, linewidth=0.75)
         # Plot noise reduction
         try:
-            axes[1].plot(1 / x, diff, color=col)
+            axes[1].fill_between(1 / x, y1=diff10, y2=diff90, color=col,
+                                 alpha=0.2)
+            axes[1].plot(1 / x, diff, color=col, linewidth=0.75)
         except ValueError:
-            axes[1].plot(1 / ppsds[reference_seed]['mean'][0], diff, color=col)
-    axes[1].fill_between(np.array([1e-3, 1e3]), -55, 0., color='lightgray')
+            axes[1].fill_between(1 / ppsds[reference_seed]['median'][0],
+                                 y1=diff10, y2=diff90, color=col,
+                                 alpha=0.2)
+            axes[1].plot(1 / ppsds[reference_seed]['median'][0], diff,
+                         color=col, linewidth=0.75)
+    if self_noise:
+        noise_sim = np.loadtxt(self_noise, skiprows=4, delimiter=',')
+        noise_f = noise_sim[:, 0]
+        noise_g = noise_sim[:, 1]
+        noise_psd = 20 * np.log10(noise_g * 9.8 * 10**-9)
+        # Interpolate onto reference freqs
+        f = interp1d(noise_f, noise_psd, bounds_error=False, fill_value=np.nan)
+        refx, refy = ppsds[reference_seed]['median']
+        diffy = f(1 / refx) - refy
+        axes[0].plot(noise_f, noise_psd,
+                     label='Self noise', color='darkgray', linestyle='-.',
+                     linewidth=0.8)
+        axes[1].plot(1 / refx, diffy,
+                     color='darkgray', linestyle='-.', linewidth=0.8)
     # Formatting
     if plot_brune:
         fig.suptitle('Detection threshold', x=0.4, y=0.95, fontsize=20)
@@ -2962,7 +2987,6 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
     axes[0].set_xscale('log')
     axes[0].set_ylabel('Amplitude [dB]', fontsize=12)
     axes[0].set_facecolor('whitesmoke')
-    print('foo')
     axes[0].margins(0.)
     axes[0].set_ylim([-180, -40])
     axes[1].set_xscale('log')
@@ -2973,6 +2997,38 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, eq_psd=None,
     axes[1].set_xlim([0.002, 1000])
     fig.legend()
     plt.show()
+    return
+
+
+def calculate_psd_diff_stats(daily_psd_dir, ppsd_dict, reference_seed):
+    """
+    Helper for above func to calculate daily psd relative to reference
+    channel and then calculate median and percentiles
+    """
+    all_psds = glob('{}/*.npz'.format(daily_psd_dir))
+    for seed, psd_dict in ppsd_dict.items():
+        print('Calculating diffs for {}'.format(seed))
+        diffs = []
+        seed_files = [f for f in all_psds if f.split('/')[-1].startswith(seed)]
+        for f in seed_files:
+            print(f)
+            day_ppsd = PPSD.load_npz(f)
+            med_p, median = day_ppsd.get_percentile(50)
+            try:
+                diffs.append(median -
+                             ppsd_dict[reference_seed]['median'][1])
+            except ValueError:
+                refx, refy = ppsd_dict[reference_seed]['median']
+                f = interp1d(med_p, median, bounds_error=False,
+                             fill_value=np.nan)
+                diffs.append(f(refx) - refy)
+        diffs = np.array(diffs)
+        median_diff = np.percentile(diffs, 50, axis=0)
+        diff_10 = np.percentile(diffs, 10, axis=0)
+        diff_90 = np.percentile(diffs, 90, axis=0)
+        psd_dict['diff'] = median_diff
+        psd_dict['diff10'] = diff_10
+        psd_dict['diff90'] = diff_90
     return
 
 
