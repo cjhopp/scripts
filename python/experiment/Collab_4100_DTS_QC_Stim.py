@@ -312,7 +312,6 @@ while True:
         print("Not enough data yet - trying again in {} seconds".format(
             ping_interval_in_seconds))
         time.sleep(ping_interval_in_seconds)
-        raise err
     break
 
 
