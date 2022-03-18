@@ -223,7 +223,7 @@ def plot_4100_QC(well_data, well, depths, baseline, outfile,
     axes_depth.legend(loc=2, bbox_to_anchor=(-0.2, 1.08),
                       framealpha=1.).set_zorder(103)
     axes_ts.margins(0.)
-    axes_ts.set_ylim(vrange_T)
+    # axes_ts.set_ylim(vrange_T)
     axes_ts.xaxis_date()
     axes_ts.legend()
     date_formatter = mdates.DateFormatter('%m-%d %H:%M')
@@ -284,7 +284,7 @@ def launch_processing(files_c1, baselines, ping_interval, plot_length_seconds,
                 print('Plotting {}'.format(out_c1))
                 plot_4100_QC(well_data_c1, well=w, depths=[20, 40],
                              baseline=base_dict[w], outfile=out_c1,
-                             vrange_T=(15, 30))
+                             vrange_T=(15, 30), vrange_dT=(-1, 1))
             else:
                 print('Already plotted\n{}'.format(out_c1))
     return
