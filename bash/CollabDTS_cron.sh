@@ -8,5 +8,5 @@ declare -a StringArray=("DMU" "DML" "AMU" "AML" )
 # Iterate the string array using for loop
 for val in ${StringArray[@]}; do
    echo $val
-   cp $(ls -tp . | grep -v / | head -n 4 | grep "$val") ~/
+   scp $(ls -tp . | grep -v / | head -n 4 | grep "$val") chet@gmf4.lbl.gov:DTS_4100_realtime/$val.png
 done
