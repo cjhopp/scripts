@@ -124,7 +124,9 @@ def leidos_db_to_catalog(root):
                                    confidence_level=100 * err[17])
         o = Origin(latitude=dat[0], longitude=dat[1], depth=1000 * dat[2],
                    time=UTCDateTime(dat[3]),
-                   time_error=QuantityError(uncertainty=err[16]))
+                   depth_error=QuantityError(uncertainty=err[15]),
+                   time_error=QuantityError(uncertainty=err[16]),
+                   origin_uncertainty=uncert)
         magnitude = Magnitude(mag=dat[19], type='Ml')
         ev = Event(origins=[o], magnitudes=[magnitude])
         cat.events.append(ev)
