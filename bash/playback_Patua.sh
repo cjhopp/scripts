@@ -18,7 +18,7 @@ scmag -vv --ep amps.xml -d localhost --log-file scmag.log > mags.xml
 scevent -vv --ep mags.xml -d localhost --log-file scevent.log > events.xml
 
 scrtdd --ep events.xml --profile patua -d localhost --verbosity=3 --console=1 \
-       --xmlout > events-relocated-dd.xml
+       --log-file scrtdd.log --xmlout > events-relocated-dd.xml
 
 #scart --files 10000 -dsEv -t $(date -d $startdate +%Y-%m-%d)' 00:00:00~'$(date -d $end_date +%Y-%m-%d)' 23:59:59'  -n '2C,ON,SI' -c '(H|E)H(Z|N|E)' /mnt/SED-miniseed > data.mseed
 #scautopick -I data.mseed --playback --ep --inventory-db inventory.xml --config-db config.xml --debug > picks.xml
