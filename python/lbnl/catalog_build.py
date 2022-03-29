@@ -118,14 +118,14 @@ def leidos_db_to_catalog(root):
         dat = np.loadtxt(of)
         err = of.replace('.origin', 'origerr')
         daterr = np.loadtxt(err)
-        uncert = OriginUncertainty(min_horizontal_uncertainty=err[13],
-                                   max_horizontal_uncertainty=err[12],
-                                   azimuth_max_horizontal_uncertainty=err[14],
-                                   confidence_level=100 * err[17])
+        uncert = OriginUncertainty(min_horizontal_uncertainty=daterr[13],
+                                   max_horizontal_uncertainty=daterr[12],
+                                   azimuth_max_horizontal_uncertainty=daterr[14],
+                                   confidence_level=100 * daterr[17])
         o = Origin(latitude=dat[0], longitude=dat[1], depth=1000 * dat[2],
                    time=UTCDateTime(dat[3]),
-                   depth_error=QuantityError(uncertainty=err[15]),
-                   time_error=QuantityError(uncertainty=err[16]),
+                   depth_error=QuantityError(uncertainty=daterr[15]),
+                   time_error=QuantityError(uncertainty=daterr[16]),
                    origin_uncertainty=uncert)
         magnitude = Magnitude(mag=dat[19], type='Ml')
         ev = Event(origins=[o], magnitudes=[magnitude])
