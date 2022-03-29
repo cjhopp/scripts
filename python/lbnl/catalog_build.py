@@ -116,7 +116,11 @@ def leidos_db_to_catalog(root):
     cat = Catalog()
     for of in origins:
         print(of)
-        dat = np.loadtxt(of, usecols=(0, 1, 2, 3, 19))
+        try:
+            dat = np.loadtxt(of, usecols=(0, 1, 2, 3, 19))
+        except UserWarning as w:
+            print(w)
+            continue
         err = of.replace('.origin', '.origerr')
         daterr = np.loadtxt(err, usecols=(12, 13, 14, 15, 16, 17))
         uncert = OriginUncertainty(min_horizontal_uncertainty=daterr[1],
