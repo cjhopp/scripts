@@ -112,16 +112,12 @@ def date_generator(start_date, end_date):
 
 def leidos_db_to_catalog(root):
     """Trawl the flat database from Leidos and return an obspy catalog"""
-    import warnings
-    warnings.filterwarnings("error")
     origins = glob('{}/**/evloc*.origin'.format(root), recursive=True)
     cat = Catalog()
     for of in origins:
         print(of)
-        try:
-            dat = np.loadtxt(of, usecols=(0, 1, 2, 3, 19))
-        except UserWarning as w:
-            print(w)
+        dat = np.loadtxt(of, usecols=(0, 1, 2, 3, 19))
+        if dat.size == 0:
             continue
         err = of.replace('.origin', '.origerr')
         daterr = np.loadtxt(err, usecols=(12, 13, 14, 15, 16, 17))
