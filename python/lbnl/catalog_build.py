@@ -115,6 +115,7 @@ def leidos_db_to_catalog(root):
     origins = glob('{}/**/evloc*.origin'.format(root), recursive=True)
     cat = Catalog()
     for of in origins:
+        print(of)
         dat = np.loadtxt(of)
         err = of.replace('.origin', 'origerr')
         daterr = np.loadtxt(err)
