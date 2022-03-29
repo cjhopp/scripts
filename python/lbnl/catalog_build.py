@@ -116,19 +116,19 @@ def leidos_db_to_catalog(root):
     cat = Catalog()
     for of in origins:
         print(of)
-        dat = np.loadtxt(of)
+        dat = np.loadtxt(of, usecols=(0, 1, 2, 3, 19))
         err = of.replace('.origin', 'origerr')
-        daterr = np.loadtxt(err)
-        uncert = OriginUncertainty(min_horizontal_uncertainty=daterr[13],
-                                   max_horizontal_uncertainty=daterr[12],
-                                   azimuth_max_horizontal_uncertainty=daterr[14],
-                                   confidence_level=100 * daterr[17])
+        daterr = np.loadtxt(err, usecols=(12, 13, 14, 15, 16, 17))
+        uncert = OriginUncertainty(min_horizontal_uncertainty=daterr[1],
+                                   max_horizontal_uncertainty=daterr[0],
+                                   azimuth_max_horizontal_uncertainty=daterr[2],
+                                   confidence_level=100 * daterr[5])
         o = Origin(latitude=dat[0], longitude=dat[1], depth=1000 * dat[2],
                    time=UTCDateTime(dat[3]),
-                   depth_error=QuantityError(uncertainty=daterr[15]),
-                   time_error=QuantityError(uncertainty=daterr[16]),
+                   depth_error=QuantityError(uncertainty=daterr[3]),
+                   time_error=QuantityError(uncertainty=daterr[4]),
                    origin_uncertainty=uncert)
-        magnitude = Magnitude(mag=dat[19], type='Ml')
+        magnitude = Magnitude(mag=dat[4], type='Ml')
         ev = Event(origins=[o], magnitudes=[magnitude])
         cat.events.append(ev)
     return cat
