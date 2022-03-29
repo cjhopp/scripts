@@ -30,7 +30,7 @@ from matplotlib.dates import date2num
 from joblib import Parallel, delayed
 from obspy import UTCDateTime, read, Stream, Catalog, read_inventory, read_events
 from obspy.core.event import Pick, Event, WaveformStreamID, QuantityError
-from obspy.core.event import Origin, ResourceIdentifier
+from obspy.core.event import Origin, ResourceIdentifier, OriginUncertainty, Magnitude
 from obspy.geodetics import degrees2kilometers, locations2degrees
 from obspy.signal.trigger import coincidence_trigger, plot_trigger
 from eqcorrscan.utils.pre_processing import dayproc, _check_daylong, shortproc
@@ -108,6 +108,27 @@ def date_generator(start_date, end_date):
     from datetime import timedelta
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
+
+
+def leidos_db_to_catalog(root):
+    """Trawl the flat database from Leidos and return an obspy catalog"""
+    origins = glob('{}/**/evloc*.origin'.format(root), recursive=True)
+    cat = Catalog()
+    for of in origins:
+        dat = np.loadtxt(of)
+        err = of.replace('.origin', 'origerr')
+        daterr = np.loadtxt(err)
+        uncert = OriginUncertainty(min_horizontal_uncertainty=err[13],
+                                   max_horizontal_uncertainty=err[12],
+                                   azimuth_max_horizontal_uncertainty=err[14],
+                                   confidence_level=100 * err[17])
+        o = Origin(latitude=dat[0], longitude=dat[1], depth=1000 * dat[2],
+                   time=UTCDateTime(dat[3]),
+                   time_error=QuantityError(uncertainty=err[16]))
+        magnitude = Magnitude(mag=dat[19], type='Ml')
+        ev = Event(origins=[o], magnitudes=[magnitude])
+        cat.events.append(ev)
+    return cat
 
 
 def build_databases(param_file, which='assoc'):
