@@ -24,11 +24,11 @@ wav_dir = '/clusterfs/bear/chopp/chet-amplify/waveforms/patua'
 outdir = '/clusterfs/bear/chopp/chet-amplify/parties/jvtm'
 
 match_params = {'threshold': 10., 'threshold_type': 'MAD', 'trig_int': 5.,
-              'cores': 16, 'save_progress': False, 'parallel_process': True,
-              'plot': False, 'process_cores': 8, 'overlap': None}
+                'cores': 16, 'save_progress': False, 'parallel_process': True,
+                'plot': False, 'process_cores': 8, 'overlap': None}
 
 lag_params = {'min_cc': 0.7, 'shift_len': 0.4, 'interpolate': True,
-              'cores': 16, 'process_cores': 8, 'plot': True,
+              'cores': 16, 'process_cores': 8, 'plot': False,
               'plotdir': '/clusterfs/bear/chopp/chet-amplify/lag_calc_plots/jvtm'}
 
 extract_params = {'prepick': 30., 'length': 90.,
