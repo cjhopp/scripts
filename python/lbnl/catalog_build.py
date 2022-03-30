@@ -118,7 +118,10 @@ def leidos_db_to_catalog(root):
         print(of)
         dat = np.loadtxt(of, usecols=(0, 1, 2, 3, 19))
         err = of.replace('.origin', '.origerr')
-        daterr = np.loadtxt(err, usecols=(12, 13, 14, 15, 16, 17))
+        try:
+            daterr = np.loadtxt(err, usecols=(12, 13, 14, 15, 16, 17))
+        except OSError:
+            continue
         if dat.size == 0 or daterr.size == 0:
             continue
         uncert = OriginUncertainty(min_horizontal_uncertainty=daterr[1],
