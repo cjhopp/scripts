@@ -112,7 +112,7 @@ def date_generator(start_date, end_date):
 
 def leidos_db_to_catalog(root):
     """Trawl the flat database from Leidos and return an obspy catalog"""
-    origins = glob('{}/**/evloc*.origin'.format(root), recursive=True)
+    origins = glob('{}/**/db*.origin'.format(root), recursive=True)
     cat = Catalog()
     for of in origins:
         print(of)
