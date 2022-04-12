@@ -67,9 +67,13 @@ chan_map_injection_fsb = {
     'B1': 98.5, 'B2': 1515.3, 'B3': 888., 'B4': 1062., 'B5': 709., 'B6': 1216.,
     'B7': 1320., 'B8': 428., 'B9': 267., 'B10': 565.}
 
+chan_map_4100 = {'AMU': (85, 208), 'AML': (220, 343),
+                 'DMU': (384, 495), 'DML': (505, 620)}
+
 chan_map_EFSL = {'3359': (76.56, 5358.7), '3339': (99.25, 5193.25)}
 
-channel_mapping = {'fsb': chan_map_injection_fsb, 'efsl': chan_map_EFSL}
+channel_mapping = {'fsb': chan_map_injection_fsb, 'efsl': chan_map_EFSL,
+                   '4100': chan_map_4100}
 
 ######### Degree of fiber winding #########
 
@@ -91,6 +95,8 @@ fiber_depth_efsl = {'3359': 5399.617, '3339': 5249.653}
 
 fiber_depths_surf = {'OT': 60., 'OB': 60., 'PDT': 59.7, 'PDB': 59.9,
                      'PST': 41.8, 'PSB': 59.7}
+
+fiber_depth_4100 = {'AMU': 60, 'AML': 60, 'DMU': 55, 'DML': 55}
 
 fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
                 'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
@@ -205,6 +211,12 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
                       'depth': measures[:, 0, 0]}
         fiber_depths = fiber_depth_efsl
         fiber_wind = efsl_wind
+    elif mapping == '4100':
+        fiber_data = {'times': times, 'anti-stokes': measures[:, 2, :],
+                      'stokes': measures[:, 1, :], 'data': measures[:, 5, :],
+                      'depth': measures[:, 0, 0]}
+        fiber_depths = fiber_depth_4100
+        fiber_wind = efsl_wind
     well_data = {}
     chan_map = channel_mapping[mapping]
     for well in wells:
@@ -219,7 +231,7 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
         if mapping == 'fsb':  # Case of one symmetry point on looped wells
             start_chan = np.abs(depth - (chan_map[well] - fiber_depth))
             end_chan = np.abs(depth - (chan_map[well] + fiber_depth))
-        elif mapping == 'efsl':  # Non-looped well
+        elif mapping in ['efsl', '4100']:  # Non-looped well
             start_chan = np.abs(depth - chan_map[well][0])
             end_chan = np.abs(depth - chan_map[well][1])
         # Find the closest integer channel to meter mapping

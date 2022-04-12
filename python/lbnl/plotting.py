@@ -7,17 +7,26 @@ try:
     import dxfgrabber
 except ImportError:
     print('Dont plot SURF dxf, dxfgrabber not installed')
+import plotly
+import rasterio
+import fiona
+
 import numpy as np
 import colorlover as cl
 import seaborn as sns
 import pandas as pd
-import plotly
+import geopandas as gpd
 import chart_studio.plotly as py
 import plotly.graph_objs as go
 import shapely.geometry as geometry
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import earthpy.spatial as es
 
+from rasterio import mask as msk
+from rasterio.plot import plotting_extent
+from shapely.geometry import mapping
+from shapely.geometry.point import Point
 from itertools import cycle
 from glob import glob
 from datetime import datetime
@@ -33,7 +42,8 @@ from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib import animation
 from matplotlib.patches import Circle
-from matplotlib.colors import ListedColormap, Normalize
+from matplotlib_scalebar.scalebar import ScaleBar
+from matplotlib.colors import ListedColormap, Normalize, LinearSegmentedColormap
 from scipy.signal import resample, detrend
 
 # Local imports (assumed to be in python path)
@@ -41,9 +51,12 @@ from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             structures_to_planes, depth_to_xyz,
                             distance_to_borehole)
 from lbnl.coordinates import SURF_converter
-from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
-                      get_well_piercepoint, get_frac_piercepoint,
-                      extract_strains, fault_depths)
+try:
+    from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
+                          get_well_piercepoint, get_frac_piercepoint,
+                          extract_strains, fault_depths)
+except ModuleNotFoundError:
+    print('Error on DSS import. Change env')
 
 
 csd_well_colors = {'D1': 'blue', 'D2': 'blue', 'D3': 'green',
@@ -2084,3 +2097,466 @@ def alpha_shape(points, alpha):
     m = geometry.MultiLineString(edge_points)
     triangles = list(polygonize(m))
     return cascaded_union(triangles), edge_points
+
+
+
+# Amplify overview figures
+
+field_locations = {
+    'JV': (-117.476, 40.181),
+    'TM': (-117.687, 39.672),
+    'PAT': (-119.075, 39.582),
+    'DAC': (-118.327, 38.837),
+    'COSO': (-117.796, 36.019)
+}
+
+
+def write_bbox_shp(extents, filename):
+    schema = {'geometry': 'Polygon',
+              'properties': [('Name', 'str')]
+    }
+    polyshp = fiona.open(filename, 'w',
+                         driver='ESRI Shapefile', schema=schema, crs='EPSG:4326')
+    rowDict = {
+        'geometry': {'type': 'Polygon',
+                     'coordinates': [extents]},
+        'properties': {'Name': ''},
+    }
+    polyshp.write(rowDict)
+    polyshp.close()
+    return
+
+
+def clip_raster(gdf, img):
+     clipped_array, clipped_transform = msk.mask(
+         img, [mapping(gdf.iloc[0]['geometry'])], crop=True)
+     clipped_array, clipped_transform = msk.mask(
+         img, [mapping(gdf.iloc[0]['geometry'])],
+         crop=True, nodata=(np.amax(clipped_array[0]) + 1))
+     out_meta = img.meta
+     out_meta.update({
+         'driver': 'GTiff',
+         'height': clipped_array.shape[1],
+         'width': clipped_array.shape[2],
+         'transform': clipped_transform
+     })
+     clipped_array[0] = clipped_array[0] + abs(np.amin(clipped_array))
+     value_range = np.amax(clipped_array) + abs(np.amin(clipped_array))
+     return clipped_array, out_meta, value_range
+
+
+def plot_amplify_sites(dem_dir, vector_dir):
+    """
+    Plot figures of the Amplify fields
+
+    Using post here:
+    https://towardsdatascience.com/creating-beautiful-topography-maps-with-python-efced5507aa3
+    """
+    dem_file = glob('{}/*mea075.tif'.format(dem_dir))[0]
+    overview = rasterio.open(dem_file)
+    ca_agua = glob('{}/CA_Lakes/*.shp'.format(vector_dir))[0]
+    nv_agua = glob('{}/nv_water/*.shp'.format(vector_dir))[0]
+    nv_roads = glob('{}/tl_2021_06_prisecroads/*.shp'.format(vector_dir))[0]
+    ca_roads = glob('{}/tl_2021_32_prisecroads/*.shp'.format(vector_dir))[0]
+    towns = glob('{}/USA_Major_Cities/*.shp'.format(vector_dir))[0]
+    map_box_shp = glob('{}/*extent_v2.shp'.format(vector_dir))[0]
+    borders = glob('{}/ne_50m_admin_1_states_provinces/*.shp'.format(vector_dir))[0]
+    # Read in various shapefiles
+    df = gpd.read_file(map_box_shp)
+    nv = gpd.read_file(borders)
+    nv_water = gpd.read_file(nv_agua).to_crs(4326)
+    ca_water = gpd.read_file(ca_agua).to_crs(4326)
+    nv_roads = gpd.read_file(nv_roads).to_crs(4326)
+    ca_roads = gpd.read_file(ca_roads).to_crs(4326)
+    towns = gpd.read_file(towns).to_crs(4326)
+    # Filter out lesser features
+    nv = nv.loc[nv['iso_3166_2'] == 'US-NV']
+    topo, meta, value_range = clip_raster(df, overview)
+    extent = plotting_extent(topo[0], meta['transform'])
+    # Hillshade
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Only top half of colormap
+    # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
+    cmap = plt.get_cmap('gist_earth')
+    colors = cmap(np.linspace(0.5, 1, cmap.N // 2))
+    # Create a new colormap from those colors
+    cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
+    # Bottom up, first DEM
+    ax.imshow(topo[0], cmap=cmap2, extent=extent, alpha=0.3)
+    # Then hillshade
+    ax.imshow(hillshade, cmap="Greys", alpha=0.3, extent=extent)
+    # Now water
+    nv_water.loc[nv_water.TYPE.isin(['Major Lake', 'Major River',
+                                     'Major Reservoir'])].boundary.plot(
+        ax=ax, facecolor='steelblue', edgecolor="none", alpha=0.5)
+    ca_water.loc[ca_water.TYPE.isin(['perennial'])].boundary.plot(
+        ax=ax, facecolor='steelblue', edgecolor="none", alpha=0.5)
+    # Roads
+    nv_roads.loc[nv_roads.RTTYP.isin(['I', 'U'])].plot(
+        ax=ax, column='RTTYP', linewidth=0.5, color='firebrick')
+    ca_roads.loc[ca_roads.RTTYP.isin(['I', 'U'])].plot(
+        ax=ax, column='RTTYP', linewidth=0.5, color='firebrick')
+    big_towns = towns.loc[towns.NAME.isin(['Reno', 'Carson City',
+                                           'Fresno', 'Fernley'])]
+    big_towns.plot(ax=ax, color='k', markersize=2.)
+    # Label cities
+    for x, y, label in zip(big_towns.geometry.x, big_towns.geometry.y, big_towns.NAME):
+        if label == 'Fernley':
+            xytext = (-20, 3)
+        else:
+            xytext = (3, 3)
+        ax.annotate(label, xy=(x, y), xytext=xytext, textcoords="offset points",
+                    fontsize=6, fontstyle='italic', fontweight='bold')
+    nv.boundary.plot(ax=ax, linewidth=1.0, linestyle='--', color='k')
+    # Annotate border
+    ax.annotate('Nevada', xy=(-117.760, 37.170), xytext=(2, 2),
+                textcoords="offset points", fontsize=10, fontstyle='italic',
+                fontweight='bold', rotation=-43)
+    ax.annotate('California', xy=(-117.760, 37.170), xytext=(-14, -14),
+                textcoords="offset points", fontsize=10, fontstyle='italic',
+                fontweight='bold', rotation=-43)
+    # Geothermal fields
+    for lab, loc in field_locations.items():
+        ax.scatter(loc[0], loc[1], marker='s', color='k', s=10)
+        ax.annotate(lab, xy=loc, xytext=(3, 3), textcoords='offset points',
+                    fontsize=12, fontweight='bold')
+    # Scale bar
+    points = gpd.GeoSeries([Point(-117., extent[2]),
+                            Point(-118., extent[2])], crs=4326)
+    points = points.to_crs(32611)  # Projected WGS 84 - meters
+    distance_meters = points[0].distance(points[1])
+    ax.set_xlim([extent[0], extent[1]])
+    ax.set_ylim([extent[2], extent[3]])
+    ax.add_artist(ScaleBar(distance_meters))
+    ax.set_xlabel(r'Longitude [$^o$]')
+    ax.set_ylabel(r'Latitude [$^o$]')
+    plt.show()
+    return
+
+
+def plot_patua(dem_dir, vector_dir, inventory):
+    """Patua overview plot"""
+    patua_extents = [(-119.17, 39.63), (-119.17, 39.51),
+                     (-119.01, 39.51), (-119.01, 39.63)]
+    dem_file = glob('{}/*n40w120*.tif'.format(dem_dir))[0]
+    overview = rasterio.open(dem_file)
+    write_bbox_shp(patua_extents, './tmp_bbox.shp')
+    bbox = gpd.read_file('./tmp_bbox.shp')
+    topo, meta, value_range = clip_raster(bbox, overview)
+    extent = plotting_extent(topo[0], meta['transform'])
+    # Hillshade
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    # Read in vectors
+    ch_roads = gpd.read_file('{}/ChurchillRoads.shp'.format(vector_dir)).to_crs(4326)
+    ly_roads = gpd.read_file('{}/LyonRoads.shp'.format(vector_dir)).to_crs(4326)
+    rr = gpd.read_file('{}/Patua_RRs.shp'.format(vector_dir)).to_crs(4326)
+    plant = gpd.read_file('{}/Patua_Plant.shp'.format(vector_dir)).to_crs(4326)
+    wells = gpd.read_file('{}/geothermal_wells.shp'.format(vector_dir)).to_crs(4326)
+    I_pipe = gpd.read_file('{}/Injection_Pipelines.shp'.format(vector_dir)).to_crs(4326)
+    P_pipe = gpd.read_file('{}/Production_Pipelines.shp'.format(vector_dir)).to_crs(4326)
+    springs = gpd.read_file('{}/Patua_Hotsprings.shp'.format(vector_dir)).to_crs(4326)
+    circle1 = gpd.read_file('{}/Patua_3546-m_radius.shp'.format(vector_dir)).to_crs(4326)
+    circle2 = gpd.read_file('{}/Patua_5319-m_radius.shp'.format(vector_dir)).to_crs(4326)
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Only top half of colormap
+    # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
+    cmap = plt.get_cmap('gist_earth')
+    colors = cmap(np.linspace(0.5, 1, cmap.N // 2))
+    # Create a new colormap from those colors
+    cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
+    # Bottom up, first DEM
+    ax.imshow(topo[0], cmap=cmap2, extent=extent, alpha=0.3)
+    # Then hillshade
+    ax.imshow(hillshade, cmap="Greys", alpha=0.3, extent=extent)
+    # Vector layers
+    # ly_roads.loc[ly_roads.RTTYP.isin(['S', 'C', 'U', 'M', 'O'])].plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    # ch_roads.loc[ch_roads.STATE_ROAD == 'YES'].plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    ly_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    rr.plot(ax=ax, linewidth=1., color='firebrick', alpha=0.5)
+    I_pipe.plot(ax=ax, color='b', alpha=0.5)
+    P_pipe.plot(ax=ax, color='r', alpha=0.5)
+    plant.geometry.plot(ax=ax, color='k')
+    springs.plot(ax=ax, markersize=10., marker='*', color='dodgerblue')
+    circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    # Labels
+    ax.annotate('Hot Springs', xy=springs.geometry[0].coords[0], xytext=(-30, 10),
+                textcoords='offset points', fontsize=8, fontstyle='italic',
+                color='dodgerblue')
+    # Injection wells
+    wells.loc[wells.status == 'injector'].plot(ax=ax, markersize=10, color='b')
+    # Production wells
+    wells.loc[wells.status == 'producer'].plot(ax=ax, markersize=10, color='r')
+    # Seismic stations
+    for sta in inventory.select(location='10')[0]:
+        if sta.code == '4509':
+            continue
+        ax.scatter(sta.longitude, sta.latitude, marker='v', s=40., color='purple')
+        ax.annotate(
+            sta.code, xy=(sta.longitude, sta.latitude), xytext=(6, 0),
+            textcoords='offset points', fontsize=10, fontweight='bold',
+            color='purple')
+    # Add 23A-17
+    well_23a17 = wells.loc[wells.name.isin(['23A-17'])]
+    well_23a17.plot(ax=ax, marker='v', markersize=40, color='purple')
+    ax.annotate(xy=(well_23a17.geometry.x,
+                    well_23a17.geometry.y), text='23A-17',
+                textcoords='offset points', xytext=(6, 0),
+                fontsize=10, fontweight='bold', color='purple')
+    # Injection well
+    wells.loc[wells.name == '16-29'].plot(ax=ax, marker='*', color='yellow',
+                                          markersize=60.)
+    # Potentially functioning seismometers
+    wells.loc[wells.name.isin(['36-5 TGH', '87-25 TGH', '26-31 TGH',
+                               '77-31 TGH', '35-33 TGH', '88-33 TGH',
+                               '36-15', '28-13', '45-27', '33-23',
+                               '28-13', '36-15', '21A-19', '27-29'])].plot(
+        ax=ax, marker='v', color='sienna', markersize=40.)
+    ax.set_xlim([extent[0], extent[1]])
+    ax.set_ylim([extent[2], extent[3]])
+    # Scale bar
+    points = gpd.GeoSeries([Point(-117., extent[2]),
+                            Point(-118., extent[2])], crs=4326)
+    points = points.to_crs(32611)  # Projected WGS 84 - meters
+    distance_meters = points[0].distance(points[1])
+    ax.add_artist(ScaleBar(distance_meters))
+    ax.set_xlabel(r'Longitude [$^o$]')
+    ax.set_ylabel(r'Latitude [$^o$]')
+    ax.set_title('Patua')
+    plt.show()
+    return
+
+
+def plot_TM(dem_dir, vector_dir):
+    """Patua overview plot"""
+    TM_extents = [(-117.72, 39.6975), (-117.72, 39.6472),
+                  (-117.65, 39.6472), (-117.65, 39.6975)]
+    TM_plant_extents = [(-117.68896, 39.67314), (-117.68848, 39.67211),
+                        (-117.69158, 39.67115), (-117.69227, 39.67239)]
+    stations = {'ROK': (-117.70123, 39.67387), 'SED': (-117.68897, 39.66543)}
+    write_bbox_shp(TM_plant_extents, '{}/TM_plant.shp'.format(vector_dir))
+    dem_file = glob('{}/*n40w118*.tif'.format(dem_dir))[0]
+    overview = rasterio.open(dem_file)
+    write_bbox_shp(TM_extents, './tmp_bbox.shp')
+    bbox = gpd.read_file('./tmp_bbox.shp')
+    topo, meta, value_range = clip_raster(bbox, overview)
+    extent = plotting_extent(topo[0], meta['transform'])
+    # Hillshade
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    # Read in vectors
+    ch_roads = gpd.read_file('{}/ChurchillRoads.shp'.format(vector_dir)).to_crs(4326)
+    plant = gpd.read_file('{}/TM_plant.shp'.format(vector_dir)).to_crs(4326)
+    sensors = gpd.read_file('{}/TM_sensors.shp'.format(vector_dir)).to_crs(4326)
+    lease = gpd.read_file('{}/TM_lease.shp'.format(vector_dir)).to_crs(4326)
+    woo_well = gpd.read_file('{}/TM_Stim_Well_24A-23.shp'.format(vector_dir)).to_crs(4326)
+    circle1 = gpd.read_file('{}/TM_1280-m_radius.shp'.format(vector_dir)).to_crs(4326)
+    circle2 = gpd.read_file('{}/TM_1920-m_radius.shp'.format(vector_dir)).to_crs(4326)
+    tracks = gpd.read_file('{}/TM_tracks.shp'.format(vector_dir)).to_crs(4326)
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Only top half of colormap
+    # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
+    cmap = plt.get_cmap('gist_earth')
+    colors = cmap(np.linspace(0.5, 1, cmap.N // 2))
+    # Create a new colormap from those colors
+    cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
+    # Bottom up, first DEM
+    ax.imshow(topo[0], cmap=cmap2, extent=extent, alpha=0.3)
+    # Then hillshade
+    ax.imshow(hillshade, cmap="Greys", alpha=0.3, extent=extent)
+    # Vector layers
+    ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    tracks.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    plant.geometry.plot(ax=ax, color='k')
+    lease.plot(ax=ax, linestyle=':', color='firebrick')
+    woo_well.plot(ax=ax, marker='*', color='yellow',
+                  markersize=60.)
+    circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    # Labels
+    # Seismic stations
+    for sta, loc in stations.items():
+        ax.scatter(loc[0], loc[1], marker='^', s=40., color='purple')
+        ax.annotate(
+            sta, xy=loc, xytext=(3, 3),
+            textcoords='offset points', fontsize=10, fontweight='bold',
+            color='purple')
+    # Proposed locations
+    sensors.plot(ax=ax, marker='v', color='indigo', markersize=40)
+    ax.set_xlim([extent[0], extent[1]])
+    ax.set_ylim([extent[2], extent[3]])
+    # Scale bar
+    points = gpd.GeoSeries([Point(-117., extent[2]),
+                            Point(-118., extent[2])], crs=4326)
+    points = points.to_crs(32611)  # Projected WGS 84 - meters
+    distance_meters = points[0].distance(points[1])
+    ax.add_artist(ScaleBar(distance_meters))
+    ax.set_xlabel(r'Longitude [$^o$]')
+    ax.set_ylabel(r'Latitude [$^o$]')
+    ax.set_title('Tungsten Mountain')
+    ax.ticklabel_format(style='plain', useOffset=False)
+    plt.show()
+    return
+
+
+def plot_JV(dem_dir, vector_dir):
+    """Patua overview plot"""
+    JV_extents = [(-117.505, 40.195), (-117.447, 40.195),
+                  (-117.447, 40.145), (-117.505, 40.145)]
+    JV_plant_extents = [(-117.47696, 40.18190), (-117.47471, 40.18190),
+                        (-117.47471, 40.18005), (-117.47696, 40.18005)]
+    stations = {'ROK': (-117.47066, 40.17340), 'SED': (-117.49506, 40.17577)}
+    write_bbox_shp(JV_plant_extents, '{}/JV_plant.shp'.format(vector_dir))
+    dem_file = glob('{}/*n41w118*.tif'.format(dem_dir))[0]
+    overview = rasterio.open(dem_file)
+    write_bbox_shp(JV_extents, './tmp_bbox.shp')
+    bbox = gpd.read_file('./tmp_bbox.shp')
+    topo, meta, value_range = clip_raster(bbox, overview)
+    extent = plotting_extent(topo[0], meta['transform'])
+    # Hillshade
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    # Read in vectors
+    ch_roads = gpd.read_file('{}/ChurchillRoads.shp'.format(vector_dir)).to_crs(4326)
+    plant = gpd.read_file('{}/JV_plant.shp'.format(vector_dir)).to_crs(4326)
+    circle1 = gpd.read_file('{}/JV_973-m_radius.shp'.format(vector_dir)).to_crs(4326)
+    circle2 = gpd.read_file('{}/JV_1460-m_radius.shp'.format(vector_dir)).to_crs(4326)
+    lease = gpd.read_file('{}/JV_lease.shp'.format(vector_dir)).to_crs(4326)
+    tracks = gpd.read_file('{}/JV_tracks.shp'.format(vector_dir)).to_crs(4326)
+    two_track = gpd.read_file('{}/JV_S-two-track.shp'.format(vector_dir)).to_crs(4326)
+    sensors = gpd.read_file('{}/JV_sensors.shp'.format(vector_dir)).to_crs(4326)
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Only top half of colormap
+    # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
+    cmap = plt.get_cmap('gist_earth')
+    colors = cmap(np.linspace(0.5, 1, cmap.N // 2))
+    # Create a new colormap from those colors
+    cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
+    # Bottom up, first DEM
+    ax.imshow(topo[0], cmap=cmap2, extent=extent, alpha=0.3)
+    # Then hillshade
+    ax.imshow(hillshade, cmap="Greys", alpha=0.3, extent=extent)
+    # Vector layers
+    ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    plant.geometry.plot(ax=ax, color='k')
+    circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    lease.boundary.plot(ax=ax, linestyle=':', color='firebrick')
+    tracks.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    two_track.plot(ax=ax, linewidth=1., color='dimgray', linestyle='--',
+                  alpha=0.5)
+    # Proposed locations
+    sensors.plot(ax=ax, marker='v', color='indigo', markersize=40)
+    # Stim well
+    ax.scatter(-117.47384, 40.17023, marker='*', color='yellow',
+               s=60.)
+    # Labels
+    # Seismic stations
+    for sta, loc in stations.items():
+        ax.scatter(loc[0], loc[1], marker='^', s=40., color='purple')
+        ax.annotate(
+            sta, xy=loc, xytext=(3, 3),
+            textcoords='offset points', fontsize=10, fontweight='bold',
+            color='purple')
+    ax.set_xlim([extent[0], extent[1]])
+    ax.set_ylim([extent[2], extent[3]])
+    # Scale bar
+    points = gpd.GeoSeries([Point(-117., extent[2]),
+                            Point(-118., extent[2])], crs=4326)
+    points = points.to_crs(32611)  # Projected WGS 84 - meters
+    distance_meters = points[0].distance(points[1])
+    ax.add_artist(ScaleBar(distance_meters))
+    ax.set_xlabel(r'Longitude [$^o$]')
+    ax.set_ylabel(r'Latitude [$^o$]')
+    ax.set_title('Jersey Valley')
+    ax.ticklabel_format(style='plain', useOffset=False)
+    plt.show()
+    return
+
+
+def plot_DAC(dem_dir, vector_dir):
+    """Patua overview plot"""
+    DAC_extents = [(-118.39, 38.87), (-118.28, 38.87),
+                  (-118.28, 38.80), (-118.39, 38.80)]
+    DAC1_plant_extents = [(-118.32956, 38.83626), (-118.32452, 38.83626),
+                          (-118.32452, 38.83530), (-118.32956, 38.83530)]
+    DAC2_plant_extents = [(-118.32623, 38.83769), (-118.32140, 38.83769),
+                          (-118.32140, 38.83676), (-118.32623, 38.83676)]
+    write_bbox_shp(DAC1_plant_extents, '{}/DAC1_plant.shp'.format(vector_dir))
+    write_bbox_shp(DAC2_plant_extents, '{}/DAC2_plant.shp'.format(vector_dir))
+    dem_file = glob('{}/*n39w119*.tif'.format(dem_dir))[0]
+    overview = rasterio.open(dem_file)
+    write_bbox_shp(DAC_extents, './tmp_bbox.shp')
+    bbox = gpd.read_file('./tmp_bbox.shp')
+    topo, meta, value_range = clip_raster(bbox, overview)
+    extent = plotting_extent(topo[0], meta['transform'])
+    # Hillshade
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    # Read in vectors
+    ch_roads = gpd.read_file('{}/tl_2021_32021_roads.shp'.format(vector_dir)).to_crs(4326)
+    plant1 = gpd.read_file('{}/DAC1_plant.shp'.format(vector_dir)).to_crs(4326)
+    plant2 = gpd.read_file('{}/DAC2_plant.shp'.format(vector_dir)).to_crs(4326)
+    lease = gpd.read_file('{}/DAC_Unit_Boundary-polygon.shp'.format(vector_dir)).to_crs(4326)
+    stations = gpd.read_file('{}/Final-station-locations_DAC-point.shp'.format(vector_dir)).to_crs(4326)
+    dac_rok = gpd.read_file('{}/DAC_ROK.shp'.format(vector_dir)).to_crs(4326)
+    dac_sed = gpd.read_file('{}/DAC_SED.shp'.format(vector_dir)).to_crs(4326)
+    woo_well = gpd.read_file('{}/DAC_WOO_well.shp'.format(vector_dir)).to_crs(4326)
+    circle0 = gpd.read_file('{}/950-m_radius_circle_centered_on_inj.shp'.format(vector_dir)).to_crs(4326)
+    circle1 = gpd.read_file('{}/1800-m_radius_circle_centered_on_inj.shp'.format(vector_dir)).to_crs(4326)
+    circle2 = gpd.read_file('{}/2700-m_radius_circle_centered_on_inj.shp'.format(vector_dir)).to_crs(4326)
+    sand = gpd.read_file('{}/sand-dunes.shp'.format(vector_dir)).to_crs(4326)
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Only top half of colormap
+    # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
+    cmap = plt.get_cmap('gist_earth')
+    colors = cmap(np.linspace(0.5, 1, cmap.N // 2))
+    # Create a new colormap from those colors
+    cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
+    # Bottom up, first DEM
+    ax.imshow(topo[0], cmap=cmap2, extent=extent, alpha=0.3)
+    # Then hillshade
+    ax.imshow(hillshade, cmap="Greys", alpha=0.3, extent=extent)
+    # Sand
+    sand.plot(ax=ax, facecolor='beige', alpha=0.3)
+    ax.annotate('DUNES', xy=(-118.31, 38.86), fontsize=14, fontweight='bold',
+                color='beige', alpha=0.7)
+    # Vector layers
+    ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    plant1.geometry.plot(ax=ax, color='k')
+    plant2.geometry.plot(ax=ax, color='k')
+    lease.boundary.plot(ax=ax, linestyle=':', color='firebrick')
+    woo_well.plot(ax=ax, marker='*', color='yellow',
+                  markersize=60.)
+    circle0.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    # Labels
+    # Seismic stations
+    stations.plot(ax=ax, marker='v', markersize=50, color='indigo')
+    dac_rok.plot(ax=ax, marker='^', markersize=60, color='purple')
+    print(dac_rok.geometry[0].coords[0][:2])
+    ax.annotate('ROK', dac_rok.geometry[0].coords[0][:2], xytext=(3, 3),
+                textcoords='offset points', fontsize=10, fontweight='bold',
+                color='purple')
+    dac_sed.plot(ax=ax, marker='^', markersize=60, color='purple')
+    ax.annotate('SED', dac_sed.geometry[0].coords[0][:2], xytext=(3, 3),
+                textcoords='offset points', fontsize=10, fontweight='bold',
+                color='purple')
+    ax.set_xlim([extent[0], extent[1]])
+    ax.set_ylim([extent[2], extent[3]])
+    # Scale bar
+    points = gpd.GeoSeries([Point(-117., extent[2]),
+                            Point(-118., extent[2])], crs=4326)
+    points = points.to_crs(32611)  # Projected WGS 84 - meters
+    distance_meters = points[0].distance(points[1])
+    ax.add_artist(ScaleBar(distance_meters))
+    ax.set_xlabel(r'Longitude [$^o$]')
+    ax.set_ylabel(r'Latitude [$^o$]')
+    ax.set_title('Don A Campbell')
+    plt.show()
+    return
