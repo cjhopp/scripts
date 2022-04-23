@@ -301,6 +301,10 @@ def ppsd_channel_loop(nsl, date_range, outdir, inventory, wav_dir):
             nsl_split[3], nsl_split[0], nsl_split[1],
             nsl_split[2], nsl_split[3], date.year,
             UTCDateTime(date).julday)
+        if not os.path.isfile(f):
+            f = '{}/{}/{}__{}*.mseed'.format(
+                wav_dir, nsl_split[1], nsl, UTCDateTime(date)
+            )
         print('Calculating {}'.format(f))
         root_name = os.path.basename(f).rstrip('.ms')
         # Check if output file exists
