@@ -2371,10 +2371,11 @@ def plot_TM(dem_dir, vector_dir):
     # Vector layers
     ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
     tracks.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
-    plant.geometry.plot(ax=ax, color='k')
-    lease.plot(ax=ax, linestyle=':', color='firebrick')
-    woo_well.plot(ax=ax, marker='*', color='yellow',
-                  markersize=60.)
+    ax = plant.geometry.plot(ax=ax, color='k', label='Plant')
+    ax = lease.plot(ax=ax, linestyle=':', color='firebrick')
+    ax = woo_well.plot(ax=ax, marker='*', color='yellow',
+                       markersize=60., legend=True, label='WOO Well',
+                       legend_kwds=dict(loc='upper left'))
     circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
     circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
     # Labels
@@ -2399,6 +2400,7 @@ def plot_TM(dem_dir, vector_dir):
     ax.set_ylabel(r'Latitude [$^o$]')
     ax.set_title('Tungsten Mountain')
     ax.ticklabel_format(style='plain', useOffset=False)
+    ax.legend()
     plt.show()
     return
 
@@ -2448,7 +2450,7 @@ def plot_JV(dem_dir, vector_dir):
     lease.boundary.plot(ax=ax, linestyle=':', color='firebrick')
     tracks.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
     two_track.plot(ax=ax, linewidth=1., color='dimgray', linestyle='--',
-                  alpha=0.5)
+                   alpha=0.5)
     # Proposed locations
     sensors.plot(ax=ax, marker='v', color='indigo', markersize=40)
     # Stim well
@@ -2539,7 +2541,6 @@ def plot_DAC(dem_dir, vector_dir):
     # Seismic stations
     stations.plot(ax=ax, marker='v', markersize=50, color='indigo')
     dac_rok.plot(ax=ax, marker='^', markersize=60, color='purple')
-    print(dac_rok.geometry[0].coords[0][:2])
     ax.annotate('ROK', dac_rok.geometry[0].coords[0][:2], xytext=(3, 3),
                 textcoords='offset points', fontsize=10, fontweight='bold',
                 color='purple')

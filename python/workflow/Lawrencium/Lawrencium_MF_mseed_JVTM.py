@@ -72,6 +72,11 @@ def clean_daylong(stream):
                                  ) * 1e7).sum() > 0:
             print('{} is spiky. Removing'.format(tr.id))
             rmtrs.append(tr)
+            continue
+        # Specific to station LB.BMN. Ignore Guralp even if picks...
+        if tr.stats.location == '02':
+            rmtrs.append(tr)
+            continue
     for rt in rmtrs:
         stream.traces.remove(rt)
     return stream
