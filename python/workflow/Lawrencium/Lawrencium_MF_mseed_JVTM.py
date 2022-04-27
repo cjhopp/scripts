@@ -162,14 +162,24 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     for wav_file in wav_files:
         try:
             daylong += read(wav_file)
-        except FileNotFoundError as e:
+        except (FileNotFoundError, TypeError) as e:
             print(e)
             continue
     # Deal with shitty sampling rates
+    rmtrs = []
+    # Check for varying sampling rates
+    samps = {tr.id: [] for tr in daylong}
     for tr in daylong:
+        samps[tr.id].append(tr.stats.sampling_rate)
         if not ((1 / tr.stats.delta).is_integer() and
                 tr.stats.sampling_rate.is_integer()):
             tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+    for tr in daylong:
+        if len(list(set(samps[tr.id]))) > 1:
+            rmtrs.append(tr)
+    # Remove traces with common ids but different sample rates
+    for r in rmtrs:
+        daylong.traces.remove(r)
     daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
     print('Running detect')
     try:

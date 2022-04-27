@@ -2236,7 +2236,7 @@ def plot_amplify_sites(dem_dir, vector_dir):
     return
 
 
-def plot_patua(dem_dir, vector_dir, inventory):
+def plot_patua(dem_dir, vector_dir, inventory, catalog):
     """Patua overview plot"""
     patua_extents = [(-119.17, 39.63), (-119.17, 39.51),
                      (-119.01, 39.51), (-119.01, 39.63)]
@@ -2248,6 +2248,8 @@ def plot_patua(dem_dir, vector_dir, inventory):
     extent = plotting_extent(topo[0], meta['transform'])
     # Hillshade
     hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    # Seismic catalog
+    cat = pd.read_excel(catalog, skiprows=[0, 1])
     # Read in vectors
     ch_roads = gpd.read_file('{}/ChurchillRoads.shp'.format(vector_dir)).to_crs(4326)
     ly_roads = gpd.read_file('{}/LyonRoads.shp'.format(vector_dir)).to_crs(4326)
@@ -2291,6 +2293,9 @@ def plot_patua(dem_dir, vector_dir, inventory):
     wells.loc[wells.status == 'injector'].plot(ax=ax, markersize=10, color='b')
     # Production wells
     wells.loc[wells.status == 'producer'].plot(ax=ax, markersize=10, color='r')
+    # Leidos catalog
+    ax.scatter(cat['Longitude'], cat['Latitude'], marker='o', color='k',
+               facecolor=None, s=1., alpha=0.3)
     # Seismic stations
     for sta in inventory.select(location='10')[0]:
         if sta.code == '4509':
