@@ -2145,7 +2145,38 @@ def clip_raster(gdf, img):
      return clipped_array, out_meta, value_range
 
 
-def plot_amplify_sites(dem_dir, vector_dir):
+def plot_catalog(catalog, dem_dir, vector_dir):
+    """
+    Plot catalog on top of imagery
+    """
+    dem_file = glob('{}/*mea075.tif'.format(dem_dir))[0]
+    overview = rasterio.open(dem_file)
+    ca_agua = glob('{}/CA_Lakes/*.shp'.format(vector_dir))[0]
+    nv_agua = glob('{}/nv_water/*.shp'.format(vector_dir))[0]
+    nv_roads = glob('{}/tl_2021_06_prisecroads/*.shp'.format(vector_dir))[0]
+    ca_roads = glob('{}/tl_2021_32_prisecroads/*.shp'.format(vector_dir))[0]
+    towns = glob('{}/USA_Major_Cities/*.shp'.format(vector_dir))[0]
+    map_box_shp = glob('{}/*extent_v2.shp'.format(vector_dir))[0]
+    borders = glob('{}/ne_50m_admin_1_states_provinces/*.shp'.format(vector_dir))[0]
+    # Read in various shapefiles
+    df = gpd.read_file(map_box_shp)
+    nv = gpd.read_file(borders)
+    nv_water = gpd.read_file(nv_agua).to_crs(4326)
+    ca_water = gpd.read_file(ca_agua).to_crs(4326)
+    nv_roads = gpd.read_file(nv_roads).to_crs(4326)
+    ca_roads = gpd.read_file(ca_roads).to_crs(4326)
+    towns = gpd.read_file(towns).to_crs(4326)
+    # Filter out lesser features
+    nv = nv.loc[nv['iso_3166_2'] == 'US-NV']
+    topo, meta, value_range = clip_raster(df, overview)
+    extent = plotting_extent(topo[0], meta['transform'])
+    # Hillshade
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+
+    return
+
+
+def plot_amplify_sites(dem_dir, vector_dir, catalog):
     """
     Plot figures of the Amplify fields
 
@@ -2222,6 +2253,12 @@ def plot_amplify_sites(dem_dir, vector_dir):
         ax.scatter(loc[0], loc[1], marker='s', color='k', s=10)
         ax.annotate(lab, xy=loc, xytext=(3, 3), textcoords='offset points',
                     fontsize=12, fontweight='bold')
+    # Seismic catalog
+    locs = np.array([[ev.origins[-1].longitude, ev.origins[-1].latitude,
+                      int(ev.comments[-1].text.split('=')[-1])]
+                     for ev in catalog])
+    ax.scatter(locs[:, 0], locs[:, 1], marker='o', color='k',
+               s=locs[:, 2] / 3)
     # Scale bar
     points = gpd.GeoSeries([Point(-117., extent[2]),
                             Point(-118., extent[2])], crs=4326)

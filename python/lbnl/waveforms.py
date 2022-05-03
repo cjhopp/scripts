@@ -984,11 +984,21 @@ def party_multiplot_wavdir(party, wav_dir, plotdir, start, end):
             except FileNotFoundError as e:
                 print(e)
                 continue
-        # Deal with shitty CN sampling rates
+        # Deal with shitty sampling rates
+        rmtrs = []
+        # Check for varying sampling rates
+        samps = {tr.id: [] for tr in daylong}
         for tr in daylong:
+            samps[tr.id].append(tr.stats.sampling_rate)
             if not ((1 / tr.stats.delta).is_integer() and
                     tr.stats.sampling_rate.is_integer()):
                 tr.stats.sampling_rate = round(tr.stats.sampling_rate)
+        for tr in daylong:
+            if len(list(set(samps[tr.id]))) > 1:
+                rmtrs.append(tr)
+        # Remove traces with common ids but different sample rates
+        for r in rmtrs:
+            daylong.traces.remove(r)
         daylong = clean_daylong(daylong.merge(fill_value='interpolate'))
         temp = party[0].template
         daylong = dayproc(st=daylong, lowcut=temp.lowcut, highcut=temp.highcut,
@@ -2433,6 +2443,8 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
         elif len(eid) == 4:
             eid = '{}_{}_{}T{}.{}'.format(eid[0], eid[1], eid[2], eid[3][:-6],
                                           eid[3][-6:])
+        else:
+            eid = ev.resource_id.id
         det_file = [f for f in wav_files
                     if f.split('/')[-1].rstrip('.ms') == eid]
         try:
