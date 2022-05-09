@@ -183,9 +183,9 @@ def party_relative_mags(party, self_files, shift_len, align_len, svd_len,
         print('Shortproc-ing streams')
         breakit = False
         for st in streams:
-            rms = [tr for tr in st if tr.stats.sampling_rate < temp.samp_rate]
-            for rm in rms:
-                st.traces.remove(rm)
+            # rms = [tr for tr in st if tr.stats.sampling_rate < temp.samp_rate]
+            # for rm in rms:
+            #     st.traces.remove(rm)
             try:
                 shortproc(st=st, lowcut=temp.lowcut,
                           highcut=temp.highcut, filt_order=temp.filt_order,

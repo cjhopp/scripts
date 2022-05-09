@@ -2465,6 +2465,7 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
             st1 = shortproc(st=st, lowcut=temp_freqmin, highcut=temp_freqmax,
                             filt_order=temp_order, samp_rate=temp_samp_rate)
             tr = st1.select(id=seed_id)[0]
+            print(tr)
             try:
                 pk = [pk for pk in ev.picks
                       if pk.waveform_id.get_seed_string() == tr.id][0]
