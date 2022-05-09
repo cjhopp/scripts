@@ -352,7 +352,11 @@ def svd_relative_amps(fam, streams, min_amps, plot):
             if len(st.select(id=tr.id)) > 0:
                 det_tr = st.select(id=tr.id)[0]
                 # Convoluted way of getting two 'vert' vectors
-                data_mat = np.vstack((tr.data, det_tr.data)).T
+                try:
+                    data_mat = np.vstack((tr.data, det_tr.data)).T
+                except ValueError as e:
+                    print('Traces not same length, skip {}'.format(tr.id))
+                    continue
                 U, sig, Vt = scipy.linalg.svd(data_mat,
                                               full_matrices=True)
                 # Vt is 2x2 for two events
