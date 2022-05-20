@@ -490,7 +490,7 @@ def fit_thomsen(tt_file, aniso_azi=323, aniso_inc=44, plot_fit=True,
             ax.set_xlabel('Angle to bedding normal [degrees]')
             ax.set_title('Bedding Strike: {} Dip: {}'.format(strike, dip))
         plt.show()
-    return popt_f, pcov_f
+    return popt_f, pcov_f, Vps, angles
 
 
 def search_aniso(tt_file, min_az, max_az, min_inc, max_inc):
@@ -503,11 +503,12 @@ def search_aniso(tt_file, min_az, max_az, min_inc, max_inc):
     results = []
     for a, i in zip(Azs.flatten(), Incs.flatten()):
         print('Searching az: {} inc: {}'.format(a, i))
-        popt, pcov = fit_thomsen(tt_file, a, i, plot_fit=False)
+        popt, pcov, _, _ = fit_thomsen(tt_file, a, i, plot_fit=False)
         results.append(np.sqrt(np.diag(pcov))[0])
     best = np.array(results).argmin()
     print(best)
-    popt, pcov = fit_thomsen(tt_file, Azs.flatten()[best], Incs.flatten()[best])
+    popt, pcov, _, _ = fit_thomsen(tt_file, Azs.flatten()[best],
+                                   Incs.flatten()[best])
     return
 
 

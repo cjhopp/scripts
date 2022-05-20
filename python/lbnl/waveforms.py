@@ -28,6 +28,7 @@ from datetime import timedelta, datetime
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
 from obspy.core.event import ResourceIdentifier
+from obspy.signal.trigger import aic_simple, pk_baer
 from obspy.geodetics.base import gps2dist_azimuth
 from obspy.signal import PPSD
 from obspy.signal.spectral_estimation import get_nhnm, get_nlnm
@@ -50,6 +51,7 @@ from scipy.signal import find_peaks
 from scipy import fftpack
 from scipy.io import savemat
 from scipy.interpolate import interp1d
+from scipy.optimize import curve_fit
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
@@ -67,6 +69,9 @@ except:
     print('No surf_seis on this machine')
 
 from lbnl.instruments import modify_SAULN_inventory
+from lbnl.coordinates import FSB_converter
+from lbnl.boreholes import create_FSB_boreholes
+from workflow.relocate import thomsen_full, thomsen_weak, SelectFromCollection
 
 extra_stas = ['CMon', 'CTrig', 'CEnc', 'PPS']
 
@@ -82,12 +87,254 @@ cascadia_colors = {'NSMTC.B1': '#c6dbef', 'NSMTC.B2': '#6aaed6',
                    'NSMTC.G2': '#d65f5f', 'PGC.': '#ee854a',
                    'B011.': '#6acc64'}
 
+fsb_geode_chans = {
+    '1': 'B301.XN1', '2': 'B302.XN1', '3': 'B303.XN1', '4': 'B304.XN1',
+    '5': 'B305.XN1', '6': 'B306.XN1', '7': 'B307.XN1', '8': 'B308.XN1',
+    '9': 'B309.XN1', '10': 'B310.XN1', '11': 'B311.XN1', '12': 'B312.XN1',
+    '13': 'B313.XN1', '14': 'B314.XN1', '15': 'B315.XN1', '16': 'B316.XN1',
+    '17': 'B317.XN1', '18': 'B318.XN1', '19': 'B319.XN1', '20': 'B320.XN1',
+    '21': 'B321.XN1', '22': 'B322.XN1', '23': 'B401.XN1', '24': 'B402.XN1',
+    '25': 'B403.XN1', '26': 'B404.XN1', '27': 'B405.XN1', '28': 'B406.XN1',
+    '29': 'B407.XN1', '30': 'B408.XN1', '31': 'B409.XN1', '32': 'B410.XN1',
+    '33': 'B411.XN1', '34': 'B412.XN1', '35': 'B413.XN1', '36': 'B414.XN1',
+    '37': 'B415.XN1', '38': 'B416.XN1', '39': 'B417.XN1', '40': 'B418.XN1',
+    '41': 'B419.XN1', '42': 'B420.XN1', '43': 'B421.XN1', '44': 'B422.XN1',
+    '45': 'B31.XNZ', '46': 'B31.XNX', '47': 'B31.XNY', '48': 'B34.XNZ',
+    '49': 'B34.XNX', '50': 'B34.XNY', '51': 'B42.XNZ', '52': 'B42.XNX',
+    '53': 'B42.XNY', '54': 'B43.XNZ', '55': 'B43.XNX', '56': 'B43.XNY',
+    '57': 'B551.XNZ', '58': 'B551.XNX', '59': 'B551.XNY', '60': 'B585.XNZ',
+    '61': 'B585.XNX', '62': 'B585.XNY', '63': 'B647.XNZ', '64': 'B647.XNX',
+    '65': 'B647.XNY', '66': 'B659.XNZ', '67': 'B659.XNX', '68': 'B659.XNY',
+    '69': 'B748.XNZ', '70': 'B748.XNX', '71': 'B748.XNY', '72': 'B75.XNZ',
+    '73': 'B75.XNX', '74': 'B75.XNY'}
+
+# Map cassm file number to shot point index
+shot_map = {
+    2637483: 101, 2637484: 102, 2637485: 103, 2637486: 104, 2637487: 105,
+    2637488: 106, 2637489: 107, 2637490: 108, 2637491: 109, 2637492: 110,
+    2637493: 111, 2637494: 112, 2637495: 112, 2637496: 113, 2637497: 114,
+    2637498: 115, 2637499: 116, 2637500: 117, 2637501: 118, 2637502: 119,
+    2637503: 120, 2637504: 121, 2637505: 122, 2637506: 123, 2637507: 124,
+    2637508: 125, 2637509: 125, 2637510: 126, 2637511: 127, 2637512: 128,
+    2637513: 128, 2637514: 129, 2637515: 130, 2637516: 131, 2637517: 132,
+    2637518: 133, 2637519: 134, 2637520: 135, 2637521: 136, 2637522: 137,
+    2637523: 138, 2637524: 139, 2637525: 140, 2637526: 141, 2637527: 142,
+    2637528: 143, 2637529: 144, 2637530: 145, 2637531: 146, 2637532: 147,
+    2637533: 148, 2637534: 149, 2637535: 150, 2637538: 200, 2637539: 201,
+    2637540: 202, 2637541: 203, 2637542: 204, 2637543: 205, 2637544: 206,
+    2637545: 207, 2637546: 208, 2637547: 209, 2637548: 210, 2637549: 211,
+    2637550: 212, 2637551: 213, 2637552: 214, 2637553: 215, 2637554: 216,
+    2637555: 217, 2637556: 218, 2637557: 219, 2637558: 220, 2637559: 221,
+    2637560: 222, 2637561: 223, 2637562: 224, 2637563: 225, 2637564: 226,
+    2637565: 227, 2637566: 228, 2637567: 229, 2637568: 230, 2637569: 231,
+    2637570: 232, 2637571: 233, 2637572: 234, 2637573: 235, 2637574: 236}
+
+fsb_well_colors = {'B1': 'k', 'B2': 'steelblue', 'B3': 'goldenrod',
+                   'B4': 'goldenrod', 'B5': 'goldenrod', 'B6': 'goldenrod',
+                   'B7': 'goldenrod', 'B8': 'firebrick', 'B9': 'firebrick',
+                   'B10': 'k'}
+
 
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
+
+
+def read_cassm_seg2(file, mapping, plot_picks=False):
+    """
+    Read seg-2 from CASSM and correctly assign the headers from a provided
+    mapping dictionary {CASSM chan: Sta name}
+    """
+    st = read(file)
+    rmtrs = []
+    aics = {}
+    tts = {}
+    for tr in st:
+        try:
+            stachan = mapping[tr.stats.seg2['CHANNEL_NUMBER']]
+        except KeyError as e:
+            # No channel in mapping, remove
+            rmtrs.append(tr)
+            continue
+        sta, chan = stachan.split('.')
+        tr.stats.station = sta
+        tr.stats.channel = chan
+        # Pick first arrival, use phasepapy abs(diff(aic)) as CF
+        aic = np.gradient(np.abs(np.gradient(aic_simple(tr.data))))
+        aics['.{}..{}'.format(sta, chan)] = aic
+        pk_i = aic.argmax()
+        tt = pk_i / tr.stats.sampling_rate
+        tts['.{}..{}'.format(sta, chan)] = [tt]
+        pk_time = tr.stats.starttime + (pk_i / tr.stats.sampling_rate)
+        tr.stats.seg2['PICK_TIME'] = pk_time
+    for rt in rmtrs:
+        st.traces.remove(rt)
+    if plot_picks:
+        fig = st.plot(show=False, equal_scale=False, transparent=True)
+        for i, ax in enumerate(fig.axes):
+            seed = ax.texts[-1].get_text().split('.')
+            tr = st.select(station=seed[1], channel=seed[-1])[0]
+            ax.axvline(tr.stats.seg2['PICK_TIME'].datetime, color='r')
+            ax.twinx().plot(tr.times("matplotlib"), aics['.'.join(seed)],
+                            color='darkgray', alpha=0.5)
+        fig.savefig(file.replace('.dat', '.png'))
+    return st, tts
+
+
+def fit_hammer_thomsen(hammer_dir, hammer_locs, inventory, cassm_Vp,
+                       cassm_angles, aniso_azi=323, aniso_inc=44,
+                       plot_paths=False):
+    """
+    Fit hammer shot Vp to Thomsen anisotropy model
+    """
+    # Set up pole to plane of anisotropy
+    aniso_angle = 450 - aniso_azi
+    if aniso_angle > 360:
+        aniso_angle -= 360
+    strike = aniso_azi + 90
+    if strike > 360:
+        strike -= 360.
+    dip = 90 - aniso_inc
+    # To radians
+    ani_az_rad = np.deg2rad(aniso_angle)
+    ani_inc_rad = np.deg2rad(aniso_inc)
+    aniso_pole = np.array([np.cos(ani_inc_rad) * np.cos(ani_az_rad),
+                           np.cos(ani_inc_rad) * np.sin(ani_az_rad),
+                           -np.sin(ani_inc_rad)])
+    aniso_pole /= np.linalg.norm(aniso_pole)
+    aniso_pole_ten = aniso_pole * 10  # 10 length unit vector for plotting
+    # Read in hammer shot locations to dict
+    shot_locs = {}
+    with open(hammer_locs) as f:
+        for ln in f:
+            line = ln.rstrip('/n').split(',')
+            shot_locs[int(line[0][2:])] = np.array([float(line[1]),
+                                                    float(line[2]),
+                                                    float(line[3])])
+    wav_files = glob('{}/*.dat'.format(hammer_dir))
+    results = {net[0].code: [] for net in inventory}
+    paths = []
+    sta_locs = []
+    shot_locs_plot = []
+    for wf in wav_files:
+        no = int(wf.split('/')[-1].rstrip('.dat'))
+        try:
+            shot_loc = shot_locs[shot_map[no]]
+        except KeyError as e:
+            continue
+        print('Picking file {}'.format(wf))
+        st, tts = read_cassm_seg2(wf, mapping=fsb_geode_chans)
+        # Calculate Vps
+        for seed, tt in tts.items():
+            _, station, _, channel = seed.split('.')
+            sta = inventory.select(station=station)[0][0]
+            sta_loc = FSB_converter().to_ch1903([sta.longitude,
+                                                 sta.latitude, sta.elevation])
+            path = shot_loc - sta_loc
+            paths.append(path)
+            shot_locs_plot.append(shot_loc)
+            sta_locs.append(sta_loc)
+            dist = np.sqrt(np.sum(path**2))
+            Vp = dist / tt
+            # L2 norm along rows
+            pnorm = path / np.sqrt((path * path).sum())
+            angle = np.arccos(np.dot(pnorm, aniso_pole))
+            angle = np.rad2deg(angle)
+            results[sta.code].append((angle, Vp[0]))
+    if plot_paths:
+        fig3d = plt.figure()
+        ax3d = fig3d.add_subplot(projection='3d')
+        # Plot up the well bores
+        for w, pts in create_FSB_boreholes().items():
+            if w.startswith('B'):
+                wx = pts[:, 0]  # + 579300
+                wy = pts[:, 1]  # + 247500
+                wz = pts[:, 2]  # + 500
+                ax3d.scatter(wx[0], wy[0], wz[0], s=10., marker='s',
+                             color=fsb_well_colors[w])
+                ax3d.plot(wx, wy, wz, color=fsb_well_colors[w])
+        ax3d.plot(xs=np.array([0, aniso_pole_ten[0]]) + wx[0],
+                  ys=np.array([0, aniso_pole_ten[1]]) + wy[0],
+                  zs=np.array([0, aniso_pole_ten[2]]) + wz[0],
+                  color='b')
+        shot_array = np.array([l for i, l in shot_locs.items()])
+        ax3d.scatter(shot_array[:, 0], shot_array[:, 1], shot_array[:, 2],
+                     alpha=0.05)
+        for i, sl in enumerate(sta_locs):
+            ax3d.plot(xs=[sl[0], shot_locs_plot[i][0]],
+                      ys=[sl[1], shot_locs_plot[i][1]],
+                      zs=[sl[2], shot_locs_plot[i][2]], color='lightgray',
+                      alpha=0.05)
+    Vps = []
+    angles = []
+    for sta, pt in results.items():
+        if len(sta) == 3 or sta[:2] in ['B6', 'B7']:
+            # Accelerometer
+            continue
+        try:
+            pts = np.array(pt)
+            Vps.append(pts[:, 1])
+            angles.append(pts[:, 0])
+        except IndexError as e:
+            continue
+    Vps = np.concatenate(Vps).flatten()
+    angles = np.concatenate(angles).flatten()
+    Vps = np.concatenate([Vps, cassm_Vp])
+    angles = np.concatenate([angles, cassm_angles])
+    # Now select points to fit
+    fig_pk, ax_pick = plt.subplots()
+    pts = ax_pick.scatter(angles, Vps)
+    selector = SelectFromCollection(ax_pick, pts)
+    selection = {}
+    def accept(event):
+        if event.key == "enter":
+            print("Selected points:")
+            indices = selector.ind
+            selector.disconnect()
+            ax_pick.set_title("")
+            selection['indices'] = indices
+
+    fig_pk.canvas.mpl_connect("key_press_event", accept)
+    ax_pick.set_ylim([2000, 4000])
+    plt.show(block=True)
+    indices = selection['indices']
+    Vps = Vps[indices]
+    angles = angles[indices]
+
+    fig, axes = plt.subplots()
+    axes.scatter(angles, Vps, alpha=0.2, color='firebrick',
+                 label='Hydrophone')
+    # Fit a curve
+    fit_vps = Vps[np.isfinite(Vps)]
+    fit_bed_rad = np.deg2rad(angles[np.isfinite(Vps)])
+    popt_f, pcov_f = curve_fit(thomsen_full, fit_bed_rad, fit_vps)
+    # popt_f, pcov_f = curve_fit(thomsen_weak, fit_bed_rad, fit_vps)
+    std_f = np.sqrt(np.diag(pcov_f))
+    axes.annotate(
+        'Vp0: {:.2f}$\pm${:.2f}\ndelta: {:.2f}$\pm${:.2f}\nepsilon: {:.2f}$\pm${:.2f}'.format(
+        popt_f[2], std_f[2], popt_f[0], std_f[0], popt_f[1], std_f[1]),
+        xy=(0.6, 0.75), xytext=(0.55, 0.05), xycoords='axes fraction')
+    df, ef, vp0f = popt_f
+    xline = np.arange(0, np.pi, 0.1)
+    yline_f = thomsen_full(xline, df, ef, vp0f)
+    axes.plot(np.rad2deg(xline), yline_f)
+    axes.set_ylabel('Vp [m/s]')
+    axes.set_xlabel('Angle to bedding normal [degrees]')
+    axes.set_title('Bedding Strike: {} Dip: {}'.format(strike, dip))
+    # Fix legend
+    axes.legend()
+    handles, labels = axes.get_legend_handles_labels()
+    newLabels, newHandles = [], []
+    for handle, label in zip(handles, labels):
+        if label not in newLabels:
+            newLabels.append(label)
+            newHandles.append(handle)
+    axes.legend(newHandles, newLabels)
+    axes.set_ylim([2000, 3500])
+    plt.show()
+    return Vps, angles
 
 
 def read_rosemanowes_segy(segy_file):
