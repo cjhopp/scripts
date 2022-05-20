@@ -68,7 +68,7 @@ chan_map_injection_fsb = {
     'B7': 1320., 'B8': 428., 'B9': 267., 'B10': 565.}
 
 chan_map_4100 = {'AMU': (85, 208), 'AML': (220, 343),
-                 'DMU': (384, 495), 'DML': (505, 620)}
+                 'DMU': (384, 495), 'DML': (505, 616.5)}
 
 chan_map_EFSL = {'3359': (76.56, 5358.7), '3339': (99.25, 5193.25)}
 
@@ -519,7 +519,7 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
     cbar = fig.colorbar(im, cax=cax, orientation='vertical')
     cbar.ax.set_ylabel(label, fontsize=16)
     if not title:
-        if well.startswith('D'):
+        if well.startswith('D') and len(well) == 2:
             exp = 'BCS'
         elif well.startswith('B'):
             exp = 'BFS'

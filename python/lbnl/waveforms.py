@@ -85,7 +85,12 @@ borehole_dict = {'OB': [356., 62.5], 'OT': [359., 83.], 'PDB': [259., 67.],
 cascadia_colors = {'NSMTC.B1': '#c6dbef', 'NSMTC.B2': '#6aaed6',
                    'NSMTC.B3': '#2070b4', 'NSMTC.G1': '#956cb4',
                    'NSMTC.G2': '#d65f5f', 'PGC.': '#ee854a',
-                   'B011.': '#6acc64'}
+                   'B011.': '#6acc64',
+                   '2115.10': '#956cb4', '2115.00': '#d65f5f',
+                   '2128.10': '#956cb4', '2128.00': '#d65f5f',
+                   '2221.10': '#956cb4', '2221.00': '#d65f5f',
+                   '4509.10': '#956cb4', '4509.00': '#d65f5f',
+                   '5230.10': '#956cb4', '5230.00': '#d65f5f'}
 
 fsb_geode_chans = {
     '1': 'B301.XN1', '2': 'B302.XN1', '3': 'B303.XN1', '4': 'B304.XN1',
@@ -3178,7 +3183,9 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, daily_psd_dir,
     """
     ppsds = {s: {} for s in seeds}
     files = glob('{}/*.npz'.format(psd_dir))
+    print(files)
     for s in seeds:
+        print([f for f in files if s in f][0])
         ppsd = PPSD.load_npz([f for f in files if s in f][0])
         ppsds[s]['ppsd'] = ppsd
         ppsds[s]['median'] = ppsd.get_percentile(50)
@@ -3258,7 +3265,8 @@ def plot_cascadia_sensor_noise(psd_dir, seeds, reference_seed, daily_psd_dir,
     axes[1].set_ylabel('Noise relative to SA-ULN [dB]', fontsize=12)
     axes[1].set_facecolor('whitesmoke')
     axes[1].margins(0.)
-    axes[1].set_xlim([0.002, 1000])
+    # axes[1].set_xlim([0.002, 1000])
+    axes[1].set_xlim([.1, 1000])
     fig.legend()
     plt.show()
     return
