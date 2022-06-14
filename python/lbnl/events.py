@@ -460,7 +460,7 @@ def add_pols_to_Time2EQ_hyp(catalog, nlloc_dir, outdir, hydrophones=False):
 
 def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
                        catalog=None, wav_file=None, cassm=False, rotate=False,
-                       length=0.02, prepick=0.0002, pick_error=0.0001):
+                       length=0.03, prepick=0.003, pick_error=0.0001):
     """
     Function to take local catalog, inventory and waveforms for picking.
 
@@ -485,6 +485,8 @@ def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
     # Sort network name
     if location == 'cascadia':
         net = 'UW'
+    elif location == '4100':
+        net = 'CB'
     else:
         net = 'SV'
     # Grab all stationxml files
@@ -509,18 +511,24 @@ def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
     if len(catalog) == 0:
         print('No events in catalog')
         return
-    eids = [parse_resource_id_to_eid(ev, method=location) for ev in catalog]
-    wav_files = [
-        p for p in all_wavs
-        if parse_filenames_to_eid(p, method=location, cassm=cassm) in eids]
+    ## Old workflow for SURF 4850
+    # eids = [parse_resource_id_to_eid(ev, method=location) for ev in catalog]
+    # wav_files = [
+    #     p for p in all_wavs
+    #     if parse_filenames_to_eid(p, method=location, cassm=cassm) in eids]
+    eids = [ev.resource_id.id.split('/')[-1] for ev in catalog]
+    wav_files = [f for f in all_wavs if f.split('/')[-1].rstrip('.ms') in eids]
     if not os.path.isdir('tmp'):
         os.mkdir('tmp')
     for ev in catalog:
         pk1 = min([pk.time for pk in ev.picks])
-        eid = parse_resource_id_to_eid(ev, method=location)
-        wav_file = [
-            f for f in wav_files if parse_filenames_to_eid(f, method=location,
-                                                           cassm=cassm) == eid]
+        # eid = parse_resource_id_to_eid(ev, method=location)
+        # wav_file = [
+        #     f for f in wav_files if parse_filenames_to_eid(f, method=location,
+        #                                                    cassm=cassm) == eid]
+        eid = ev.resource_id.id.split('/')[-1]
+        wav_file = [f for f in wav_files
+                    if f.split('/')[-1].rstrip('.ms') == eid]
         # Create temporary mseed without the superfluous non-seis traces
         try:
             st = read(wav_file[0])
@@ -543,8 +551,9 @@ def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
         for pk in ev.picks:
             if not pk.time_errors:
                 pk.time_errors.uncertainty = pick_error
-        tmp_name = 'tmp/{}.xml'.format(
-            parse_resource_id_to_eid(ev, method=location))
+        tmp_name = 'tmp/{}_repicked.xml'.format(eid)
+        # tmp_name = 'tmp/{}.xml'.format(
+        #     parse_resource_id_to_eid(ev, method=location))
         ev.write(tmp_name, format='QUAKEML')
         print('Launching obspyck for ev: {}' .format(
               str(ev.resource_id).split('/')[-1]))

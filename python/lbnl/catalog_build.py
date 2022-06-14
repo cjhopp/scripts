@@ -899,12 +899,21 @@ def plot_triggers(triggers, st, cft_stream, params, net_params, outdir):
 
 
 def plot_picks(st, ev, prepick, postpick, name, outdir):
+    figname = '{}/Picks_{}.png'.format(outdir, name)
+    if os.path.exists(figname):
+        print('{} already exists'.format(figname))
+        return
     seeds = [tr.id for tr in st]
     first_pick = np.min([pk.time for pk in ev.picks])
     # Clip around trigger time
     st_slice = st.slice(starttime=first_pick - prepick,
-                        endtime=first_pick + postpick)
-    time_v = np.arange(st_slice[0].data.shape[0]) * st_slice[0].stats.delta
+                            endtime=first_pick + postpick)
+    try:
+        time_v = np.arange(st_slice[0].data.shape[0]) * st_slice[0].stats.delta
+    except IndexError:
+        print(st)
+        print(first_pick)
+        return
     fig, ax = plt.subplots(nrows=len(seeds), sharex='col',
                            figsize=(6, len(seeds) / 2.), dpi=300)
     fig.suptitle('Detection: {}'.format(name))
@@ -939,7 +948,7 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         ax[i].set_yticks([])
     ax[-1].set_xlabel('Seconds')
     ax[-1].margins(x=0.)
-    fig.savefig('{}/Picks_{}.png'.format(outdir, name))
+    fig.savefig(figname)
     plt.close('all')
     return
 

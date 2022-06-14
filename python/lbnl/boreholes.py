@@ -455,34 +455,26 @@ def make_4100_boreholes(path, plot=False):
     """
     Take as-planned for 4100L boreholes and return array of xyz pts
 
-    :param path: Path to excel file from Paul's drilling plan
+    :param path: Path to directory with 1-ft spacing well trajectories
 
     :return:
     """
-    df = pd.read_excel(path)
-    # Do the iterrows cause who cares
+    one_ft_files = glob('{}/One_foot*.csv'.format(path))
     well_dict = {}
     if plot:
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
-    for i, row in df.iterrows():
-        strt = row[['Easting (ft)', 'Northing (ft)',
-                    'Height (ft)']].values * 0.3048
-        bearing = np.deg2rad(row['Bearing (deg)'])
-        tilt = np.deg2rad(row['Tilt (deg)'])
-        unit_v = np.array([np.sin(bearing) * np.cos(tilt),
-                           np.cos(bearing) * np.cos(tilt),
-                           np.sin(tilt)])
-        unit_v /= np.linalg.norm(unit_v)
-        vect = unit_v * row['Length (ft)'] * 0.3048
-        end = strt + vect
-        pts = np.vstack(
-            [np.linspace(strt[0], end[0], 200),
-             np.linspace(strt[1], end[1], 200),
-             np.linspace(strt[2], end[2], 200)]).T
-        well_dict[row['New Name']] = pts
+    for f in one_ft_files:
+        well = f.split('_')[-3]
+        array = np.loadtxt(f, delimiter=',', skiprows=1, usecols=[2,3,4,5])
+        # Make array of depth [m], x, y, z
+        dxyz = array[:, -4:]
+        # Put depth at last column
+        dxyz = dxyz[:, [1, 2, 3, 0]]
+        dxyz[:, :3] *= 0.3048  # Convert to meters
+        well_dict[well] = dxyz
         if plot:
-            ax.plot(xs=pts[:, 0], ys=pts[:, 1], zs=pts[:, 2], label=row['New Name'])
+            ax.plot(xs=dxyz[:, 0], ys=dxyz[:, 1], zs=dxyz[:, 2], label=well)
     if plot:
         fig.legend()
         ax.set_xlabel('Easting')

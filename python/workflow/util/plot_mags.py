@@ -452,7 +452,7 @@ def bval_calc(cat, bin_size, MC, weight=False):
         Mc = MC
     # Establish bin limits and spacing
     # bin_vals = np.arange(min(mags), max(mags), bin_size)
-    bin_vals = np.arange(-1., 8., bin_size)
+    bin_vals = np.arange(-10., 8., bin_size)
     non_cum_bins = []
     cum_bins = []
     bval_vals = []
@@ -540,8 +540,8 @@ def simple_bval_plot(catalogs, cat_names, bin_size=0.1, MC=None,
             continue
         bcalc = calc_b_value(
             magnitudes=mags,
-            # completeness=np.arange(min(mags), max(mags), 0.1),
-            completeness=list(np.arange(-1, 8., 0.1)),
+            completeness=np.arange(min(mags), max(mags), 0.1),
+            # completeness=list(np.arange(-10, 8., 0.1)),
             plotvar=bplotvar)
         bcalc.sort(key=lambda x: x[2])
         # Fitting procedure

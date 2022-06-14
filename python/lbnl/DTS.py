@@ -170,7 +170,8 @@ def read_XTDTS(path, no_cols):
 
 
 def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
-                   noise_method='madjdabadi', dates=None):
+                   noise_method='madjdabadi', dates=None,
+                   extract_wells=True):
     """
     Read all files in a directory to 2D DTS arrays
 
@@ -218,6 +219,9 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
         fiber_depths = fiber_depth_4100
         fiber_wind = efsl_wind
     well_data = {}
+    if not extract_wells:
+        well_data = fiber_data
+        return well_data
     chan_map = channel_mapping[mapping]
     for well in wells:
         if well not in chan_map:

@@ -5,9 +5,10 @@ Parsing and plotting hydraulic data
 """
 import pandas as pd
 import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
 
-from matplotlib.dates import DateFormatter
+from matplotlib.dates import DateFormatter, DayLocator
 from matplotlib import gridspec
 from nptdms import TdmsFile
 from glob import glob
@@ -40,6 +41,28 @@ def read_collab_hydro(path):
               inplace=True)
     # Resample this shiz to shrink the dataset
     df = df.resample('10s').mean()
+    return df
+
+
+def read_4100_hydro(path):
+    flow_files = glob('{}/*.csv'.format(path))
+    df = pd.DataFrame()
+    for f in flow_files:
+        zone = f.split('_')[0].split('/')[-1]
+        cols_tri = ['Time', 'Quizix Flow', 'Quixiz Pressure',
+                    'PT 403', 'Net Flow']
+        ndf = pd.read_csv(f, usecols=cols_tri,
+                          skiprows=[1], parse_dates=True)
+        rename_dict = {
+            'Quizix Flow': 'Quizix Flow: {}'.format(zone),
+            'Quixiz Pressure': 'Quizix P: {}'.format(zone),
+            'Net Flow': 'Triplex Flow: {}'.format(zone)
+        }
+        ndf.rename(columns=rename_dict, inplace=True)
+        df = pd.concat([df, ndf])
+    df['Datetime'] = pd.to_datetime(df['Time'])
+    df = df.set_index('Datetime')
+    df.sort_index(inplace=True)
     return df
 
 
@@ -188,6 +211,37 @@ def martin_cumulative_vols(df_early):
 
 
 ###### Plotting #######
+
+
+def plot_4100_hydro(df, date_range=None, ax=None, legend=False):
+    if date_range:
+        df = df[date_range[0]:date_range[1]]
+    df.resample('20T')
+    if not ax:
+        fig, ax = plt.subplots(figsize=(25, 6))
+    ax2 = ax.twinx()
+    Q = df.filter(like='Flow')
+    quizP = df.filter(like='Quizix P')
+    Q.plot(ax=ax, color=sns.color_palette('Blues', 12).as_hex(), legend=legend)
+    quizP.plot(ax=ax2, color=sns.color_palette('Reds', 6).as_hex(), legend=legend)
+    df['PT 403'].plot(ax=ax2, color='firebrick')
+    if legend:
+        ax1ln, ax1lab = ax.get_legend_handles_labels()
+        ax2ln, ax2lab = ax2.get_legend_handles_labels()
+        ax.legend(ax1ln, ax1lab)
+        ax2.legend(ax2ln, ax2lab)
+    ax.set_ylim(bottom=0)
+    ax2.set_ylim(bottom=0)
+    ax.set_ylabel('L/min', color='steelblue')
+    ax2.set_ylabel('MPa', color='firebrick')
+    ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                   color='steelblue')
+    ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                    color='firebrick')
+    ax.set_xlabel('Date')
+    ax.xaxis.set_major_locator(DayLocator(interval=1))
+    return
+
 
 def plot_collab_ALL(df_hydro, date_range=None, axes=None):
     if not axes:

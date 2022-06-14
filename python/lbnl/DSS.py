@@ -2146,7 +2146,27 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
             gain = np.squeeze(gain[:, indices])
             if gain_correction:
                 data = scale_to_gain(data, gain, offset_samps)
-    mpl_times = mdates.date2num(times)
+    # Fill date gaps with nans at preceding sampling rate
+    dts = np.diff(times)
+    gap_inds = np.where(dts > timedelta(hours=24))[0]
+    # Interpolate onto grid
+    reg_times = np.arange(times[0], times[-1], timedelta(hours=1))
+    xo, yo = np.meshgrid(depth_vect, date2num(times),
+                         indexing='ij')
+    xd, yd = np.meshgrid(depth_vect, date2num(reg_times),
+                         indexing='ij')
+    data = griddata(
+        np.array([xo.flatten(), yo.flatten()]).T,
+        data.flatten(),
+        np.array([xd.flatten(), yd.flatten()]).T).reshape(xd.shape)
+    # Which columns of regular time vect are in gaps? Mask them
+    mask_cols = np.concatenate([np.where((times[i] < reg_times) &
+                                         (reg_times < times[i+1]))
+                                for i in gap_inds], axis=1)
+    mask = np.zeros_like(data)
+    mask[:, mask_cols] = 1
+    data_masked = np.ma.masked_array(data, mask)
+    mpl_times = mdates.date2num(reg_times)
     # Denoise methods are not mature yet
     if denoise_method:
         data = denoise(data, denoise_method, times=times, depth=depth_vect,
@@ -2180,13 +2200,16 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     if well in ['D1', 'D2'] and integrate_anchor_segs:
         data = integrate_anchors(data, depth_vect - depth_vect[0], well)
     # Split the array in two and plot both separately
-    down_data, up_data = np.array_split(data, 2, axis=0)
+    down_data, up_data = np.array_split(data_masked, 2, axis=0)
     down_d, up_d = np.array_split(depth_vect - depth_vect[0], 2)
     if down_d.shape[0] != up_d.shape[0]:
         # prepend last element of down to up if unequal lengths by 1
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+        # Redo the mask
+        mask_up = np.zeros_like(up_data)
+        mask_up[:, mask_cols+1] = 1
+        up_data = np.ma.masked_array(up_data, mask_up)
         up_d = np.insert(up_d, 0, down_d[-1])
-    # Run the integration for D1/2
     im = axes1.imshow(down_data, cmap=cmap, origin='upper',
                       extent=[mpl_times[0], mpl_times[-1],
                               down_d[-1] - down_d[0], 0],

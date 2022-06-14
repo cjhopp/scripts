@@ -939,6 +939,7 @@ def loadNLLocOutput(ev, infile, location):
     elif location in ['SURF', 'FSB']:
         # CJH I reported depths at SURF in meters below 130 m so positive is
         # down in this case
+        # Relative to 380 m on 4100L
         depth = float(line[6])
         print('Doing hypo conversion')
         # Descale first
@@ -1091,7 +1092,8 @@ def loadNLLocOutput(ev, infile, location):
                     'namespace': 'smi:local/hmc'
                 },
                 'hmc_elev': {
-                    'value': 130 - depth, # Extra attribs maintain absolute elevation
+                    # 'value': 130 - depth, # Extra attribs maintain absolute elevation
+                    'value': 380 - depth,  # Extra attribs maintain absolute elevation
                     'namespace': 'smi:local/hmc'
                 }
             })
@@ -1436,7 +1438,8 @@ def readNLLocScatter(scat_filename, location):
     if location == 'SURF':
         data[0], data[1] = surf_xyz2latlon(data[0], data[1])
         data[2] *= 10
-        data[2] = 130 - data[2]
+        # data[2] = 130 - data[2]
+        data[2] = 380 - data[2]
     elif location == 'FSB': # go straight to ch1903 for this
         print(data.shape)
         data[0] *= 10
