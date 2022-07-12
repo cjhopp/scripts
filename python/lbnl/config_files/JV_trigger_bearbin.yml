@@ -22,6 +22,7 @@ Trigger:
   max_trigger_length: 30.
   plot_outdir: '/bear0-data/GMF_1/Amplify_EGS/plots/JV/triggers/run_7-12-22'
   coincidence_sum: 2.
+  seeds: [ 'JV.ROK..DHZ', 'JV.SED..DHZ' ]
   network_specific_params:
     {'': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
     }
