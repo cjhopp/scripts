@@ -4,11 +4,11 @@ General:
   wav_directory: '/bear0-data/GMF_1/Amplify_EGS/Raw_Reftek_data/TM/MSEED'
 
 Database:
-  name: 'patua_test'
+  name: 'TM_trigger'
 
 Trigger:
-  start_time: 2021-6-1
-  end_time: 2021-12-31
+  start_time: 2022-1-26
+  end_time: 2022-5-6
   sta: 1.0
   lta: 10.0
   lowcut: 3.
@@ -21,7 +21,7 @@ Trigger:
   trigger_off_extension: 5.
   max_trigger_length: 30.
   plot_outdir: '/bear0-data/GMF_1/Amplify_EGS/plots/TM/triggers/run_7-12-22'
-  coincidence_sum: 3.
+  coincidence_sum: 2.
   network_specific_params:
     {'': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
     }

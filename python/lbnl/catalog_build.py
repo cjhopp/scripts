@@ -586,9 +586,9 @@ def trigger(param_file, plot=False):
             for seed in trig_p['seeds']:
                 net, sta, loc, chan = seed.split('.')
                 day_wavs.append(
-                    '{}/{}/{}.{}.{:03d}.ms'.format(
+                    '{}/{}/{}.{}.{}.{}.{}.{:03d}.ms'.format(
                         paramz['General']['wav_directory'], sta,
-                        seed, date.year, jday))
+                        sta, net, loc, chan, date.year, jday))
         else:
             day_wavs = glob('{}/**/*__{}T*.mseed'.format(
                 paramz['General']['wav_directory'], date),

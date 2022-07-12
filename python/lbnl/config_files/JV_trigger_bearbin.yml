@@ -1,14 +1,14 @@
 # Trigger/picking parameter file for cascadia borehole project
 
 General:
-  wav_directory: '/bear0-data/GMF_1/Amplify_EGS/MSEED_remapped'
+  wav_directory: '/bear0-data/GMF_1/Amplify_EGS/Raw_Reftek_data/JV/MSEED'
 
 Database:
-  name: 'patua_test'
+  name: 'JV_trigger'
 
 Trigger:
-  start_time: 2021-6-1
-  end_time: 2021-12-31
+  start_time: 2022-1-26
+  end_time: 2022-5-6
   sta: 1.0
   lta: 10.0
   lowcut: 3.
@@ -20,26 +20,19 @@ Trigger:
   threshold_off: 1.5
   trigger_off_extension: 5.
   max_trigger_length: 30.
-  plot_outdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/triggers/test_12-20'
-  coincidence_sum: 3.
+  plot_outdir: '/bear0-data/GMF_1/Amplify_EGS/plots/JV/triggers/run_7-12-22'
+  coincidence_sum: 2.
   network_specific_params:
     {'': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
     }
   # Channel specific parameters take precedence
   channel_specific_params:
-    {'PT.2221.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
-     'PT.2128.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
-     'PT.2115.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
-     'PT.4509.10.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
-     'PT.5230.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
-     'PT.2221.10.DHZ': { 'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5 },
-     'PT.2128.10.DHZ': { 'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5 },
-     'PT.2115.10.DHZ': { 'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5 },
-     'PT.5230.10.DHZ': { 'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5 }
+    {'JV.ROK..DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'JV.SED..DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
     }
   output:
     write_wavs: True
-    waveform_outdir: '/bear0-data/GMF_1/Amplify_EGS/event_waveforms/patua/triggers/test_12-20'
+    waveform_outdir: '/bear0-data/GMF_1/Amplify_EGS/event_waveforms/JV/triggers/run_7-12-22'
     pre_trigger: 30.
     post_trigger: 60.
 
@@ -55,8 +48,8 @@ Picker:
   pol_coeff: 10
   uncert_coeff: 3
   pick_measure: snr  # snr or earliest
-  plotdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/picks/test_12-20'
-  station_ignore: ['4509']
+  plotdir: '/bear0-data/GMF_1/Amplify_EGS/plots/JV/picks/run_7-12-22'
+  station_ignore: ['']
 
 Associator:
   # Grid parameters
@@ -76,5 +69,3 @@ Associator:
   assoc_ot_uncert: 7
   nsta_declare: 3
   loc_uncert_thresh: 0.2
-
-
