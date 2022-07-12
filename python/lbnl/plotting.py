@@ -1775,6 +1775,7 @@ def add_catalog(catalog, dd_only, objects, surface, location=None):
         mfact = 0.5
     for ev in catalog:
         try:
+            # o = ev.preferred_origin()
             o = ev.origins[-1]
         except IndexError:
             continue
@@ -1784,9 +1785,12 @@ def add_catalog(catalog, dd_only, objects, surface, location=None):
                 ey = float(o.extra.ch1903_north.value)
                 ez = float(o.extra.ch1903_elev.value)
             except AttributeError:  # Case of only dug-seis location
-                ex = float(ev.extra.x.value)
-                ey = float(ev.extra.y.value)
-                ez = float(o.depth) - 500.
+                try:
+                    ex = float(ev.extra.x.value)
+                    ey = float(ev.extra.y.value)
+                    ez = float(o.depth) - 500.
+                except AttributeError:
+                    continue
         elif location == 'surf':
             ex = float(o.extra.hmc_east.value)
             ey = float(o.extra.hmc_north.value)

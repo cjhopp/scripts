@@ -1,0 +1,80 @@
+# Trigger/picking parameter file for cascadia borehole project
+
+General:
+  wav_directory: '/bear0-data/GMF_1/Amplify_EGS/MSEED_remapped'
+
+Database:
+  name: 'patua_test'
+
+Trigger:
+  start_time: 2021-6-1
+  end_time: 2021-12-31
+  sta: 1.0
+  lta: 10.0
+  lowcut: 3.
+  highcut: 24.
+  corners: 3
+  sampling_rate: 50.
+  ncores: 8
+  threshold_on: 5.0
+  threshold_off: 1.5
+  trigger_off_extension: 5.
+  max_trigger_length: 30.
+  plot_outdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/triggers/test_12-20'
+  coincidence_sum: 3.
+  network_specific_params:
+    {'': {'sta': 1., 'lta': 10., 'thr_on': 5.0, 'thr_off': 2.},
+    }
+  # Channel specific parameters take precedence
+  channel_specific_params:
+    {'PT.2221.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'PT.2128.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'PT.2115.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'PT.4509.10.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'PT.5230.00.DHZ': {'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5},
+     'PT.2221.10.DHZ': { 'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5 },
+     'PT.2128.10.DHZ': { 'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5 },
+     'PT.2115.10.DHZ': { 'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5 },
+     'PT.5230.10.DHZ': { 'sta': 1., 'lta': 10., 'thr_on': 4.0, 'thr_off': 1.5 }
+    }
+  output:
+    write_wavs: True
+    waveform_outdir: '/bear0-data/GMF_1/Amplify_EGS/event_waveforms/patua/triggers/test_12-20'
+    pre_trigger: 30.
+    post_trigger: 60.
+
+Picker:
+  # Values from OK initially
+  method  : 'aicd'
+  t_ma: 3
+  nsigma: 8
+  t_up: 0.78
+  nr_len: 2
+  nr_coeff: 2
+  pol_len: 10
+  pol_coeff: 10
+  uncert_coeff: 3
+  pick_measure: snr  # snr or earliest
+  plotdir: '/bear0-data/GMF_1/Amplify_EGS/plots/patua/picks/test_12-20'
+  station_ignore: ['4509']
+
+Associator:
+  # Grid parameters
+  inventory: 'chet-amplify/instruments/Patua_initial_boreholes_w_surface_w_depths_nexus.xml'
+  grid_origin_lat: 39.337757
+  grid_origin_lon: -119.695906 # Lat, Lon
+  grid_shape_lat: 30
+  grid_shape_lon: 40 # Rows, Columns
+  grid_spacing: 0.025 # Degrees
+  max_depth: 25 # km
+  depth_spacing: 5. # km
+  # Associator parameters
+  max_km: 150
+  aggregation: 1
+  aggr_norm: 'L2'
+  cutoff_outlier: 10
+  assoc_ot_uncert: 7
+  nsta_declare: 3
+  loc_uncert_thresh: 0.2
+
+

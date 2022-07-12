@@ -14,6 +14,7 @@ import colorlover as cl
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import plotly
+import pyproj
 import chart_studio.plotly as py
 import plotly.graph_objs as go
 
@@ -585,9 +586,9 @@ def trigger(param_file, plot=False):
             for seed in trig_p['seeds']:
                 net, sta, loc, chan = seed.split('.')
                 day_wavs.append(
-                    '{}/{}/{}/{}/{}/{}.{}.{:03d}.ms'.format(
-                        paramz['General']['wav_directory'], date.year, net, sta,
-                        chan, seed, date.year, jday))
+                    '{}/{}/{}.{}.{:03d}.ms'.format(
+                        paramz['General']['wav_directory'], sta,
+                        seed, date.year, jday))
         else:
             day_wavs = glob('{}/**/*__{}T*.mseed'.format(
                 paramz['General']['wav_directory'], date),
@@ -1146,7 +1147,61 @@ def plot_patua_3D(well_file, outfile, topography=None, wells='all',
                               hoverinfo='skip')
         objects.append(topo_mesh)
     if catalog:
-        pass
+        colors = cycle(cl.scales['11']['qual']['Paired'])
+        mfact = 1.5  # Magnitude scaling factor
+        pt_list = []
+        pt_lists = []
+        for ev in catalog:
+            try:
+                o = ev.preferred_origin()
+            except AttributeError:
+                continue
+            try:
+                m = ev.magnitudes[-1].mag
+            except IndexError:
+                # Default to M 1
+                m = 1
+            t = o.time.datetime.timestamp()
+            # Lat/Lon to UTM11N
+            utm = pyproj.Proj(init="EPSG:26911")
+            utmx, utmy = utm(o.longitude, o.latitude)
+            z = 1212 - o.depth
+            pt_list.append((utmx, utmy, z, m, t,
+                            ev.resource_id.id.split('/')[-1]))
+        # if len(pt_list) > 0:
+        pt_lists.append(pt_list)
+        # Add arrays to the plotly objects
+        for i, lst in enumerate(pt_lists):
+            if len(lst) == 0:
+                continue
+            x, y, z, m, t, id = zip(*lst)
+            # z = -np.array(z)
+            clust_col = next(colors)
+            tickvals = np.linspace(min(t), max(t), 10)
+            ticktext = [datetime.fromtimestamp(t).strftime('%d %b %Y: %H:%M')
+                        for t in tickvals]
+            scat_obj = go.Scatter3d(x=np.array(x), y=np.array(y), z=np.array(z),
+                                    mode='markers',
+                                    name='Seismic event',
+                                    hoverinfo='text',
+                                    text=np.array(id),
+                                    marker=dict(color=t,
+                                                cmin=min(tickvals),
+                                                cmax=max(tickvals),
+                                                size=(mfact * np.array(m)) ** 2,
+                                                symbol='circle',
+                                                line=dict(color=t,
+                                                          width=1,
+                                                          colorscale='Cividis'),
+                                                colorbar=dict(
+                                                    title=dict(text='Timestamp',
+                                                               font=dict(size=18)),
+                                                    x=-0.2,
+                                                    ticktext=ticktext,
+                                                    tickvals=tickvals),
+                                                colorscale='Plotly3',
+                                                opacity=0.5))
+            objects.append(scat_obj)
     # Start figure
     fig = go.Figure(data=objects)
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',

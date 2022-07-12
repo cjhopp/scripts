@@ -31,6 +31,7 @@ from obspy.clients.fdsn import Client
 from lbnl.coordinates import SURF_converter
 from lbnl.boreholes import depth_to_xyz, parse_surf_boreholes
 try:
+    from libcomcat.exceptions import ContentNotFoundError, ProductNotFoundError
     from libcomcat.search import get_event_by_id
     from libcomcat.dataframes import get_phase_dataframe, get_detail_data_frame
 except ModuleNotFoundError:
@@ -577,47 +578,62 @@ def retrieve_usgs_catalog(**kwargs):
     """
     cli = Client('https://earthquake.usgs.gov')
     cat = cli.get_events(**kwargs)
+    print('{} events in catalog'.format(len(cat)))
     # Now loop over each event and grab the phase dataframe using libcomcat
+    rms = []  # List of events with no comcat arrival info to remove
     for ev in cat:
         print(ev.resource_id.id)
         eid = ev.resource_id.id.split('=')[-2].split('&')[0]
         detail = get_event_by_id(eid, includesuperseded=True)
-        phase_df = get_phase_dataframe(detail)
+        try:
+            phase_df = get_phase_dataframe(detail)
+        except ProductNotFoundError:
+            rms.append(ev)
+            continue
         o = ev.preferred_origin()
-        for i, phase_info in phase_df.iterrows():
-            seed_id = phase_info['Channel'].split('.')
-            loc = seed_id[-1]
-            if loc == '--':
-                loc = ''
-            wf_id = WaveformStreamID(network_code=seed_id[0],
-                                     station_code=seed_id[1],
-                                     location_code=loc,
-                                     channel_code=seed_id[2])
-            pk = Pick(time=UTCDateTime(phase_info['Arrival Time']),
-                      method=phase_info['Status'], waveform_id=wf_id,
-                      phase_hint=phase_info['Phase'])
-            ev.picks.append(pk)
-            arr = Arrival(pick_id=pk.resource_id.id, phase=pk.phase_hint,
-                          azimuth=phase_info['Azimuth'],
-                          distance=phase_info['Distance'],
-                          time_residual=phase_info['Residual'],
-                          time_weight=phase_info['Weight'])
-            o.arrivals.append(arr)
+        try:
+            for i, phase_info in phase_df.iterrows():
+                seed_id = phase_info['Channel'].split('.')
+                loc = seed_id[-1]
+                if loc == '--':
+                    loc = ''
+                wf_id = WaveformStreamID(network_code=seed_id[0],
+                                         station_code=seed_id[1],
+                                         location_code=loc,
+                                         channel_code=seed_id[2])
+                pk = Pick(time=UTCDateTime(phase_info['Arrival Time']),
+                          method=phase_info['Status'], waveform_id=wf_id,
+                          phase_hint=phase_info['Phase'])
+                ev.picks.append(pk)
+                arr = Arrival(pick_id=pk.resource_id.id, phase=pk.phase_hint,
+                              azimuth=phase_info['Azimuth'],
+                              distance=phase_info['Distance'],
+                              time_residual=phase_info['Residual'],
+                              time_weight=phase_info['Weight'])
+                o.arrivals.append(arr)
+        except AttributeError:
+            rms.append(ev)
+            continue
         # Try to read focal mechanisms/moment tensors
-        if 'moment-tensor' in detail.products:
-            # Always take MT where available
-            mt_xml = detail.getProducts(
-                'moment-tensor')[0].getContentBytes('quakeml.xml')[0]
-        elif 'focal-mechanism' in detail.products:
-            mt_xml = detail.getProducts(
-                'focal-mechanism')[0].getContentBytes('quakeml.xml')[0]
-        else:
+        try:
+            if 'moment-tensor' in detail.products:
+                # Always take MT where available
+                mt_xml = detail.getProducts(
+                    'moment-tensor')[0].getContentBytes('quakeml.xml')[0]
+            elif 'focal-mechanism' in detail.products:
+                mt_xml = detail.getProducts(
+                    'focal-mechanism')[0].getContentBytes('quakeml.xml')[0]
+            else:
+                continue
+        except ContentNotFoundError:
             continue
         mt_ev = read_events(io.TextIOWrapper(io.BytesIO(mt_xml),
                                              encoding='utf-8'))
         FM = mt_ev[0].focal_mechanisms[0]
         FM.triggering_origin_id = ev.preferred_origin().resource_id.id
         ev.focal_mechanisms = [FM]
+    for rm in rms:
+        cat.events.remove(rm)
     return cat
 
 

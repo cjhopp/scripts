@@ -610,6 +610,9 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
         A complete event with a location origin. Will be returned regardless of
         how well the location works so a subsequent QC check is advisable.
     """
+    # Enforce radians
+    aniso_azi = np.deg2rad(aniso_azi)
+    aniso_inc = np.deg2rad(aniso_inc)
     misfits = []
     for event in catalog:
         print('Relocating {}'.format(event.resource_id.id))
@@ -625,12 +628,10 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
             print(">= 3 P phase picks are required for an event location.")
             continue
         starttime = min([p.time for p in event_picks])
-
         # time relative to startime of snippets, in milliseconds.
         t_relative = []
         for pick in event_picks:
             t_relative.append((pick.time - starttime) * 1000)
-
         npicks = len(t_relative)
 
         # Assemble sensor coordinate array for the actually used picks.
@@ -657,6 +658,7 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
                     sensor_coords[i, 2] - loc[2],
                     np.linalg.norm(sensor_coords[i, range(2)] - loc[range(2)]),
                 )
+                # Manual dot product (watch radians)
                 theta = np.arccos(
                     np.cos(inc)
                     * np.cos(azi)
@@ -668,21 +670,21 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
                     * np.sin(aniso_azi)
                     + np.sin(inc) * np.sin(aniso_inc)
                 )
-                vp[i] = (
-                        Vp0
-                        / 1000.0
-                        * (
-                                1.0
-                                + delta
-                                * np.sin(theta) ** 2
-                                * np.cos(theta) ** 2
-                                + epsilon * np.sin(theta) ** 4
-                        )
-                )
-
+                # Weak anisotropy solution
+                vp[i] = thomsen_full(theta, delta, epsilon, Vp0 / 1000.)
+                # vp[i] = (
+                #         Vp0
+                #         / 1000.0
+                #         * (
+                #                 1.0
+                #                 + delta
+                #                 * np.sin(theta) ** 2
+                #                 * np.cos(theta) ** 2
+                #                 + epsilon * np.sin(theta) ** 4
+                #         )
+                # )
             dist = [np.linalg.norm(loc - sensor_coords[i, :]) for i in range(npicks)]
             tcalc = [dist[i] / vp[i] + t0 for i in range(npicks)]
-
             res = [t_relative[i] - tcalc[i] for i in range(npicks)]
             rms = np.linalg.norm(res) / npicks
             for j in range(3):
@@ -702,7 +704,6 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
             )
             loc = loc + dm[0:3]
             t0 = t0 + dm[3]
-
         # Finally create the event object with the used picks and arrivals.
         # Try to specify as many details as possible.
         origin_time = starttime + t0 / 1000.0
@@ -711,7 +712,6 @@ def relocate_thomsen(catalog, coordinates, conversion, Vp0, damping,
         longitude, latitude = conversion(np.array([loc[0]]),
                                          np.array([loc[1]]))
         depth = loc[-1]
-        print(latitude, longitude, depth)
         s = "anisotropic"
         earth_model_id = ResourceIdentifier(
             id=f"earth_model/homogeneous/{s}/velocity={int(round(Vp0))}"
