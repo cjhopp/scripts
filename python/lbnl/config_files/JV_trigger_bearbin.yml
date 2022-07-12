@@ -7,7 +7,7 @@ Database:
   name: 'JV_trigger'
 
 Trigger:
-  start_time: 2022-1-26
+  start_time: 2022-1-27
   end_time: 2022-5-6
   sta: 1.0
   lta: 10.0
