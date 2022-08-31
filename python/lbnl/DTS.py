@@ -168,6 +168,39 @@ def read_XTDTS(path, no_cols):
     dto = UTCDateTime(root[0].find('{*}endDateTimeIndex').text).datetime
     return dto, measurements
 
+def read_XTDTS_probe_temp(path, plot=True):
+    """
+    Read just the probe temperature values into an array from XTDTS (if it exists)
+    :param path: Path to xtdts directory
+    :return:
+    """
+    files = glob('{}/*.xml'.format(path))
+    files.sort()
+    p1 = []
+    p2 = []
+    dates = []
+    for f in files:
+        # Read single xml file and return probe temperatures
+        try:
+            dts = etree.parse(f)
+        except XMLSyntaxError as e:
+            return None
+        # Get root element
+        root = dts.getroot()
+        # Get the values
+        ref = float(root[0].find('{*}customData').find('{*}referenceTemperature').text)
+        p1.append(float(root[0].find('{*}customData').find('{*}probe1Temperature').text))
+        p2.append(float(root[0].find('{*}customData').find('{*}probe2Temperature').text))
+        # Get time
+        dates.append(UTCDateTime(root[0].find('{*}endDateTimeIndex').text).datetime)
+    if plot:
+        fig, ax = plt.subplots()
+        ax.plot(dates, p1, color='r', label='P1')
+        ax.plot(dates, p2, color='firebrick', label='P2')
+        ax.legend()
+        plt.show()
+    return dates, p1, p2
+
 
 def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
                    noise_method='madjdabadi', dates=None,
