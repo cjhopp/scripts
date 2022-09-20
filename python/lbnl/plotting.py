@@ -16,6 +16,8 @@ import colorlover as cl
 import seaborn as sns
 import pandas as pd
 import geopandas as gpd
+import cartopy.crs as ccrs
+import cartopy.feature as cf
 import chart_studio.plotly as py
 import plotly.graph_objs as go
 import shapely.geometry as geometry
@@ -37,12 +39,14 @@ from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from shapely.ops import cascaded_union, polygonize
 from scipy.spatial import Delaunay
 from scipy.spatial.transform import Rotation as R
+from cartopy.mpl.geoaxes import GeoAxes
 from obspy import Trace, Catalog
 from plotly.subplots import make_subplots
 from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib import animation
 from matplotlib.patches import Circle
 from matplotlib_scalebar.scalebar import ScaleBar
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.colors import ListedColormap, Normalize, LinearSegmentedColormap
 from scipy.signal import resample, detrend
 
@@ -2180,7 +2184,7 @@ def plot_catalog(catalog, dem_dir, vector_dir):
     return
 
 
-def plot_amplify_sites(dem_dir, vector_dir, catalog):
+def plot_amplify_sites(dem_dir, vector_dir, catalog=None, outfile=None):
     """
     Plot figures of the Amplify fields
 
@@ -2194,7 +2198,7 @@ def plot_amplify_sites(dem_dir, vector_dir, catalog):
     nv_roads = glob('{}/tl_2021_06_prisecroads/*.shp'.format(vector_dir))[0]
     ca_roads = glob('{}/tl_2021_32_prisecroads/*.shp'.format(vector_dir))[0]
     towns = glob('{}/USA_Major_Cities/*.shp'.format(vector_dir))[0]
-    map_box_shp = glob('{}/*extent_v2.shp'.format(vector_dir))[0]
+    map_box_shp = glob('{}/*extent_v3.shp'.format(vector_dir))[0]
     borders = glob('{}/ne_50m_admin_1_states_provinces/*.shp'.format(vector_dir))[0]
     # Read in various shapefiles
     df = gpd.read_file(map_box_shp)
@@ -2209,9 +2213,9 @@ def plot_amplify_sites(dem_dir, vector_dir, catalog):
     topo, meta, value_range = clip_raster(df, overview)
     extent = plotting_extent(topo[0], meta['transform'])
     # Hillshade
-    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=45)
     # Figure setup
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(20, 20))
     # Only top half of colormap
     # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
     cmap = plt.get_cmap('gist_earth')
@@ -2230,39 +2234,58 @@ def plot_amplify_sites(dem_dir, vector_dir, catalog):
         ax=ax, facecolor='steelblue', edgecolor="none", alpha=0.5)
     # Roads
     nv_roads.loc[nv_roads.RTTYP.isin(['I', 'U'])].plot(
-        ax=ax, column='RTTYP', linewidth=0.5, color='firebrick')
+        ax=ax, column='RTTYP', linewidth=1., color='firebrick')
     ca_roads.loc[ca_roads.RTTYP.isin(['I', 'U'])].plot(
-        ax=ax, column='RTTYP', linewidth=0.5, color='firebrick')
+        ax=ax, column='RTTYP', linewidth=1., color='firebrick')
     big_towns = towns.loc[towns.NAME.isin(['Reno', 'Carson City',
                                            'Fresno', 'Fernley'])]
-    big_towns.plot(ax=ax, color='k', markersize=2.)
+    big_towns.plot(ax=ax, color='k', markersize=5.)
     # Label cities
     for x, y, label in zip(big_towns.geometry.x, big_towns.geometry.y, big_towns.NAME):
         if label == 'Fernley':
-            xytext = (-20, 3)
+            xytext = (-50, 5)
         else:
             xytext = (3, 3)
         ax.annotate(label, xy=(x, y), xytext=xytext, textcoords="offset points",
-                    fontsize=6, fontstyle='italic', fontweight='bold')
+                    fontsize=15, fontstyle='italic', fontweight='bold')
     nv.boundary.plot(ax=ax, linewidth=1.0, linestyle='--', color='k')
     # Annotate border
-    ax.annotate('Nevada', xy=(-117.760, 37.170), xytext=(2, 2),
-                textcoords="offset points", fontsize=10, fontstyle='italic',
-                fontweight='bold', rotation=-43)
-    ax.annotate('California', xy=(-117.760, 37.170), xytext=(-14, -14),
-                textcoords="offset points", fontsize=10, fontstyle='italic',
-                fontweight='bold', rotation=-43)
+    ax.annotate('Nevada', xy=(-119.5, 38.5), xytext=(10, 21),
+                textcoords="offset points", fontsize=18, fontstyle='italic',
+                rotation=-43)
+    ax.annotate('California', xy=(-119.5, 38.5), xytext=(-15, -7),
+                textcoords="offset points", fontsize=18, fontstyle='italic',
+                rotation=-43)
     # Geothermal fields
     for lab, loc in field_locations.items():
-        ax.scatter(loc[0], loc[1], marker='s', color='k', s=10)
-        ax.annotate(lab, xy=loc, xytext=(3, 3), textcoords='offset points',
-                    fontsize=12, fontweight='bold')
+        ax.scatter(loc[0], loc[1], marker='s', color='k', s=20)
+        ax.annotate(lab, xy=loc, xytext=(5, 5), textcoords='offset points',
+                    fontsize=26, fontweight='bold')
     # Seismic catalog
-    locs = np.array([[ev.origins[-1].longitude, ev.origins[-1].latitude,
-                      int(ev.comments[-1].text.split('=')[-1])]
-                     for ev in catalog])
-    ax.scatter(locs[:, 0], locs[:, 1], marker='o', color='k',
-               s=locs[:, 2] / 3)
+    if catalog:
+        locs = np.array([[ev.origins[-1].longitude, ev.origins[-1].latitude,
+                          int(ev.comments[-1].text.split('=')[-1])]
+                         for ev in catalog])
+        ax.scatter(locs[:, 0], locs[:, 1], marker='o', color='k',
+                   s=locs[:, 2] / 3)
+    # Inset map
+    ax2 = inset_axes(ax, width=5, height=5, loc=2,
+                     axes_class=GeoAxes,
+                     axes_kwargs=dict(map_projection=ccrs.PlateCarree()))
+    # ax2.stock_img()
+    ax2.add_feature(cf.COASTLINE)
+    ax2.add_feature(cf.BORDERS)
+    ax2.add_feature(cf.OCEAN)
+    ax2.add_feature(cf.LAND)
+    ax2.add_feature(cf.ShapelyFeature(df.geometry, crs=ccrs.CRS('epsg:4326')),
+                    edgecolor='r', linewidth=2., facecolor='none')
+    ax2.add_feature(
+        cf.NaturalEarthFeature(
+            category='cultural', name='admin_1_states_provinces_lines',
+            scale='50m', facecolor='none'
+        )
+    )
+    ax2.set_extent([-128, -109, 24, 49], crs=ccrs.PlateCarree())
     # Scale bar
     points = gpd.GeoSeries([Point(-117., extent[2]),
                             Point(-118., extent[2])], crs=4326)
@@ -2271,9 +2294,13 @@ def plot_amplify_sites(dem_dir, vector_dir, catalog):
     ax.set_xlim([extent[0], extent[1]])
     ax.set_ylim([extent[2], extent[3]])
     ax.add_artist(ScaleBar(distance_meters))
-    ax.set_xlabel(r'Longitude [$^o$]')
-    ax.set_ylabel(r'Latitude [$^o$]')
-    plt.show()
+    ax.set_xlabel(r'Longitude [$^o$]', fontsize=20)
+    ax.set_ylabel(r'Latitude [$^o$]', fontsize=20)
+    if outfile:
+        plt.savefig(outfile, dpi=200)
+        plt.close('all')
+    else:
+        plt.show()
     return
 
 

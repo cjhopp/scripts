@@ -24,7 +24,7 @@ import seaborn as sns
 from glob import glob
 from copy import deepcopy
 from itertools import cycle
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, date
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
 from obspy.core.event import ResourceIdentifier
@@ -286,6 +286,8 @@ def fit_hammer_thomsen(hammer_dir, hammer_locs, inventory, cassm_Vp,
             continue
     Vps = np.concatenate(Vps).flatten()
     angles = np.concatenate(angles).flatten()
+    # Use same convention for cassm and hammers
+    angles = 180 - angles
     Vps = np.concatenate([Vps, cassm_Vp])
     angles = np.concatenate([angles, cassm_angles])
     # Now select points to fit
@@ -2644,6 +2646,44 @@ def plot_station_rot_stats(sta_dict, title='Station orientaton stats'):
     return axes
 
 
+def plot_rfs_shots(wav_file, shot_times, channel, figsize=(15, 20)):
+    """
+    :param wav_file: Path to file or files to read with obspy
+    :param shot_times: Excel sheet with shot times
+    """
+    times = pd.read_excel(shot_times, skiprows = [0, 1, 237, 238])
+    times = times.dropna(how='all')
+    times = times.sort_values(by=['Type', 'Hz/Location'])
+    st = read(wav_file)
+    st.detrend('demean').detrend('linear')
+    labs = []
+    steps = []
+    counter = 0
+    fig, ax = plt.subplots(figsize=figsize)
+    # Loop over the times and plot the waveforms
+    for i, row in times.iterrows():
+        time = row['Time (UTC)']
+        dto = datetime.combine(date(2022, 6, 30), time)
+        dto = UTCDateTime(dto)
+        try:
+            tr = st.select(channel=channel).slice(starttime=dto,
+                                                   endtime=dto + 30)[0]
+        except IndexError:
+            continue
+        counter += 2
+        steps.append(counter)
+        name = '{}-{}'.format(row['Type'], row['Hz/Location'])
+        labs.append(name)
+        tr.data /= np.max(np.abs(tr.data))
+        times = tr.times('relative')
+        ax.plot(times, tr.data + counter, color='k', alpha=0.7)
+    # Change y labels to dates
+    ax.yaxis.set_ticks(steps)
+    ax.set_yticklabels(labs, fontsize=6, rotation=0)
+    plt.show()
+    return
+
+
 def family_stack_plot(family, wav_files, seed_id, selfs,
                       title='Detections', shift=True, shift_len=0.3,
                       pre_pick_plot=1., post_pick_plot=5., pre_pick_corr=0.05,
@@ -2657,7 +2697,7 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     Modified from workflow.util.plot_detections.family_stack_plot 9-23-2020
 
     :param events: List of events from which we'll extract picks for aligning
-    :param wav_dirs: List of directories containing SAC files for above events
+    :param wav_files: List of filenames of extracted waveforms
     :param seed_id: Net.Sta.Loc.Chan seed string for selecting picks/wavs
     :param selfs: List of self detection ids for coloring the template
     :param title: Plot title
@@ -2682,6 +2722,7 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     streams = [] # List of tup: (Stream, name string)
     rm_evs = []
     events = [d.event for d in family.detections]
+    events.sort(key=lambda x: x.resource_id.id)
     temp_freqmax = family.template.highcut
     temp_freqmin = family.template.lowcut
     temp_samp_rate = family.template.samp_rate

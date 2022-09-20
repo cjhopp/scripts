@@ -1111,7 +1111,7 @@ def plot_cascadia_3D(slab_file, catalog, outfile):
     return
 
 
-def plot_patua_3D(well_file, outfile, topography=None, wells='all',
+def plot_patua_3D(well_file, vector_dir, outfile, topography=None, wells='all',
                   catalog=None):
     """
     Plot Cascadia locations in 3D with slab model and coastlines
@@ -1124,6 +1124,13 @@ def plot_patua_3D(well_file, outfile, topography=None, wells='all',
     # Plot rough slab interface
     well_dict = pd.read_excel(well_file, sheet_name=None)
     objects = []
+    ch_roads = gpd.read_file('{}/ChurchillRoads.shp'.format(vector_dir)).to_crs(4326)
+    ly_roads = gpd.read_file('{}/LyonRoads.shp'.format(vector_dir)).to_crs(4326)
+    rr = gpd.read_file('{}/Patua_RRs.shp'.format(vector_dir)).to_crs(4326)
+    plant = gpd.read_file('{}/Patua_Plant.shp'.format(vector_dir)).to_crs(4326)
+    I_pipe = gpd.read_file('{}/Injection_Pipelines.shp'.format(vector_dir)).to_crs(4326)
+    P_pipe = gpd.read_file('{}/Production_Pipelines.shp'.format(vector_dir)).to_crs(4326)
+    springs = gpd.read_file('{}/Patua_Hotsprings.shp'.format(vector_dir)).to_crs(4326)
     for i, (key, pts) in enumerate(well_dict.items()):
         if key in wells or wells == 'all':
             wellpath = pts.to_numpy()

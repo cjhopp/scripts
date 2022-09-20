@@ -6,6 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import xarray as xr
 import scipy.linalg as linalg
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -62,6 +63,11 @@ def datenum_to_datetime(datenums):
     return [datetime.fromordinal(int(d)) +
             timedelta(days=d % 1) - timedelta(days=366)
             for d in datenums]
+
+
+def read_iDAS_h5(path):
+    xds = xr.open_mfdataset(path, parallel=True)
+    return xds
 
 
 def read_struct(f, depth=41):
