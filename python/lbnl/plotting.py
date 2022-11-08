@@ -31,7 +31,7 @@ from shapely.geometry import mapping
 from shapely.geometry.point import Point
 from itertools import cycle
 from glob import glob
-from datetime import datetime
+from datetime import datetime, timedelta
 from sklearn.cluster import KMeans
 from scipy.io import loadmat
 from scipy.linalg import lstsq, norm
@@ -42,6 +42,7 @@ from scipy.spatial.transform import Rotation as R
 from cartopy.mpl.geoaxes import GeoAxes
 from obspy import Trace, Catalog
 from plotly.subplots import make_subplots
+from plotly.figure_factory import create_gantt
 from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib import animation
 from matplotlib.patches import Circle
@@ -2306,6 +2307,15 @@ def plot_amplify_sites(dem_dir, vector_dir, catalog=None, outfile=None):
 
 def plot_patua(dem_dir, vector_dir, inventory, catalog):
     """Patua overview plot"""
+    # Station --> RT130 serial mapping
+    RT130_serial = {
+        '2115': 'ABB6',
+        '2221': 'B2A1',
+        '2128': 'AAE2',
+        '5230': 'AC06',
+        '4509': 'B2C8',
+        '23A-17': 'B2C8'
+    }
     patua_extents = [(-119.17, 39.63), (-119.17, 39.51),
                      (-119.01, 39.51), (-119.01, 39.63)]
     dem_file = glob('{}/*n40w120*.tif'.format(dem_dir))[0]
@@ -2317,7 +2327,8 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     # Hillshade
     hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
     # Seismic catalog
-    cat = pd.read_excel(catalog, skiprows=[0, 1])
+    if catalog:
+        cat = pd.read_excel(catalog, skiprows=[0, 1])
     # Read in vectors
     ch_roads = gpd.read_file('{}/ChurchillRoads.shp'.format(vector_dir)).to_crs(4326)
     ly_roads = gpd.read_file('{}/LyonRoads.shp'.format(vector_dir)).to_crs(4326)
@@ -2351,8 +2362,8 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     P_pipe.plot(ax=ax, color='r', alpha=0.5)
     plant.geometry.plot(ax=ax, color='k')
     springs.plot(ax=ax, markersize=10., marker='*', color='dodgerblue')
-    circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
-    circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    # circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    # circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
     # Labels
     ax.annotate('Hot Springs', xy=springs.geometry[0].coords[0], xytext=(-30, 10),
                 textcoords='offset points', fontsize=8, fontstyle='italic',
@@ -2362,22 +2373,24 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     # Production wells
     wells.loc[wells.status == 'producer'].plot(ax=ax, markersize=10, color='r')
     # Leidos catalog
-    ax.scatter(cat['Longitude'], cat['Latitude'], marker='o', color='k',
-               facecolor=None, s=1., alpha=0.3)
+    if catalog:
+        ax.scatter(cat['Longitude'], cat['Latitude'], marker='o', color='k',
+                   facecolor=None, s=1., alpha=0.3)
     # Seismic stations
     for sta in inventory.select(location='10')[0]:
-        if sta.code == '4509':
+        if sta.code == '2317':
             continue
         ax.scatter(sta.longitude, sta.latitude, marker='v', s=40., color='purple')
         ax.annotate(
-            sta.code, xy=(sta.longitude, sta.latitude), xytext=(6, 0),
+            '{}\n{}'.format(sta.code, RT130_serial[sta.code]),
+            xy=(sta.longitude, sta.latitude), xytext=(6, -8),
             textcoords='offset points', fontsize=10, fontweight='bold',
             color='purple')
     # Add 23A-17
     well_23a17 = wells.loc[wells.name.isin(['23A-17'])]
     well_23a17.plot(ax=ax, marker='v', markersize=40, color='purple')
     ax.annotate(xy=(well_23a17.geometry.x,
-                    well_23a17.geometry.y), text='23A-17',
+                    well_23a17.geometry.y), text='23A-17\nB2C8',
                 textcoords='offset points', xytext=(6, 0),
                 fontsize=10, fontweight='bold', color='purple')
     # Injection well
@@ -2633,4 +2646,168 @@ def plot_DAC(dem_dir, vector_dir):
     ax.set_ylabel(r'Latitude [$^o$]')
     ax.set_title('Don A Campbell')
     plt.show()
+    return
+
+
+#### One-off Collab plotting
+optasense_dicts = [dict(Task='Optasense', Start=datetime(2022, 3, 17, 22, 3),
+                        Finish=datetime(2022, 6, 1, 16, 55),
+                        Resource="Good timing"),
+                   dict(Task='Optasense', Start=datetime(2022, 6, 1, 17, 4),
+                        Finish=datetime(2022, 7, 20, 4, 10),
+                        Resource="Good timing")
+                   ]
+iDAS_dicts = [dict(Task='iDAS', Start=datetime(2022, 3, 19, 1, 21),
+                        Finish=datetime(2022, 5, 11),
+                   Resource="Good timing"),
+              dict(Task='iDAS', Start=datetime(2022, 5, 17, 6, 12),
+                   Finish=datetime(2022, 5, 18, 22, 16),
+                   Resource="Good timing"),
+              # Next one has bad timing (diff color?)
+              dict(Task='iDAS', Start=datetime(2022, 5, 23, 18, 5),
+                   Finish=datetime(2022, 5, 26, 15, 13),
+                   Resource="Bad timing"),
+              dict(Task='iDAS', Start=datetime(2022, 5, 26, 15, 13),
+                   Finish=datetime(2022, 7, 19, 4, 10),
+                   Resource="Good timing"),
+              dict(Task='iDAS', Start=datetime(2022, 7, 26, 19, 46),
+                   Finish=datetime(2022, 9, 7, 21, 51),
+                   Resource="Good timing")
+              ]
+terra15_dicts = [dict(Task='Terra15', Start=datetime(2022, 3, 18, 15, 57),
+                      Finish=datetime(2022, 3, 20, 18, 34),
+                      Resource="Good timing"),
+                 dict(Task='Terra15', Start=datetime(2022, 3, 22, 18, 25),
+                      Finish=datetime(2022, 4, 19, 22, 56),
+                      Resource="Good timing"),
+                 # Guessing at how short the reconfiguration was (15 min?)
+                 dict(Task='Terra15', Start=datetime(2022, 4, 19, 23, 10),
+                      Finish=datetime(2022, 4, 26, 2, 41),
+                      Resource="Good timing"),
+                 dict(Task='Terra15', Start=datetime(2022, 5, 6, 3, 38),
+                      Finish=datetime(2022, 5, 9, 19, 7),
+                      Resource="Good timing"),
+                 dict(Task='Terra15', Start=datetime(2022, 5, 17, 6, 2),
+                      Finish=datetime(2022, 6, 21, 18, 20),
+                      Resource="Good timing")
+                 ]
+def plot_Collab_gantt(cassm_files, vbox_files, dss_files, dts_files, outfile):
+    """
+    Plot gantt chart of data coverage for various monitoring systems
+    """
+    # Programatically calculate time spans from CASSM file names
+    times = []
+    with open(cassm_files, 'r') as f:
+        for l in f:
+            try:
+                dt = datetime.strptime(l.strip(), '%Y%m%d%H%M%S')
+            except ValueError:
+                continue
+            times.append(dt)
+    dates = pd.DataFrame(times, columns=['date'])
+    deltas = dates['date'].diff()
+    gaps = deltas[deltas > timedelta(hours=1)]
+    gap_indices = gaps.index.values
+    cassm_dicts = [dict(Task="CASSM", Start=times[0],
+                        Finish=times[gap_indices[0]-1],
+                        Resource="Good timing")]
+    # Vbox parsing
+    vbox_times = []
+    for f in vbox_files:
+        with open(f, 'r') as file:
+            for l in file:
+                # Get both times
+                dts = l.split()
+                for fn in dts:
+                    try:
+                        dt = datetime.strptime(fn.rstrip(), 'vbox_%Y%m%d%H%M%S%f.dat')
+                    except ValueError:
+                        continue
+                    vbox_times.append(dt)
+    vbox_times.sort()
+    vbox_dates = pd.DataFrame(vbox_times, columns=['date'])
+    vbox_deltas = vbox_dates['date'].diff()
+    vbox_gaps = vbox_deltas[vbox_deltas > timedelta(hours=1)]
+    vbox_gap_indices = vbox_gaps.index.values
+    vbox_dicts = [dict(Task="VBox", Start=vbox_times[0],
+                       Finish=vbox_times[vbox_gap_indices[0]-1],
+                       Resource="Good timing")]
+    # DSS parsing
+    dss_times = []
+    with open(dss_files, 'r') as file:
+        for l in file:
+            dstr = l.split()[-2].split('/')[-1]
+            try:
+                dt = datetime.strptime(dstr, '%Y_%m_%d_%H_%M_%S')
+            except ValueError:
+                continue
+            dss_times.append(dt)
+    dss_times.sort()
+    dss_dates = pd.DataFrame(dss_times, columns=['date'])
+    dss_deltas = dss_dates['date'].diff()
+    dss_gaps = dss_deltas[dss_deltas > timedelta(hours=1)]
+    dss_gap_indices = dss_gaps.index.values
+    dss_dicts = [dict(Task="DSS", Start=dss_times[0],
+                      Finish=dss_times[dss_gap_indices[0]-1],
+                      Resource="Good timing")]
+    # DTS parsing
+    dts_times = []
+    with open(dts_files, 'r') as file:
+        for l in file:
+            dstr = l.split()[-1]
+            try:
+                dt = datetime.strptime(dstr, '1_%Y%m%d%H%M%S%f.xml')
+            except ValueError:
+                continue
+            dts_times.append(dt)
+    dts_times.sort()
+    dts_dates = pd.DataFrame(dts_times, columns=['date'])
+    dts_deltas = dts_dates['date'].diff()
+    dts_gaps = dts_deltas[dts_deltas > timedelta(hours=1)]
+    dts_gap_indices = dts_gaps.index.values
+    dts_dicts = [dict(Task="DTS", Start=dts_times[0],
+                      Finish=dts_times[dts_gap_indices[0]-1],
+                      Resource="Good timing")]
+    for j, ind in enumerate(gap_indices):
+        try:
+            cassm_dicts.append(dict(Task="CASSM", Start=times[ind],
+                                    Finish=times[gap_indices[j+1]-1],
+                                    Resource="Good timing"))
+        except IndexError:
+            cassm_dicts.append(dict(Task="CASSM", Start=times[ind],
+                                    Finish=times[-1],
+                                    Resource="Good timing"))
+    for j, ind in enumerate(vbox_gap_indices):
+        try:
+            vbox_dicts.append(dict(Task="VBox", Start=vbox_times[ind],
+                                    Finish=vbox_times[vbox_gap_indices[j+1]-1],
+                                    Resource="Good timing"))
+        except IndexError:
+            vbox_dicts.append(dict(Task="VBox", Start=vbox_times[ind],
+                                    Finish=vbox_times[-1],
+                                    Resource="Good timing"))
+    for j, ind in enumerate(dss_gap_indices):
+        try:
+            dss_dicts.append(dict(Task="DSS", Start=dss_times[ind],
+                                  Finish=dss_times[dss_gap_indices[j+1]-1],
+                                  Resource="Good timing"))
+        except IndexError:
+            dss_dicts.append(dict(Task="DSS", Start=dss_times[ind],
+                                  Finish=dss_times[-1],
+                                  Resource="Good timing"))
+    for j, ind in enumerate(dts_gap_indices):
+        try:
+            dts_dicts.append(dict(Task="DTS", Start=dts_times[ind],
+                                  Finish=dts_times[dts_gap_indices[j+1]-1],
+                                  Resource="Good timing"))
+        except IndexError:
+            dts_dicts.append(dict(Task="DTS", Start=dts_times[ind],
+                                  Finish=dts_times[-1],
+                                  Resource="Good timing"))
+    all_dicts = (optasense_dicts + iDAS_dicts + terra15_dicts + cassm_dicts
+                 + vbox_dicts + dss_dicts + dts_dicts)
+    fig = create_gantt(all_dicts, group_tasks=True, index_col="Resource",
+                       show_colorbar=True)
+    plotly.offline.plot(fig, filename=outfile)
+    fig.show()
     return
