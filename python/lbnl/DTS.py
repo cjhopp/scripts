@@ -67,8 +67,8 @@ chan_map_injection_fsb = {
     'B1': 98.5, 'B2': 1515.3, 'B3': 888., 'B4': 1062., 'B5': 709., 'B6': 1216.,
     'B7': 1320., 'B8': 428., 'B9': 267., 'B10': 565.}
 
-chan_map_4100 = {'AMU': (85, 208), 'AML': (220, 343),
-                 'DMU': (384, 495), 'DML': (505, 616.5)}
+chan_map_4100 = {'AMU': (85.70, 207.19), 'AML': (221.67, 343.69),
+                 'DMU': (384.37, 495.44), 'DML': (505.10, 616.43)}
 
 chan_map_EFSL = {'3359': (76.56, 5358.7), '3339': (99.25, 5193.25)}
 
@@ -365,6 +365,48 @@ def rolling_stats(data, times, depth, window='2h', stat='mean'):
         return None
     return roll.values.T
 
+def extract_temp_profile(well_data, date, wells, average=True, reference_time=None):
+    """
+    For a given datetime, extract the temperature along the boreholes (averaged
+    between down and upgoing legs...?)
+
+    :param well_data: Output of extract_wells
+    :param date: Datetime object to extract
+    :param wells: List of well names
+    :param average: Bool for averaging up and down, or returning both separately
+    :return:
+    """
+    pick_dict = {}
+    for well, well_dict in well_data.items():
+        date_col = np.argmin(np.abs(well_dict['times'] - date))
+        if reference_time:
+            ref_col = np.argmin(np.abs(well_dict['times'] - reference_time))
+        else:
+            ref_col = 0
+        data_mat = well_dict['data']# - well_dict['data'][:, ref_col, np.newaxis]
+        if well not in wells:
+            continue
+        pick_dict[well] = {}
+        # Grab along-fiber distances, split in two
+        deps = well_dict['depth'] - well_dict['depth'][0]
+        down_d, up_d = np.array_split(deps, 2)
+        # Same for data array
+        data = data_mat[:, date_col]
+        down_data, up_data = np.array_split(data, 2)
+        if down_d.shape[0] != up_d.shape[0]:
+            # prepend last element of down to up if unequal lengths by 1
+            up_d = np.insert(up_d, 0, down_d[-1])
+            up_data = np.insert(up_data, 0, down_data[-1])
+        # Flip up_data to align
+        if average:
+            avg_data = (down_data + up_data[::-1]) / 2.
+            pick_dict[well]['temps'] = avg_data
+        else:
+            pick_dict[well]['up_data'] = up_data[::-1]
+            pick_dict[well]['down_data'] = down_data
+        pick_dict[well]['depths'] = down_d
+    return pick_dict
+
 ## Plotting funcs ##
 
 def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
@@ -397,7 +439,7 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
             well_data['depth'],
             well_data['data'][:, np.argmin(np.abs(
                 date - well_data['times']))],
-            label=date.strftime('%m-%d-%Y'), color=color,
+            label=date.strftime('%m-%d-%Y %H:%M'), color=color,
             linewidth=0.5)
         axes.set_xlim(xlim)
         axes.set_ylim(ylim)
@@ -411,6 +453,8 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
             plt.close('all')
         else:
             fig.legend()
+    if not write_frames:
+        plt.show()
     return
 
 
