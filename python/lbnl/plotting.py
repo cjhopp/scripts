@@ -29,6 +29,7 @@ from rasterio import mask as msk
 from rasterio.plot import plotting_extent
 from shapely.geometry import mapping
 from shapely.geometry.point import Point
+from descartes import PolygonPatch
 from itertools import cycle
 from glob import glob
 from datetime import datetime, timedelta
@@ -47,6 +48,8 @@ from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib import animation
 from matplotlib.patches import Circle
 from matplotlib_scalebar.scalebar import ScaleBar
+from matplotlib.gridspec import GridSpec
+from matplotlib.dates import date2num
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.colors import ListedColormap, Normalize, LinearSegmentedColormap
 from scipy.signal import resample, detrend
@@ -1222,6 +1225,117 @@ def plot_FSB_2D(autocad_path, strike=120.,
     ax_fault.set_xlabel('Meters')
     fig.legend()
     plt.show()
+    return
+
+
+def plot_4100(boreholes, inventory, drift_polygon, hull, catalog=None,
+              filename=None):
+    # Define injection zones of interest
+    z7_start = np.array([1250.02033327, -876.09451028, 328.41040807])
+    z7_end = np.array([1251.6751636, -874.58967042, 327.82095658])
+    z7 = np.vstack([z7_start, z7_end])
+
+    z1_start = np.array([1239.68287212, -885.63997146, 331.55923477])
+    z1_end = np.array([1241.42805389, -884.04965582, 330.95011331])
+    z1 = np.vstack([z1_start, z1_end])
+
+    TU_start = (1249.3835222592002, -880.1002573728001, 338.5249367664)
+    TU_end = (1250.0872899144001, -879.5190214512, 338.470134336)
+    TU_zone = np.vstack([TU_start, TU_end])
+
+    fig = plt.figure(constrained_layout=False, figsize=(9, 18))
+    # fig.suptitle('Realtime MEQ: {} UTC'.format(datetime.utcnow()), fontsize=20)
+    gs = GridSpec(ncols=10, nrows=18, figure=fig)
+    axes_map = fig.add_subplot(gs[:9, :])
+    axes_3D = fig.add_subplot(gs[9:, :], projection='3d')
+    # Convert to HMC system
+    if catalog:
+        catalog = [ev for ev in catalog if len(ev.origins) > 0]
+        catalog.sort(key=lambda x: x.origins[-1].time)
+        hmc_locs = [(float(ev.preferred_origin().extra.hmc_east.value),
+                     float(ev.preferred_origin().extra.hmc_north.value),
+                     float(ev.preferred_origin().extra.hmc_elev.value))
+                    for ev in catalog]
+        colors = [date2num(ev.picks[0].time) for ev in catalog]
+        times = [ev.preferred_origin().time.datetime for ev in catalog]
+        mags = []
+        for ev in catalog:
+            if len(ev.magnitudes) > 0:
+                mags.append(ev.preferred_magnitude().mag)
+            else:
+                mags.append(-999.)
+
+        x, y, z = zip(*hmc_locs)
+        mag_inds = np.where(np.array(mags) > -999.)
+        mags = np.array(mags)[mag_inds]
+    endtime = datetime.utcnow()
+    starttime = endtime - timedelta(seconds=3600)
+    stations = [(float(sta.extra.hmc_east.value) * 0.3048,
+                 float(sta.extra.hmc_north.value) * 0.3048,
+                 float(sta.extra.hmc_elev.value))
+                for sta in inventory[0] if sta.code[-2] != 'S']
+    axes_3D.plot_trisurf(*zip(*hull.vertices), triangles=hull.faces, color='darkgray')
+    sx, sy, sz = zip(*stations)
+    for well, xyzd in boreholes.items():
+        if well[0] == 'T':
+            color = 'steelblue'
+            linewidth = 1.0
+        else:
+            color = 'k'
+            linewidth = 1.0
+        axes_3D.plot(xyzd[:, 0], xyzd[:, 1], xyzd[:, 2], color=color,
+                     linewidth=linewidth, alpha=0.8, zorder=500)
+    # Plot Zone 1, 7
+    # axes_3D.plot(z7[:, 0], z7[:, 1], z7[:, 2], color='darkgray', linewidth=2.5)
+    # axes_3D.plot(z1[:, 0], z1[:, 1], z1[:, 2], color='darkgray', linewidth=2.5)
+    # axes_3D.plot(TU_zone[:, 0], TU_zone[:, 1], TU_zone[:, 2], color='purple',
+    #              linewidth=5)
+    # Stations
+    axes_3D.scatter(sx, sy, sz, marker='v', color='r', label='Seismic sensor')
+    if catalog:
+        sizes = (mags + 9) ** 2
+        mpl = axes_3D.scatter(
+            np.array(x)[mag_inds], np.array(y)[mag_inds],
+            np.array(z)[mag_inds], marker='o',
+            c=np.array(colors)[mag_inds], s=sizes,
+            alpha=0.7)
+        axes_map.scatter(np.array(x)[mag_inds], np.array(y)[mag_inds],
+                         marker='o', c=np.array(colors)[mag_inds], s=sizes)
+    axes_3D.set_xlabel('Easting [HMC]', fontsize=14)
+    axes_3D.set_ylabel('Northing [HMC]', fontsize=14)
+    axes_3D.set_zlabel('Elevation [m]', fontsize=14)
+    axes_3D.set_ylim([-900, -860])
+    axes_3D.set_xlim([1220, 1260])
+    axes_3D.set_zlim([310, 350])
+    axes_3D.view_init(-5., 36.)
+    # Plot boreholes
+    for well, xyzd in boreholes.items():
+        if well[0] == 'T':
+            color = 'steelblue'
+            linewidth = 1.
+        else:
+            color = 'k'
+            linewidth = 1.0
+        axes_map.plot(xyzd[:, 0], xyzd[:, 1], color=color,
+                      linewidth=linewidth, alpha=0.8, zorder=100)
+    # axes_map.plot(z7[:, 0], z7[:, 1], color='darkgray', linewidth=2.5)
+    # axes_map.plot(z1[:, 0], z1[:, 1], color='darkgray', linewidth=2.5)
+    # TU Injection Zone too
+    # axes_map.plot(TU_zone[:, 0], TU_zone[:, 1], color='purple',
+    #               linewidth=2.5)
+    axes_map.scatter(sx, sy, marker='v', color='r')
+    axes_map.add_patch(PolygonPatch(drift_polygon, fc='darkgray', ec='k'))
+    # axes_map.plot(hull_pts[0, :], hull_pts[1, :], linewidth=0.9, color='k')
+    axes_map.set_ylim([-920, -840])
+    axes_map.set_xlim([1200, 1280])
+    axes_map.set_xlabel('Easting [HMC]', fontsize=14)
+    axes_map.set_ylabel('Northing [HMC]', fontsize=14)
+    axes_map.set_aspect('equal')
+    plt.tight_layout()
+    if filename:
+        plt.savefig(filename, dpi=300)
+    else:
+        plt.show()
     return
 
 

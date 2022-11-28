@@ -8,6 +8,7 @@ import os
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import xarray as xr
 import scipy.linalg as linalg
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -407,6 +408,34 @@ def extract_temp_profile(well_data, date, wells, average=True, reference_time=No
         pick_dict[well]['depths'] = down_d
     return pick_dict
 
+
+def write_wells(well_data):
+    """
+    Write a JSON file for each well. This will read in as a dict with the
+    following fields: 'times', 'down_data', 'up_data', 'depth'
+    :param well_data: Output of extract wells
+    :return:
+    """
+
+    for well, w_dict in well_data.items():
+        # Split the data and depth in half
+        down_data, up_data = np.array_split(w_dict['data'], 2)
+        depth, up_dep = np.array_split(w_dict['depth'] - w_dict['depth'][0], 2)
+        if down_data.shape[0] != up_data.shape[0]:
+            up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+            up_data = np.flip(up_data, axis=0)
+        # Populate xarray DataSet
+        ds = xr.Dataset(
+            {"up_data": (["depth", "time"], up_data),
+             "down_data": (["depth", "time"], down_data)},
+            coords={"time": w_dict['times'], "depth": depth},
+            attrs={'units': 'degrees C'})
+        ds['up_data'].coords['depth'].attrs['units'] = 'meters'
+        ds['down_data'].coords['depth'].attrs['units'] = 'meters'
+        ds.to_netcdf('{}_DTS.nc'.format(well))
+        ds.close()
+    return
+
 ## Plotting funcs ##
 
 def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
@@ -425,7 +454,7 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
     """
     if not write_frames:
         fig, axes = plt.subplots()
-    cat_cmap = cycle(sns.color_palette('dark'))
+    cat_cmap = cycle(sns.color_palette('Dark2'))
     if write_frames:
         no_frames = (dates[1] - dates[0]) // frame_interval
         dates = [dates[0] + (frame_interval * i) for i in range(no_frames)]
@@ -440,7 +469,7 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
             well_data['data'][:, np.argmin(np.abs(
                 date - well_data['times']))],
             label=date.strftime('%m-%d-%Y %H:%M'), color=color,
-            linewidth=0.5)
+            linewidth=1.25)
         axes.set_xlim(xlim)
         axes.set_ylim(ylim)
         axes.set_ylabel('Temperature [C]')

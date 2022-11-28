@@ -139,12 +139,76 @@ fsb_well_colors = {'B1': 'k', 'B2': 'steelblue', 'B3': 'goldenrod',
                    'B7': 'goldenrod', 'B8': 'firebrick', 'B9': 'firebrick',
                    'B10': 'k'}
 
+patua_reftek_stations = {'AAE2': {'PT.2128': {'NEW_STREAM0': '00.DHZ',
+                                              'NEW_STREAM1': '00.DH1',
+                                              'NEW_STREAM2': '00.DH2',
+                                              'NEW_STREAM3': '10.DHZ',
+                                              'NEW_STREAM4': '10.DHN',
+                                              'NEW_STREAM5': '10.DHE'}},
+                         'AC06': {'PT.5230': {'NEW_STREAM0': '00.DHZ',
+                                              'NEW_STREAM1': '00.DH1',
+                                              'NEW_STREAM2': '00.DH2',
+                                              'NEW_STREAM3': '10.DHZ',
+                                              'NEW_STREAM4': '10.DHN',
+                                              'NEW_STREAM5': '10.DHE'}},
+                         'B2A1': {'PT.2221': {'NEW_STREAM0': '00.DHZ',
+                                              'NEW_STREAM1': '00.DH1',
+                                              'NEW_STREAM2': '00.DH2',
+                                              'NEW_STREAM3': '10.DHZ',
+                                              'NEW_STREAM4': '10.DHN',
+                                              'NEW_STREAM5': '10.DHE'}},
+                         'B2C8': {'PT.2317': {'NEW_STREAM0': '00.DHZ',
+                                              'NEW_STREAM1': '00.DH1',
+                                              'NEW_STREAM2': '00.DH2',
+                                              'NEW_STREAM3': '10.DHZ',
+                                              'NEW_STREAM4': '10.DHN',
+                                              'NEW_STREAM5': '10.DHE'}},
+                         'ABB6': {'station': 'PT.2115',
+                                  'channels': {'NEW_STREAM0': '00.DHZ',
+                                               'NEW_STREAM1': '00.DH1',
+                                               'NEW_STREAM2': '00.DH2',
+                                               'NEW_STREAM3': '10.DHZ',
+                                               'NEW_STREAM4': '10.DHN',
+                                               'NEW_STREAM5': '10.DHE'}}
+                         }
 
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
     for n in range(int((end_date - start_date).days) + 1):
         yield start_date + timedelta(n)
+
+
+def reftek_to_mseed(input_dir, output_dir, mapping):
+    """
+    Take a directory of raw reftek data and convert to miniseed in
+    """
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+    rt130_files = glob('{}/**/*/*/*/1/*'.format(input_dir), recursive=True)
+    for rt130 in rt130_files:
+        sn = rt130.split('/')[-3]
+        network, station = mapping[sn]['station'].split('.')
+        chan_dict = mapping[sn]['channels']
+        stream = read(rt130)
+        for chan in stream:
+            ochan = chan.stats.channel
+            location, channel = chan_dict[ochan].split('.')
+            chan.stats.channel = channel
+            chan.stats.location = location
+            chan.stats.station = station
+            chan.stats.network = network
+            starttime = chan.stats.starttime
+            endtime = chan.stats.endtime
+            # Now write file
+            if not os.path.isdir('{}/{}'.format(output_dir, station)):
+                os.mkdir('{}/{}'.format(output_dir, station))
+            filename = '{}.{}.{}.{}_{}__{}.ms'.format(network, station, location,
+                                                      channel, starttime,
+                                                      endtime)
+            chan.write('{}/{}/{}'.format(output_dir, station, filename),
+                       format='MSEED')
+    return
 
 
 def read_cassm_seg2(file, mapping, plot_picks=False):
