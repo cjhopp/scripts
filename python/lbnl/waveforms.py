@@ -190,6 +190,7 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
         sn = rt130.split('/')[-3]
         network, station = mapping[sn]['station'].split('.')
         chan_dict = mapping[sn]['channels']
+        print('Reading {}'.format(rt130))
         stream = read(rt130)
         for chan in stream:
             ochan = chan.stats.channel
@@ -206,6 +207,7 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
             filename = '{}.{}.{}.{}_{}__{}.ms'.format(network, station, location,
                                                       channel, starttime,
                                                       endtime)
+            print('Writing {}'.format(filename))
             chan.write('{}/{}/{}'.format(output_dir, station, filename),
                        format='MSEED')
     return
