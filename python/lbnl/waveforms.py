@@ -28,6 +28,7 @@ from datetime import timedelta, datetime, date
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
 from obspy.core.event import ResourceIdentifier
+from obspy.io.reftek.core import Reftek130Exception
 from obspy.signal.trigger import aic_simple, pk_baer
 from obspy.geodetics.base import gps2dist_azimuth
 from obspy.signal import PPSD
@@ -187,6 +188,7 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
     """
     Take a directory of raw reftek data and convert to miniseed in
     """
+    baddies = []  # Keep track of bum files
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
     rt130_files = glob('{}/**/*/*/*/1/*'.format(input_dir), recursive=True)
@@ -195,7 +197,11 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
         network, station = mapping[sn]['station'].split('.')
         chan_dict = mapping[sn]['channels']
         print('Reading {}'.format(rt130))
-        stream = read(rt130)
+        try:
+            stream = read(rt130)
+        except Reftek130Exception:
+            baddies.append(rt130)
+            continue
         for chan in stream:
             ochan = chan.stats.channel
             location, channel = chan_dict[ochan].split('.')
@@ -203,18 +209,18 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
             chan.stats.location = location
             chan.stats.station = station
             chan.stats.network = network
-            starttime = chan.stats.starttime
-            endtime = chan.stats.endtime
+            starttime = chan.stats.starttime.strftime('%Y-%j-%H-%M-%S')
+            endtime = chan.stats.endtime.strftime('%Y-%j-%H-%M-%S')
             # Now write file
             if not os.path.isdir('{}/{}'.format(output_dir, station)):
                 os.mkdir('{}/{}'.format(output_dir, station))
-            filename = '{}.{}.{}.{}_{}__{}.ms'.format(network, station, location,
-                                                      channel, starttime,
-                                                      endtime)
+            filename = '{}.{}.{}.{}__{}__{}.ms'.format(network, station,
+                                                       location, channel,
+                                                       starttime, endtime)
             print('Writing {}'.format(filename))
             chan.write('{}/{}/{}'.format(output_dir, station, filename),
                        format='MSEED')
-    return
+    return baddies
 
 
 def read_cassm_seg2(file, mapping, plot_picks=False):
