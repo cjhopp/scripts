@@ -228,8 +228,9 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
             full_path = '{}/{}/{}'.format(output_dir, station, filename)
             print('Writing {}'.format(filename))
             chan.write(full_path, format='MSEED')
-            with open('read-files.txt', 'a') as f:
-                f.write(full_path)
+        # If completed successfully, add to list of written files
+        with open('read-files.txt', 'a') as f:
+            f.write(rt130)
     return baddies
 
 
