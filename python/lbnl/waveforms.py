@@ -24,6 +24,7 @@ import seaborn as sns
 from glob import glob
 from copy import deepcopy
 from itertools import cycle
+from pathlib import Path
 from datetime import timedelta, datetime, date
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
@@ -189,10 +190,17 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
     Take a directory of raw reftek data and convert to miniseed in
     """
     baddies = []  # Keep track of bum files
+    # Read list of files already read and (potentially) written
+    if not os.path.isfile('read-files.txt'):
+        Path('read-files.txt').touch()
+    with open('read-files.txt', 'r') as f:
+        read_files = [l.rstrip() for l in f]
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
     rt130_files = glob('{}/**/*/*/*/1/*'.format(input_dir), recursive=True)
     for rt130 in rt130_files:
+        if rt130 in read_files:
+            continue
         sn = rt130.split('/')[-3]
         network, station = mapping[sn]['station'].split('.')
         chan_dict = mapping[sn]['channels']
@@ -217,9 +225,11 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
             filename = '{}.{}.{}.{}__{}__{}.ms'.format(network, station,
                                                        location, channel,
                                                        starttime, endtime)
+            full_path = '{}/{}/{}'.format(output_dir, station, filename)
             print('Writing {}'.format(filename))
-            chan.write('{}/{}/{}'.format(output_dir, station, filename),
-                       format='MSEED')
+            chan.write(full_path, format='MSEED')
+            with open('read-files.txt', 'a') as f:
+                f.write(full_path)
     return baddies
 
 
