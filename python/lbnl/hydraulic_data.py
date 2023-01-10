@@ -8,7 +8,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from matplotlib.dates import DateFormatter, DayLocator
+from matplotlib.dates import DateFormatter, DayLocator, MonthLocator
 from matplotlib import gridspec
 from nptdms import TdmsFile
 from glob import glob
@@ -41,6 +41,11 @@ def read_collab_hydro(path):
               inplace=True)
     # Resample this shiz to shrink the dataset
     df = df.resample('10s').mean()
+    return df
+
+
+def read_4100_circulation(path):
+    df = pd.read_csv(path, header=0, parse_dates=['Time'])
     return df
 
 
@@ -213,6 +218,37 @@ def martin_cumulative_vols(df_early):
 ###### Plotting #######
 
 
+def plot_4100_circulation(df, date_range=None, ax=None, ax2=None,
+                          legend=False):
+    if date_range:
+        df = df[date_range[0]:date_range[1]]
+    if not ax:
+        fig, ax = plt.subplots(figsize=(25, 6))
+    if not ax2:
+        ax2 = ax.twinx()
+    ax.plot(df['Time'], df['Net Flow'], color='steelblue')
+    ax2.plot(df['Time'], df['Injection Pressure'], color='firebrick')
+    if legend:
+        ax1ln, ax1lab = ax.get_legend_handles_labels()
+        ax2ln, ax2lab = ax2.get_legend_handles_labels()
+        ax.legend(ax1ln, ax1lab)
+        ax2.legend(ax2ln, ax2lab)
+    ax.set_ylim(bottom=0)
+    ax2.set_ylim(bottom=0)
+    ax.set_ylabel('L/min', color='steelblue')
+    ax2.set_ylabel('psi', color='firebrick')
+    ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                   color='steelblue')
+    ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                    color='firebrick')
+    ax.set_xlabel('Date')
+    ax.xaxis.set_major_locator(DayLocator(interval=7))
+    ax2.xaxis.set_major_locator(DayLocator(interval=7))
+    if legend:
+        plt.legend()
+    return
+
+
 def plot_4100_hydro(df, date_range=None, ax=None, legend=False):
     if date_range:
         df = df[date_range[0]:date_range[1]]
@@ -233,14 +269,14 @@ def plot_4100_hydro(df, date_range=None, ax=None, legend=False):
     ax.set_ylim(bottom=0)
     ax2.set_ylim(bottom=0)
     ax.set_ylabel('L/min', color='steelblue')
-    ax2.set_ylabel('MPa', color='firebrick')
+    ax2.set_ylabel('psi', color='firebrick')
     ax.tick_params(axis='y', which='major', labelcolor='steelblue',
                    color='steelblue')
     ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
                     color='firebrick')
     ax.set_xlabel('Date')
     ax.xaxis.set_major_locator(DayLocator(interval=1))
-    return
+    return fig, ax, ax2
 
 
 def plot_collab_ALL(df_hydro, date_range=None, axes=None):

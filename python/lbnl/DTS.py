@@ -32,6 +32,7 @@ from scipy.signal import detrend
 from itertools import cycle
 from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
+from matplotlib.dates import DayLocator
 
 
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
@@ -167,7 +168,10 @@ def read_XTDTS(path, no_cols):
     measurements = measurements.reshape(-1, no_cols)
     # Get time
     dto = UTCDateTime(root[0].find('{*}endDateTimeIndex').text).datetime
-    return dto, measurements
+    ref = float(root[0].find('{*}customData').find('{*}referenceTemperature').text)
+    p1 = float(root[0].find('{*}customData').find('{*}probe1Temperature').text)
+    p2 = float(root[0].find('{*}customData').find('{*}probe2Temperature').text)
+    return dto, measurements, ref, p1, p2
 
 def read_XTDTS_probe_temp(path, plot=True):
     """
@@ -230,26 +234,29 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
         files = [files[i] for i in indices]
     results = [read_XTDTS(f, no_cols) for f in files]
     results = [r for r in results if r]
-    times, measures = zip(*results)
+    times, measures, ref, p1, p2 = zip(*results)
     times = np.array(times)
     measures = np.stack(measures, axis=-1)
     # Make same dict as for other sources
     if mapping == 'fsb':  # For case of FSB 6-column files
         fiber_data = {'times': times, 'anti-stokes': measures[:, 2, :],
                       'stokes': measures[:, 1, :], 'data': measures[:, 5, :],
-                      'depth': measures[:, 0, 0]}
+                      'depth': measures[:, 0, 0], 'reference_temp': ref,
+                      'probe1_temp': p1, 'probe2_temp': p2}
         fiber_depths = fiber_depths_fsb
         fiber_wind = fsb_wind
     elif mapping == 'efsl':  # EFSL 4-column file
         fiber_data = {'times': times, 'anti-stokes': measures[:, 2, :],
                       'stokes': measures[:, 1, :], 'data': measures[:, 3, :],
-                      'depth': measures[:, 0, 0]}
+                      'depth': measures[:, 0, 0], 'reference_temp': ref,
+                      'probe1_temp': p1, 'probe2_temp': p2}
         fiber_depths = fiber_depth_efsl
         fiber_wind = efsl_wind
     elif mapping == '4100':
         fiber_data = {'times': times, 'anti-stokes': measures[:, 2, :],
                       'stokes': measures[:, 1, :], 'data': measures[:, 5, :],
-                      'depth': measures[:, 0, 0]}
+                      'depth': measures[:, 0, 0], 'reference_temp': ref,
+                      'probe1_temp': p1, 'probe2_temp': p2}
         fiber_depths = fiber_depth_4100
         fiber_wind = efsl_wind
     well_data = {}
@@ -257,6 +264,9 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
         well_data = fiber_data
         return well_data
     chan_map = channel_mapping[mapping]
+    well_data['reference_T'] = ref
+    well_data['probe1_temp'] = p1
+    well_data['probe2_temp'] = p2
     for well in wells:
         if well not in chan_map:
             print('{} not in mapping'.format(well))
@@ -338,6 +348,28 @@ def denoise(data, method='detrend', depth=None, times=None, window='2h'):
     elif method == 'rolling_median':
         data = rolling_stats(data, times, depth, window, stat='median')
     return data
+
+
+def remove_collab_bath_bias(well_data):
+    """
+    Single use func for removing the effect of hot bath variations on
+    collab 4100 DTS data
+    """
+    if 'times' in list(well_data.keys()):
+        trend = well_data['data'][1823, :]  # Trend at random place in A wells?
+        dts_corrected = well_data['data'] - trend
+        dts_corrected += trend[0]
+        well_data['data'] = dts_corrected
+    else:
+        # Detrend per well
+        for well, well_dict in well_data.items():
+            if 'temp' in well or 'reference' in well:
+                continue
+            trend = well_dict['data'][200, :] # Arbitrary channel near toe
+            dts_corrected = well_dict['data'] - trend
+            dts_corrected += trend[0]
+            well_dict['data'] = dts_corrected
+    return well_data
 
 
 def rolling_stats(data, times, depth, window='2h', stat='mean'):
@@ -436,6 +468,50 @@ def write_wells(well_data):
         ds.close()
     return
 
+
+def extract_channel_timeseries(well_data, depth, well, direction='down',
+                               window='20T'):
+    """
+    Return a time series of the selected well and depth
+
+    :param well_data: Dict from extract_wells
+    :param well: String, wellname
+    :param depth: Depth to channel
+    :param direction: 'up' or 'down', defaults to 'down'
+    :return: times, strains, both arrays
+    """
+    if well:
+        well_d = well_data[well]
+        depths = well_d['depth'] - well_d['depth'][0]
+    else:
+        well_d = well_data
+        depths = well_d['depth']
+    data = well_d['data']
+    times = well_d['times']
+    data_median = rolling_stats(data, times, depths, window, stat='median')
+    data_std = rolling_stats(data, times, depths, window, stat='std')
+    if well and direction == 'up':
+        down_d, up_d = np.array_split(depths, 2)
+        down_data, up_data = np.array_split(data, 2)
+        down_median, up_median = np.array_split(data_median, 2)
+        down_std, up_std = np.array_split(data_std, 2)
+        if down_d.shape[0] != up_d.shape[0]:
+            # prepend last element of down to up if unequal lengths by 1
+            up_d = np.insert(up_d, 0, down_d[-1])
+            up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+            up_median = np.insert(up_median, 0, down_median[-1, :], axis=0)
+            up_std = np.insert(up_std, 0, down_std[-1, :], axis=0)
+        depths = np.abs(up_d - up_d[-1])
+        data = up_data
+        data_median = up_median
+        data_std = up_std
+    # Find closest channel
+    chan = np.argmin(np.abs(depth - depths))
+    temps = data[chan, :]
+    temp_median = data_median[chan, :]
+    temp_std = data_std[chan, :]
+    return times, temps, temp_median, temp_std
+
 ## Plotting funcs ##
 
 def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
@@ -484,6 +560,166 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
             fig.legend()
     if not write_frames:
         plt.show()
+    return
+
+
+def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
+                 hydro_data=None, collab_stim_data=None):
+    """
+    Plot waterfall of delta T relative to given datetime
+    """
+    cmap = ListedColormap(sns.color_palette('magma', 21).as_hex())
+    if wells and len(wells) == 1:
+        well_data = well_data[wells[0]]
+        fig, axes = plt.subplots(nrows=2, figsize=(12, 12))
+    elif wells:
+        # Four separate panels
+        fig = plt.figure(constrained_layout=False, figsize=(27, 15))
+        gs = GridSpec(ncols=15, nrows=15, figure=fig)
+        axes = []
+        for axno, well in enumerate(wells):
+            well_dict = well_data[well]
+            times = well_dict['times']
+            if axno == 0:
+                axes.append(fig.add_subplot(gs[axno*3:(axno*3)+3, :-1]))
+            else:
+                axes.append(fig.add_subplot(gs[axno*3:(axno*3)+3, :-1],
+                                            sharex=axes[0]))
+            indices = np.where((date_range[0] < times) & (times < date_range[1]))
+            data = well_dict['data']
+            times = times[indices]
+            mpl_times = mdates.date2num(times)
+            depth = well_dict['depth']
+            data = np.squeeze(data[:, indices])
+            data = data - data[:, 0, np.newaxis]
+            im = axes[axno].imshow(data, cmap=cmap, origin='upper',
+                                   extent=[mpl_times[0], mpl_times[-1],
+                                           depth[-1] - depth[0], 0],
+                                   aspect='auto', vmin=vrange[0],
+                                   vmax=vrange[1])
+            axes[axno].set_ylabel('{} [m]'.format(well), fontsize=18)
+            axes[axno].tick_params(which='both', axis='x', labelbottom=False)
+        cax = fig.add_subplot(gs[:12, -1])
+        cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+        cbar.ax.set_ylabel('$\Delta$T [$^o$C]')
+        date_formatter = mdates.DateFormatter('%m-%d %H:%M')
+        if type(hydro_data) == pd.DataFrame:
+            hydro_ax = fig.add_subplot(gs[12:, :-1], sharex=axes[0])
+            df = hydro_data
+            # df = hydro_data[date_range[0]:date_range[1]]
+            ax2 = hydro_ax.twinx()
+            hydro_ax.plot(df['Time'], df['Net Flow'], color='steelblue')
+            hydro_ax.plot(df['Time'], df['TN Interval Flow'], color='dodgerblue')
+            ax2.plot(df['Time'], df['Injection Pressure'], color='firebrick')
+            ax2.plot(df['Time'], df['TN Interval Pressure'], color='orange')
+            if type(collab_stim_data) == pd.DataFrame:
+                Q = collab_stim_data.filter(like='Flow')
+                quizP = collab_stim_data.filter(like='Quizix P')
+                Q.plot(
+                    ax=hydro_ax, color=sns.color_palette('Blues', 12).as_hex(),
+                    legend=False)
+                quizP.plot(
+                    ax=ax2, color=sns.color_palette('Reds', 6).as_hex(),
+                    legend=False)
+                collab_stim_data['PT 403'].plot(ax=ax2, color='firebrick')
+            hydro_ax.set_ylim(bottom=0)
+            ax2.set_ylim(bottom=0)
+            hydro_ax.set_ylabel('L/min', color='steelblue')
+            ax2.set_ylabel('psi', color='firebrick')
+            hydro_ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                           color='steelblue')
+            ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                            color='firebrick')
+            hydro_ax.set_xlabel('Date')
+            hydro_ax.xaxis.set_major_locator(DayLocator(interval=7))
+            hydro_ax.xaxis.set_tick_params(rotation=30)
+            hydro_ax.set_xlim(*date_range)
+        plt.show()
+        return
+    else:
+        fig, axes = plt.subplots()
+    times = well_data['times']
+    data = well_data['data']
+    indices = np.where((date_range[0] < times) & (times < date_range[1]))
+    times = times[indices]
+    data = np.squeeze(data[:, indices])
+    mpl_times = mdates.date2num(times)
+    # Make T relative to first sample
+    data = data - data[:, 0, np.newaxis]
+    if wells:
+        depth_vect = well_data[wells[0]]['depth']
+        # Split the array in two and plot both separately
+        down_data, up_data = np.array_split(data, 2, axis=0)
+        down_d, up_d = np.array_split(depth_vect - depth_vect[0], 2)
+        if down_d.shape[0] != up_d.shape[0]:
+            # prepend last element of down to up if unequal lengths by 1
+            up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+            up_d = np.insert(up_d, 0, down_d[-1])
+        im = axes[0].imshow(down_data, cmap=cmap, origin='upper',
+                            extent=[mpl_times[0], mpl_times[-1],
+                                    down_d[-1] - down_d[0], 0],
+                            aspect='auto', vmin=vrange[0], vmax=vrange[1])
+        imb = axes[1].imshow(up_data, cmap=cmap, origin='lower',
+                             extent=[mpl_times[0], mpl_times[-1],
+                                     up_d[-1] - up_d[0], 0],
+                             aspect='auto', vmin=vrange[0], vmax=vrange[1])
+    else:
+        depth = well_data['depth']
+        im = axes.imshow(data, cmap=cmap, origin='upper',
+                         extent=[mpl_times[0], mpl_times[-1],
+                                 depth[-1] - depth[0], 0],
+                         aspect='auto', vmin=vrange[0], vmax=vrange[1])
+    cbar = fig.colorbar(im, orientation='vertical')
+    cbar.ax.set_ylabel('$\Delta$T [$^o$C]')
+    date_formatter = mdates.DateFormatter('%m-%d %H:%M')
+    if wells:
+        for ax in axes:
+            ax.xaxis.set_major_formatter(date_formatter)
+            ax.set_ylabel('Depth [m]')
+            ax.set_xlabel('Date')
+    else:
+        axes.xaxis.set_major_formatter(date_formatter)
+        axes.set_ylabel('Length along fiber [m]')
+        axes.set_xlabel('Date')
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+def plot_channel_timeseries(well_data, depths, well=None, detrend=False):
+    """
+    Plot standalone multi-channel timeseries(es)
+
+    :param well_data: From extract_wells
+    :param well: Well string
+    :param depths: List of tuples with (depth, direction (i.e. up/down))
+    :param normalized: Whether to normalize the traces to max = 1
+    :return:
+    """
+    cmap = cycle(sns.color_palette('dark', 8))
+    fig, axes = plt.subplots(nrows=2, sharex='col', figsize=(8, 12))
+    for depth in depths:
+        col = next(cmap)
+        times, data, _, _ = extract_channel_timeseries(
+            well_data, depth[0], well, direction=depth[1])
+        data_norm = data / np.max(np.abs(data))
+        axes[0].plot(times, data, color=col,
+                     label='{}: {} m'.format(well, depth[0]))
+        axes[1].plot(times, data_norm, color=col)
+    fig.suptitle('Borehole {}'.format(well), fontsize=20)
+    axes[0].set_ylabel('Temp [deg C]', fontsize=14)
+    axes[0].set_title('Temperature', fontsize=16)
+    axes[1].set_ylabel('Normalized T', fontsize=14)
+    axes[1].set_title('Normalized', fontsize=16)
+    axes[1].set_xlabel('Date', fontsize=14)
+    axes[0].legend(title='Depth', loc='upper left',
+                   bbox_to_anchor=(0.0, 0.1), framealpha=1.)
+    axes[0].set_zorder(1000)
+    axes[0].grid(True, which='major', axis='both')
+    axes[1].grid(True, which='major', axis='both')
+    axes[0].set_facecolor('lightgray')
+    axes[1].set_facecolor('lightgray')
+    fig.autofmt_xdate()
     return
 
 

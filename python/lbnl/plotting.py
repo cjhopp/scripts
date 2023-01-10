@@ -3,6 +3,8 @@
 """
 Plotting functions for the lbnl module
 """
+import obspy
+
 try:
     import dxfgrabber
 except ImportError:
@@ -10,6 +12,8 @@ except ImportError:
 import plotly
 import rasterio
 import fiona
+import pickle
+import trimesh
 
 import numpy as np
 import colorlover as cl
@@ -46,6 +50,7 @@ from plotly.subplots import make_subplots
 from plotly.figure_factory import create_gantt
 from vtk.util.numpy_support import vtk_to_numpy
 from matplotlib import animation
+from matplotlib.dates import DayLocator, HourLocator
 from matplotlib.patches import Circle
 from matplotlib_scalebar.scalebar import ScaleBar
 from matplotlib.gridspec import GridSpec
@@ -78,6 +83,11 @@ fsb_well_colors = {'B1': 'k', 'B2': 'steelblue', 'B3': 'goldenrod',
 cols_4850 = {'PDT': 'black', 'PDB': 'black', 'PST': 'black', 'PSB': 'black',
              'OT': 'black', 'OB': 'black', 'I': '#4682B4', 'P': '#B22222'}
 
+collab_4100_zone_depths = {
+    'TC': [148.95, 156.85, 164.75, 172.65, 180.55, 188.45, 196.35, 204.25,
+           212.15],
+    'TU': [178.5]
+}
 def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, seismic, packers=None,
                       accel_dict=None):
     """
@@ -1228,30 +1238,47 @@ def plot_FSB_2D(autocad_path, strike=120.,
     return
 
 
-def plot_4100(boreholes, inventory, drift_polygon, hull, catalog=None,
-              filename=None):
+def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
+              catalog=None, filename=None, view=None, stimulation_data=None,
+              circulation_data=None, plot_zones=False, dates=None):
+    """
+    Plot overview of 4100L with map, 3D and timeseries (if requested)
+
+    :param boreholes: Dictionary output from lbnl.boreholes
+    :param inventory: Obspy inventory
+    :param drift_polygon: Path to pickled Shapely polygon
+    :param hull: Path to JSON of the Trimesh for the drift
+    :param catalog: Optional Obspy catalog
+    :param filename: Optional path to figure file
+    :param view: Optional view initiallization for the 3D plot (elevation, az)
+    :param stimulation_data:
+    """
+    # Read the polygon and alpha hull from file
+    if drift_polygon:
+        with open(drift_polygon, 'rb') as f:
+            drift_polygon = pickle.load(f)
+    if hull:
+        with open(hull, 'r') as f:
+            hull = trimesh.load_mesh(f, file_type='json')
     # Define injection zones of interest
-    z7_start = np.array([1250.02033327, -876.09451028, 328.41040807])
-    z7_end = np.array([1251.6751636, -874.58967042, 327.82095658])
-    z7 = np.vstack([z7_start, z7_end])
-
-    z1_start = np.array([1239.68287212, -885.63997146, 331.55923477])
-    z1_end = np.array([1241.42805389, -884.04965582, 330.95011331])
-    z1 = np.vstack([z1_start, z1_end])
-
-    TU_start = (1249.3835222592002, -880.1002573728001, 338.5249367664)
-    TU_end = (1250.0872899144001, -879.5190214512, 338.470134336)
-    TU_zone = np.vstack([TU_start, TU_end])
-
-    fig = plt.figure(constrained_layout=False, figsize=(9, 18))
+    zone_dict = {'TU': [], 'TC': []}
+    for key, d_list in collab_4100_zone_depths.items():
+        for d in d_list:
+            zone_dict[key].append(depth_to_xyz(boreholes, key, d * 0.3048))
+    fig = plt.figure(constrained_layout=False, figsize=(18, 13))
     # fig.suptitle('Realtime MEQ: {} UTC'.format(datetime.utcnow()), fontsize=20)
-    gs = GridSpec(ncols=10, nrows=18, figure=fig)
-    axes_map = fig.add_subplot(gs[:9, :])
-    axes_3D = fig.add_subplot(gs[9:, :], projection='3d')
+    gs = GridSpec(ncols=18, nrows=13, figure=fig)
+    axes_map = fig.add_subplot(gs[:9, :9])
+    axes_3D = fig.add_subplot(gs[:9, 9:], projection='3d')
+    axes_time = fig.add_subplot(gs[9:11, :])
+    hydro_ax = fig.add_subplot(gs[11:, :], sharex=axes_time)
     # Convert to HMC system
     if catalog:
         catalog = [ev for ev in catalog if len(ev.origins) > 0]
         catalog.sort(key=lambda x: x.origins[-1].time)
+        if dates:
+            catalog = [ev for ev in catalog if dates[0] < ev.picks[0].time
+                       < dates[1]]
         hmc_locs = [(float(ev.preferred_origin().extra.hmc_east.value),
                      float(ev.preferred_origin().extra.hmc_north.value),
                      float(ev.preferred_origin().extra.hmc_elev.value))
@@ -1268,14 +1295,23 @@ def plot_4100(boreholes, inventory, drift_polygon, hull, catalog=None,
         x, y, z = zip(*hmc_locs)
         mag_inds = np.where(np.array(mags) > -999.)
         mags = np.array(mags)[mag_inds]
+        TU_center = zone_dict['TU'][0]
+        dists = [np.sqrt((l[0] - TU_center[0])**2 +
+                         (l[1] - TU_center[1])**2 +
+                         (l[2] - TU_center[2])**2)
+                 for l in hmc_locs]
+        distance = np.array(dists)
     endtime = datetime.utcnow()
     starttime = endtime - timedelta(seconds=3600)
-    stations = [(float(sta.extra.hmc_east.value) * 0.3048,
-                 float(sta.extra.hmc_north.value) * 0.3048,
-                 float(sta.extra.hmc_elev.value))
-                for sta in inventory[0] if sta.code[-2] != 'S']
-    axes_3D.plot_trisurf(*zip(*hull.vertices), triangles=hull.faces, color='darkgray')
-    sx, sy, sz = zip(*stations)
+    if hull:
+        axes_3D.plot_trisurf(*zip(*hull.vertices), triangles=hull.faces,
+                             color='darkgray')
+    if inventory:
+        stations = [(float(sta.extra.hmc_east.value) * 0.3048,
+                     float(sta.extra.hmc_north.value) * 0.3048,
+                     float(sta.extra.hmc_elev.value))
+                    for sta in inventory[0] if sta.code[-2] != 'S']
+        sx, sy, sz = zip(*stations)
     for well, xyzd in boreholes.items():
         if well[0] == 'T':
             color = 'steelblue'
@@ -1286,12 +1322,17 @@ def plot_4100(boreholes, inventory, drift_polygon, hull, catalog=None,
         axes_3D.plot(xyzd[:, 0], xyzd[:, 1], xyzd[:, 2], color=color,
                      linewidth=linewidth, alpha=0.8, zorder=500)
     # Plot Zone 1, 7
-    # axes_3D.plot(z7[:, 0], z7[:, 1], z7[:, 2], color='darkgray', linewidth=2.5)
-    # axes_3D.plot(z1[:, 0], z1[:, 1], z1[:, 2], color='darkgray', linewidth=2.5)
-    # axes_3D.plot(TU_zone[:, 0], TU_zone[:, 1], TU_zone[:, 2], color='purple',
-    #              linewidth=5)
+    if plot_zones:
+        for well, zone_list in zone_dict.items():
+            if well == 'TC':
+                color = 'k'
+            else:
+                color = 'r'
+            for z in zone_list:
+                axes_3D.scatter(z[0], z[1], z[2], marker='*', s=100, c=color)
     # Stations
-    axes_3D.scatter(sx, sy, sz, marker='v', color='r', label='Seismic sensor')
+    if inventory:
+        axes_3D.scatter(sx, sy, sz, marker='v', color='r', label='Seismic sensor')
     if catalog:
         sizes = (mags + 9) ** 2
         mpl = axes_3D.scatter(
@@ -1301,13 +1342,56 @@ def plot_4100(boreholes, inventory, drift_polygon, hull, catalog=None,
             alpha=0.7)
         axes_map.scatter(np.array(x)[mag_inds], np.array(y)[mag_inds],
                          marker='o', c=np.array(colors)[mag_inds], s=sizes)
+        axes_time.scatter(
+            np.array(times)[mag_inds], np.array(distance)[mag_inds],
+            c=np.array(colors)[mag_inds])
+        ax2 = axes_time.twinx()
+        ax2.step(times, np.arange(len(times)), color='firebrick')
+        axes_time.set_ylabel('Distance from TU injection [m]')
+        ax2.set_ylabel('Cumulative events')
+        axes_time.tick_params(which='both', axis='x', labelbottom='False')
+    if type(circulation_data) == pd.DataFrame:
+        # df = hydro_data[date_range[0]:date_range[1]]
+        ax2 = hydro_ax.twinx()
+        hydro_ax.plot(circulation_data['Time'], circulation_data['Net Flow'],
+                      color='steelblue')
+        ax2.plot(
+            circulation_data['Time'], circulation_data['Injection Pressure'],
+            color='firebrick')
+        if type(stimulation_data) == pd.DataFrame:
+            Q = stimulation_data.filter(like='Flow')
+            quizP = stimulation_data.filter(like='Quizix P')
+            Q.plot(
+                ax=hydro_ax, color=sns.color_palette('Blues', 12).as_hex(),
+                legend=False)
+            quizP.plot(
+                ax=ax2, color=sns.color_palette('Reds', 6).as_hex(),
+                legend=False)
+            stimulation_data['PT 403'].plot(ax=ax2, color='firebrick')
+        hydro_ax.set_ylim(bottom=0)
+        ax2.set_ylim(bottom=0)
+        hydro_ax.set_ylabel('L/min', color='steelblue')
+        ax2.set_ylabel('psi', color='firebrick')
+        hydro_ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                             color='steelblue')
+        ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                        color='firebrick')
+    hydro_ax.set_xlabel('Date')
+    # hydro_ax.xaxis.set_major_locator(HourLocator(interval=4))
+    hydro_ax.xaxis.set_major_locator(DayLocator(interval=1))
+    hydro_ax.xaxis.set_tick_params(rotation=30)
     axes_3D.set_xlabel('Easting [HMC]', fontsize=14)
     axes_3D.set_ylabel('Northing [HMC]', fontsize=14)
     axes_3D.set_zlabel('Elevation [m]', fontsize=14)
-    axes_3D.set_ylim([-900, -860])
-    axes_3D.set_xlim([1220, 1260])
-    axes_3D.set_zlim([310, 350])
-    axes_3D.view_init(-5., 36.)
+    axes_3D.set_ylim([-905, -855])
+    axes_3D.set_xlim([1215, 1265])
+    axes_3D.set_zlim([305, 355])
+    if view:
+        axes_3D.view_init(*view)
+    else:
+        axes_3D.view_init(10, -10)
+    if dates:
+        axes_time.set_xlim(*dates)
     # Plot boreholes
     for well, xyzd in boreholes.items():
         if well[0] == 'T':
@@ -1318,13 +1402,18 @@ def plot_4100(boreholes, inventory, drift_polygon, hull, catalog=None,
             linewidth = 1.0
         axes_map.plot(xyzd[:, 0], xyzd[:, 1], color=color,
                       linewidth=linewidth, alpha=0.8, zorder=100)
-    # axes_map.plot(z7[:, 0], z7[:, 1], color='darkgray', linewidth=2.5)
-    # axes_map.plot(z1[:, 0], z1[:, 1], color='darkgray', linewidth=2.5)
-    # TU Injection Zone too
-    # axes_map.plot(TU_zone[:, 0], TU_zone[:, 1], color='purple',
-    #               linewidth=2.5)
-    axes_map.scatter(sx, sy, marker='v', color='r')
-    axes_map.add_patch(PolygonPatch(drift_polygon, fc='darkgray', ec='k'))
+    if plot_zones:
+        for well, zone_list in zone_dict.items():
+            if well == 'TC':
+                color = 'k'
+            else:
+                color = 'r'
+            for z in zone_list:
+                axes_map.scatter(z[0], z[1], marker='*', s=100, c=color)
+    if inventory:
+        axes_map.scatter(sx, sy, marker='v', color='r')
+    if drift_polygon:
+        axes_map.add_patch(PolygonPatch(drift_polygon, fc='darkgray', ec='k'))
     # axes_map.plot(hull_pts[0, :], hull_pts[1, :], linewidth=0.9, color='k')
     axes_map.set_ylim([-920, -840])
     axes_map.set_xlim([1200, 1280])
@@ -2531,6 +2620,73 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     return
 
 
+def plot_newberry(dem_dir, vector_dir, inventory):
+    """Patua overview plot"""
+    dem = rasterio.open('{}/USGS_13_merged_epsg-26910.tif'.format(dem_dir))
+    lidar = rasterio.open('{}/USGS_Lidar_merged_rasterio.tif'.format(dem_dir))
+    bbox = gpd.read_file('{}/Newberry_outline_plotting_epsg-26910.shp'.format(vector_dir))
+    dem_vals, meta_dem, value_range = clip_raster(bbox, dem)
+    lidar_vals, meta_lidar, value_range = clip_raster(bbox, lidar)
+    extent_lidar = plotting_extent(lidar_vals[0], meta_lidar['transform'])
+    extent_dem = plotting_extent(dem_vals[0], meta_dem['transform'])
+    # Hillshade
+    dem_hillshade = es.hillshade(dem_vals[0].copy(), azimuth=90, altitude=20)
+    lidar_hillshade = es.hillshade(lidar_vals[0].copy(), azimuth=90, altitude=20)
+    # Read in vectors
+    sensors = obspy.read_inventory(inventory)
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Only top half of colormap
+    # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
+    cmap = plt.get_cmap('gist_earth')
+    colors = cmap(np.linspace(0.5, 1, cmap.N // 2))
+    # Create a new colormap from those colors
+    cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
+    # Bottom up, first DEM
+    ax.imshow(dem_vals[0], cmap=cmap2, alpha=0.2, extent=extent_lidar)
+    ax.imshow(dem_hillshade, cmap="Greys", alpha=0.3, extent=extent_lidar)
+    ax.imshow(lidar_vals[0], cmap=cmap2, alpha=0.3, extent=extent_lidar)
+    # Then hillshade
+    ax.imshow(lidar_hillshade, cmap="Greys", alpha=0.3, extent=extent_lidar)
+    # Vector layers
+    roads = gpd.read_file('{}/Newberry_roads_clipped.shp'.format(vector_dir)).to_crs(26910)
+    lakes = gpd.read_file('{}/Newberry_lakes_clipped.shp'.format(vector_dir)).to_crs(26910)
+    # roads.plot(ax=ax, linewidth=0.5, color='dimgray', alpha=0.5)
+    ax = lakes.geometry.plot(ax=ax, color='dodgerblue', alpha=0.5)
+    # Seismic stations
+    marker_dict = {'UW': ['^', 'dodgerblue'], 'CC': ['^', 'r'],
+                   '9G': ['v', 'purple']}
+    for net in sensors:
+        for sta in net:
+            if net.code == 'UW' and sta.code in ['NN17', 'NN32', 'NNVM']:
+                continue
+            elif net.code == '9G' and (sta.code.startswith('NM')
+                                       or sta.code in ['NN19', 'NN21']):
+                continue
+            pt = gpd.GeoSeries([Point(sta.longitude, sta.latitude)], crs=4326)
+            pt = pt.to_crs(26910)
+            ax.scatter(pt.x, pt.y, marker=marker_dict[net.code][0], s=50.,
+                       color=marker_dict[net.code][1], label=net.code,
+                       edgecolors='k')
+    # Proposed locations
+    ax.set_xlim([extent_lidar[0], extent_lidar[1]])
+    ax.set_ylim([extent_lidar[2], extent_lidar[3]])
+    # Scale bar
+    # points = gpd.GeoSeries([Point(630000, extent_lidar[2]),
+    #                         Point(635000, extent_lidar[2])], crs=4326)
+    # points = points.to_crs(32611)  # Projected WGS 84 - meters
+    # distance_meters = points[0].distance(points[1])
+    # ax.add_artist(ScaleBar(distance_meters))
+    ax.set_xlabel(r'Easting [m]')
+    ax.set_ylabel(r'Northing [m]')
+    ax.set_title('Newberry seismic networks')
+    ax.ticklabel_format(style='plain', useOffset=False)
+    ax.legend()
+    legend_without_duplicate_labels(ax)
+    plt.show()
+    return
+
+
 def plot_TM(dem_dir, vector_dir):
     """Patua overview plot"""
     TM_extents = [(-117.72, 39.6975), (-117.72, 39.6472),
@@ -2556,6 +2712,7 @@ def plot_TM(dem_dir, vector_dir):
     circle1 = gpd.read_file('{}/TM_1280-m_radius.shp'.format(vector_dir)).to_crs(4326)
     circle2 = gpd.read_file('{}/TM_1920-m_radius.shp'.format(vector_dir)).to_crs(4326)
     tracks = gpd.read_file('{}/TM_tracks.shp'.format(vector_dir)).to_crs(4326)
+    solar_array = gpd.read_file('{}/Tungsten_solar_array.shp'.format(vector_dir)).to_crs(4326)
     # Figure setup
     fig, ax = plt.subplots(figsize=(10, 10))
     # Only top half of colormap
@@ -2572,6 +2729,7 @@ def plot_TM(dem_dir, vector_dir):
     ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
     tracks.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
     ax = plant.geometry.plot(ax=ax, color='k', label='Plant')
+    ax = solar_array.geometry.plot(ax=ax, color='gray', label='Solar array')
     ax = lease.plot(ax=ax, linestyle=':', color='firebrick')
     ax = woo_well.plot(ax=ax, marker='*', color='yellow',
                        markersize=60., legend=True, label='WOO Well',
