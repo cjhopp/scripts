@@ -32,7 +32,7 @@ from scipy.signal import detrend
 from itertools import cycle
 from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
-from matplotlib.dates import DayLocator
+from matplotlib.dates import DayLocator, HourLocator
 
 
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
@@ -441,7 +441,7 @@ def extract_temp_profile(well_data, date, wells, average=True, reference_time=No
     return pick_dict
 
 
-def write_wells(well_data):
+def write_wells(well_data, wells):
     """
     Write a JSON file for each well. This will read in as a dict with the
     following fields: 'times', 'down_data', 'up_data', 'depth'
@@ -450,6 +450,8 @@ def write_wells(well_data):
     """
 
     for well, w_dict in well_data.items():
+        if well not in wells:
+            continue
         # Split the data and depth in half
         down_data, up_data = np.array_split(w_dict['data'], 2)
         depth, up_dep = np.array_split(w_dict['depth'] - w_dict['depth'][0], 2)
@@ -590,8 +592,8 @@ def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
             times = times[indices]
             mpl_times = mdates.date2num(times)
             depth = well_dict['depth']
-            data = np.squeeze(data[:, indices])
             data = data - data[:, 0, np.newaxis]
+            data = np.squeeze(data[:, indices])
             im = axes[axno].imshow(data, cmap=cmap, origin='upper',
                                    extent=[mpl_times[0], mpl_times[-1],
                                            depth[-1] - depth[0], 0],
@@ -608,10 +610,16 @@ def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
             df = hydro_data
             # df = hydro_data[date_range[0]:date_range[1]]
             ax2 = hydro_ax.twinx()
-            hydro_ax.plot(df['Time'], df['Net Flow'], color='steelblue')
-            hydro_ax.plot(df['Time'], df['TN Interval Flow'], color='dodgerblue')
-            ax2.plot(df['Time'], df['Injection Pressure'], color='firebrick')
-            ax2.plot(df['Time'], df['TN Interval Pressure'], color='orange')
+            hydro_ax.plot(df['Time'], df['Net Flow'], color='steelblue',
+                          label='TU Flow')
+            hydro_ax.plot(df['Time'], df['TN Interval Flow'],
+                          color='blue', label='TN Interval Flow')
+            # hydro_ax.plot(df['Time'], df['TC Collar Flow'], color='purple')
+            ax2.plot(df['Time'], df['Injection Pressure'],
+                     color='firebrick', label='TU Injection Pressure')
+            ax2.plot(df['Time'], df['TN Interval Pressure'],
+                     color='orange', label='TN Interval Pressure')
+            # ax2.plot(df['Time'], df['TC Bottom Pressure'], color='magenta')
             if type(collab_stim_data) == pd.DataFrame:
                 Q = collab_stim_data.filter(like='Flow')
                 quizP = collab_stim_data.filter(like='Quizix P')
@@ -622,7 +630,7 @@ def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
                     ax=ax2, color=sns.color_palette('Reds', 6).as_hex(),
                     legend=False)
                 collab_stim_data['PT 403'].plot(ax=ax2, color='firebrick')
-            hydro_ax.set_ylim(bottom=0)
+            hydro_ax.set_ylim(bottom=0, top=6.)
             ax2.set_ylim(bottom=0)
             hydro_ax.set_ylabel('L/min', color='steelblue')
             ax2.set_ylabel('psi', color='firebrick')
@@ -632,8 +640,12 @@ def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
                             color='firebrick')
             hydro_ax.set_xlabel('Date')
             hydro_ax.xaxis.set_major_locator(DayLocator(interval=7))
+            # hydro_ax.xaxis.set_major_locator(HourLocator(interval=6))
             hydro_ax.xaxis.set_tick_params(rotation=30)
             hydro_ax.set_xlim(*date_range)
+            lns1, labs1 = hydro_ax.get_legend_handles_labels()
+            lns2, labs2 = ax2.get_legend_handles_labels()
+            ax2.legend(lns1 + lns2, labs1 + labs2)
         plt.show()
         return
     else:
@@ -727,7 +739,8 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
              date_range=(datetime(2020, 11, 19), datetime(2020, 11, 23)),
              denoise_method=None, window='2h', vrange=(14, 17), title=None,
              tv_picks=None, prominence=30., pot_data=None, hydro_data=None,
-             offset_samps=None, filter_params=None, mask_depths=None):
+             offset_samps=None, filter_params=None, mask_depths=None,
+             delta_T=False):
     """
     Plot a colormap of DSS data
 
@@ -749,7 +762,7 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
     :param filter_params: Nested dict of various bandstop parameters
     :param mask_depths: Depths in borehole to mask in plotting (e.g. for
         the 3D string heating in BFS-B1)
-
+    :param delta_T: Boolean to plot temperature relative to first sample or not
     :return:
     """
     if inset_channels and well != 'D5' and not hydro_data:
@@ -797,6 +810,8 @@ def plot_DTS(well_data, well='all', derivative=False, inset_channels=True,
     else:
         noise = well_data[well]['noise']
     type = well_data[well]['type']
+    if delta_T:
+        data = data - data[:, 0, np.newaxis]
     if date_range:
         indices = np.where((date_range[0] < times) & (times < date_range[1]))
         times = times[indices]
