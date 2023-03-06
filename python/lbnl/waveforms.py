@@ -94,6 +94,24 @@ cascadia_colors = {'NSMTC.B1': '#c6dbef', 'NSMTC.B2': '#6aaed6',
                    '4509.10': '#956cb4', '4509.00': '#d65f5f',
                    '5230.10': '#956cb4', '5230.00': '#d65f5f'}
 
+collab_4100_geode = {
+    '1': 'AML1.XNZ', '2': 'AML1.XNX', '3': 'AML1.XNY', '4': 'AML2.XNZ', '5': 'AML2.XNX',
+    '6': 'AML2.XNY', '7': 'AML3.XNZ', '8': 'AML3.XNX', '9': 'AML3.XNY', '10': 'AML4.XNZ',
+    '11': 'AML4.XNX', '12': 'AML4.XNY', '13': 'AMU1.XNZ', '14': 'AMU1.XNX', '15': 'AMU1.XNY',
+    '16': 'AMU2.XNZ', '17': 'AMU2.XNX', '18': 'AMU2.XNY', '19': 'AMU3.XNZ', '20': 'AMU3.XNX',
+    '21': 'AMU3.XNY', '22': 'AMU4.XNZ', '23': 'AMU4.XNX', '24': 'AMU4.XNY', '25': 'DML1.XNZ',
+    '26': 'DML1.XNX', '27': 'DML1.XNY', '28': 'DML2.XNZ', '29': 'DML2.XNX', '30': 'DML2.XNY',
+    '31': 'DML3.XNZ', '32': 'DML3.XNX', '33': 'DML3.XNY', '34': 'DML4.XNZ', '35': 'DML4.XNX',
+    '36': 'DML4.XNY', '37': 'DMU1.XNZ', '38': 'DMU1.XNX', '39': 'DMU1.XNY', '40': 'DMU2.XNZ',
+    '41': 'DMU2.XNX', '42': 'DMU2.XNY', '43': 'DMU3.XNZ', '44': 'DMU3.XNX', '45': 'DMU3.XNY',
+    '46': 'DMU4.XNZ', '47': 'DMU4.XNX', '48': 'DMU4.XNY', '49': 'TS24.XDH', '50': 'TS23.XDH',
+    '51': 'TS22.XDH', '52': 'TS21.XDH', '53': 'TS20.XDH', '54': 'TS19.XDH', '55': 'TS18.XDH',
+    '56': 'TS17.XDH', '57': 'TS16.XDH', '58': 'TS15.XDH', '59': 'TS14.XDH', '60': 'TS13.XDH',
+    '61': 'TS12.XDH', '62': 'TS11.XDH', '63': 'TS10.XDH', '64': 'TS09.XDH', '65': 'TS08.XDH',
+    '66': 'TS07.XDH', '67': 'TS06.XDH', '68': 'TS05.XDH', '69': 'TS04.XDH', '70': 'TS03.XDH',
+    '71': 'TS02.XDH', '72': 'TS01.XDH',
+}
+
 fsb_geode_chans = {
     '1': 'B301.XN1', '2': 'B302.XN1', '3': 'B303.XN1', '4': 'B304.XN1',
     '5': 'B305.XN1', '6': 'B306.XN1', '7': 'B307.XN1', '8': 'B308.XN1',
@@ -185,6 +203,17 @@ def date_generator(start_date, end_date):
         yield start_date + timedelta(n)
 
 
+def pressure_to_velocity(st, inv, rho, Vp):
+    """Convert hydrophone stream to velocity trace using derivation of Sylvander 2007"""
+    st.remove_response(inventory=inv, output="DEF",
+                       water_level=600, plot='test_resp.png',
+                       pre_filt=[20, 30, 40000, 50000])
+    # Just assume transmission normal to borehole axis
+    for tr in st:
+        tr.data /= (-1 * rho * Vp)
+    return st
+
+
 def reftek_to_mseed(input_dir, output_dir, mapping):
     """
     Take a directory of raw reftek data and convert to miniseed in
@@ -273,6 +302,15 @@ def read_cassm_seg2(file, mapping, plot_picks=False):
                             color='darkgray', alpha=0.5)
         fig.savefig(file.replace('.dat', '.png'))
     return st, tts
+
+
+def descale_cassm_seg2(st):
+    descaled_st = st.copy()
+    for tr in descaled_st:
+        descale_factor = float(tr.stats.seg2.DESCALING_FACTOR)
+        no_shots = int(tr.stats.seg2.STACK)
+        tr.data *= (descale_factor / no_shots / 1000)  # In units of Volts
+    return descaled_st
 
 
 def fit_hammer_thomsen(hammer_dir, hammer_locs, inventory, cassm_Vp,

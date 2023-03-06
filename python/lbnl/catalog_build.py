@@ -908,7 +908,7 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
     first_pick = np.min([pk.time for pk in ev.picks])
     # Clip around trigger time
     st_slice = st.slice(starttime=first_pick - prepick,
-                            endtime=first_pick + postpick)
+                        endtime=first_pick + postpick)
     try:
         time_v = np.arange(st_slice[0].data.shape[0]) * st_slice[0].stats.delta
     except IndexError:
@@ -951,6 +951,7 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
     ax[-1].margins(x=0.)
     fig.savefig(figname)
     plt.close('all')
+    del st, st_slice
     return
 
 

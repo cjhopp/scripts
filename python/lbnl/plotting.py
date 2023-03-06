@@ -30,6 +30,7 @@ import matplotlib.gridspec as gridspec
 import earthpy.spatial as es
 
 from rasterio import mask as msk
+from rasterio.merge import merge
 from rasterio.plot import plotting_extent
 from shapely.geometry import mapping
 from shapely.geometry.point import Point
@@ -44,20 +45,18 @@ from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from shapely.ops import cascaded_union, polygonize
 from scipy.spatial import Delaunay
 from scipy.spatial.transform import Rotation as R
+from obspy.imaging.beachball import beach
 from cartopy.mpl.geoaxes import GeoAxes
 from obspy import Trace, Catalog
-from plotly.subplots import make_subplots
 from plotly.figure_factory import create_gantt
-from vtk.util.numpy_support import vtk_to_numpy
-from matplotlib import animation
+from matplotlib import animation, cm
 from matplotlib.dates import DayLocator, HourLocator
 from matplotlib.patches import Circle
 from matplotlib_scalebar.scalebar import ScaleBar
 from matplotlib.gridspec import GridSpec
-from matplotlib.dates import date2num
+from matplotlib.dates import date2num, num2date
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.colors import ListedColormap, Normalize, LinearSegmentedColormap
-from scipy.signal import resample, detrend
 
 # Local imports (assumed to be in python path)
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
@@ -66,8 +65,7 @@ from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
 from lbnl.coordinates import SURF_converter
 try:
     from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
-                          get_well_piercepoint, get_frac_piercepoint,
-                          extract_strains, fault_depths)
+                          get_frac_piercepoint, extract_strains, fault_depths)
 except ModuleNotFoundError:
     print('Error on DSS import. Change env')
 
@@ -1334,7 +1332,7 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     if inventory:
         axes_3D.scatter(sx, sy, sz, marker='v', color='r', label='Seismic sensor')
     if catalog:
-        sizes = (mags + 9) ** 2
+        sizes = ((mags - np.min(mags)) * 2)**2
         mpl = axes_3D.scatter(
             np.array(x)[mag_inds], np.array(y)[mag_inds],
             np.array(z)[mag_inds], marker='o',
@@ -1344,7 +1342,7 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
                          marker='o', c=np.array(colors)[mag_inds], s=sizes)
         axes_time.scatter(
             np.array(times)[mag_inds], np.array(distance)[mag_inds],
-            c=np.array(colors)[mag_inds])
+            c=np.array(colors)[mag_inds], s=sizes)
         ax2 = axes_time.twinx()
         ax2.step(times, np.arange(len(times)), color='firebrick')
         axes_time.set_ylabel('Distance from TU injection [m]')
@@ -1426,6 +1424,23 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     else:
         plt.show()
     return
+
+
+def get_well_piercepoint(wells):
+    """
+    Return the xyz points of the main fault for a list of wells
+
+    :param wells: List
+    :return:
+    """
+    well_dict = create_FSB_boreholes()
+    pierce_dict = {}
+    for well in wells:
+        pierce_dict[well] = {'top': depth_to_xyz(well_dict, well,
+                                                 fault_depths[well][0])}
+        pierce_dict[well]['bottom'] = depth_to_xyz(well_dict, well,
+                                                   fault_depths[well][1])
+    return pierce_dict
 
 
 def plot_pierce_points(x, y, z, strike, dip, ax, location='fsb'):
@@ -2385,6 +2400,98 @@ def plot_catalog(catalog, dem_dir, vector_dir):
     # Hillshade
     hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
 
+    return
+
+
+def plot_numo(catalog, dem_dir, vector_dir=None):
+    """
+
+    :param catalog:
+    :param dem_dir:
+    :param vector_dir:
+    :return:
+    """
+    numo_location = (-121.572758, 36.873258)
+    numo_extents = [(-121.70, 37.05), (-121.70, 36.70),
+                     (-121.35, 36.70), (-121.35, 37.05)]
+    dem_file = glob('{}/NUMO_merged_DEM.tif'.format(dem_dir))[0]
+    overview = rasterio.open(dem_file)
+    write_bbox_shp(numo_extents, './tmp_bbox.shp')
+    bbox = gpd.read_file('./tmp_bbox.shp')
+    topo, meta, value_range = clip_raster(bbox, overview)
+    extent = plotting_extent(topo[0], meta['transform'])
+    # Hillshade
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    # Vectors
+    ca_highways = glob('{}/NUMO_highways/*.shp'.format(vector_dir))[0]
+    ca_cities = glob('{}/City_Boundaries/*.shp'.format(vector_dir))[0]
+    ca_faults = glob('{}/NUMO_Faults/*.shp'.format(vector_dir))[0]
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Only top half of colormap
+    # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
+    cmap = plt.get_cmap('gist_earth')
+    colors = cmap(np.linspace(0.5, 1, cmap.N // 2))
+    # Create a new colormap from those colors
+    cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
+    # Bottom up, first DEM
+    ax.imshow(topo[0], cmap=cmap2, extent=extent, alpha=0.3)
+    # Then hillshade
+    ax.imshow(hillshade, cmap="Greys", alpha=0.3, extent=extent)
+    # Plot vector layers
+    ca_highways = gpd.read_file(ca_highways).to_crs(4326)
+    ca_cities = gpd.read_file(ca_cities).to_crs(4326)
+    ca_faults = gpd.read_file(ca_faults).to_crs(4326)
+    # Plot them
+    ca_cities.plot(ax=ax, facecolor='dimgray', edgecolor="none", alpha=0.5)
+    ca_highways.plot(ax=ax, linewidth=1., color='black')
+    ca_faults.plot(ax=ax, linewidth=1., color='firebrick')
+    ax.scatter(numo_location[0], numo_location[1], marker='^', color='r', s=100, zorder=400, edgecolor='k')
+    # ax.annotate('NUMO', xy=numo_location, xytext=(5, 5), textcoords='offset points',
+    #             fontsize=26, fontweight='bold')
+    # Now make the beachballs
+    catalog.events.sort(key=lambda x: x.preferred_magnitude().mag)
+    cnums = [date2num(ev.preferred_origin().time) for ev in catalog]
+    cmap = cm.magma
+    norm = Normalize(vmin=min(cnums), vmax=max(cnums))
+    for ev in catalog:
+        o = ev.preferred_origin()
+        m = ev.preferred_magnitude().mag
+        c = cmap(norm(date2num(o.time)))
+        if len(ev.focal_mechanisms) > 0:
+            fm = ev.focal_mechanisms[0]
+            try:
+                tens = fm.moment_tensor.tensor
+                mt = [tens.m_rr, tens.m_tt, tens.m_pp, tens.m_rt, tens.m_rp, tens.m_tp]
+                beach_ = beach(mt, width=m**2 * 0.003, xy=(o.longitude, o.latitude), facecolor=c)
+            except AttributeError:
+                np1 = fm.nodal_planes.nodal_plane_1
+                if hasattr(fm, "_beachball"):
+                    beach_ = copy.copy(fm._beachball)
+                else:
+                    beach_ = beach([np1.strike, np1.dip, np1.rake], facecolor=c,
+                                   width=m**2 * 0.003, xy=(o.longitude, o.latitude))
+            ax.add_collection(beach_)
+            if m > 2.5:
+                ax.annotate(ev.resource_id.id.split('=')[-2].split('&')[0], xy=(o.longitude, o.latitude),
+                            xytext=(m*6, m*6), textcoords="offset points", fontsize=12, fontstyle='italic')
+    # Scale bar
+    points = gpd.GeoSeries([Point(-121.6, extent[2]),
+                            Point(-121.65, extent[2])], crs=4326)
+    points = points.to_crs(32611)  # Projected WGS 84 - meters
+    distance_meters = points[0].distance(points[1])
+    # ax.add_artist(ScaleBar(distance_meters))
+    ax.set_xlim([extent[0], extent[1]])
+    ax.set_ylim([extent[2], extent[3]])
+    ax.set_xlabel('Longitude [$^o$]')
+    ax.set_ylabel('Latitude [$^o$]')
+    ax.set_aspect('equal')
+    fig.colorbar(cm.ScalarMappable(norm, cmap), location='bottom', shrink=0.5, fraction=0.1, pad=0.1)
+    cax = fig.axes[-1]
+    cbar_labs = cax.get_xticklabels()
+    new_labs = [num2date(int(l.get_text())).strftime('%Y/%m/%d') for l in cbar_labs]
+    cax.set_xticklabels(new_labs, rotation=30, horizontalalignment='right')
+    plt.show()
     return
 
 

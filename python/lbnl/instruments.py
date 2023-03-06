@@ -21,7 +21,7 @@ from obspy.core.util import AttribDict
 from obspy.core.inventory import Inventory, Network, Station, Channel, Response
 from obspy.core.inventory import ResponseListResponseStage
 from obspy.core.inventory.response import ResponseListElement, InstrumentPolynomial
-from obspy.core.inventory.response import InstrumentSensitivity
+from obspy.core.inventory.response import InstrumentSensitivity, ResponseStage
 from obspy.core.inventory.util import Latitude, Longitude, Equipment
 
 from lbnl.coordinates import SURF_converter, FSB_converter
@@ -183,10 +183,10 @@ def MMF_calibration_to_response(directory, plot=False):
                                serial_number=serial))
             values = df[['[Hz]', '[m/s²]', '[°]']].values
             # Add to dict for average channel estimate later
-            avg_amp[chan_code].append(values[:,1])
-            avg_phase[chan_code].append(values[:,2])
+            avg_amp[chan_code].append(values[:, 1])
+            avg_phase[chan_code].append(values[:, 2])
             avg_sensitivity[chan_code].append(float(sens_dict[nm]))
-            avg_freq = values[:,0]
+            avg_freq = values[:, 0]
             response_elements = [ResponseListElement(
                 frequency=values[i][0], amplitude=values[i][1],
                 phase=values[i][2])
@@ -195,6 +195,11 @@ def MMF_calibration_to_response(directory, plot=False):
             response_elements.insert(0, ResponseListElement(
                 frequency=0., amplitude=values[0][1], phase=values[0][2]
             ))
+            # Add a stage for the Vibbox (gain 100)
+            vbox_stage = ResponseStage(
+                stage_sequence_number=2, stage_gain=100, stage_gain_frequency=80,
+                input_units='COUNTS', output_units='V'
+            )
             resp_stage = ResponseListResponseStage(
                 response_list_elements=response_elements, stage_gain=1,
                 stage_gain_frequency=80., input_units='M/S**2',
@@ -203,11 +208,12 @@ def MMF_calibration_to_response(directory, plot=False):
             )
             sensitivity = InstrumentSensitivity(
                 value=float(sens_dict[nm]), frequency=80.,
-                input_units='M/S**2', output_units='V', frequency_range_start=5,
+                input_units='M/S**2', output_units='COUNTS', frequency_range_start=5,
                 frequency_range_end=15850,
                 frequency_range_db_variation=3)
             response = Response(instrument_sensitivity=sensitivity,
-                                response_stages=[resp_stage])
+                                response_stages=[resp_stage, vbox_stage])
+            response.recalculate_overall_sensitivity(80.)
             chan.response = response
             sta.channels.append(chan)
             # chan.response.plot(min_freq=2.4, sampling_rate=40000.)
@@ -235,6 +241,11 @@ def MMF_calibration_to_response(directory, plot=False):
         response_elements.insert(0, ResponseListElement(
             frequency=0., amplitude=amp[0], phase=pha[0]
         ))
+        # Add a stage for the Vibbox (gain 100)
+        vbox_stage = ResponseStage(
+            stage_sequence_number=2, stage_gain=100, stage_gain_frequency=80,
+            input_units='COUNTS', output_units='V'
+        )
         resp_stage = ResponseListResponseStage(
             response_list_elements=response_elements, stage_gain=1,
             stage_gain_frequency=80., input_units='M/S**2',
@@ -243,11 +254,12 @@ def MMF_calibration_to_response(directory, plot=False):
         )
         sensitivity = InstrumentSensitivity(
             value=np.array(avg_sensitivity[c]).mean(), frequency=80.,
-            input_units='M/S**2', output_units='V', frequency_range_start=5,
+            input_units='M/S**2', output_units='COUNTS', frequency_range_start=5,
             frequency_range_end=15850,
             frequency_range_db_variation=3)
         response = Response(instrument_sensitivity=sensitivity,
-                            response_stages=[resp_stage])
+                            response_stages=[resp_stage, vbox_stage])
+        response.recalculate_overall_sensitivity(80.)
         chan.response = response
         avg_sta.channels.append(chan)
     inv[0].stations.append(avg_sta)

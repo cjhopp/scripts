@@ -577,6 +577,7 @@ def retrieve_usgs_catalog(**kwargs):
     :return: obspy.core.events.Catalog
     """
     cli = Client('https://earthquake.usgs.gov')
+    # cli = Client('NCEDC')
     cat = cli.get_events(**kwargs)
     print('{} events in catalog'.format(len(cat)))
     # Now loop over each event and grab the phase dataframe using libcomcat
@@ -584,6 +585,8 @@ def retrieve_usgs_catalog(**kwargs):
     for ev in cat:
         print(ev.resource_id.id)
         eid = ev.resource_id.id.split('=')[-2].split('&')[0]
+        # eid = 'nc{}'.format(ev.resource_id.id.split('/')[-1])
+        print(eid)
         detail = get_event_by_id(eid, includesuperseded=True)
         try:
             phase_df = get_phase_dataframe(detail)
@@ -629,7 +632,10 @@ def retrieve_usgs_catalog(**kwargs):
             continue
         mt_ev = read_events(io.TextIOWrapper(io.BytesIO(mt_xml),
                                              encoding='utf-8'))
-        FM = mt_ev[0].focal_mechanisms[0]
+        if len(mt_ev[0].focal_mechanisms) > 0:
+            FM = mt_ev[0].preferred_focal_mechanism()
+        if FM is None:
+            FM = mt_ev[0].focal_mechanisms[0]
         FM.triggering_origin_id = ev.preferred_origin().resource_id.id
         ev.focal_mechanisms = [FM]
     for rm in rms:
