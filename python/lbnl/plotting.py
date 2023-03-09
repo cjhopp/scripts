@@ -86,6 +86,15 @@ collab_4100_zone_depths = {
            212.15],
     'TU': [178.5]
 }
+
+# Mont Terri fault depths by borehole
+fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
+                'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
+                'D7': (22.46, 25.54), 'B2': (41.25, 45.65), 'B1': (34.8, 42.25),
+                'B9': (55.7, 55.7), 'B10': (17.75, 21.7), '1': (38.15, 45.15),
+                '2': (44.23, 49.62), '3': (38.62, 43.39)}
+
+
 def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, seismic, packers=None,
                       accel_dict=None):
     """
@@ -1182,7 +1191,8 @@ def plot_FSB_2D(autocad_path, strike=120.,
             col = fsb_well_colors[well]
             zdr = 109
         except KeyError:
-            col = 'lightgray'
+            col = csd_well_colors[well]
+            # col = 'lightgray'
             zdr = 90
         # Proj
         pts = pts[:, :3]
@@ -1208,19 +1218,20 @@ def plot_FSB_2D(autocad_path, strike=120.,
     ax3d.set_ylim([1247555, 1247600])
     ax3d.set_zlim([485, 530])
     # ax3d.view_init(elev=30., azim=-112)
-    ax3d.view_init(elev=75, azim=-120.)
+    # ax3d.view_init(elev=75, azim=-120.)
+    ax3d.view_init(elev=80, azim=-17.)
     ax3d.margins(0.)
     ax3d.set_xticks([])
     ax3d.set_xticklabels([])
     ax3d.set_yticks([])
     ax3d.set_yticklabels([])
-    ax3d.set_zticks([])
+    # ax3d.set_zticks([])
     ax3d.set_zticklabels([])
     # Overview map
     ax_map.axis('equal')
     ax_map.axis('off')
-    ax_map.set_xlim([2579305, 2579353])
-    ax_map.set_ylim([1247565, 1247612])
+    ax_map.set_xlim([2579300, 2579353])
+    ax_map.set_ylim([1247560, 1247612])
     # Fault map
     ax_fault.axis('equal')
     ax_fault.spines['top'].set_visible(False)

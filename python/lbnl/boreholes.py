@@ -363,8 +363,8 @@ def calculate_frac_density(path, well_dict):
     return frac_dict
 
 
-def create_FSB_boreholes(gocad_dir='/media/chet/data/chet-FS-B/Mont_Terri_model/',
-                         asbuilt_dir='/media/chet/data/chet-FS-B/wells/'):
+def create_FSB_boreholes(gocad_dir='/media/chopp/Data1/chet-FS-B/Mont_Terri_model/',
+                         asbuilt_dir='/media/chopp/Data1/chet-FS-B/wells/'):
     """
     Return dictionary of FSB well coordinates
 
