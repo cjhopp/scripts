@@ -365,7 +365,7 @@ def remove_collab_bath_bias(well_data):
         for well, well_dict in well_data.items():
             if 'temp' in well or 'reference' in well:
                 continue
-            trend = well_dict['data'][200, :] # Arbitrary channel near toe
+            trend = well_dict['data'][200, :]  # Arbitrary channel near toe
             dts_corrected = well_dict['data'] - trend
             dts_corrected += trend[0]
             well_dict['data'] = dts_corrected
@@ -599,11 +599,13 @@ def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
                                            depth[-1] - depth[0], 0],
                                    aspect='auto', vmin=vrange[0],
                                    vmax=vrange[1])
-            axes[axno].set_ylabel('{} [m]'.format(well), fontsize=18)
+            axes[axno].set_ylabel('{} [m]'.format(well), fontsize=22)
             axes[axno].tick_params(which='both', axis='x', labelbottom=False)
+            axes[axno].tick_params(axis='y', labelsize=16)
         cax = fig.add_subplot(gs[:12, -1])
         cbar = fig.colorbar(im, cax=cax, orientation='vertical')
-        cbar.ax.set_ylabel('$\Delta$T [$^o$C]')
+        cbar.ax.set_ylabel('$\Delta$T [$^o$C]', fontsize=24)
+        cbar.ax.tick_params(axis='y', labelsize=18)
         date_formatter = mdates.DateFormatter('%m-%d %H:%M')
         if type(hydro_data) == pd.DataFrame:
             hydro_ax = fig.add_subplot(gs[12:, :-1], sharex=axes[0])
@@ -632,20 +634,22 @@ def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
                 collab_stim_data['PT 403'].plot(ax=ax2, color='firebrick')
             hydro_ax.set_ylim(bottom=0, top=6.)
             ax2.set_ylim(bottom=0)
-            hydro_ax.set_ylabel('L/min', color='steelblue')
-            ax2.set_ylabel('psi', color='firebrick')
+            hydro_ax.set_ylabel('L/min', color='steelblue', fontsize=18)
+            ax2.set_ylabel('psi', color='firebrick', fontsize=18)
             hydro_ax.tick_params(axis='y', which='major', labelcolor='steelblue',
-                           color='steelblue')
+                                 color='steelblue', labelsize=16)
             ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
-                            color='firebrick')
-            hydro_ax.set_xlabel('Date')
+                            color='firebrick', labelsize=16)
+            hydro_ax.set_xlabel('Date [{}]'.format(date_range[0].year), fontsize=24)
             hydro_ax.xaxis.set_major_locator(DayLocator(interval=7))
-            # hydro_ax.xaxis.set_major_locator(HourLocator(interval=6))
-            hydro_ax.xaxis.set_tick_params(rotation=30)
+            hydro_ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+            hydro_ax.tick_params(axis='x', labelsize=18)
+            plt.setp(hydro_ax.get_xticklabels(), ha="center")
             hydro_ax.set_xlim(*date_range)
             lns1, labs1 = hydro_ax.get_legend_handles_labels()
             lns2, labs2 = ax2.get_legend_handles_labels()
-            ax2.legend(lns1 + lns2, labs1 + labs2)
+            ax2.legend(lns1 + lns2, labs1 + labs2, fontsize=14)
+        plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95)
         plt.show()
         return
     else:
@@ -688,12 +692,12 @@ def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
         for ax in axes:
             ax.xaxis.set_major_formatter(date_formatter)
             ax.set_ylabel('Depth [m]')
-            ax.set_xlabel('Date')
+            ax.set_xlabel('Date', fontsize=18)
     else:
         axes.xaxis.set_major_formatter(date_formatter)
         axes.set_ylabel('Length along fiber [m]')
         axes.set_xlabel('Date')
-    plt.tight_layout()
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95)
     plt.show()
     return
 

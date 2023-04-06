@@ -24,6 +24,8 @@ import seaborn as sns
 from glob import glob
 from copy import deepcopy
 from itertools import cycle
+from bitarray import bitarray
+from bitarray.util import ba2int
 from pathlib import Path
 from datetime import timedelta, datetime, date
 from joblib import Parallel, delayed
@@ -261,6 +263,47 @@ def reftek_to_mseed(input_dir, output_dir, mapping):
         with open('read-files.txt', 'a') as f:
             f.write('{}\n'.format(rt130))
     return baddies
+
+def decode_CASSM_channel(trace, threshold=0.5, plot=False):
+    """
+    Return the cytek channel number of the firing source (ported from Todd's matlab function)
+
+    :param trace: Trace object for CEnc (trimmed to trigger time = t0)
+    :param threshold: Threshold for clipping (default 0.5)
+    :param plot: Plotting flag
+    :return:
+    """
+    BYTE_SIZE = 5
+    time = trace.times()
+    enc = trace.copy().data
+    enc -= enc[0]
+    # Set 'on' values to max, 'off' values to zero
+    enc[np.where(enc < threshold * np.max(enc))] = 0
+    enc[np.where(enc > 0)] = np.max(enc)
+    enc_diff = np.abs(np.diff(enc))
+    plt.plot(enc_diff)
+    plt.gca().axhline(threshold * np.max(enc_diff), color='grey', linestyle=':')
+    # plt.show()
+    # Find times
+    b = time[np.where(enc_diff > threshold * np.max(enc_diff))]
+    print(b)
+    bit_width = b[1] - b[0]
+    print(bit_width)
+    bit_start = b[0]
+    data_start = bit_start + 1.5 * bit_width
+    bits = []
+    channel = bitarray('00000')
+    for k in np.arange(BYTE_SIZE):
+        print(k)
+        bits.append(data_start + k * bit_width)
+        print(bits)
+        if enc[np.where(time >= bits[k])[0][0]] > 0:
+            channel[k] = '1'
+
+
+
+            
+    return ba2int(channel)
 
 
 def read_cassm_seg2(file, mapping, plot_picks=False):

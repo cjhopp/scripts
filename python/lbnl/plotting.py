@@ -1259,7 +1259,7 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     :param hull: Path to JSON of the Trimesh for the drift
     :param catalog: Optional Obspy catalog
     :param filename: Optional path to figure file
-    :param view: Optional view initiallization for the 3D plot (elevation, az)
+    :param view: Optional view initialization for the 3D plot (elevation, az)
     :param stimulation_data:
     """
     # Read the polygon and alpha hull from file
@@ -1356,9 +1356,10 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
             c=np.array(colors)[mag_inds], s=sizes)
         ax2 = axes_time.twinx()
         ax2.step(times, np.arange(len(times)), color='firebrick')
-        axes_time.set_ylabel('Distance from TU injection [m]')
-        ax2.set_ylabel('Cumulative events')
-        axes_time.tick_params(which='both', axis='x', labelbottom='False')
+        axes_time.set_ylabel('Distance [m]', fontsize=14)
+        ax2.set_ylabel('# events', fontsize=14)
+        axes_time.tick_params(which='both', axis='x', labelbottom='False', labelsize=18)
+        plt.setp(axes_time.get_xticklabels(), visible=False)
     if type(circulation_data) == pd.DataFrame:
         # df = hydro_data[date_range[0]:date_range[1]]
         ax2 = hydro_ax.twinx()
@@ -1379,19 +1380,26 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
             stimulation_data['PT 403'].plot(ax=ax2, color='firebrick')
         hydro_ax.set_ylim(bottom=0)
         ax2.set_ylim(bottom=0)
-        hydro_ax.set_ylabel('L/min', color='steelblue')
-        ax2.set_ylabel('psi', color='firebrick')
+        hydro_ax.set_ylabel('L/min', color='steelblue', fontsize=18)
+        ax2.set_ylabel('psi', color='firebrick', fontsize=18)
         hydro_ax.tick_params(axis='y', which='major', labelcolor='steelblue',
-                             color='steelblue')
+                             color='steelblue', labelsize=15)
         ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
-                        color='firebrick')
-    hydro_ax.set_xlabel('Date')
+                        color='firebrick', labelsize=15)
+        ax2.set_xlabel('Date', fontsize=20)
+        # ax2.xaxis.set_major_locator(HourLocator(interval=4))
+        ax2.xaxis.set_major_locator(DayLocator(interval=7))
+        ax2.tick_params(axis='x', pad=15)
+        plt.setp(ax2.get_xticklabels(), rotation=0, ha="center", fontsize=18)
+    hydro_ax.set_xlabel('Date', fontsize=20)
     # hydro_ax.xaxis.set_major_locator(HourLocator(interval=4))
-    hydro_ax.xaxis.set_major_locator(DayLocator(interval=1))
-    hydro_ax.xaxis.set_tick_params(rotation=30)
+    hydro_ax.xaxis.set_major_locator(DayLocator(interval=7))
+    hydro_ax.tick_params(axis='x', pad=15)
+    plt.setp(hydro_ax.get_xticklabels(), rotation=0, ha="center", fontsize=18)
     axes_3D.set_xlabel('Easting [HMC]', fontsize=14)
     axes_3D.set_ylabel('Northing [HMC]', fontsize=14)
     axes_3D.set_zlabel('Elevation [m]', fontsize=14)
+    axes_3D.tick_params(which='major', labelsize=10)
     axes_3D.set_ylim([-905, -855])
     axes_3D.set_xlim([1215, 1265])
     axes_3D.set_zlim([305, 355])
@@ -1426,10 +1434,11 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     # axes_map.plot(hull_pts[0, :], hull_pts[1, :], linewidth=0.9, color='k')
     axes_map.set_ylim([-920, -840])
     axes_map.set_xlim([1200, 1280])
-    axes_map.set_xlabel('Easting [HMC]', fontsize=14)
-    axes_map.set_ylabel('Northing [HMC]', fontsize=14)
+    axes_map.set_xlabel('Easting [HMC]', fontsize=18)
+    axes_map.set_ylabel('Northing [HMC]', fontsize=18)
+    axes_map.tick_params(axis='both', which='major', labelsize=12)
     axes_map.set_aspect('equal')
-    plt.tight_layout()
+    plt.subplots_adjust(left=0.05, right=0.93, bottom=0.08, top=0.95, hspace=1.4)
     if filename:
         plt.savefig(filename, dpi=300)
     else:
@@ -2414,7 +2423,7 @@ def plot_catalog(catalog, dem_dir, vector_dir):
     return
 
 
-def plot_numo(catalog, dem_dir, vector_dir=None):
+def plot_numo(catalog, dem_dir, vector_dir=None, plot_focmecs=False):
     """
 
     :param catalog:
@@ -2469,23 +2478,26 @@ def plot_numo(catalog, dem_dir, vector_dir=None):
         o = ev.preferred_origin()
         m = ev.preferred_magnitude().mag
         c = cmap(norm(date2num(o.time)))
-        if len(ev.focal_mechanisms) > 0:
-            fm = ev.focal_mechanisms[0]
-            try:
-                tens = fm.moment_tensor.tensor
-                mt = [tens.m_rr, tens.m_tt, tens.m_pp, tens.m_rt, tens.m_rp, tens.m_tp]
-                beach_ = beach(mt, width=m**2 * 0.003, xy=(o.longitude, o.latitude), facecolor=c)
-            except AttributeError:
-                np1 = fm.nodal_planes.nodal_plane_1
-                if hasattr(fm, "_beachball"):
-                    beach_ = copy.copy(fm._beachball)
-                else:
-                    beach_ = beach([np1.strike, np1.dip, np1.rake], facecolor=c,
-                                   width=m**2 * 0.003, xy=(o.longitude, o.latitude))
-            ax.add_collection(beach_)
-            if m > 2.5:
-                ax.annotate(ev.resource_id.id.split('=')[-2].split('&')[0], xy=(o.longitude, o.latitude),
-                            xytext=(m*6, m*6), textcoords="offset points", fontsize=12, fontstyle='italic')
+        if plot_focmecs:
+            if len(ev.focal_mechanisms) > 0:
+                fm = ev.focal_mechanisms[0]
+                try:
+                    tens = fm.moment_tensor.tensor
+                    mt = [tens.m_rr, tens.m_tt, tens.m_pp, tens.m_rt, tens.m_rp, tens.m_tp]
+                    beach_ = beach(mt, width=m**2 * 0.003, xy=(o.longitude, o.latitude), facecolor=c)
+                except AttributeError:
+                    np1 = fm.nodal_planes.nodal_plane_1
+                    if hasattr(fm, "_beachball"):
+                        beach_ = copy.copy(fm._beachball)
+                    else:
+                        beach_ = beach([np1.strike, np1.dip, np1.rake], facecolor=c,
+                                       width=m**2 * 0.003, xy=(o.longitude, o.latitude))
+                ax.add_collection(beach_)
+                if m > 2.5:
+                    ax.annotate(ev.resource_id.id.split('=')[-2].split('&')[0], xy=(o.longitude, o.latitude),
+                                xytext=(m*6, m*6), textcoords="offset points", fontsize=12, fontstyle='italic')
+        else:
+            ax.scatter(o.longitude, o.latitude, color=c, s=m**2 * 2)
     # Scale bar
     points = gpd.GeoSeries([Point(-121.6, extent[2]),
                             Point(-121.65, extent[2])], crs=4326)
