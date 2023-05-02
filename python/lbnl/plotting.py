@@ -94,6 +94,17 @@ fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58)
                 'B9': (55.7, 55.7), 'B10': (17.75, 21.7), '1': (38.15, 45.15),
                 '2': (44.23, 49.62), '3': (38.62, 43.39)}
 
+dts_hits_4100 = {
+    'AMU': [34.0, 54.9],
+    'AML': [45.5],
+    'DMU': [18.5, 31.0, 43.0],
+    'DML': [42.9, 43.9, 7.1, 14.9, 6.7, 22.3, 19.9]
+}
+
+dts_cooling_4100 = {
+    'AMU': [[43.4, 48.4]],
+    'DMU': [[18.7, 28.7], [32.7, 39.7]]
+}
 
 def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, seismic, packers=None,
                       accel_dict=None):
@@ -1249,7 +1260,8 @@ def plot_FSB_2D(autocad_path, strike=120.,
 
 def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
               catalog=None, filename=None, view=None, stimulation_data=None,
-              circulation_data=None, plot_zones=False, dates=None):
+              circulation_data=None, plot_zones=False, dates=None, DTS_points=False,
+              fractures=None):
     """
     Plot overview of 4100L with map, 3D and timeseries (if requested)
 
@@ -1315,6 +1327,11 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     if hull:
         axes_3D.plot_trisurf(*zip(*hull.vertices), triangles=hull.faces,
                              color='darkgray')
+    if fractures:
+        for frac_file in fractures:
+            verts = np.loadtxt(frac_file, delimiter=',', skiprows=1)
+            print(verts)
+            axes_3D.plot_trisurf(verts[:, 0] * 0.3048, verts[:, 1] * 0.3048, verts[:, 2] * 0.3048, color='tan', alpha=0.5)
     if inventory:
         stations = [(float(sta.extra.hmc_east.value) * 0.3048,
                      float(sta.extra.hmc_north.value) * 0.3048,
@@ -1339,18 +1356,35 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
                 color = 'r'
             for z in zone_list:
                 axes_3D.scatter(z[0], z[1], z[2], marker='*', s=100, c=color)
+    if DTS_points:
+        # Plot J-T frac hits
+        for bh, deps in dts_hits_4100.items():
+            for dep in deps:
+                xyz = depth_to_xyz(boreholes, bh, dep)
+                axes_3D.scatter(xyz[0], xyz[1], xyz[2], marker='x', s=100, color='firebrick')
+                axes_map.scatter(xyz[0], xyz[1], marker='x', s=100, color='firebrick')
+        for bh, dep_lists in dts_cooling_4100.items():
+            for dep in dep_lists:
+                pt1 = depth_to_xyz(boreholes, bh, dep[0])
+                pt2 = depth_to_xyz(boreholes, bh, dep[1])
+                axes_3D.plot([pt1[0], pt2[0]], [pt1[1], pt2[1]], [pt1[2], pt2[2]], linewidth=5, color='dodgerblue')
+                axes_map.plot([pt1[0], pt2[0]], [pt1[1], pt2[1]], linewidth=5., color='dodgerblue')
     # Stations
     if inventory:
         axes_3D.scatter(sx, sy, sz, marker='v', color='r', label='Seismic sensor')
     if catalog:
-        sizes = ((mags - np.min(mags)) * 2)**2
+        sizes = ((mags - np.min(mags)))**2
         mpl = axes_3D.scatter(
             np.array(x)[mag_inds], np.array(y)[mag_inds],
             np.array(z)[mag_inds], marker='o',
-            c=np.array(colors)[mag_inds], s=sizes,
-            alpha=0.7)
+            # color='k',
+            c=np.array(colors)[mag_inds],
+            s=sizes, alpha=0.7)
         axes_map.scatter(np.array(x)[mag_inds], np.array(y)[mag_inds],
-                         marker='o', c=np.array(colors)[mag_inds], s=sizes)
+                         marker='o',
+                         c=np.array(colors)[mag_inds],
+                         # color='k',
+                         s=sizes)
         axes_time.scatter(
             np.array(times)[mag_inds], np.array(distance)[mag_inds],
             c=np.array(colors)[mag_inds], s=sizes)
@@ -1363,10 +1397,10 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     if type(circulation_data) == pd.DataFrame:
         # df = hydro_data[date_range[0]:date_range[1]]
         ax2 = hydro_ax.twinx()
-        hydro_ax.plot(circulation_data['Time'], circulation_data['Net Flow'],
+        hydro_ax.plot(circulation_data.index, circulation_data['Net Flow'],
                       color='steelblue')
         ax2.plot(
-            circulation_data['Time'], circulation_data['Injection Pressure'],
+            circulation_data.index, circulation_data['Injection Pressure'],
             color='firebrick')
         if type(stimulation_data) == pd.DataFrame:
             Q = stimulation_data.filter(like='Flow')

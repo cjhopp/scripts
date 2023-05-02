@@ -28,7 +28,6 @@ from obspy.core import AttribDict
 from obspy.geodetics import kilometer2degrees
 from matplotlib.widgets import LassoSelector
 from matplotlib.path import Path
-from sklearn.cluster import KMeans
 
 # Local import
 try:

@@ -46,6 +46,8 @@ def read_collab_hydro(path):
 
 def read_4100_circulation(path):
     df = pd.read_csv(path, header=0, parse_dates=['Time'])
+    df = df.set_index('Time')
+    df.sort_index(inplace=True)
     return df
 
 

@@ -195,6 +195,13 @@ patua_reftek_stations = {'AAE2': {'station': 'PT.2128',
                                                'NEW_STREAM2': '00.DH2',
                                                'NEW_STREAM3': '10.DHZ',
                                                'NEW_STREAM4': '10.DHN',
+                                               'NEW_STREAM5': '10.DHE'}},
+                         'AAD8': {'station': 'PT.2115',
+                                  'channels': {'NEW_STREAM0': '00.DHZ',
+                                               'NEW_STREAM1': '00.DH1',
+                                               'NEW_STREAM2': '00.DH2',
+                                               'NEW_STREAM3': '10.DHZ',
+                                               'NEW_STREAM4': '10.DHN',
                                                'NEW_STREAM5': '10.DHE'}}
                          }
 
@@ -280,10 +287,10 @@ def decode_CASSM_channel(trace, threshold=0.5, plot=False):
     # Set 'on' values to max, 'off' values to zero
     enc[np.where(enc < threshold * np.max(enc))] = 0
     enc[np.where(enc > 0)] = np.max(enc)
-    enc_diff = np.abs(np.diff(enc))
-    plt.plot(enc_diff)
+    enc_diff = np.abs(np.diff(enc, append=0))
+    plt.plot(time, enc, color='b')
+    plt.plot(time, enc_diff)
     plt.gca().axhline(threshold * np.max(enc_diff), color='grey', linestyle=':')
-    # plt.show()
     # Find times
     b = time[np.where(enc_diff > threshold * np.max(enc_diff))]
     print(b)
@@ -294,15 +301,12 @@ def decode_CASSM_channel(trace, threshold=0.5, plot=False):
     bits = []
     channel = bitarray('00000')
     for k in np.arange(BYTE_SIZE):
-        print(k)
         bits.append(data_start + k * bit_width)
-        print(bits)
-        if enc[np.where(time >= bits[k])[0][0]] > 0:
-            channel[k] = '1'
-
-
-
-            
+        plt.gca().axvline(bits[k], color='k')
+        if enc[np.min(np.where(time >= bits[k]))] > 0:
+            channel[k] = 1
+            print(channel)
+    plt.show()
     return ba2int(channel)
 
 
