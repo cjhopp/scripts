@@ -1,5 +1,5 @@
 start_date=2021-8-1
-end_date=2022-12-31
+end_date=2023-12-31
 
 # After this, startdate and enddate will be valid ISO 8601 dates,
 # or the script will have aborted when it encountered unparseable data
