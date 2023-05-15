@@ -94,7 +94,10 @@ cascadia_colors = {'NSMTC.B1': '#c6dbef', 'NSMTC.B2': '#6aaed6',
                    '2128.10': '#956cb4', '2128.00': '#d65f5f',
                    '2221.10': '#956cb4', '2221.00': '#d65f5f',
                    '4509.10': '#956cb4', '4509.00': '#d65f5f',
-                   '5230.10': '#956cb4', '5230.00': '#d65f5f'}
+                   '5230.10': '#956cb4', '5230.00': '#d65f5f',
+                   'NN07.': '#956cb4', 'NN09.': '#c6dbef',
+                   'NN17.': '#d65f5f', 'NN18.': '#ee854a',
+                   'NN24.': '#6acc64', 'NN32.': '#6acc64'}
 
 collab_4100_geode = {
     '1': 'AML1.XNZ', '2': 'AML1.XNX', '3': 'AML1.XNY', '4': 'AML2.XNZ', '5': 'AML2.XNX',
@@ -3226,8 +3229,7 @@ def plot_raw_spectra(st, ev, seed_ids, inv=None, savefig=None):
     return axes
 
 
-def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
-              eq_psd=None):
+def plot_psds(psd_dir, seeds, reference_seed='NV.NSMTC.B2.CNZ', eq_psd=None, xlim=None):
     """
     Take pre-computed ppsds and plot the means and diffs for all specified
     channels
@@ -3242,20 +3244,15 @@ def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
     cols = cycle(sns.color_palette('muted'))
     next(cols)  # Skip first blue-ish one
     B_cols = cycle(sns.color_palette('Blues', 3))
-    npz_files = glob('{}/*'.format(psd_dir))
-    if datetime:
-        day_str = '{}.{:03d}'.format(datetime.year,
-                                     UTCDateTime(datetime).julday)
-    else:
-        day_str = 'FEB_MAR'
+    npz_files = glob('{}/*npz'.format(psd_dir))
     ppsds = {}
     for seed in seeds:
         try:
             ppsds[seed] = PPSD.load_npz(
                 [f for f in npz_files
-                 if f[:-4].endswith('.'.join([seed, day_str]))][0])
+                 if f.split('/')[-1].startswith(seed)][0])
         except IndexError:
-            print('No file for {}.{}'.format(seed, day_str))
+            print('No file for {}'.format(seed))
             continue
     # Plot em
     fig, axes = plt.subplots(ncols=2, sharex='row', figsize=(15, 5))
@@ -3277,7 +3274,7 @@ def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
         if seed == reference_seed:
             axes[0].fill_between(1 / xs, -180, ys, color='lightgray',
                                  alpha=0.8)
-            axes[1].fill_between(1 / diffx, -45, diffy, color='lightgray',
+            axes[1].fill_between(1 / diffx, -30, diffy, color='lightgray',
                                  alpha=0.8)
     if eq_psd:
         df = pd.read_csv(eq_psd)
@@ -3299,7 +3296,10 @@ def plot_psds(psd_dir, seeds, datetime=None, reference_seed='NV.NSMTC.B2.CNZ',
     axes[1].set_facecolor('whitesmoke')
     axes[0].margins(0.)
     axes[1].margins(0.)
-    axes[0].set_xlim([0.002, 250.])
+    if xlim:
+        axes[0].set_xlim(xlim)
+    else:
+        axes[0].set_xlim([0.002, 250.])
     axes[0].set_ylim(bottom=-180)
     fig.legend()
     plt.show()

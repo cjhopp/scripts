@@ -1,4 +1,4 @@
-start_date=2021-6-1
+start_date=2021-8-1
 end_date=2022-12-31
 
 # After this, startdate and enddate will be valid ISO 8601 dates,

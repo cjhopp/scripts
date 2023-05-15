@@ -69,13 +69,20 @@ chan_map_injection_fsb = {
     'B1': 98.5, 'B2': 1515.3, 'B3': 888., 'B4': 1062., 'B5': 709., 'B6': 1216.,
     'B7': 1320., 'B8': 428., 'B9': 267., 'B10': 565.}
 
+chan_map_fsb_23 = {
+    'B1': 98.5, 'B2': 1781.5, 'B3': 1154.25, 'B4': 1326.375, 'B5': 972.125, 'B6': 1479.,
+    'B7': 1583.25, #'B8': 428. B8 got hit by drilling
+    'B9': 267., 'B10': 830.5, 'B11': 666.75, 'B12': 456.5,
+    'Tank': 1906.5
+}
+
 chan_map_4100 = {'AMU': (85.70, 207.19), 'AML': (221.67, 343.69),
                  'DMU': (384.37, 495.44), 'DML': (505.10, 616.43)}
 
 chan_map_EFSL = {'3359': (76.56, 5358.7), '3339': (99.25, 5193.25)}
 
-channel_mapping = {'fsb': chan_map_injection_fsb, 'efsl': chan_map_EFSL,
-                   '4100': chan_map_4100}
+channel_mapping = {'fsb': chan_map_injection_fsb, 'fsb23': chan_map_fsb_23,
+                   'efsl': chan_map_EFSL, '4100': chan_map_4100}
 
 ######### Degree of fiber winding #########
 
@@ -91,7 +98,8 @@ efsl_wind = 0
 fiber_depths_fsb = {'D1': 21.26, 'D2': 17.1, 'D3': 31.42, 'D4': 35.99,
                     'D5': 31.38, 'D6': 36.28, 'D7': 29.7, 'B1': 51.0,
                     'B2': 53.5, 'B3': 84.8, 'B4': 80., 'B5': 59., 'B6': 49.5,
-                    'B7': 49.3, 'B8': 61., 'B9': 61., 'B10': 35.5}
+                    'B7': 49.3, 'B8': 61., 'B9': 61., 'B10': 35.5, 'B11': 36.25,
+                    'B12': 50}
 
 fiber_depth_efsl = {'3359': 5399.617, '3339': 5249.653}
 
@@ -238,7 +246,7 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
     times = np.array(times)
     measures = np.stack(measures, axis=-1)
     # Make same dict as for other sources
-    if mapping == 'fsb':  # For case of FSB 6-column files
+    if mapping in ['fsb', 'fsb23']:  # For case of FSB 6-column files
         fiber_data = {'times': times, 'anti-stokes': measures[:, 2, :],
                       'stokes': measures[:, 1, :], 'data': measures[:, 5, :],
                       'depth': measures[:, 0, 0], 'reference_temp': ref,
@@ -276,7 +284,7 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
         depth = fiber_data['depth'].copy()
         data = fiber_data['data'].copy()
         times = fiber_data['times'].copy()
-        if mapping == 'fsb':  # Case of one symmetry point on looped wells
+        if mapping in ['fsb', 'fsb23']:  # Case of one symmetry point on looped wells
             start_chan = np.abs(depth - (chan_map[well] - fiber_depth))
             end_chan = np.abs(depth - (chan_map[well] + fiber_depth))
         elif mapping in ['efsl', '4100']:  # Non-looped well
@@ -517,7 +525,7 @@ def extract_channel_timeseries(well_data, depth, well, direction='down',
 ## Plotting funcs ##
 
 def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
-                    frame_interval=timedelta(hours=2)):
+                    frame_interval=timedelta(hours=2), mapping=None, depths=None):
     """
     Plot the entire fiber at various times
 
@@ -561,6 +569,14 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
         else:
             fig.legend()
     if not write_frames:
+        if mapping:
+            for well, map in mapping.items():
+                if well == 'Tank':
+                    continue
+                color = next(cat_cmap)
+                axes.axvline(map - depths[well], linestyle=':', color=color, label=well)
+                axes.axvline(map + depths[well], linestyle=':', color=color)
+        plt.legend()
         plt.show()
     return
 
