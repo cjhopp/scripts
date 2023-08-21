@@ -488,6 +488,8 @@ def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
         net = 'UW'
     elif location == '4100':
         net = 'CB'
+    elif location == 'fsb':
+        net = 'FS'
     else:
         net = 'SV'
     # Grab all stationxml files

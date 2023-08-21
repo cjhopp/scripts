@@ -10,12 +10,17 @@ enddate=$(date -I -d "$end_date")
 echo Process period $(date -d $startdate +%Y-%m-%d)' 00:00:00~'$(date -d $end_date +%Y-%m-%d)' 23:59:59'
 
 scart --files 10000 -dsEv --list nslc_patua.txt /Data2/AmplifyEGS/scarchive | scautopick -v -I - --playback --ep -d localhost --log-file scautopick.log > picks.xml
+## Following two lines are picking different locations at same station and merging picks xml
 #scart --files 10000 -dsEv --list nslc_patua.txt /Data2/AmplifyEGS/scarchive | scautopick00 -v -I - --playback --ep -d localhost --log-file scautopick00.log > picks00.xml
 #scxmlmerge picks.xml picks00.xml > picks_all.xml
+## Working commands for Patua pulling configuration from database
 scanloc -v --ep picks.xml -d localhost --log-file scanloc.log --cluster-search-log-file cluster.log > origins.xml
 scamp -v --ep origins.xml -d localhost -I sdsarchive:///Data2/AmplifyEGS/scarchive --log-file scamp.log > amps.xml
 scmag -v --ep amps.xml -d localhost --log-file scmag.log > mags.xml
 scevent -v --ep mags.xml -d localhost --log-file scevent.log > events.xml
+## Trying to use external config files exported with scxmldump
+#scanloc -v --ep picks.xml --config-db config_newberry.xml --inventory-db inventory_newberry-patua.xml --locator-profile patua_leidos --log-file scanloc.log --cluster-search-log-file cluster.log > origins.xml
+
 
 # Make myCatalog.csv to specify events to relocate
 echo "seiscompId" > myCatalog.csv

@@ -78,7 +78,7 @@ chan_map_feet = {'OT': (6287., 291., 356.), 'OB': (411., 470.5, 530.),
 chan_map_surf = {'OT': 286., 'OB': 470.5, 'PST': 737.5, 'PSB': 886.5,
                  'PDT': 1238., 'PDB': 1054.5}
 
-chan_map_4100 = {'AMU': (90.3, 209.2), 'AML': (226.2, 346.2),
+chan_map_4100 = {'AMU': (89.1, 210.6), 'AML': (226.2, 346.2),
                  'DMU': (387.7, 499.4), 'DML': (510.8, 619.8)}
 
 ########## FSB DSS CHANNEL MAPPINGS ###########
@@ -518,18 +518,25 @@ def scale_to_gain(data, gain, offset_samps):
 
 def write_mat(outdir, well_data):
     """Write matlab file from well data for Vero"""
+    # Is this a whle fiber?
+    fiber = len(well_data.keys())
     # Basically just strptime the datetimes
     for w, wd in well_data.items():
-        # Split the data and depth in half
-        down_data, up_data = np.array_split(wd['data'], 2)
-        depth, up_dep = np.array_split(wd['depth'] - wd['depth'][0], 2)
-        if down_data.shape[0] != up_data.shape[0]:
-            up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
-            up_data = np.flip(up_data, axis=0)
-        wd['up_data'] = up_data
-        wd['down_data'] = down_data
+        wd = deepcopy(wd)
+        if fiber > 1:
+            # Split the data and depth in half
+            down_data, up_data = np.array_split(wd['data'], 2)
+            depth, up_dep = np.array_split(wd['depth'] - wd['depth'][0], 2)
+            if down_data.shape[0] != up_data.shape[0]:
+                up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
+                up_data = np.flip(up_data, axis=0)
+            wd['up_data'] = up_data
+            wd['down_data'] = down_data
+        elif fiber == 1:
+            depth = wd['depth'] - wd['depth'][0]
         wd['distance'] = wd['depth'].copy()
         wd['depth'] = depth
+        wd['type'] = 0.
         wd['noise'] = 0.
         wd['times'] = [t.strftime('%d-%b-%Y %H:%M:%S') for t in wd['times']]
         name = '{}/{}_DSS.mat'.format(outdir, w)
@@ -660,6 +667,8 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
         chan_map = {}
         data_files = glob('{}/*{}.txt'.format(root, measure))
         gain_files = glob('{}/*Absolute_Gain.txt'.format(root))
+        if DTS:
+            temp_dict = DTS
         for f in data_files:
             file_root = f.split('/')[-1].split('_')[0]
             fiber_data[file_root] = {}
@@ -702,11 +711,12 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
     if convert_freq and type_m.endswith('Frequency'):
         print('Converting from freq to strain')
         if mode == 'Absolute':
+            pass
             # First convert to delta Freq
-            for fib, f_dict in fiber_data.items():
-                f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
-            mode = 'Relative'  # overwrite mode
-            type_m = 'Strain'
+            # for fib, f_dict in fiber_data.items():
+            #     f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
+            # mode = 'Relative'  # overwrite mode
+            # type_m = 'Strain'
     if mode == 'Absolute' and type_m.endswith('Strain'):
         for fib, f_dict in fiber_data.items():
             f_dict['data'] = f_dict['data'] - f_dict['data'][:, 0, np.newaxis]
@@ -782,15 +792,10 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             if DTS:
                 print('Removing DTS-induced strain')
                 # Remove temperature signal from strain
-                full_loop_T = np.concatenate((temp_dict[well]['temp'],
-                                              np.flip(temp_dict[well]['temp'],
-                                                      axis=0)),
-                                             axis=0)
-                full_loop_d = np.concatenate((temp_dict[well]['depth'],
-                                              temp_dict[well]['depth'] +
-                                              temp_dict[well]['depth'][-1]))
+                full_loop_T = temp_dict[well]['data']
+                full_loop_d = temp_dict[well]['depth']
                 # DTS grid
-                xt, yt = np.meshgrid(full_loop_d,
+                xt, yt = np.meshgrid(full_loop_d - full_loop_d[0],
                                      date2num(temp_dict[well]['times']),
                                      indexing='ij')
                 # DSS grid
@@ -809,7 +814,7 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                      'interp_temp': temp_interp,
                      'temp-induced_freq': temp_interp.copy() * 0.00164,
                      'temp-induced_strain': temp_interp.copy() * 0.00164 * 5790.,
-                     'raw_temp': temp_dict[well]['temp']})
+                     'raw_temp': temp_dict[well]['data']})
                 data_tmp = data_tmp - (temp_interp * 0.00164)
                 well_data[well].update({'corrected_freq': data_tmp.copy()})
             if convert_freq:
@@ -1366,7 +1371,8 @@ def get_frac_piercepoint(wells, well_file):
 ################  Plotting  Funcs  ############################################
 
 def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
-                    frame_interval=timedelta(hours=2), mapping=None, depths=None):
+                    frame_interval=timedelta(hours=2), mapping=None, depths=None,
+                    axes=None, color_wells=False):
     """
     Plot the entire fiber at various times
 
@@ -1379,8 +1385,10 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
         to be made into a movie
     :param frame_interval: Time interval between frames (as timedelta)
     """
-    if not write_frames:
+    show = 0  # Plot interactively flag
+    if not write_frames and not axes:
         fig, axes = plt.subplots()
+        show = 1
     cat_cmap = cycle(sns.color_palette('Dark2'))
     if write_frames:
         no_frames = (dates[1] - dates[0]) // frame_interval
@@ -1408,48 +1416,62 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
             fig.savefig('frame_{:03d}.png'.format(i), dpi=300)
             plt.close('all')
         else:
-            fig.legend()
+            axes.legend()
     if not write_frames:
         if mapping:
             for well, map in mapping.items():
                 if well == 'Tank':
                     continue
-                color = next(cat_cmap)
+                if color_wells:
+                    color = next(cat_cmap)
+                else:
+                    color = 'darkgrey'
                 axes.axvline(map - depths[well], linestyle=':', color=color, label=well)
                 axes.axvline(map + depths[well], linestyle=':', color=color)
-        plt.legend()
-        plt.show()
+                axes.axvspan(map - depths[well], map + depths[well], color=color, alpha=0.5)
+        if show == 1:
+            plt.legend()
+            plt.show()
     return
 
 def plot_fiber_mapping(well_data, fiber, mapping, title='Fiber mapping',
-                       xlims=None):
-    fig, axes = plt.subplots(figsize=(10, 3))
+                       xlims=None, show=False, axes=None, color_wells=False):
+    if not axes:
+        fig, axes = plt.subplots(figsize=(10, 3))
     cols = cycle(sns.color_palette())
     # Just plot first time sample
     axes.plot(well_data[fiber]['depth'], well_data[fiber]['data'][:, 0],
               color='k', label='Data')
     mapping = mapping_dict[mapping][fiber]
     for well, depth in mapping.items():
-        c = next(cols)
-        if type(depth) == tuple:
-            axes.axvline(depth[1], label=well, color=c)
-            axes.axvline(depth[0], color=c, linestyle='--')
-            axes.axvline(depth[2], color=c, linestyle='--')
+        if color_wells:
+            c = next(cols)
         else:
-            axes.axvline(depth, label=well, color=c)
-            axes.axvline(depth - fiber_depths[well], color=c, linestyle='--')
-            axes.axvline(depth + fiber_depths[well], color=c, linestyle='--')
-    fig.suptitle(title, fontsize=16)
-    fig.legend(ncol=4)
+            c = 'darkgray'
+        if type(depth) == tuple:
+            # bottom = (depth[1] + depth[0]) / 2
+            # axes.axvline(bottom, label=well, color=c)
+            # axes.axvline(depth[0], color=c, linestyle='--')
+            # axes.axvline(depth[1], color=c, linestyle='--')
+            axes.axvspan(depth[0], depth[1], color=c, alpha=0.5)
+        else:
+            # axes.axvline(depth, label=well, color=c)
+            # axes.axvline(depth - fiber_depths[well], color=c, linestyle='--')
+            # axes.axvline(depth + fiber_depths[well], color=c, linestyle='--')
+            axes.axvspan(depth - fiber_depths[well], depth + fiber_depths[well], color=c, alpha=0.5)
+    axes.set_title(title, fontsize=16)
+    axes.legend(ncol=4)
     axes.set_xlabel('Meters along fiber')
     axes.set_ylabel('Absolute Freq [GHz]')
     axes.xaxis.set_minor_locator(MultipleLocator(10))
-    axes.set_ylim([10.6, 10.9])
-    plt.grid(True, which='both', axis='x')
+    axes.set_ylim([10.6, 10.95])
+    axes.grid(True, which='both', axis='x')
+    axes.margins(0.)
     if xlims:
         axes.set_xlim(xlims)
     plt.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
     return
 
 
@@ -2245,9 +2267,9 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
                 data = scale_to_gain(data, gain, offset_samps)
     # Fill date gaps with nans at preceding sampling rate
     dts = np.diff(times)
-    gap_inds = np.where(dts > timedelta(hours=24))[0]
+    gap_inds = np.where(dts > timedelta(hours=6))[0]
     # Interpolate onto grid
-    reg_times = np.arange(times[0], times[-1], timedelta(hours=1))
+    reg_times = np.arange(times[0], times[-1], timedelta(minutes=15))
     xo, yo = np.meshgrid(depth_vect, date2num(times),
                          indexing='ij')
     xd, yd = np.meshgrid(depth_vect, date2num(reg_times),
@@ -2256,13 +2278,17 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
         np.array([xo.flatten(), yo.flatten()]).T,
         data.flatten(),
         np.array([xd.flatten(), yd.flatten()]).T).reshape(xd.shape)
-    # Which columns of regular time vect are in gaps? Mask them
-    mask_cols = np.concatenate([np.where((times[i] < reg_times) &
-                                         (reg_times < times[i+1]))
-                                for i in gap_inds], axis=1)
-    mask = np.zeros_like(data)
-    mask[:, mask_cols] = 1
-    data_masked = np.ma.masked_array(data, mask)
+    print(gap_inds)
+    try:
+        # Which columns of regular time vect are in gaps? Mask them
+        mask_cols = np.concatenate([np.where((times[i] < reg_times) &
+                                             (reg_times < times[i+1]))
+                                    for i in gap_inds], axis=1)
+        mask = np.zeros_like(data)
+        mask[:, mask_cols] = 1
+        data_masked = np.ma.masked_array(data, mask)
+    except ValueError:
+        data_masked = data
     mpl_times = mdates.date2num(reg_times)
     # Denoise methods are not mature yet
     if denoise_method:
@@ -2304,10 +2330,13 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
     if down_d.shape[0] != up_d.shape[0]:
         # prepend last element of down to up if unequal lengths by 1
         up_data = np.insert(up_data, 0, down_data[-1, :], axis=0)
-        # Redo the mask
-        mask_up = np.zeros_like(up_data)
-        mask_up[:, mask_cols+1] = 1
-        up_data = np.ma.masked_array(up_data, mask_up)
+        try:
+            # Redo the mask
+            mask_up = np.zeros_like(up_data)
+            mask_up[:, mask_cols+1] = 1
+            up_data = np.ma.masked_array(up_data, mask_up)
+        except UnboundLocalError:
+            pass
         up_d = np.insert(up_d, 0, down_d[-1])
     im = axes1.imshow(down_data, cmap=cmap, origin='upper',
                       extent=[mpl_times[0], mpl_times[-1],

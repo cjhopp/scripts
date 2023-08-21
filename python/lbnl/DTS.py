@@ -233,7 +233,8 @@ def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
     files = glob('{}/*.xml'.format(dir_path))
     files.sort()
     if dates:
-        tstrings = [''.join(f.split('_')[-2:])[:-8] for f in files]
+        # tstrings = [''.join(f.split('_')[-2:])[:-8] for f in files]
+        tstrings = [f.split('_')[-1].rstrip('.xml')[:-3] for f in files]
         times = [datetime.strptime(ts, '%Y%m%d%H%M%S') for ts in tstrings]
         # Now loop over the number of intervals for this file list
         # Get the file indices for this plot
@@ -307,6 +308,8 @@ def write_mat(outdir, well_data):
     # Basically just strptime the datetimes
     well_d = deepcopy(well_data)
     for w, wd in well_d.items():
+        if w[:3] in ['ref', 'pro']:
+            continue
         wd['noise'] = 0.
         wd['mode'] = 0.
         wd['type'] = 0
