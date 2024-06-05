@@ -13,6 +13,6 @@
 #SBATCH --mail-user=chopp@lbl.gov
 
 module load python/3.7
-source activate eqcorrscan
+source activate eqcorrscan_dev
 
 srun python /global/home/users/chopp/scripts/python/workflow/Lawrencium/Lawrencium_MF_mseed_DAC.py --splits 47 --instance $SLURM_ARRAY_TASK_ID --start 19/4/2024 --end 5/6/2024
