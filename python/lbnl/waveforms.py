@@ -14,12 +14,14 @@ import scipy
 import itertools
 import yaml
 import joblib
+import struct
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import pandas as pd
 import seaborn as sns
+import pandas.tseries.offsets as offsets
 
 from glob import glob
 from copy import deepcopy
@@ -29,7 +31,7 @@ from bitarray.util import ba2int
 from pathlib import Path
 from datetime import timedelta, datetime, date
 from joblib import Parallel, delayed
-from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException
+from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException, read_events
 from obspy.core.event import ResourceIdentifier
 from obspy.io.reftek.core import Reftek130Exception
 from obspy.signal.trigger import aic_simple, pk_baer
@@ -40,7 +42,7 @@ from obspy.signal.rotate import rotate2zne
 from obspy.signal.cross_correlation import xcorr_pick_correction
 from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
-from eqcorrscan.core.match_filter import Tribe, Party, MatchFilterError
+from eqcorrscan.core.match_filter import Tribe, Party, MatchFilterError, Template
 from eqcorrscan.core.match_filter.matched_filter import match_filter
 from eqcorrscan.core.match_filter.matched_filter import get_stream_xcorr, multi_find_peaks
 from eqcorrscan import Family, Detection
@@ -114,7 +116,7 @@ collab_4100_geode = {
     '56': 'TS17.XDH', '57': 'TS16.XDH', '58': 'TS15.XDH', '59': 'TS14.XDH', '60': 'TS13.XDH',
     '61': 'TS12.XDH', '62': 'TS11.XDH', '63': 'TS10.XDH', '64': 'TS09.XDH', '65': 'TS08.XDH',
     '66': 'TS07.XDH', '67': 'TS06.XDH', '68': 'TS05.XDH', '69': 'TS04.XDH', '70': 'TS03.XDH',
-    '71': 'TS02.XDH', '72': 'TS01.XDH',
+    '71': 'TS02.XDH', '72': 'TS01.XDH', '73': 'PPS.', '74': 'Enc.', '75': 'Mon.', '76': 'Trig.'
 }
 
 fsb_geode_chans = {
@@ -223,6 +225,45 @@ def pressure_to_velocity(st, inv, rho, Vp):
     # Just assume transmission normal to borehole axis
     for tr in st:
         tr.data /= (-1 * rho * Vp)
+    return st
+
+
+def read_numo_acc(path, columns=6, npts=20000):
+    """
+    Read labview-written binary to obspy.Stream
+
+    :param path: Path to file
+    :param columns: Number of data columns (channels of data)
+    :param npts: Number of data points expected per trace (sampling rate * seconds in file)
+    :return:
+    """
+    # seconds between NI epoch start and UNIX epoch start (sec between 1-1-1904 and 1-1-1970)
+    NI_seconds = 2082844800
+    data = []
+    try:
+        with open(path, 'rb') as f:
+            for j in range(columns):
+                f.read(4)  # 4 byte header
+                sec1 = f.read(8)
+                sec2 = f.read(8)
+                dt = struct.unpack(">d", f.read(8))
+                xxx = struct.unpack(">f", f.read(4))
+                for i in range(npts):
+                    data.append(struct.unpack(">d", f.read(8)))
+                xxx = (f.read(25))  # 25 byte footer
+    except struct.error:
+        return Stream()
+    cs1 = int.from_bytes(sec1, "big")
+    cs2 = int.from_bytes(sec2, "big")
+    print(cs1, NI_seconds)
+    print(datetime.fromtimestamp(cs1 - NI_seconds))
+    data_start = UTCDateTime(datetime.fromtimestamp(cs1 - NI_seconds)) + (cs2 * 2**-64)
+    st = Stream()
+    for i, chan in enumerate(['TOP..GNZ', 'TOP..GN1', 'TOP..GN2', 'BOT..GNZ', 'BOT..GN1', 'BOT..GN2']):
+        st.append(Trace(
+            data=np.array(data[i*npts:npts+i*npts]).squeeze(),
+            header=dict(sampling_rate=2000, delta=1/2000., station=chan.split('.')[0],
+                        channel=chan.split('.')[-1], network='NM', starttime=data_start)))
     return st
 
 
@@ -885,7 +926,7 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
     return
 
 
-def tribe_from_client(catalog, **params):
+def tribe_from_client(catalog, client, parameters):
     """
     Small wrapper for creating a tribe from client
 
@@ -896,26 +937,55 @@ def tribe_from_client(catalog, **params):
 
     :return:
     """
-    catalog.events.sort(key=lambda x: x.preferred_origin().time)
-    # Define catalog start and end dates
-    cat_start = catalog[0].preferred_origin().time.date
-    cat_end = catalog[-1].preferred_origin().time.date
     tribe = Tribe()
-    for date in date_generator(cat_start, cat_end):
-        dto = UTCDateTime(date)
-        print('Date: {}'.format(dto))
-        # Establish which events are in this day
-        sch_str_start = 'time >= {}'.format(dto)
-        sch_str_end = 'time <= {}'.format((dto + 86400))
-        tmp_cat = catalog.filter(sch_str_start, sch_str_end)
-        if len(tmp_cat) == 0:
-            continue
-        try:
-            tribe += Tribe().construct(catalog=tmp_cat, **params)
-        except Exception as e:
-            # This is probs same trace id with diff samp rates
-            print(e)
-            continue
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    for ev in catalog:
+        # Remove all picks not associated to preferred_origin
+        arr_picks = [arr.pick_id.get_referred_object() for arr in ev.preferred_origin().arrivals]
+        ev.picks = arr_picks
+        ev_cat = Catalog(events=[ev])
+        eid = ev.resource_id.id.split('/')[-1]
+        date = ev.picks[0].time
+        ids = [p.waveform_id.get_seed_string() for p in arr_picks]
+        bulk = [i.split('.') for i in ids]
+        proc_len = parameters['process_length']
+        for b in bulk:
+            b.extend([date - proc_len / 2, date + proc_len / 2])
+        bulk = [tuple(b) for b in bulk]
+        print(bulk)
+        print('Generating template {}'.format(eid))
+        st = client.get_waveforms_bulk(bulk)
+        print(st)
+        temp = template_gen(method='from_meta_file', name=eid, st=st, meta_file=ev_cat, **parameters)
+        temp_new = Template(name=eid, event=ev, st=temp[0], lowcut=parameters['lowcut'], highcut=parameters['highcut'],
+                            samp_rate=parameters['samp_rate'], filt_order=parameters['filt_order'],
+                            prepick=parameters['prepick'], process_length=parameters['process_length'])
+        tribe.templates.append(temp_new)
+    return tribe
+
+
+def tribe_from_directory(catalog, directory, parameters):
+    """
+    Return tribe from a directory containing both event xmls and event miniseeds
+    :param directory: Path to directory
+    :param parameters: Dict of parameters passed to
+    :return:
+    """
+    tribe = Tribe()
+    catalog.events.sort(key=lambda x: x.preferred_origin().time)
+    for ev in catalog:
+        # Remove all picks not assocaited to preferred_origin
+        arr_picks = [arr.pick_id.get_referred_object() for arr in ev.preferred_origin().arrivals]
+        ev.picks = arr_picks
+        ev_cat = Catalog(events=[ev])
+        eid = ev.resource_id.id.split('/')[-1]
+        print('Generating template {}'.format(eid))
+        st = read('{}/{}.ms'.format(directory, eid))
+        temp = template_gen(method='from_meta_file', name=eid, st=st, meta_file=ev_cat, **parameters)
+        temp_new = Template(name=eid, event=ev, st=temp[0], lowcut=parameters['lowcut'], highcut=parameters['highcut'],
+                            samp_rate=parameters['samp_rate'], filt_order=parameters['filt_order'],
+                            prepick=parameters['prepick'], process_length=parameters['process_length'])
+        tribe.templates.append(temp_new)
     return tribe
 
 
@@ -1087,10 +1157,10 @@ def detect_tribe_client(tribe, client, start, end, param_dict,
     """
     Run detect for tribe on specified wav client
 
-    :param tribe:
-    :param client:
-    :param start:
-    :param end:
+    :param tribe: eqcorrscan Tribe
+    :param client: obspy Client object
+    :param start: Starttime for detections
+    :param end: Endtime for detections
     :param param_dict: Params necessary for running detect from client
     :return:
     """
@@ -1098,40 +1168,40 @@ def detect_tribe_client(tribe, client, start, end, param_dict,
 
     logging.basicConfig(
         filename='tribe-detect_run.txt',
-        level=logging.WARNING,
+        level=logging.DEBUG,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
     party = Party()
     for date in date_generator(start.datetime, end.datetime):
         print('Running detect: {}'.format(date))
-        try:
-            if 'return_stream' in param_dict:
-                if param_dict['return_stream'] == True and not daylong_dir:
-                    print('Specify daylong dir if you want to save streams')
-                    return
-                elif param_dict['return_stream'] == True and daylong_dir:
-                    day_party, day_st = tribe.client_detect(
-                        client=client, starttime=UTCDateTime(date),
-                        endtime=UTCDateTime(date) + 86400,
-                        **param_dict)
-                    if not os.path.exists(daylong_dir):
-                        os.makedirs(daylong_dir)
-                    # Ensure there are no masked arrays
-                    for tr in day_st:
-                        if isinstance(tr.data, np.ma.masked_array):
-                            tr.data = tr.data.filled()
-                    day_st.write('{}/{}.mseed'.format(daylong_dir, date),
-                                 format='MSEED')
-            else:
-                day_party = tribe.client_detect(
+        # try:
+        if 'return_stream' in param_dict:
+            if param_dict['return_stream'] == True and not daylong_dir:
+                print('Specify daylong dir if you want to save streams')
+                return
+            elif param_dict['return_stream'] == True and daylong_dir:
+                day_party, day_st = tribe.client_detect(
                     client=client, starttime=UTCDateTime(date),
                     endtime=UTCDateTime(date) + 86400,
                     **param_dict)
-            party += day_party
-        except (OSError, IndexError, MatchFilterError, Exception) as e:
-            # Any number of lame pre-processing errors, usually
-            logging.exception(e)
-            continue
+                if not os.path.exists(daylong_dir):
+                    os.makedirs(daylong_dir)
+                # Ensure there are no masked arrays
+                for tr in day_st:
+                    if isinstance(tr.data, np.ma.masked_array):
+                        tr.data = tr.data.filled()
+                day_st.write('{}/{}.mseed'.format(daylong_dir, str(date).replace(' ', '_').replace(':', '.')),
+                             format='MSEED')
+        else:
+            day_party = tribe.client_detect(
+                client=client, starttime=UTCDateTime(date),
+                endtime=UTCDateTime(date) + 86400,
+                **param_dict)
+        party += day_party
+        # except (OSError, IndexError, MatchFilterError, Exception) as e:
+        #     # Any number of lame pre-processing errors, usually
+        #     logging.exception(e)
+        #     continue
     return party
 
 
@@ -3698,4 +3768,44 @@ def mseed_to_mat(ms_dir, datestr='202110*'):
         mdict['times'] = tr.times(type='timestamp')
         print('Saving {}'.format(mat_name))
         savemat(mat_name, mdict)
+    return
+
+
+def plot_extracted_seiscomp(event, stream, prepick, length, outdir):
+    """
+    Plot picks on waveforms from events and streams
+
+    :param event: obspy.core.Event
+    :param stream: obspy.core.Stream
+    :return:
+    """
+    pick_color = {'P': 'red', 'S': 'blue'}
+    # Stream housekeeping from seiscomp
+    stream.merge(fill_value='interpolate').filter('highpass', freq=3.)
+    stream.trim(starttime=max([tr.stats.starttime for tr in stream]), endtime=min([tr.stats.endtime for tr in stream]))
+    picks = [a.pick_id.get_referred_object() for a in event.preferred_origin().arrivals]
+    arrivals = [a for a in event.preferred_origin().arrivals]
+    first_pick = min([p.time for p in picks])
+    reftime = stream[0].stats.starttime
+    st_start = first_pick - reftime - prepick
+    st_end = first_pick - reftime - prepick + length
+    stream.trim(starttime=reftime + st_start, endtime=reftime + st_end)  # Trim again to avoid axes scaling issues
+    reftime = stream[0].stats.starttime
+    fig, ax = plt.subplots(len(stream), 1, sharex=True, figsize=(12, len(stream)))
+    stream.traces.sort(key=lambda x: x.id)
+    for i, tr in enumerate(stream):
+        ax[i].plot(tr.times(), tr.data, linewidth=0.7, color='k')
+        ax[i].annotate(tr.id, xy=(0., 0.8), xycoords='axes fraction', bbox=dict(facecolor='white', edgecolor='k'))
+        ax[i].margins(0.)
+        try:
+            pick = [p for p in picks if p.waveform_id.id == tr.id][0]
+            arr = [a for a in arrivals][0]
+            ax[i].axvline(pick.time - reftime, linewidth=0.7, color=pick_color[pick.phase_hint])
+            ax[i].axvspan(pick.time - reftime + arr.time_residual, pick.time - reftime, alpha=0.5,
+                          color=pick_color[pick.phase_hint])
+        except IndexError:
+            pass
+    plt.tight_layout()
+    plt.savefig('{}/{}.png'.format(outdir, event.resource_id.id.split('/')[-1]), dpi=300)
+    plt.close('all')
     return

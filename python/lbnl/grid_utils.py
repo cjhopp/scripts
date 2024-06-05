@@ -5,9 +5,14 @@ Grid read/write utilities for NLLoc, hypoDD, etc... using xarray
 """
 
 import pyproj
+try:
+    import rioxarray
+except ImportError:
+    pass
 
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
 
 from pyproj import Proj
 
@@ -15,6 +20,88 @@ from pyproj import Proj
 def read_array(path):
     arr = xr.open_dataset(path)
     return arr
+
+
+def basin_gradient_p(depth):
+    # Vp gradient model for Cape Modern basin sediments
+    return 1.47 * np.log(7.0 * depth + 0.9, out=np.zeros_like(depth) - 0.107, where=(depth > 0.)) + 0.89
+
+
+def basin_gradient_s(depth):
+    # Vs gradient model for Cape Modern basin sediments
+    return 1.57 * np.log(3.01 * depth + 1.79, out=np.zeros_like(depth) + 0.586, where=(depth > 0.)) - 0.52
+
+
+def extrapolate_tob_cape(path):
+    tob_raw = rioxarray.open_rasterio(path)
+    tob_50m = tob_raw.interp(x=np.linspace(315300, 345300, 601), y=np.linspace(4246200, 4276200, 601),
+                             kwargs={'fill_value': 'extrapolate'})
+    return tob_50m
+
+
+def read_cape_topo(path):
+    topo = rioxarray.open_rasterio(path)
+    topo_reproj = topo.rio.reproject('epsg:26912', nodata=np.nan)
+    topo_50m = topo_reproj.interp(x=np.linspace(315300, 345300, 601), y=np.linspace(4246200, 4276200, 601))
+    return topo_50m
+
+
+def write_cape_array(topo, tob):
+    """
+    Create a 3D grid for Cape Modern using topography, Top-of-basement (TOB) and curves fir to velocity logs
+    in the basin
+
+    :param topo: Path to topography file (netcdf 20 m grid)
+    :param tob: Path to top of basement file (netcdf 20 m grid)
+    :return:
+    """
+
+    topo = xr.load_dataarray(topo)
+    tob = xr.load_dataarray(tob) + 50
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    tob.plot.surface(ax=ax)
+    topo.plot.surface(ax=ax)
+    plt.show()
+    # thickness
+    thick = topo - tob
+    cape_model_p = xr.DataArray(np.zeros([601, 601, 201]) + 5.8, name='Vp',
+                                coords={'easting': np.linspace(315300., 345300., 601),
+                                        'northing': np.linspace(4246200., 4276200., 601),
+                                        'elevation': np.linspace(-7000., 3000., 201)})
+    cape_model_s = xr.DataArray(np.zeros([601, 601, 201]) + 3.392, name='Vs',
+                                coords={'easting': np.linspace(315300., 345300., 601),
+                                        'northing': np.linspace(4246200., 4276200., 601),
+                                        'elevation': np.linspace(-7000., 3000., 201)})
+    # Create a scaled depth dataarray to feed to the basin functions
+    depth = topo - cape_model_p.elevation
+    scaled_depth = 1.828 * (depth / thick)  # Gives depth as if the basin is always 6000 ft deep
+    basin_da_gradient_p = xr.apply_ufunc(basin_gradient_p, scaled_depth, input_core_dims=[['elevation']],
+                                         output_core_dims=[['elevation']], vectorize=True)
+    basin_da_gradient_s = xr.apply_ufunc(basin_gradient_s, scaled_depth, input_core_dims=[['elevation']],
+                                         output_core_dims=[['elevation']], vectorize=True)
+    # Clip above tob
+    basin_da_gradient_p = basin_da_gradient_p.where(cape_model_p.elevation >= tob)
+    basin_da_gradient_s = basin_da_gradient_s.where(cape_model_s.elevation >= tob)
+    # Combine with basement velocities
+    basement_p = cape_model_p.where(cape_model_p.elevation < tob)
+    cape_model_p = basement_p.combine_first(basin_da_gradient_p)
+    air_p = cape_model_p.where(cape_model_p.elevation <= topo).min(dim='elevation', skipna=True)
+    basement_s = cape_model_s.where(cape_model_s.elevation < tob)
+    cape_model_s = basement_s.combine_first(basin_da_gradient_s)
+    air_s = cape_model_s.where(cape_model_s.elevation <= topo).min(dim='elevation', skipna=True)
+    cape_model_p = xr.where(((cape_model_p.elevation > topo) & (air_p == 5.8)), air_p, cape_model_p)
+    cape_model_s = xr.where(((cape_model_s.elevation > topo) & (air_s == 3.392)), air_s, cape_model_s)
+    cape_model_p.sel(northing=4252500, method='nearest').plot.imshow()
+    plt.show()
+    cape_model_p.sel(easting=330000, method='nearest').plot.imshow()
+    plt.show()
+    ## This is working EOD 2-7 Need to combine these DataArrays into a Dataset, write to disk, then generate NLLoc grids
+    ## to see if this worked or not
+    ds = xr.Dataset({'Vp': cape_model_p, 'Vs': cape_model_s})
+    # Get back to north, east, elev dimension order
+    ds = ds.transpose('northing', 'easting', 'elevation')
+    return ds
 
 
 def write_simul2000(dataset, outfile, resample_factor=2):

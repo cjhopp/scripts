@@ -3,18 +3,22 @@
 """
 Parsing and plotting hydraulic data
 """
+import pickle
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from matplotlib.dates import DateFormatter, DayLocator, MonthLocator
+from matplotlib.dates import DateFormatter, DayLocator, MonthLocator, HourLocator
+from matplotlib.collections import LineCollection
+from matplotlib.dates import date2num, DateFormatter
 from matplotlib import gridspec
 from nptdms import TdmsFile
 from glob import glob
 from scipy.io import loadmat
 from datetime import datetime, timedelta
-
+from itertools import cycle
 
 
 def datenum_to_datetime(datenums):
@@ -24,6 +28,232 @@ def datenum_to_datetime(datenums):
     return [datetime.fromordinal(int(d)) +
             timedelta(days=d % 1) - timedelta(days=366)
             for d in datenums]
+
+
+def CCCO2(x, a, b, c):  # Functional fit for CO2-H2O phase boundries of Wendland et al 1999
+    return np.exp(a + (b / x) + (c * x))
+
+
+def CCCO2_spycher(x):  # Fit to the high pressure CO2-H2O data from Spycher and Pruess
+    return 44.6 * (1 + 32.33 * np.sqrt((x / 9.77) - 1) + 91.169 * ((x / 9.77) - 1))
+
+
+def plot_CO2_phase_diagram(ax=None):
+    """
+    Take functions from Spycher & Pruess and Wendland et al. 1999 and plot the CO2-H2O phase space at low pressures
+    :return:
+    """
+    styles = cycle([':', '-', '-.', '--'])
+    # Leave these in
+    phase_dict = {r'$L_{1}L_{2}V$': {'x': np.linspace(270.3, 304.6, 100), 'popt': [3.99263, -1335.97, 0.007865]},
+                  r'$HL_{1}V$': {'x': np.linspace(270.3, 282.9, 100), 'popt': [-446.88395, 57308.65, 0.868805]}}
+    if not ax:
+        fig, ax = plt.subplots()
+    # First the Wendland functions
+    for lab, pdict in phase_dict.items():
+        ax.plot(pdict['x'] - 273.15, CCCO2(pdict['x'], *pdict['popt']), color='k', linestyle=next(styles))#, label=lab
+    # Now quadruple point from Spycher
+    ax.scatter(9.62, 4.46, color='k')
+    # Spycher high pressure function
+    ax.plot(np.linspace(9.62, 12.77, 100), CCCO2_spycher(np.linspace(9.77, 12.77, 100) + 273.15) / 10., #label=r'$HL_{1}L_{2}$',
+            color='k', linestyle=next(styles))
+    # Annotate two-phase regions
+    ax.annotate(text=r'$H_{2}O + LIQ_{CAR}$', xy=(14.85, 5.5), rotation=3)
+    ax.annotate(text=r'$H_{2}O + CO_{2}$', xy=(14.85, 4.5), rotation=3)
+    ax.annotate(text=r'$CLA + CO_{2}$', xy=(6.9, 3.5), rotation=20)
+    ax.annotate(text=r'$CLA + LIQ_{CAR}$', xy=(7.85, 6.5), rotation=90)
+    ax.set_ylim([0, 9.0])
+    ax.set_xlim([14.35, 17.7])
+    ax.legend()
+    ax.set_ylabel('Pressure [MPa]')
+    ax.set_xlabel('Temperature [C]')
+    return ax
+
+
+def plot_B12_minireudi(hydro_data, date_range=False, ax=None):
+    """
+    Plot the minireudi data from BFS-B12 on a time axis
+
+    :param hydro_data:
+    :param date_range:
+    :param ax:
+    :return:
+    """
+    if not ax:
+        fig, ax = plt.subplots(figsize=(16, 5))
+    hydro_data = hydro_data[date_range[0]:date_range[1]]
+    ax.plot(hydro_data.index.values, hydro_data['Temperature'], color='darkolivegreen', label='Temperature 39 m')
+    ax.plot(hydro_data.index.values, hydro_data['pH'], color='dodgerblue', label='pH')
+    # Pressures
+    ax2 = ax.twinx()
+    ax2.plot(date2num(hydro_data.index.values), hydro_data['downhole pressure [kPa]'], color='firebrick',
+             label='Pressure')
+    # If CO2, plot it on flow axis
+    if 'CO2 partial pressure [kPa]' in hydro_data.keys():
+        ax2.plot(date2num(hydro_data.index.values), hydro_data['CO2 partial pressure [kPa]'], label=r'$CO_{2} pp$',
+                 color='magenta', alpha=0.3)
+        # ax2.legend()
+    ax.set_ylabel(r'$^{O}C$ or pH', color='darkolivegreen')
+    ax2.set_ylabel('kPa', color='firebrick')
+    ax.tick_params(axis='y', which='major', labelcolor='darkolivegreen',
+                   color='darkolivegreen')
+    ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                    color='firebrick')
+    if date_range[1] - date_range[0] > timedelta(days=1):
+        ax.set_xlabel('Date')
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d %H:00'))
+    else:
+        ax.set_xlabel('Time')
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax.set_xlim([date2num(hydro_data.index.values[0]), date2num(hydro_data.index.values[-1])])
+    # ax.set_ylim(bottom=0)
+    ax2.set_xlim([date2num(hydro_data.index.values[0]), date2num(hydro_data.index.values[-1])])
+    ax2.set_ylim(bottom=0)
+    fig.legend()
+    return ax, ax2
+
+
+def plot_PT_timeseries(hydro_data, date_range, ax=None):
+    """
+    Plot Pressure and Temperature time series
+    :param hydro_data: DataFrame with "Pressure" and "Temperature" columns
+    :param date_range: Start and end datetimes
+    :param ax: Optional axes to plot into
+    :return:
+    """
+    if not ax:
+        fig, ax = plt.subplots()
+    hydro_data = hydro_data[date_range[0]:date_range[1]]
+    hydro_data['Temperature'].plot(color='darkolivegreen', ax=ax, label='Temperature')
+    # Pressure
+    ax2 = ax.twinx()
+    ax2.plot(date2num(hydro_data.index.values), hydro_data['Pressure'], color='firebrick', label='Pressure')
+    # If CO2, plot it on flow axis
+    if 'CO2' in hydro_data.keys():
+        ax2.plot(date2num(hydro_data.index.values), hydro_data['CO2'], label=r'$CO_{2} [g/g]*10$',
+                 color='magenta', alpha=0.3)
+        ax2.legend()
+    ax.set_ylabel(r'$^{O}C$', color='darkolivegreen')
+    ax2.set_ylabel('MPa', color='firebrick')
+    ax.tick_params(axis='y', which='major', labelcolor='darkolivegreen',
+                   color='darkolivegreen')
+    ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                    color='firebrick')
+    if date_range[1] - date_range[0] > timedelta(days=1):
+        ax.set_xlabel('Date')
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d %H:00'))
+    else:
+        ax.set_xlabel('Time')
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax.set_xlim([date2num(hydro_data.index.values[0]), date2num(hydro_data.index.values[-1])])
+    # ax.set_ylim(bottom=0)
+    ax2.set_xlim([date2num(hydro_data.index.values[0]), date2num(hydro_data.index.values[-1])])
+    ax2.set_ylim(bottom=0)
+    return ax
+
+
+def plot_hydro(hydro_data, date_range, color_by_flow=False, ax=None):
+    """
+    Plot injection paramters within a date range
+
+    :param hydro_data: DataFrame with injection paramters 'Flow', 'Pressure', potentially CO2 concentration
+    :param date_range: Iterable of start, end datetime
+    :return:
+    """
+    if not ax:
+        fig, ax = plt.subplots()
+    hydro_data = hydro_data[date_range[0]:date_range[1]]
+    if color_by_flow:
+        # Line collection
+        x = date2num(hydro_data.index.values)
+        y = hydro_data['Flow'].values
+        segments = np.vstack([x, y]).T
+        segments = segments.reshape(-1, 1, 2)
+        segments = np.hstack([segments[:-1], segments[1:]])
+        segments = list(segments)
+        coll = LineCollection(segments, cmap=sns.cubehelix_palette(start=.5, rot=-.5, as_cmap=True))
+        coll.set_array(hydro_data['Flow'].values)
+        ax.add_collection(coll)
+        ax.autoscale_view()
+    else:
+        hydro_data.plot('Flow', color='steelblue', ax=ax, label='Flow')
+    # Pressure
+    ax2 = ax.twinx()
+    ax2.plot(date2num(hydro_data.index.values), hydro_data['Pressure'], color='firebrick', label='Pressure')
+    # If CO2, plot it on flow axis * 100
+    if 'CO2' in hydro_data.keys():
+        ax.plot(date2num(hydro_data.index.values), hydro_data['CO2'] * 10, label=r'$CO_{2} [g/g]*10$',
+                color='magenta', alpha=0.3)
+    ax.legend()
+    ax.set_ylabel('L/min', color='steelblue')
+    ax2.set_ylabel('MPa', color='firebrick')
+    ax.tick_params(axis='y', which='major', labelcolor='steelblue',
+                   color='steelblue')
+    ax2.tick_params(axis='y', which='major', labelcolor='firebrick',
+                    color='firebrick')
+    ax.set_xlabel('Time')
+    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax.set_xlim([date2num(hydro_data.index.values[0]), date2num(hydro_data.index.values[-1])])
+    ax.set_ylim(bottom=0)
+    ax2.set_xlim([date2num(hydro_data.index.values[0]), date2num(hydro_data.index.values[-1])])
+    ax2.set_ylim(bottom=0)
+    return ax
+
+
+def plot_PT_curve(hydro_data, date_range, ax=None):
+    """
+    Plot a PT curve (onto a phase diagram, typically) from a pre-made dataframe with pressure and temperature columns,
+    colored by a categorized flow rate column
+
+    :param hydro_df: DataFrame that contains Pressure and Temperature columns
+    :param date_range: Start and end times for data to plot
+    :return:
+    """
+    if not ax:
+        fig, ax = plt.subplots()
+    hydro_data = hydro_data[date_range[0]:date_range[1]]
+    # Line collection
+    x = hydro_data['Temperature'].values
+    y = hydro_data['Pressure'].values
+    # Units of phase diagram are K vs bar
+    ax.scatter(x[0], y[0], marker='o', s=60, color='green', label='Starting point')
+    ax.scatter(x[-1], y[-1], marker='x', s=60, color='k', label='Ending point')
+    segments = np.vstack([x, y]).T
+    segments = segments.reshape(-1, 1, 2)
+    segments = np.hstack([segments[:-1], segments[1:]])
+    coll = LineCollection(segments, cmap=sns.cubehelix_palette(start=.5, rot=-.5, as_cmap=True))
+    try:
+        coll.set_array(hydro_data['Flow'].values)
+    except KeyError:
+        pass
+    ax.add_collection(coll)
+    ax.autoscale_view()
+    ax.legend()
+    return ax
+
+
+def plot_PT_movie(dataframe, date_range, frame_rate, outdir):
+    """
+    Save frames for a movie of PT plot and injection parameters
+
+    :param dataframe: DataFrame with columns 'Pressure', 'Temperature', and 'Flow'
+    :param date_range: Iterable of start and end time for the plot
+    :param frame_rate: timedelta corresponding to frame rate
+    :param outdir: Output directory for frames
+    :return:
+    """
+    end_times = [date_range[0] + (frame_rate * i) for i in range((date_range[1] - date_range[0]) // frame_rate)]
+    for i, et in enumerate(end_times):
+        fig, axes = plt.subplots(figsize=(7, 12), nrows=2)
+        plot_CO2_phase_diagram(ax=axes[0])
+        plot_PT_curve(dataframe, [date_range[0], et], ax=axes[0])
+        plot_hydro(dataframe, [date_range[0], et], color_by_flow=True, ax=axes[1])
+        fig.text(0.05, 0.90, et, ha="left", va="bottom", fontsize=14,
+                 bbox=dict(boxstyle="round",
+                           ec='k', fc='white'))
+        fig.savefig('{}/frame_{:03d}.png'.format(outdir, i), dpi=300)
+        plt.close('all')
+    return
 
 
 def read_collab_hydro(path):
@@ -115,15 +345,58 @@ def read_csd_hydro(root_path):
     return all_df
 
 
-def read_fsb_hydro(path):
+def read_fsb_hydro(path, year=2023, B1_path=False, B12_path=False):
     """Helper to read in Pauls hydraulic data"""
-    df = pd.read_csv(path, names=['Time', 'Pressure', 'Flow'], header=0)
-    df['dt'] = pd.to_datetime(df['Time'], format='%m/%d/%Y %H:%M:%S.%f')
-    df = df.set_index('dt')
-    df = df.drop(['Time'], axis=1)
-    df.index = df.index.tz_localize('CET')
-    df.index = df.index.tz_convert('UTC')
-    df.index = df.index.tz_convert(None)
+    if year == 2020:
+        df = pd.read_csv(path, names=['Time', 'Pressure', 'Flow'], header=0)
+        df['dt'] = pd.to_datetime(df['Time'], format='%m/%d/%Y %H:%M:%S.%f')
+        tz = 'CET'
+        df = df.set_index('dt')
+        df = df.drop(['Time'], axis=1)
+        df.index = df.index.tz_localize(tz)
+        df.index = df.index.tz_convert('UTC')
+        df.index = df.index.tz_convert(None)
+    elif year == 2023:
+        df = pd.read_csv(path, names=['Time', 'Flow', 'Pressure', 'CO2'], header=0)
+        df['dt'] = pd.to_datetime(df['Time'], format='%m/%d/%Y %H:%M:%S.%f')
+        tz = 'UTC'
+        df = df.set_index('dt')
+        df = df.drop(['Time'], axis=1)
+        df.index = df.index.tz_localize(tz)
+        df.index = df.index.tz_convert('UTC')
+        df.index = df.index.tz_convert(None)
+        df = df.resample('5s').mean()
+        if B1_path:
+            pkls = glob('{}/*.pkl'.format(B1_path))
+            for pkl in pkls:
+                with open(pkl, 'rb') as f:
+                    df1 = pickle.load(f)
+                    df1 = df1.rename({'Pressure': '{} Pressure'.format(pkl.split('/')[-1]),
+                                      'Temperature': '{} Temperature'.format(pkl.split('/')[-1])}, axis=1)
+                df1 = df1.resample('5s').mean()
+                df = pd.concat([df, df1], join='outer')
+        if B12_path:
+            df12 = pd.read_csv(B12_path, names=['Time', 'B12 pressure [kPa]', 'CO2 pp', 'pH'], header=0)
+            df12['dt'] = pd.to_datetime(df12['Time'], format='%m/%d/%Y %H:%M:%S.%f')
+            tz = 'UTC'
+            df12 = df12.set_index('dt')
+            df12 = df12.drop(['Time'], axis=1)
+            df12 = df12.resample('5s').mean().interpolate('linear')
+            df12.plot()
+            plt.show()
+            df12.index = df12.index.tz_localize(tz)
+            df12.index = df12.index.tz_convert('UTC')
+            df12.index = df12.index.tz_convert(None)
+            df = pd.concat([df, df12], join='outer')
+    elif year == 2021:
+        df = pd.read_csv(path, names=['Time', 'Pressure', 'Packer', 'Flow', 'Qin', 'Qout', 'Hz'], header=0)
+        df['dt'] = pd.to_datetime(df['Time'], format='%d-%b-%Y %H:%M:%S')
+        tz = 'CET'  # ????
+        df = df.set_index('dt')
+        df = df.drop(['Time'], axis=1)
+        df.index = df.index.tz_localize(tz)
+        df.index = df.index.tz_convert('UTC')
+        df.index = df.index.tz_convert(None)
     return df
 
 

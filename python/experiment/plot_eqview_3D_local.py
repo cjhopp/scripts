@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/home/chopp/miniconda3/envs/geo-plotting/bin/python
 
 import sys
 import plotly
@@ -7,6 +7,7 @@ import fileinput
 import logging
 
 import numpy as np
+import xarray as xr
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import plotly.graph_objs as go
@@ -20,7 +21,7 @@ from shapely.geometry import Polygon, MultiLineString, LineString
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG, filename='log.txt')
 
-data_directory = '/home/sysop/spatial_data'
+data_directory = '/media/chopp/Data1/chet-meq/cape_modern/spatial_data'
 
 site_polygons = {
     'Newberry': Polygon([(-121.0736, 43.8988), (-121.0736, 43.5949), (-121.4918, 43.5949), (-121.4918, 43.8988)]),
@@ -36,11 +37,12 @@ datasets = {
     'JV': [],
     'DAC': [],
     'TM': [],
-    'Cape': ['{}/cape/DEMs/Cape-modern_Lidar_downsample.tif'.format(data_directory),
-             '{}/cape/boreholes/Frisco-1_trajectory.csv'.format(data_directory),
-             '{}/cape/boreholes/Frisco-2_trajectory.csv'.format(data_directory),
-             '{}/cape/boreholes/Frisco-3_trajectory.csv'.format(data_directory),
-             '{}/cape/boreholes/Frisco-4_trajectory.csv'.format(data_directory)]
+    'Cape': ['{}/DEM/Cape-modern_Lidar_downsample.tif'.format(data_directory),
+             '{}/Cape_share/Frisco-1_trajectory.csv'.format(data_directory),
+             '{}/Cape_share/Frisco-2_trajectory.csv'.format(data_directory),
+             '{}/Cape_share/Frisco-3_trajectory.csv'.format(data_directory),
+             '{}/Cape_share/Frisco-4_trajectory.csv'.format(data_directory),
+             '{}/vmods/ToB_50m_grid_3-1-24.nc'.format(data_directory)]
 }
 
 projections = {'cape': pyproj.Proj("EPSG:26912"),
@@ -61,11 +63,16 @@ def get_selection_area(lines):
 
 
 def get_events(lines):
+    """
+    Differs from the version on the seiscomp servers
+
+    Pipe a scrtdd catalog (e.g.) into this file
+    """
     events = []
-    for ln in lines[2:]:
-        events.append(ln.split(';'))
+    for ln in lines[1:]:
+        events.append(ln.split(',')[:6])  # Seems like the only difference between scrtdd output and GAPS is delimiter
     for e in events:
-        e[1] = datetime.strptime(e[1], '%Y-%m-%d %H:%M:%S').timestamp()
+        e[1] = datetime.strptime(e[1], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()  # Also different time format
         e[2] = float(e[2])
         e[3] = float(e[3])
         try:
@@ -114,13 +121,14 @@ def plot_3D(datasets, catalog):
     """
     objects = []
     # What field is this?
-    field = datasets[0].split('/')[-3]
+    # field = datasets[0].split('/')[-3]
+    field = 'cape'
     try:
         utm = projections[field]
     except KeyError:
         return
     for data in datasets:
-        if not data.endswith('tif'):
+        if not data.endswith(('tif', 'nc')):
             # Add objects
             wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
             east = wellpath[:, 0]
@@ -132,20 +140,29 @@ def plot_3D(datasets, catalog):
                                         mode='lines',
                                         line=dict(color='black', width=6),
                                         hoverinfo='skip'))
-        else:
+        elif data.endswith('tif'):
             topo = gdal.Open(data, gdal.GA_ReadOnly)
             x, y, band = get_pixel_coords(topo)
-            print(x, y)
             X, Y = np.meshgrid(x, y, indexing='xy')
             raster_values = band.ReadAsArray()
             topo_mesh = go.Mesh3d(x=X.flatten(), y=Y.flatten(),
                                   z=raster_values.flatten(), name='Topography', color='gray',
-                                  opacity=0.7, delaunayaxis='z', showlegend=True,
+                                  opacity=0.3, delaunayaxis='z', showlegend=True,
                                   hoverinfo='skip')
             objects.append(topo_mesh)
+        elif data.endswith('nc'):
+            tob = xr.load_dataarray(data)
+            tob = tob.interp(easting=tob.easting[::10], northing=tob.northing[::10])
+            X, Y = np.meshgrid(tob.easting, tob.northing, indexing='xy')
+            Z = tob.values.flatten()
+            tob_mesh = go.Mesh3d(x=X.flatten(), y=Y.flatten(), z=Z,
+                                 name='Basement', color='gray', opacity=0.5, delaunayaxis='z', showlegend=True,
+                                 hoverinfo='skip')
+            objects.append(tob_mesh)
     mfact = 1.5  # Magnitude scaling factor
     # Add arrays to the plotly objects
-    id, t, lat, lon, depth, m, agency, status, phases, geo, _, _, _, _, _ = zip(*catalog)
+    # id, t, lat, lon, depth, m, agency, status, phases, geo, _, _, _, _, _ = zip(*catalog)
+    id, t, lat, lon, depth, m = zip(*catalog)
     tickvals = np.linspace(min(t), max(t), 10)
     ticktext = [datetime.fromtimestamp(t).strftime('%d %b %Y: %H:%M')
                 for t in tickvals]
@@ -170,7 +187,7 @@ def plot_3D(datasets, catalog):
                                             x=-0.2,
                                             ticktext=ticktext,
                                             tickvals=tickvals),
-                                        colorscale='Plotly3',
+                                        colorscale='Bluered',
                                         opacity=0.5))
     objects.append(scat_obj)
     # Start figure
@@ -212,11 +229,11 @@ def plot_3D(datasets, catalog):
 
 if __name__ in '__main__':
     lines = read_stdin()
-    bbox = get_selection_area(lines)
+    # bbox = get_selection_area(lines)
     catalog = get_events(lines)
-    datasets = check_if_in_field(bbox)
-    fig = plot_3D(datasets, catalog)
+    datas = datasets['Cape']
+    fig = plot_3D(datas, catalog)
     html = plotly.io.to_html(fig)
-    fig.write_html('/home/sysop/.seiscomp/scripts/gaps/output/output.html')
+    fig.write_html('eqview_3d.html')
     # fig.write_html('output.html')
     # sys.stdout.write(html)

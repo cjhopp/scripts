@@ -11,17 +11,31 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from itertools import cycle
+from operator import itemgetter
 from glob import glob
+from scipy.optimize import curve_fit
 try:
     from scipy.interpolate import Rbf
     from skspatial.objects import Plane
 except ModuleNotFoundError:
     print('No skspatial here')
+try:
+    from welly import Well
+except ModuleNotFoundError:
+    print('Welly not installed in this environment')
 from pathlib import Path
 from matplotlib.dates import date2num, num2date
 
 # local imports
-from lbnl.coordinates import cartesian_distance
+try:
+    from lbnl.coordinates import cartesian_distance
+except ModuleNotFoundError:
+    print('Couldnt cross import from lbnl.coordinates')
+
+
+# Dict of ToB for Cape Modern wells (where they logged across the interface)
+cape_tob = {'Frisco 1-I': 6480, 'Frisco 1I': 6480, 'WINKLER 4-I': 5560, 'Delano OB-1': 5250, '58-32': 3400}
+
 
 fsb_wellheads = {'B1': (2579341.176, 1247584.889, 513.378),
                  'B2': (2579334.480, 1247570.980, 513.200),
@@ -693,3 +707,133 @@ def plot_excavation_vector(df_excavation):
     plt.subplots_adjust(hspace=0.4, wspace=0.6)
     plt.show()
     return
+
+
+def read_well_logs(las_dir, logs=['DTCO', 'DTC', 'DTCO_MF_R', 'DTCO_MPS', 'DTSM', 'DTSH_FAST'], interval='basin'):
+    """
+    Read a list of possible mnemonics from all las files in a directory
+
+    :param las_dir: Path to root directory to be recursively searched for LAS files
+    :param logs: List of potential mnemonics to try to read from every LAS file
+    :param interval: Whether to read all depths, just basin, or just basement
+    :return: Dict of wells
+    """
+    las_files = glob('{}/**/*.las'.format(las_dir), recursive=True)
+    wells = {}
+    for lf in las_files:
+        wl = Well.from_las(lf)
+        if wl.name in wells:
+            wells[wl.name]['well'].add_curves_from_las(lf)
+        else:
+            wells[wl.name] = {'well': wl}
+    # In case of FORGE, add csv of 58-32
+    fg5832 = pd.read_csv('{}/58-32/58-32_sonic_log_data.csv'.format(las_dir))
+    fg5832 = fg5832.set_index('Depth (ft)')
+    wells['58-32'] = {'well': {'data': fg5832}}
+    for name, well in wells.items():
+        if name == '58-32':
+            for log in logs:
+                try:
+                    if interval == 'basin':
+                        well[log] = well['well']['data'][log][:cape_tob[name]]
+                    elif interval == 'basement':
+                        well[log] = well['well']['data'][log][cape_tob[name]:]
+                    elif interval == 'all':
+                        well[log] = well['well']['data'][log]
+                except KeyError:
+                    continue
+        else:
+            for log in logs:
+                try:
+                    if interval == 'basin':
+                        well[log] = well['well'].data[log][:cape_tob[name]]
+                    elif interval == 'basement':
+                        well[log] = well['well'].data[log][cape_tob[name]:]
+                    elif interval == 'all':
+                        well[log] = well['well'].data[log]
+                except KeyError:
+                    continue
+    return wells
+
+
+def fit_well_logs(wells, log, func):
+    """
+    Fit a given function to some well logs
+
+    :param wells: Dict of wells from read_well_logs()
+    :param log: Either 'C'=compressional or 'S'=shear
+    :param stat: How to combine logs. Either mean or median
+    :param func: Function to fit to the data
+    :return:
+    """
+    data = pd.DataFrame()
+    # V30 in km/s
+    v30 = {'C': .736, 'S': .4}
+    # Concat xs and ys into single arrays
+    for nm, well in wells.items():
+        for wl, curve in well.items():
+            if log in wl:
+                try:
+                    data = pd.concat([data, curve.df], axis=1)
+                except AttributeError:
+                    data = pd.concat([data, curve], axis=1)
+    # Take mean of all logs
+    data['MEAN'] = data.mean(axis=1)
+    data['MEAN'].plot()
+    # Massage fitting data
+    x = data.index
+    y = data['MEAN'].values
+    y = 3.048e-4 / (y * 1e-6)  # Units of microsec/ft to km/sec
+    # Insert highly upweighted V30 value from Zhang and Pankow 2019
+    x = np.insert(x, 0, 0.)
+    y = np.insert(y, 0, v30[log])
+    # Sigma to upweight the first value
+    sigma = np.ones(len(y))
+    sigma[0] = 0.001
+    popt, pcov = curve_fit(func, x[~np.isnan(y)] * .3043e-3, y[~np.isnan(y)], sigma=sigma[~np.isnan(y)])
+    return popt, pcov, x, y
+
+
+def plot_well_logs(wells, fit_funcs=None, popts=None, xmeans=None, ymeans=None):
+    """
+    Plot any number of well logs from las files
+
+    :param wells: Dict of wells produced by read_well_logs()
+    :return:
+    """
+    scmap = cycle(sns.color_palette(palette='Blues'))
+    pcmap = cycle(sns.color_palette(palette='Reds'))
+    mean_colors = ['firebrick', 'steelblue']
+    mean_labs = ['Vp', 'Vs']
+    fig, ax = plt.subplots(figsize=(5, 12))
+    for name, well in wells.items():
+        for nm, curve in well.items():
+            if nm == 'well':
+                continue
+            if 'S' in nm:
+                col = next(scmap)
+            else:
+                col = next(pcmap)
+            slow = curve.values.copy()
+            # Convert from microsec/ft to km/sec
+            kms = 3.048e-4 / (slow * 1e-6)
+            ax.plot(kms, curve.index, color=col, alpha=0.4)#, label='{}: {}'.format(name, nm))
+    # Plot Vs30 and Vp30
+    ax.scatter([.4, .736], [0, 0], marker='x', color='k', s=60)
+    if fit_funcs and popts:
+        for i, fit_func in enumerate(fit_funcs):
+            # Plot the fitted functions for the logs
+            x = np.linspace(0, 4, 100)
+            ax.plot(fit_func(x, *popts[i]), x / 0.3048e-3, linestyle=':', color=mean_colors[i])
+            # Also plot the means
+            ax.plot(ymeans[i][1:], xmeans[i][1:], alpha=0.7, color=mean_colors[i], label=mean_labs[i])
+    ax.invert_yaxis()
+    ax.set_xlim([0, 6.2])
+    ax.set_ylim([6000, -100])
+    ax.set_xlabel('Velocity [km/sec]', fontsize=18)
+    ax.set_ylabel('Depth [ft]', fontsize=14)
+    ax.legend(fontsize=16)
+    ax.tick_params(axis='both', labelsize=12)
+    plt.tight_layout()
+    # plt.show()
+    return ax

@@ -97,6 +97,29 @@ chan_map_injection_fsb = {
     'B7': (1320., 1415.2), 'B8': (358.4, 480.8), 'B9': 266.2,
     'B10a': (515.6, 584.), 'B10b': (584., 651.4)}
 
+# chan_map_fsb_23 = {
+#     'B1': 98.5, 'B2': 1781.5, 'B3': 1154.25, 'B4': 1326.375, 'B5': 972.125, 'B6': 1479.,
+#     'B7': 1583.25, #'B8': 428. B8 got hit by drilling
+#     'B9': 267., 'B10': 830.5, 'B11': 666.75, 'B12': 456.5,
+#     'Tank': 1906.5
+# }
+
+chan_map_fsb_23 = {
+    'B1': 133.0,
+    'B2': 1815.75,
+    'B3': 1188.75,
+    'B4': 1360.875,
+    'B5': 1006.625,
+    'B6': 1513.5,
+    'B7': 1617.75,
+    'B9': 301.5,
+    'B10': 865.0,
+    'B11': 701.25,
+    'B12': 491.0,
+    'Tank': 1941.0
+}
+
+
 ########## CSD CHANNEL MAPPINGS ###########
 # Antonio Dataviewer channel mapping
 chan_map_csd_1256 = {# Loop 1, 2, 5, 6
@@ -178,7 +201,7 @@ surf_wind = 25  # Degree for 4850 fiber package
 fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.42, 'D4': 35.99, 'D5': 31.38,
                 'D6': 36.28, 'D7': 29.7, 'B1': 51.5, 'B2': 53.3, 'B3': 84.8,
                 'B4': 80., 'B5': 59., 'B6': 49.5, 'B7': 49.3, 'B8': 61.,
-                'B9': 61., 'B10a': 35.5, 'B10b': 35.5}
+                'B9': 61., 'B10a': 35.5, 'B10b': 35.5, 'B11': 36.25, 'B12': 50, 'Tank': 30}
 
 fiber_depths_surf = {'OT': 60., 'OB': 60., 'PDT': 59.7, 'PDB': 59.9,
                      'PST': 41.8, 'PSB': 59.7, 'AMU': 60, 'AML': 60, 'DMU': 55, 'DML': 55}
@@ -186,8 +209,8 @@ fiber_depths_surf = {'OT': 60., 'OB': 60., 'PDT': 59.7, 'PDB': 59.9,
 fault_depths = {'D1': (14.34, 19.63), 'D2': (11.04, 16.39), 'D3': (17.98, 20.58),
                 'D4': (27.05, 28.44), 'D5': (19.74, 22.66), 'D6': (28.5, 31.4),
                 'D7': (22.46, 25.54), 'B2': (41.25, 45.65), 'B1': (34.8, 42.25),
-                'B9': (55.7, 55.7), 'B10': (17.75, 21.7), '1': (38.15, 45.15),
-                '2': (44.23, 49.62), '3': (38.62, 43.39)}
+                'B9': (55.7, 55.7), 'B10': (17.75, 21.7), 'B12': (40.5, 46.5),
+                '1': (38.15, 45.15), '2': (44.23, 49.62), '3': (38.62, 43.39)}
 
 scaly_clay_depths = {'D3': [(14.8, 15.), (16.1, 16.2)],
                      'D5': [(19.65, 19.75), (20.4, 20.45), (22.65, 22.7)],
@@ -230,6 +253,7 @@ mapping_dict = {'solexperts': {'CSD3': chan_map_solexp_34,
                 'august_pulse': {'CSD1': chan_map_august},
                 'fsb_injection': {'CSD1': chan_map_august,
                                   'FSB': chan_map_injection_fsb},
+                'fsb23': chan_map_fsb_23,
                 'surf': chan_map_surf,
                 '4100': chan_map_4100}
 
@@ -309,6 +333,40 @@ def read_ascii_directory(root_path, header, location):
     data = np.vstack(datas)
     times = np.vstack(timeses)
     return data.T, depths, times.squeeze()
+
+
+def read_omnisens_json(f):
+    with open(f, 'r') as afile:
+        json_dict = json.load(afile)
+    start = np.datetime64(json_dict['info']['meas_start_time'])
+    end = np.datetime64(json_dict['info']['meas_end_time'])
+    mid_time = start + (end - start) / 2
+    return np.array([[m['distance'], m['peak1']['value'], m['peak1']['width'], m['peak1']['gain']]
+                     for m in json_dict['points']]), mid_time.astype(datetime)
+
+
+def read_omnisens_json_dir(root_path, date_range):
+    """
+    Read Omnisens new json format
+
+    :param root_path: Top of directory tree
+    :param date_range: Start and end datetimes
+    :return:
+    """
+    files = glob('{}/**/*.json'.format(root_path), recursive=True)
+    files.sort()
+    file_times = np.array([datetime.strptime(f.split('/')[-1], '%Y_%m_%d_%H_%M_%S_%f.json') for f in files])
+    files = np.array(files)
+    which_files = np.where((file_times > date_range[0]) & (file_times < date_range[1]))[0]
+    files = files[which_files]
+    # Create 3D array with dims distance x measurement (value, width, gain) x time
+    print('Reading data to array')
+    data = np.stack([read_omnisens_json(f)[0][:, 1:] for f in files], axis=-1)
+    print('Reading depth')
+    depths = read_omnisens_json(files[0])[0][:, 0]
+    print('Reading times')
+    times = [f for f in file_times[which_files]]
+    return data, depths, times
 
 
 def read_neubrex(path, header=105, encoding='iso-8859-1'):
@@ -575,7 +633,7 @@ def write_wells(well_data):
 def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                   location=None, noise_method='madjdabadi', convert_freq=False,
                   realign=True, DTS=None, DTS_interp='linear',
-                  gain_thresh=0.015, mask=False, debug=0):
+                  gain_thresh=0.015, mask=False, date_range=None, debug=0):
     """
     Helper to extract only the channels in specific wells
 
@@ -694,7 +752,18 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
             fiber_data[file_root]['times'] = times
             chan_map.update(mapping_dict[mapping])
             mode, type_m = read_metadata(f)
-            print(mode)
+    elif location == 'fsb23':
+        chan_map = {}
+        fiber_data['FSB23'] = {}
+        data, depths, times = read_omnisens_json_dir(root, date_range)
+        fiber_data['FSB23']['data'] = data[:, 0, :]
+        fiber_data['FSB23']['width'] = data[:, 1, :]
+        fiber_data['FSB23']['gain'] = data[:, 2, :]
+        fiber_data['FSB23']['depth'] = depths
+        fiber_data['FSB23']['times'] = times
+        chan_map.update(mapping_dict[mapping])
+        mode = 'Relative'
+        type_m = 'Strain'
     else:
         print('Provide valid location')
         return
@@ -763,6 +832,13 @@ def extract_wells(root, measure=None, mapping=None, wells=None, fibers=None,
                 depth = fiber_data['Collab']['depth'].copy()
                 data = fiber_data['Collab']['data'].copy()
                 times = fiber_data['Collab']['times'].copy()
+            elif location == 'fsb23':
+                fiber_depth = (fiber_depths[well] /
+                               np.cos(np.deg2rad(fsb_wind)))
+                depth = fiber_data['FSB23']['depth'].copy()
+                data = fiber_data['FSB23']['data'].copy()
+                times = fiber_data['FSB23']['times'].copy()
+                gain = fiber_data['FSB23']['gain'].copy()
             else:
                 print('{} not a location'.format(location))
                 return
@@ -1399,15 +1475,16 @@ def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
             fig, axes = plt.subplots()
         else:
             color = next(cat_cmap)
+            print(type(date))
         axes.plot(
             well_data['depth'],
             well_data['data'][:, np.argmin(np.abs(
-                date - well_data['times']))],
+                date - well_data['times'].astype(datetime)))],
             label=date.strftime('%m-%d-%Y %H:%M'), color=color,
             linewidth=1.25)
         axes.set_xlim(xlim)
         axes.set_ylim(ylim)
-        axes.set_ylabel('Temperature [C]')
+        axes.set_ylabel(r'Strain [$\mu{}\epsilon{}$]')
         axes.set_xlabel('Distance along fiber [m]')
         if write_frames:
             fig.text(0.05, 0.90, date, ha="left", va="bottom", fontsize=14,
@@ -2131,7 +2208,7 @@ def plot_DSS(well_data, well='all', derivative=False, colorbar_type='light',
              inset_channels=True, simfip=False, pick_mode='manual', thresh=1.,
              date_range=None, denoise_method=None, window='2h',
              vrange=(-60, 60), title=None, tv_picks=None, prominence=30.,
-             pot_data=None, hydro_data=None, offset_samps=120,
+             pot_data=None, hydro_data=None, offset_samps=1,
              filter_params=None, plot_stack=False, integrate_anchor_segs=False,
              gain_correction=False):
     """

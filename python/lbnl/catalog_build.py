@@ -927,7 +927,7 @@ def plot_picks(st, ev, prepick, postpick, name, outdir):
         return
     fig, ax = plt.subplots(nrows=len(seeds), sharex='col',
                            figsize=(6, len(seeds) / 2.), dpi=300)
-    fig.suptitle('Detection: {}\n{}'.format(name, first_pick.time))
+    fig.suptitle('Detection: {}\n{}\n{}'.format(name, first_pick.date, first_pick.time))
     fig.subplots_adjust(hspace=0.)
     for i, sid in enumerate(seeds):
         tr_raw = st_slice.select(id=sid)[0]

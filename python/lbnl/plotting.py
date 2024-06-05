@@ -61,7 +61,7 @@ from matplotlib.colors import ListedColormap, Normalize, LinearSegmentedColormap
 # Local imports (assumed to be in python path)
 from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             structures_to_planes, depth_to_xyz,
-                            distance_to_borehole)
+                            distance_to_borehole, make_4100_boreholes)
 from lbnl.coordinates import SURF_converter
 try:
     from lbnl.DSS import (interpolate_picks, extract_channel_timeseries,
@@ -79,7 +79,10 @@ fsb_well_colors = {'B1': 'k', 'B2': 'steelblue', 'B3': 'goldenrod',
                    'B10': 'k'}
 
 cols_4850 = {'PDT': 'black', 'PDB': 'black', 'PST': 'black', 'PSB': 'black',
-             'OT': 'black', 'OB': 'black', 'I': '#4682B4', 'P': '#B22222'}
+             'OT': 'black', 'OB': 'black', 'I': '#4682B4', 'P': '#B22222',
+             'DMU': 'black', 'DML': 'black', 'AMU': 'black', 'AML': 'black',
+             'TS': '#4682B4', 'TN': '#4682B4', 'TC': '#4682B4', 'TU': '#4682B4',
+             'TL': '#4682B4'}
 
 collab_4100_zone_depths = {
     'TC': [148.95, 156.85, 164.75, 172.65, 180.55, 188.45, 196.35, 204.25,
@@ -105,6 +108,7 @@ dts_cooling_4100 = {
     'AMU': [[43.4, 48.4]],
     'DMU': [[18.7, 28.7], [32.7, 39.7]]
 }
+
 
 def plotly_timeseries(DSS_dict, DAS_dict, simfip, hydro, seismic, packers=None,
                       accel_dict=None):
@@ -254,7 +258,8 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
                 surface=None, fault=None, DSS_picks=None, structures=None,
                 meshes=None, line=None, simfip=None, fracs=False, surfaces=None,
                 xrange=(2579250, 2579400), yrange=(1247500, 1247650),
-                zrange=(450, 500), sampling=0.5, eye=None, export=False):
+                zrange=(450, 500), sampling=0.5, eye=None, export=False,
+                drift_2D=False):
     """
     Plot boreholes, seismicity, monitoring network, etc in 3D in plotly
 
@@ -294,8 +299,10 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         title = '3D Plot'
     # Make well point lists and add to Figure
     datas = []
-    if location == 'surf':
+    if location == '4850':
         well_dict = parse_surf_boreholes(well_file)
+    elif location == '4100':
+        well_dict = make_4100_boreholes(well_file)
     elif location == 'fsb':
         # Too many points in asbuilt file to upload to plotly
         well_dict = create_FSB_boreholes()
@@ -335,8 +342,13 @@ def plot_lab_3D(outfile, location, catalog=None, inventory=None, well_file=None,
         add_4850_fracs(datas, well_file)
     if surfaces:
         add_surface(surfaces, datas)
-    if fault:
-        add_fault(fault[0], fault[1], fault[2], datas)
+    if drift_2D:
+        add_drift_2D(drift_2D, datas)
+    try:
+        print(fault)
+        add_fault(fault[0, :], fault[1, :], fault[2, :], datas)
+    except TypeError:
+        pass
     # Start figure
     fig = go.Figure(data=datas)
     # Manually find the data limits, and scale appropriately
@@ -505,9 +517,10 @@ def plot_dug_seis_locations_fsb(well_dict, active_events=None,
         data_act = active_events[['x', 'y', 'z']].to_numpy()
     elif isinstance(active_events, Catalog):
         oextra = [ev.origins[-1].extra for ev in active_events]
+        times = [ev.picks[0].time.datetime.timestamp() for ev in active_events]
         data_act = np.array([[float(d.ch1903_east.value),
                               float(d.ch1903_north.value),
-                              float(d.ch1903_elev.value)]
+                              float(d.ch1903_elev.value),]
                              for d in oextra])
         if len(active_events) == 1:
             act_scatter = active_events[0].origins[-1].nonlinloc_scatter
@@ -549,8 +562,13 @@ def plot_dug_seis_locations_fsb(well_dict, active_events=None,
                 ax.scatter(act_scatter[:, 0], act_scatter[:, 1],
                            act_scatter[:, 2], color='lightgray',
                            alpha=0.1, s=2)
-            ax.scatter(data_act[:, 0], data_act[:, 1], data_act[:, 2],
-                       color='k', s=5, alpha=0.1, zorder=120)
+            else:
+                map = ax.scatter(data_act[:, 0], data_act[:, 1], data_act[:, 2],
+                                 c=times, s=10, alpha=0.5, zorder=120, cmap='copper')
+                cax = plt.colorbar(map)
+                cax_labs = [int(l.get_text()) for l in fig.axes[-1].get_yticklabels()]
+                new_labs = [datetime.fromtimestamp(ts) for ts in cax_labs]
+                fig.axes[-1].set_yticklabels(new_labs)
         if data_pass.size > 0:
             if data_pass.shape[0] == 1:
                 # Plot scatter too
@@ -1776,7 +1794,7 @@ def add_wells(well_dict, objects, structures, wells):
             col = 'gray'
         else:
             col = next(well_colors)
-        if key.startswith('D'):
+        if key.startswith('D') and len(key) == 2:
             group = 'CSD'
             viz = True
         elif key.startswith('B'):
@@ -1785,7 +1803,7 @@ def add_wells(well_dict, objects, structures, wells):
         elif len(key) == 1:
             group = 'FS'
             viz = True
-        elif key[0] in ['O', 'P', 'I', 'P']:
+        elif key[0] in ['O', 'P', 'I', 'P', 'D', 'T', 'A']:
             group = 'Collab'
             viz = True
         else:
@@ -1893,6 +1911,20 @@ def add_meshes(meshes, objects):
     return objects
 
 
+def add_drift_2D(shapely_pickle, objects):
+    with open(shapely_pickle, 'rb') as f:
+        poly = pickle.load(f)
+    XY = np.array(poly.exterior.coords)
+    Z = np.zeros(XY.shape[0]) + 343.5
+    print(XY)
+    print(Z)
+    surf = go.Scatter3d(x=XY[:, 0], y=XY[:, 1], z=Z,
+                        line=dict(color='black', width=5),
+                        showlegend=False, mode='lines')
+    objects.append(surf)
+    return
+
+
 def add_surface(surface_file, objects):
     """
     Read Tanners CASSM results and add to plotly
@@ -1913,10 +1945,11 @@ def add_surface(surface_file, objects):
     return
 
 def add_fault(x, y, z, objects):
-    fault = go.Surface(x=x, y=y, z=z,
+    fault = go.Mesh3d(x=x, y=y, z=z,
                       showlegend=True,
-                      name='Fault fit',
-                      opacity=0.5, hoverinfo='skip')
+                      name='Fracture?',
+                      opacity=0.7, hoverinfo='skip',
+                      color='burlywood')
     objects.append(fault)
     return
 
@@ -1963,7 +1996,8 @@ def add_inventory(inventory, location, objects):
     fsb_accel = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647', 'B659',
                  'B748', 'B75']
     surf_accel = ['PDB3', 'PDB4', 'PDB6', 'PDT1', 'PSB7', 'PSB9', 'PST10',
-                  'PST12']
+                  'PST12', 'AMU1', 'AMU2', 'AMU3', 'AMU4', 'AML1', 'AML2', 'AML3', 'AML4',
+                  'DMU1', 'DMU2', 'DMU3', 'DMU4', 'DML1', 'DML2', 'DML3', 'DML4']
     sta_list = []
     if isinstance(inventory, dict):
         for sta, pt in inventory.items():
@@ -1972,7 +2006,7 @@ def add_inventory(inventory, location, objects):
     else:
         # Do the same for the inventory
         for sta in inventory[0]:  # Assume single network for now
-            if location == 'surf':
+            if location in ['4850', '4100']:
                 loc_key = 'hmc'
             elif location == 'fsb':
                 loc_key = 'ch1903'
@@ -1991,6 +2025,10 @@ def add_inventory(inventory, location, objects):
                 legend = 'AE sensor'
                 color = 'red'
                 symbol = 'diamond'
+            elif sta.code[-2] == 'S':
+                legend = 'CASSM Source'
+                color = 'red'
+                symbol = 'cross'
             else:
                 legend = 'Hydrophone'
                 color = 'green'
@@ -2000,11 +2038,15 @@ def add_inventory(inventory, location, objects):
             sz = float(sta.extra['{}_elev'.format(loc_key)].value)
             name = sta.code
             sta_list.append((sx, sy, sz, name, legend, color, symbol))
+            if location == '4100':
+                scale = 0.3048
+            else:
+                scale = 1
     _, _, _, _, leg, _, _ = zip(*sta_list)
     for sensor_type in list(set(leg)):
         stax, stay, staz, nms, leg, col, sym = zip(*[sta for sta in sta_list if
                                                      sta[4] == sensor_type])
-        objects.append(go.Scatter3d(x=np.array(stax), y=np.array(stay),
+        objects.append(go.Scatter3d(x=np.array(stax) * scale, y=np.array(stay) * scale,
                                     z=np.array(staz),
                                     mode='markers',
                                     name=sensor_type,
@@ -2012,7 +2054,7 @@ def add_inventory(inventory, location, objects):
                                     hoverinfo='text',
                                     text=nms,
                                     marker=dict(color=col,
-                                                size=2.,
+                                                size=3.,
                                                 symbol=sym,
                                                 line=dict(color=col,
                                                         width=1),
@@ -2781,6 +2823,94 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     ax.set_ylabel(r'Latitude [$^o$]')
     ax.set_title('Patua')
     plt.show()
+    return
+
+
+def plot_cape(dem_dir, vector_dir, catalog):
+    """Cape modern overview plot"""
+
+    cape_extents = [(-113.03, 38.60), (-113.03, 38.39),
+                    (-112.78, 38.39), (-112.78, 38.60)]
+    delano = [333669, 4262718]
+    dem_file = glob('{}/Cape-modern_merged_clip.tif'.format(dem_dir))[0]
+    overview = rasterio.open(dem_file)
+    write_bbox_shp(cape_extents, './tmp_bbox.shp')
+    bbox = gpd.read_file('./tmp_bbox.shp')
+    topo, meta, value_range = clip_raster(bbox, overview)
+    extent = plotting_extent(topo[0], meta['transform'])
+    # Hillshade
+    hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
+    # Seismic catalog
+    if catalog:
+        cat = pd.read_excel(catalog, skiprows=[0, 1])
+    # Read in vectors
+    delano = gpd.read_file('{}/Delano.shp'.format(vector_dir)).to_crs(4326)
+    roads = gpd.read_file('{}/Utah_roads.shp'.format(vector_dir)).to_crs(4326)
+    plant = gpd.read_file('{}/Blundel-plant.shp'.format(vector_dir)).to_crs(4326)
+    UU_stations = gpd.read_file('{}/UU_stations.shp'.format(vector_dir)).to_crs(4326)
+    K_stations = gpd.read_file('{}/6K_stations.shp'.format(vector_dir)).to_crs(4326)
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Only top half of colormap
+    # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
+    cmap = plt.get_cmap('gist_earth')
+    colors = cmap(np.linspace(0.5, 1, cmap.N // 2))
+    # Create a new colormap from those colors
+    cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
+    # Bottom up, first DEM
+    ax.imshow(topo[0], cmap=cmap2, extent=extent, alpha=0.3)
+    # Then hillshade
+    ax.imshow(hillshade, cmap="Greys", alpha=0.3, extent=extent)
+    # Vector layers
+    roads[roads['SPEED_LMT'] > 35].plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
+    # plant.geometry.plot(ax=ax, color='dimgray')
+    delano.plot(ax=ax, marker='x', markersize=80, color='k')
+    # Labels
+    ax.annotate('Cape Modern', xy=delano.geometry[0].coords[0], xytext=(-80, 6),
+                textcoords='offset points', fontsize=12, fontstyle='italic', color='k')
+    # Catalog
+    if catalog:
+        ax.scatter(cat['Longitude'], cat['Latitude'], marker='o', color='k',
+                   facecolor=None, s=1., alpha=0.3)
+    # Seismic stations
+    UU_stations.plot(ax=ax, marker='^', markersize=80, color='k')
+    K_stations.plot(ax=ax, marker='v', markersize=80, color='firebrick')
+    for i, row in K_stations.iterrows():
+        loc = row.geometry.coords[0][:-1]
+        sta = '6K.'+ row.Name.split()[0].replace('FG', 'CS')
+        ax.annotate(
+            sta, xy=loc, xytext=(4, 4),
+            textcoords='offset points', fontsize=10, fontweight='bold',
+            color='firebrick')
+    # Inset map
+    ax2 = inset_axes(ax, width=2, height=2, loc=2,
+                     axes_class=GeoAxes,
+                     axes_kwargs=dict(projection=ccrs.AlbersEqualArea(-112, 40)))
+    # ax2.stock_img()
+    ax2.add_feature(cf.BORDERS)
+    ax2.add_feature(cf.LAND)
+    ax2.add_feature(cf.ShapelyFeature(bbox.geometry, crs=ccrs.CRS('epsg:4326')),
+                    edgecolor='r', linewidth=2., facecolor='none')
+    ax2.add_feature(
+        cf.NaturalEarthFeature(
+            category='cultural', name='admin_1_states_provinces_lines',
+            scale='50m', facecolor='none'
+        )
+    )
+    ax2.set_extent([-116, -108, 36, 44], crs=ccrs.CRS('epsg:4326'))
+    ax.set_xlim([extent[0], extent[1]])
+    ax.set_ylim([extent[2], extent[3]])
+    # Scale bar
+    points = gpd.GeoSeries([Point(-117., extent[2]),
+                            Point(-118., extent[2])], crs=4326)
+    points = points.to_crs(32611)  # Projected WGS 84 - meters
+    distance_meters = points[0].distance(points[1])
+    ax.add_artist(ScaleBar(distance_meters))
+    ax.set_xlabel(r'Longitude [$^o$]')
+    ax.set_ylabel(r'Latitude [$^o$]')
+    ax.set_title('Cape Modern Seismic Sites')
+    fig.savefig('Cape_modern_seismic.png', dpi=300)
+    # plt.show()
     return
 
 

@@ -540,7 +540,7 @@ def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
             continue
         # Vibbox specific channels, not for picking
         rms = [tr for tr in st
-               if tr.stats.station in ['CMon', 'CTrig', 'CEnc', 'PPS']]
+               if tr.stats.station in ['CMon', 'CTrg', 'CEnc', 'PPS']]
         for rm in rms:
             st.traces.remove(rm)
         tmp_wav_file = ['tmp/tmp_wav.mseed']
