@@ -20,7 +20,7 @@ from timeit import default_timer as timer
 
 ##### User-defined stuff #####
 
-tribe_file = '/clusterfs/bear/GMF_1/Amplify_EGS/tribes/dac/JVTM_top25-stations_2012-2021_clean.tgz'
+tribe_file = '/clusterfs/bear/chopp/chet-amplify/tribes/dac/DAC_manual_tribe_1hr-proc.tgz'
 # wav_dir = '/clusterfs/bear/chopp/chet-amplify/waveforms/dac'
 outdir = '/clusterfs/bear/chopp/chet-amplify/parties/dac'
 
