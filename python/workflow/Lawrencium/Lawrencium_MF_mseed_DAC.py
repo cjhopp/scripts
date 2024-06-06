@@ -115,7 +115,7 @@ else:
 
 logging.basicConfig(
     filename='tribe-detect_{}.txt'.format(instance),
-    level=logging.ERROR,
+    level=logging.INFO,
     format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
 # Make datetime list
@@ -157,11 +157,7 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     dto = UTCDateTime(date)
     jday = dto.julday
     print('Running {}\nJday: {}'.format(dto, jday))
-    try:
-        day_party, daylong = tribe.client_detect(client=client, starttime=dto, endtime=dto + 86400, **match_params)
-    except (OSError, IndexError, MatchFilterError) as e:
-        print(e)
-        continue
+    day_party, daylong = tribe.client_detect(client=client, starttime=dto, endtime=dto + 86400, **match_params)
     print('Declustering')
     # Decluster day party
     day_party.decluster(trig_int=match_params['trig_int'])
