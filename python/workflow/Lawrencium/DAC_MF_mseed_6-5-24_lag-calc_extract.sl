@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J CJH_DAC_MF_6-5-24
-#SBATCH --partition=lr3
+#SBATCH --partition=lr4
 #SBATCH --account=pc_seisproc
 #SBATCH --qos=lr_normal
 #SBATCH --time=4:00:00
@@ -8,7 +8,7 @@
 #SBATCH --nodes=1
 #SBATCH --output=dac-MF_out_%a.txt
 #SBATCH --error=dac-MF_err_%a.txt
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=24
 #SBATCH --array=0-46
 #SBATCH --mail-user=chopp@lbl.gov
 

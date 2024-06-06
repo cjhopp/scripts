@@ -25,11 +25,11 @@ tribe_file = '/clusterfs/bear/chopp/chet-amplify/tribes/dac/DAC_manual_tribe_1hr
 outdir = '/clusterfs/bear/chopp/chet-amplify/parties/dac'
 
 match_params = {'threshold': 10., 'threshold_type': 'MAD', 'trig_int': 5.,
-                'cores': 16, 'save_progress': False, 'parallel_process': True,
+                'cores': 24, 'save_progress': False, 'parallel_process': True,
                 'plot': False, 'process_cores': 8, 'overlap': None, 'return_stream': True}
 
 lag_params = {'min_cc': 0.7, 'shift_len': 0.4, 'interpolate': True,
-              'cores': 16, 'process_cores': 8, 'plot': False,
+              'cores': 24, 'process_cores': 8, 'plot': False,
               'plotdir': '/clusterfs/bear/chopp/chet-amplify/lag_calc_plots/dac'}
 
 extract_params = {'prepick': 30., 'length': 90.,

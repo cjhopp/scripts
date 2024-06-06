@@ -27,6 +27,17 @@ from obspy.core.inventory.util import Latitude, Longitude, Equipment
 from lbnl.coordinates import SURF_converter, FSB_converter
 from lbnl.boreholes import create_FSB_boreholes
 
+dac_locations = {
+    'DAC01': (-118.33740, 38.85207, 1275),
+    'DAC02': (-118.30798, 38.84438, 1281),
+    'DAC03': (-118.31027, 38.85007, 1277),
+    'DAC04': (-118.32735, 38.84718, 1275),
+    'DAC05': (-118.31956, 38.84067, 1285),
+    'DAC06': (-118.33182, 38.84059, 1287),
+    'DAC07': (-118.30060, 38.83677, 1290),
+    'DAC08': (-118.32736, 38.82941, 1307),
+    'DAC09': (-118.31497, 38.83273, 1300)
+}
 
 fsb_accelerometers = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647',
                       'B659', 'B748', 'B75']
