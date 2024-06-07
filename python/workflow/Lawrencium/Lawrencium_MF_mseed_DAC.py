@@ -172,7 +172,10 @@ for date in date_generator(inst_dats[0], inst_dats[-1]):
     pp = extract_params['prepick']
     length = extract_params['length']
     outd = extract_params['outdir']
-    daylong.merge(fill_value='interpolate')  # Don't need this for anything else so go ahead and merge
+    # Unmask data before writing
+    for tr in daylong:
+        if isinstance(tr.data, np.ma.masked_array):
+            tr.data = tr.data.filled()
     for d in day_dets:
         d_st = daylong.slice(starttime=d.detect_time - pp,
                              endtime=d.detect_time - pp + length)
