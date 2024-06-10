@@ -44,7 +44,8 @@ from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException, FDSNException
 from eqcorrscan.core.match_filter import Tribe, Party, MatchFilterError, Template
 from eqcorrscan.core.match_filter.matched_filter import match_filter
-from eqcorrscan.core.match_filter.matched_filter import get_stream_xcorr, multi_find_peaks
+# Below functions depracated
+# from eqcorrscan.core.match_filter.matched_filter import get_stream_xcorr, multi_find_peaks
 from eqcorrscan import Family, Detection
 from eqcorrscan.core.template_gen import template_gen
 from eqcorrscan.utils.pre_processing import shortproc, dayproc, _prep_data_for_correlation
@@ -52,7 +53,7 @@ from eqcorrscan.utils.stacking import align_traces
 from eqcorrscan.utils import clustering
 from eqcorrscan.utils.mag_calc import dist_calc
 from eqcorrscan.utils.plotting import _match_filter_plot, detection_multiplot
-from scipy.stats import special_ortho_group, median_absolute_deviation
+from scipy.stats import special_ortho_group#, median_absolute_deviation
 from scipy.signal import find_peaks
 from scipy import fftpack
 from scipy.io import savemat
@@ -2975,14 +2976,14 @@ def family_stack_plot(family, wav_files, seed_id, selfs,
     prepick = family.template.prepick
     for i, ev in enumerate(events):
         eid = ev.resource_id.id
-        eid = eid.split('_')
-        if len(eid) == 3:
-            eid = '{}_{}T{}.{}'.format(eid[0], eid[1], eid[2][:-6], eid[2][-6:])
-        elif len(eid) == 4:
-            eid = '{}_{}_{}T{}.{}'.format(eid[0], eid[1], eid[2], eid[3][:-6],
-                                          eid[3][-6:])
-        else:
-            eid = ev.resource_id.id
+        # eid = eid.split('_')
+        # if len(eid) == 3:
+        #     eid = '{}_{}T{}.{}'.format(eid[0], eid[1], eid[2][:-6], eid[2][-6:])
+        # elif len(eid) == 4:
+        #     eid = '{}_{}_{}T{}.{}'.format(eid[0], eid[1], eid[2], eid[3][:-6],
+        #                                   eid[3][-6:])
+        # else:
+        #     eid = ev.resource_id.id
         det_file = [f for f in wav_files
                     if f.split('/')[-1].rstrip('.ms') == eid]
         try:

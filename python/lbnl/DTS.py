@@ -712,14 +712,14 @@ def plot_delta_T(well_data, date_range, wells=None, vrange=(-2, 2),
             df = collab_hydro_data
             # df = hydro_data[date_range[0]:date_range[1]]
             ax2 = hydro_ax.twinx()
-            hydro_ax.plot(df['Time'], df['Net Flow'], color='steelblue',
+            hydro_ax.plot(df.index, df['Net Flow'], color='steelblue',
                           label='TU Flow')
-            hydro_ax.plot(df['Time'], df['TN Interval Flow'],
+            hydro_ax.plot(df.index, df['TN Interval Flow'],
                           color='blue', label='TN Interval Flow')
             # hydro_ax.plot(df['Time'], df['TC Collar Flow'], color='purple')
-            ax2.plot(df['Time'], df['Injection Pressure'],
+            ax2.plot(df.index, df['Injection Pressure'],
                      color='firebrick', label='TU Injection Pressure')
-            ax2.plot(df['Time'], df['TN Interval Pressure'],
+            ax2.plot(df.index, df['TN Interval Pressure'],
                      color='orange', label='TN Interval Pressure')
             # ax2.plot(df['Time'], df['TC Bottom Pressure'], color='magenta')
             if type(collab_stim_data) == pd.DataFrame:

@@ -9,10 +9,10 @@
 #SBATCH --output=dac-MF_out_%a.txt
 #SBATCH --error=dac-MF_err_%a.txt
 #SBATCH --cpus-per-task=24
-#SBATCH --array=0-46
+#SBATCH --array=0-107
 #SBATCH --mail-user=chopp@lbl.gov
 
 module load python/3.7
 source activate eqcorrscan_dev
 
-srun python /global/home/users/chopp/scripts/python/workflow/Lawrencium/Lawrencium_MF_mseed_DAC.py --splits 47 --instance $SLURM_ARRAY_TASK_ID --start 19/4/2024 --end 5/6/2024
+srun python /global/home/users/chopp/scripts/python/workflow/Lawrencium/Lawrencium_MF_mseed_DAC.py --splits 108 --instance $SLURM_ARRAY_TASK_ID --start 1/1/2024 --end 18/4/2024

@@ -1312,11 +1312,11 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     # axes_time = fig.add_subplot(gs[9:11, :])
     # hydro_ax = fig.add_subplot(gs[11:, :], sharex=axes_time)
     # Or individual plots
-    _, axes_map = plt.subplots(figsize=(10, 7))
+    fig_map, axes_map = plt.subplots(figsize=(10, 7))
     fig = plt.figure(figsize=(10, 7))
     axes_3D = fig.add_subplot(projection='3d')
-    _, axes_time = plt.subplots(figsize=(15, 6))
-    _, hydro_ax = plt.subplots(figsize=(15, 6))
+    fig2, axes = plt.subplots(nrows=2, figsize=(18, 6), sharex=True)
+    axes_time, hydro_ax = axes
     # Convert to HMC system
     if catalog:
         catalog = [ev for ev in catalog if len(ev.origins) > 0]
@@ -1397,7 +1397,7 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     if inventory:
         axes_3D.scatter(sx, sy, sz, marker='v', color='r', label='Seismic sensor')
     if catalog:
-        sizes = ((mags - np.min(mags)))**2 + 0.5
+        sizes = ((mags - np.min(mags)))**2 + 20.
         mpl = axes_3D.scatter(
             np.array(x)[mag_inds], np.array(y)[mag_inds],
             np.array(z)[mag_inds], marker='o',
@@ -1417,6 +1417,8 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
         axes_time.set_ylabel('Distance [m]', fontsize=18)
         ax2.set_ylabel('# events', fontsize=18)
         axes_time.tick_params(which='both', axis='x', labelbottom='False', labelsize=18)
+        axes_time.tick_params(axis='y', labelsize=18)
+        ax2.tick_params(axis='y', labelsize=18)
         plt.setp(axes_time.get_xticklabels(), visible=False)
     if type(circulation_data) == pd.DataFrame:
         # df = hydro_data[date_range[0]:date_range[1]]
@@ -1448,16 +1450,16 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
         # ax2.xaxis.set_major_locator(HourLocator(interval=4))
         ax2.xaxis.set_major_locator(DayLocator(interval=7))
         ax2.tick_params(axis='x', pad=15)
-        plt.setp(ax2.get_xticklabels(), rotation=0, ha="center", fontsize=18)
+        plt.setp(ax2.get_xticklabels(), rotation=20, ha="right", fontsize=18)
     hydro_ax.set_xlabel('Date', fontsize=24)
     # hydro_ax.xaxis.set_major_locator(HourLocator(interval=4))
     hydro_ax.xaxis.set_major_locator(DayLocator(interval=7))
     hydro_ax.tick_params(axis='x', pad=15)
-    plt.setp(hydro_ax.get_xticklabels(), rotation=0, ha="center", fontsize=18)
+    plt.setp(hydro_ax.get_xticklabels(), rotation=20, ha="right", fontsize=18)
     axes_3D.set_xlabel('Easting [HMC]', fontsize=18)
     axes_3D.set_ylabel('Northing [HMC]', fontsize=18)
     axes_3D.set_zlabel('Elevation [m]', fontsize=18)
-    axes_3D.tick_params(which='major', labelsize=16)
+    axes_3D.tick_params(which='major', labelsize=13)
     axes_3D.set_ylim([-905, -855])
     axes_3D.set_xlim([1215, 1265])
     axes_3D.set_zlim([305, 355])
@@ -1494,9 +1496,12 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     axes_map.set_xlim([1200, 1280])
     axes_map.set_xlabel('Easting [HMC]', fontsize=22)
     axes_map.set_ylabel('Northing [HMC]', fontsize=22)
-    axes_map.tick_params(axis='both', which='major', labelsize=12)
+    axes_map.tick_params(axis='both', which='major', labelsize=18)
     axes_map.set_aspect('equal')
-    plt.subplots_adjust(left=0.05, right=0.93, bottom=0.08, top=0.95, hspace=1.4)
+    fig.tight_layout()
+    fig_map.tight_layout()
+    fig2.tight_layout()
+    # plt.subplots_adjust(left=0.05, right=0.93, bottom=0.08, top=0.95, hspace=1.4)
     if filename:
         plt.savefig(filename, dpi=300)
     else:
