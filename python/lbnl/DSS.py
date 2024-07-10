@@ -32,7 +32,7 @@ from scipy.spatial.transform import Rotation as R
 from scipy.interpolate import griddata, interp1d
 from scipy.ndimage import gaussian_filter, median_filter
 from scipy.signal import detrend, welch, find_peaks, zpk2sos, sosfilt, iirfilter
-from scipy.stats import median_absolute_deviation, linregress
+# from scipy.stats import median_absolute_deviation, linregress
 from datetime import datetime, timedelta
 from itertools import cycle
 from matplotlib.dates import num2date, date2num, DateFormatter
@@ -48,15 +48,15 @@ from lbnl.boreholes import (parse_surf_boreholes, create_FSB_boreholes,
                             depth_to_xyz, distance_to_borehole,
                             read_gallery_distances, read_gallery_excavation,
                             read_frac_quinn)
-from lbnl.DTS import read_struct
-from lbnl.DAS import extract_channel_timeseries as extract_das
-from lbnl.DAS import integrate_depth_interval as integrate_das
-from lbnl.simfip import (read_excavation, plot_displacement_components,
-                         read_collab, rotate_fsb_to_fault,
-                         rotate_fsb_to_borehole, read_FSB_injection)
-from lbnl.hydraulic_data import (read_collab_hydro, read_csd_hydro,
-                                 plot_csd_hydro, plot_collab_ALL,
-                                 plot_fsb_hydro, read_fsb_hydro)
+# from lbnl.DTS import read_struct
+# from lbnl.DAS import extract_channel_timeseries as extract_das
+# from lbnl.DAS import integrate_depth_interval as integrate_das
+# from lbnl.simfip import (read_excavation, plot_displacement_components,
+#                          read_collab, rotate_fsb_to_fault,
+#                          rotate_fsb_to_borehole, read_FSB_injection)
+# from lbnl.hydraulic_data import (read_collab_hydro, read_csd_hydro,
+#                                  plot_csd_hydro, plot_collab_ALL,
+#                                  plot_fsb_hydro, read_fsb_hydro)
 
 
 ######### SURF CHANNEL MAPPING ############

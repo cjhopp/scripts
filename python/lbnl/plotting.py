@@ -3143,7 +3143,7 @@ def plot_JV(dem_dir, vector_dir):
     return
 
 
-def plot_DAC(dem_dir, vector_dir):
+def plot_DAC(dem_dir, vector_dir, catalog=None):
     """Patua overview plot"""
     DAC_extents = [(-118.39, 38.87), (-118.28, 38.87),
                   (-118.28, 38.80), (-118.39, 38.80)]
@@ -3174,6 +3174,16 @@ def plot_DAC(dem_dir, vector_dir):
     circle1 = gpd.read_file('{}/1800-m_radius_circle_centered_on_inj.shp'.format(vector_dir)).to_crs(4326)
     circle2 = gpd.read_file('{}/2700-m_radius_circle_centered_on_inj.shp'.format(vector_dir)).to_crs(4326)
     sand = gpd.read_file('{}/sand-dunes.shp'.format(vector_dir)).to_crs(4326)
+    I_pipe = gpd.read_file('{}/DAC_injection_pipelines.shp'.format(vector_dir)).to_crs(4326)
+    P_pipe = gpd.read_file('{}/DAC_production_pipelines.shp'.format(vector_dir)).to_crs(4326)
+    I_wells = gpd.read_file('{}/DAC_injection_wells.shp'.format(vector_dir)).to_crs(4326)
+    P_wells = gpd.read_file('{}/DAC_production_wells.shp'.format(vector_dir)).to_crs(4326)
+    # EQ catalog
+    if catalog is not None:
+        lats = [ev.preferred_origin().latitude for ev in catalog]
+        longs = [ev.preferred_origin().longitude for ev in catalog]
+        deps = [ev.preferred_origin().depth for ev in catalog]
+        mags = [ev.preferred_magnitude().mag for ev in catalog]
     # Figure setup
     fig, ax = plt.subplots(figsize=(10, 10))
     # Only top half of colormap
@@ -3195,11 +3205,18 @@ def plot_DAC(dem_dir, vector_dir):
     plant1.geometry.plot(ax=ax, color='k')
     plant2.geometry.plot(ax=ax, color='k')
     lease.boundary.plot(ax=ax, linestyle=':', color='firebrick')
+    I_pipe.plot(ax=ax, color='b', alpha=0.5)
+    P_pipe.plot(ax=ax, color='r', alpha=0.5)
+    I_wells.plot(ax=ax, marker='o', color='b', markersize=20, alpha=0.5)
+    P_wells.plot(ax=ax, marker='o', color='r', markersize=20, alpha=0.5)
     woo_well.plot(ax=ax, marker='*', color='yellow',
                   markersize=60.)
     circle0.plot(ax=ax, color='dodgerblue', linewidth=1.)
     circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
     circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    if catalog is not None:
+        ax.scatter(longs, lats, marker='o', color='k',
+                   facecolor=None, s=10.*(1**np.array(mags)), alpha=0.3)
     # Labels
     # Seismic stations
     stations.plot(ax=ax, marker='v', markersize=50, color='indigo')
@@ -3222,6 +3239,7 @@ def plot_DAC(dem_dir, vector_dir):
     ax.set_xlabel(r'Longitude [$^o$]')
     ax.set_ylabel(r'Latitude [$^o$]')
     ax.set_title('Don A Campbell')
+    fig.tight_layout()
     plt.show()
     return
 

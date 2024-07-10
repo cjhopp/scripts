@@ -256,8 +256,6 @@ def read_numo_acc(path, columns=6, npts=20000):
         return Stream()
     cs1 = int.from_bytes(sec1, "big")
     cs2 = int.from_bytes(sec2, "big")
-    print(cs1, NI_seconds)
-    print(datetime.fromtimestamp(cs1 - NI_seconds))
     data_start = UTCDateTime(datetime.fromtimestamp(cs1 - NI_seconds)) + (cs2 * 2**-64)
     st = Stream()
     for i, chan in enumerate(['TOP..GNZ', 'TOP..GN1', 'TOP..GN2', 'BOT..GNZ', 'BOT..GN1', 'BOT..GN2']):
