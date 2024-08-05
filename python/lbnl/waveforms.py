@@ -120,6 +120,18 @@ collab_4100_geode = {
     '71': 'TS02.XDH', '72': 'TS01.XDH', '73': 'PPS.', '74': 'Enc.', '75': 'Mon.', '76': 'Trig.'
 }
 
+collab_source_chans = {
+    1: 'AMLS1', 2: 'AMLS2', 3: 'AMLS3', 4: 'AMLS4',
+    5: 'AMUS1', 6: 'AMUS2', 7: 'AMUS3', 8: 'AMUS4',
+    9: 'DMLS1', 10: 'DMLS2', 11: 'DMLS3', 12: 'DMLS4',
+    13: 'DMUS1', 14: 'DMUS2', 15: 'DMUS3', 16: 'DMUS4',
+}
+
+collab_dead_chans = [
+    'AML2.XNZ', 'AML4.XNZ', 'DML4.XNZ', 'DMU2.XNZ', 'AML4.XNX', 'DML1.XNX', 'DML4.XNX', 'DMU2.XNX',
+    'DMU4.XNX', 'DML4.XNY', 'DMU2.XNY', 'DMU4.XNY'
+]
+
 fsb_geode_chans = {
     '1': 'B301.XN1', '2': 'B302.XN1', '3': 'B303.XN1', '4': 'B304.XN1',
     '5': 'B305.XN1', '6': 'B306.XN1', '7': 'B307.XN1', '8': 'B308.XN1',
@@ -353,11 +365,13 @@ def decode_CASSM_channel(trace, threshold=0.5, plot=False):
     return ba2int(channel)
 
 
-def read_cassm_seg2(file, mapping, plot_picks=False):
+def read_cassm_seg2(file, mapping, inventory=None, cassm_channel=None, plot_picks=False):
     """
     Read seg-2 from CASSM and correctly assign the headers from a provided
     mapping dictionary {CASSM chan: Sta name}
     """
+    if inventory and not cassm_channel:
+        return 'If supplying an inventory to populate offset, also provide the cassm channel no'
     st = read(file)
     rmtrs = []
     aics = {}
@@ -367,6 +381,9 @@ def read_cassm_seg2(file, mapping, plot_picks=False):
             stachan = mapping[tr.stats.seg2['CHANNEL_NUMBER']]
         except KeyError as e:
             # No channel in mapping, remove
+            rmtrs.append(tr)
+            continue
+        if stachan in collab_dead_chans:
             rmtrs.append(tr)
             continue
         sta, chan = stachan.split('.')
@@ -380,6 +397,19 @@ def read_cassm_seg2(file, mapping, plot_picks=False):
         tts['.{}..{}'.format(sta, chan)] = [tt]
         pk_time = tr.stats.starttime + (pk_i / tr.stats.sampling_rate)
         tr.stats.seg2['PICK_TIME'] = pk_time
+        if inventory:
+            # Add an offset header value
+            try:
+                sta_extra = inventory.select(station=sta)[0][0].extra
+                src_extra = inventory.select(station=collab_source_chans[cassm_channel])[0][0].extra
+                sta_loc = np.array((sta_extra.hmc_east.value, sta_extra.hmc_north.value, sta_extra.hmc_elev.value))
+                src_loc = np.array((src_extra.hmc_east.value, src_extra.hmc_north.value, src_extra.hmc_elev.value))
+                offset = np.sqrt(np.sum((sta_loc - src_loc)**2))
+                tr.stats.distance = offset * 0.3048
+            except IndexError:
+                tr.stats.distance = 0.
+                # Non-sensor channel e.g. PPS
+                pass
     for rt in rmtrs:
         st.traces.remove(rt)
     if plot_picks:
