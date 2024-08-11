@@ -5,6 +5,7 @@ import os
 from glob import glob
 from datetime import datetime
 from plotly.subplots import make_subplots
+from itertools import cycle
 
 import numpy as np
 import pandas as pd
@@ -13,6 +14,7 @@ import holoviews as hv
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
+import seaborn as sns
 import dash_bootstrap_components as dbc
 
 from plotly.subplots import make_subplots
@@ -21,9 +23,10 @@ from flask_caching import Cache
 from dash import Dash, html, dcc, Input, ctx, Output, State, callback
 
 # Neubrex mapping
+# Only B10a mapping right now! Is there a 10b for this SMF? Must be, right?
 neubrex_mapping = {
     'B1': (56.36, 156.25),
-    # 'B2': (1796.50, 1907.02),
+    'B2': (1796.50, 1907.02),
     'B3': (1140.27, 1311.10),
     'B4': (1316.81, 1477.03),
     'B5': (982.92, 1101.35),
@@ -32,29 +35,29 @@ neubrex_mapping = {
     'B9': (215.51, 331.46),
     'B10': (796.38, 932.75),
     'B11': (635.68, 707.95),
-    # 'B12': (412.43, 512.04)  #OG mapping with Antonio
-    'B12': (405.82, 512.04)
+    'B12': (412.43, 512.04)  #OG mapping with Antonio
 }
 
 fsc23_mapping_bottom = {
     'B1': 106.305,
     'B2': 1834.105,
     'B3': 1225.685,
-    'B4': 1396.92,
+    'B4': 1384.088,
     'B5': 1042.135,
     'B6': 1549.87,
     'B7': 1653.0,
-    'B9': 273.485,
-    'B10': 864.565,
-    'B11': 671.815,
+    'B9': 272.088,
+    'B10': 890.918,
+    'B11': 666.225,
     'B12': 458.93
 }
 
+pick_cmap = cycle(sns.color_palette('Dark2').as_hex())
 
 fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.42, 'D4': 35.99, 'D5': 31.38,
                 'D6': 36.28, 'D7': 29.7, 'B1': 51.5, 'B2': 53.3, 'B3': 84.8,
                 'B4': 80., 'B5': 59., 'B6': 49.5, 'B7': 49.3, 'B8': 61.,
-                'B9': 61., 'B10a': 35.5, 'B10b': 35.5, 'B11': 36.25, 'B12': 50, 'Tank': 30}
+                'B9': 61., 'B10': 35.5, 'B11': 36.25, 'B12': 50, 'Tank': 30}
 
 fiber_winding = 5  # Degrees from borehole axis
 
@@ -113,11 +116,34 @@ def read_fsb_hydro(path, year=2023, B1_path=False, B12_path=False):
     return df
 
 
+def read_neubrex(path):
+    """
+    Read neubrex data to a DataSet with the same structure as the assumed NetCDF structure below
+    :param path:
+    :return:
+    """
+    ds = xr.open_dataset(path)  # Assuming an hdf5
+    print(ds)
+    try:
+        ds = ds.assign(phony_dim_0=[datetime.strptime(s, '%m/%d/%Y %H:%M:%S.%f') for s in ds.stamps.values])
+        ds = ds.swap_dims({'phony_dim_1': 'depth'})
+        ds = ds.rename({'phony_dim_0': 'time', 'data': 'microstrain'})
+        ds = ds.set_index({'time': 'time'})
+        return ds.transpose()
+    except ValueError as e:  # Artur changed the dt format...
+        ds = ds.assign(phony_dim_1=[datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f') for s in ds.stamps.values])
+        ds = ds.swap_dims({'phony_dim_0': 'depth'})
+        ds = ds.rename({'phony_dim_1': 'time', 'data': 'microstrain'})
+        ds = ds.set_index({'time': 'time'})
+        return ds
+
+
 # Read in NetCDF file as Dataset now
-ds = xr.open_dataset('/media/chopp/Data1/chet-FS-B/DSS/FSC23/FSC_Omnisens.nc')
+# ds = xr.open_dataset('/media/chopp/Data1/chet-FS-B/DSS/FSC23/FSC_Omnisens.nc')
+ds = read_neubrex('/media/chopp/Data1/chet-FS-B/DSS/neubrex/LBNL - BFS - white cable - absolute strain - session 3.h5')
 # Convert to relative strain and slice in global env now. Should move these to some sort of interactive thing
 ds['microstrain'] -= ds['microstrain'].isel(time=0)
-ds = ds.sel(time=slice(datetime(2023, 5, 1), datetime(2023, 5, 15)))
+# ds = ds.sel(time=slice(datetime(2023, 5, 7), datetime(2023, 5, 13)))
 # Also read in FSC injections for now
 df_fsc = read_fsb_hydro('/media/chopp/Data1/chet-FS-B/pump/MtTerriInjectionMay2023_BFSB2_PQ_CO2_1Hz.csv')
 
@@ -188,6 +214,7 @@ app.layout = dbc.Container(children=[
             ),
         ], md=4),
         dbc.Col([
+            html.Label("Colorscale [microstrain]", style={'flexShrink': 0}),
             dcc.Slider(0, 1000, 100, value=500, id='color-slider')
         ], md=4)
     ], align='center'),
@@ -229,7 +256,11 @@ def recolor(fig, color):
 @cache.memoize()
 def extract_well(well):
     dt_array = pd.to_datetime(ds.time)
-    mapping = fsc23_mapping_bottom[well]
+    # For Omnisense NetCDF file (which was already flipped into Neubrex coordinate ref)
+    # mapping = fsc23_mapping_bottom[well]
+    # For neubrex
+    mapping = np.mean(neubrex_mapping[well])
+    print(mapping)
     fiber_depth = (fiber_depths[well] /
                    np.cos(np.deg2rad(fiber_winding)))
     # Downgoing fiber
@@ -253,7 +284,6 @@ def select_well(well, color):
                                     [None, {'colspan': 2, 'rowspan': 1, 'secondary_y': True}, None]]
                              )
     fig = go.FigureWidget(subplots)
-    print(fig.layout)
     data_dict = extract_well(well)
     dt_array = [UTCDateTime(dt).datetime for dt in data_dict['time']]
     hole_depths = data_dict['depth']
@@ -289,6 +319,7 @@ def pick_data(fig, clickData, well, clicks):
     :return:
     """
     print(clickData)
+    col = next(pick_cmap)
     fig = go.FigureWidget(fig)
     data_dict = extract_well(well)
     dt_array = [UTCDateTime(dt).datetime for dt in data_dict['time']]
@@ -299,7 +330,7 @@ def pick_data(fig, clickData, well, clicks):
     # Check if in waterfalls
     if not which_waterfall in [0, 1]:
         # Output some message somewhere?
-        return
+        return fig
     data = [down_data, up_data]
     click_time = UTCDateTime(clickData['points'][0]['x']).datetime
     click_t_i = np.argmin(np.abs(np.array(dt_array) - click_time))
@@ -312,11 +343,15 @@ def pick_data(fig, clickData, well, clicks):
     if which_waterfall == 1:
         depth_trace = depth_trace[::-1]
     # Update graphs
-    fig.add_scatter(x=depth_trace, y=hole_depths, name=str(click_time), legendgroup="group",
+    fig.add_scatter(x=depth_trace, y=hole_depths, name=str(click_time), legendgroup="group", line_color=col,
                     legendgrouptitle_text="Depth traces", showlegend=True, yaxis='y')
-    fig.add_scatter(x=dt_array, y=time_trace, name='{:.3f} m'.format(click_depth),
+    fig.add_scatter(x=dt_array, y=time_trace, name='{:.3f} m'.format(click_depth), line_color=col,
                     legendgroup="group2", legendgrouptitle_text="Time traces",
                     yaxis='y4', xaxis='x4', showlegend=True)
+    # Lines on waterfalls
+    fig.add_scatter(x=[click_time], y=[click_depth], marker_line_color=col, marker_symbol='cross-thin', marker_size=20,
+                    marker_line_width=3, opacity=0.5,
+                    xaxis='x{}'.format(which_waterfall+2), yaxis='y{}'.format(which_waterfall+2), showlegend=False)
     fig.update_layout(dict(uirevision=True))  # Keep user interactions from before update (like zoom)
     return fig
 
