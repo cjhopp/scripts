@@ -33,7 +33,8 @@ neubrex_mapping = {
     'B6': (1499.42, 1600.32),
     'B7': (1605.37, 1700.63),
     'B9': (215.51, 331.46),
-    'B10': (796.38, 932.75),
+    # 'B10': (796.38, 932.75),  # This includes both loops
+    'B10': (796.38, 830.473),
     'B11': (635.68, 707.95),
     'B12': (412.43, 512.04)  #OG mapping with Antonio
 }
@@ -116,33 +117,37 @@ def read_fsb_hydro(path, year=2023, B1_path=False, B12_path=False):
     return df
 
 
-def read_neubrex(path):
+def read_neubrex(path, chunks=False):
     """
     Read neubrex data to a DataSet with the same structure as the assumed NetCDF structure below
-    :param path:
+    :param path: Path to file
+    :param chunks: Dict mapping coordinates to chunking for large datasets (i.e. RFS)
     :return:
     """
-    ds = xr.open_dataset(path)  # Assuming an hdf5
-    print(ds)
+    ds = xr.open_dataset(path, chunks=chunks)  # Assuming an hdf5
     try:
         ds = ds.assign(phony_dim_0=[datetime.strptime(s, '%m/%d/%Y %H:%M:%S.%f') for s in ds.stamps.values])
         ds = ds.swap_dims({'phony_dim_1': 'depth'})
         ds = ds.rename({'phony_dim_0': 'time', 'data': 'microstrain'})
         ds = ds.set_index({'time': 'time'})
-        return ds.transpose()
+        # ds['depth'].values = ds['depth'].values.round(decimals=3)  # Artur-approved hack
+        # return ds.transpose()
+        return ds
     except ValueError as e:  # Artur changed the dt format...
         ds = ds.assign(phony_dim_1=[datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f') for s in ds.stamps.values])
         ds = ds.swap_dims({'phony_dim_0': 'depth'})
         ds = ds.rename({'phony_dim_1': 'time', 'data': 'microstrain'})
         ds = ds.set_index({'time': 'time'})
+        # ds['depth'].values = ds['depth'].values.round(decimals=3)  # Artur-approved hack
         return ds
 
 
 # Read in NetCDF file as Dataset now
 # ds = xr.open_dataset('/media/chopp/Data1/chet-FS-B/DSS/FSC23/FSC_Omnisens.nc')
-ds = read_neubrex('/media/chopp/Data1/chet-FS-B/DSS/neubrex/LBNL - BFS - white cable - absolute strain - session 3.h5')
+ds = read_neubrex('/media/chopp/Data1/chet-FS-B/DSS/neubrex/LBNL - BFS - white cable - strain change - session 3.h5',
+                  chunks={'depth': 100})
 # Convert to relative strain and slice in global env now. Should move these to some sort of interactive thing
-ds['microstrain'] -= ds['microstrain'].isel(time=0)
+# ds['microstrain'] -= ds['microstrain'].isel(time=0)
 # ds = ds.sel(time=slice(datetime(2023, 5, 7), datetime(2023, 5, 13)))
 # Also read in FSC injections for now
 df_fsc = read_fsb_hydro('/media/chopp/Data1/chet-FS-B/pump/MtTerriInjectionMay2023_BFSB2_PQ_CO2_1Hz.csv')

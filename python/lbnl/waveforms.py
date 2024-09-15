@@ -3430,7 +3430,8 @@ def plot_noise_and_sig_bands(axes=None, plot_brune=False, plot_bands=False,
     ax.plot(1 / ln_periods, ln_psd, color='lightgray')
     if plot_brune:
         moments = Mw_to_moment()
-        mag_cols = cycle(sns.color_palette('muted'))
+        # mag_cols = cycle(sns.color_palette('muted'))
+        mag_cols = cycle(['darkgray'])
         Mws = ['-3', '-2', '-1', '0', '1']
         freq = np.logspace(-2, 4, 1000)
         for i, mom in enumerate(moments):
