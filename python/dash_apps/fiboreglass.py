@@ -131,8 +131,8 @@ def read_neubrex(path, chunks=False):
         ds = ds.rename({'phony_dim_0': 'time', 'data': 'microstrain'})
         ds = ds.set_index({'time': 'time'})
         # ds['depth'].values = ds['depth'].values.round(decimals=3)  # Artur-approved hack
-        # return ds.transpose()
-        return ds
+        return ds.transpose()
+        # return ds
     except ValueError as e:  # Artur changed the dt format...
         ds = ds.assign(phony_dim_1=[datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f') for s in ds.stamps.values])
         ds = ds.swap_dims({'phony_dim_0': 'depth'})

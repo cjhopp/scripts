@@ -666,6 +666,15 @@ def parse_eq_Canada(file_path):
             cat.events.append(e)
     return cat
 
+def ngds_to_cat(path):
+    """
+    Read the excel file from LLNL for Newberry 2012-2013 to a catalog
+    :param path:
+    :return:
+    """
+    df = pd.read_excel(path)
+    return
+
 
 def ncedc_dd_to_cat(path):
     """

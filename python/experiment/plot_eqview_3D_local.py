@@ -21,7 +21,7 @@ from shapely.geometry import Polygon, MultiLineString, LineString
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG, filename='log.txt')
 
-data_directory = '/media/chopp/Data1/chet-meq/cape_modern/spatial_data'
+data_directory = '/home/chopp/spatial_data'
 
 site_polygons = {
     'Newberry': Polygon([(-121.0736, 43.8988), (-121.0736, 43.5949), (-121.4918, 43.5949), (-121.4918, 43.8988)]),
@@ -122,7 +122,7 @@ def plot_3D(datasets, catalog):
     objects = []
     # What field is this?
     # field = datasets[0].split('/')[-3]
-    field = 'cape'
+    field = 'newberry'
     try:
         utm = projections[field]
     except KeyError:
@@ -161,8 +161,22 @@ def plot_3D(datasets, catalog):
             objects.append(tob_mesh)
     mfact = 1.5  # Magnitude scaling factor
     # Add arrays to the plotly objects
-    # id, t, lat, lon, depth, m, agency, status, phases, geo, _, _, _, _, _ = zip(*catalog)
-    id, t, lat, lon, depth, m = zip(*catalog)
+    try:
+        # id, t, lat, lon, depth, m, agency, status, phases, geo, _, _, _, _, _ = zip(*catalog)
+        id, t, lat, lon, depth, m = zip(*catalog)
+    except ValueError:  # When passing an obspy Catalog
+        params = []
+        for ev in catalog:
+            o = ev.preferred_origin()
+            params.append([ev.resource_id.id, o.time.timestamp, o.latitude, o.longitude, o.depth, ev.preferred_magnitude().mag])
+        params = np.array(params)
+        id, t, lat, lon, depth, m = np.split(params, 6, axis=1)
+        t = t.astype('f').flatten()
+        lat = lat.astype('f').flatten()
+        lon = lon.astype('f').flatten()
+        depth = depth.astype('f').flatten()
+        m = m.astype('f').flatten()
+    print(t)
     tickvals = np.linspace(min(t), max(t), 10)
     ticktext = [datetime.fromtimestamp(t).strftime('%d %b %Y: %H:%M')
                 for t in tickvals]
@@ -228,10 +242,12 @@ def plot_3D(datasets, catalog):
 
 
 if __name__ in '__main__':
-    lines = read_stdin()
+    lines = sys.argv
+    print(lines)
     # bbox = get_selection_area(lines)
-    catalog = get_events(lines)
-    datas = datasets['Cape']
+    # catalog = get_events(lines)
+    catalog = read_events(lines[1])
+    datas = datasets[lines[2]]
     fig = plot_3D(datas, catalog)
     html = plotly.io.to_html(fig)
     fig.write_html('eqview_3d.html')
