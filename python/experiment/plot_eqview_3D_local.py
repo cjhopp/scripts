@@ -250,6 +250,6 @@ if __name__ in '__main__':
     datas = datasets[lines[2]]
     fig = plot_3D(datas, catalog)
     html = plotly.io.to_html(fig)
-    fig.write_html('eqview_3d.html')
+    fig.write_html('eqview_3d_compare.html')
     # fig.write_html('output.html')
     # sys.stdout.write(html)

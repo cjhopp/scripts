@@ -3801,15 +3801,20 @@ def mseed_to_mat(ms_dir, datestr='202110*'):
     return
 
 
-def plot_extracted_seiscomp(event, stream, prepick, length, outdir):
+def plot_extracted_seiscomp(event, stream, prepick, length, outdir, event2=None):
     """
     Plot picks on waveforms from events and streams
 
     :param event: obspy.core.Event
     :param stream: obspy.core.Stream
+    :param prepick: Time to start plot before the first pick
+    :param length: Length of waveforms to plot
+    :param outdir: Directory to save figures to
+    :param event2: Optional second event to plot comparison picks from
     :return:
     """
     pick_color = {'P': 'red', 'S': 'blue'}
+    pick_color2 = {'P': 'orange', 'S': 'purple'}
     # Stream housekeeping from seiscomp
     stream.merge(fill_value='interpolate').filter('highpass', freq=3.)
     stream.trim(starttime=max([tr.stats.starttime for tr in stream]), endtime=min([tr.stats.endtime for tr in stream]))
@@ -3821,6 +3826,9 @@ def plot_extracted_seiscomp(event, stream, prepick, length, outdir):
     st_end = first_pick - reftime - prepick + length
     stream.trim(starttime=reftime + st_start, endtime=reftime + st_end)  # Trim again to avoid axes scaling issues
     reftime = stream[0].stats.starttime
+    if event2:
+        picks2 = [a.pick_id.get_referred_object() for a in event2.preferred_origin().arrivals]
+        arrivals2 = [a for a in event2.preferred_origin().arrivals]
     fig, ax = plt.subplots(len(stream), 1, sharex=True, figsize=(12, len(stream)))
     stream.traces.sort(key=lambda x: x.id)
     for i, tr in enumerate(stream):
@@ -3835,6 +3843,15 @@ def plot_extracted_seiscomp(event, stream, prepick, length, outdir):
                           color=pick_color[pick.phase_hint])
         except IndexError:
             pass
+        if event2:
+            try:
+                pick2 = [p for p in picks2 if p.waveform_id.id == tr.id][0]
+                arr2 = [a for a in arrivals2][0]
+                ax[i].axvline(pick2.time - reftime, linewidth=0.7, color=pick_color2[pick2.phase_hint])
+                ax[i].axvspan(pick2.time - reftime + arr2.time_residual, pick2.time - reftime, alpha=0.5,
+                              color=pick_color2[pick2.phase_hint])
+            except IndexError:
+                pass
     plt.tight_layout()
     plt.savefig('{}/{}.png'.format(outdir, event.resource_id.id.split('/')[-1]), dpi=300)
     plt.close('all')

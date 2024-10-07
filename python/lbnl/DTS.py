@@ -221,6 +221,37 @@ def read_XTDTS_probe_temp(path, plot=True):
     return dates, p1, p2
 
 
+def read_XTDTS_to_xarray(directory, no_cols):
+    """
+    Read a directory of xml files into an xarray Dataset object
+
+    :param directory: Path to file root
+    :param no_cols: Number of columns in the xml files (configurable for XTDTS)
+    :return:
+    """
+    files = glob('{}/*.xml'.format(directory))
+    files.sort()
+    results = [read_XTDTS(f, no_cols) for f in files]
+    results = [r for r in results if r]
+    times, measures, ref, p1, p2 = zip(*results)
+    times = np.array(times)
+    measures = np.stack(measures, axis=-1)
+    # Only save the temperature DataArray for now; can add stokes arrays if needed
+    temp = xr.DataArray(measures[:, no_cols-1, :], name='temperature',
+                        coords={'distance': measures[:, 0, 0],
+                                'time': times},
+                        dims=['distance', 'time'],
+                        attrs={'units': 'degrees C'})
+    delta = xr.DataArray(measures[:, no_cols-1, :], name='deltaT',
+                         coords={'distance': measures[:, 0, 0],
+                                 'time': times},
+                         dims=['distance', 'time'],
+                         attrs={'units': 'degrees C'})
+    delta = delta - delta.isel(time=0)
+    ds = xr.Dataset({'temperature': temp, 'deltaT': delta})
+    return ds
+
+
 def read_XTDTS_dir(dir_path, wells, mapping, no_cols,
                    noise_method='madjdabadi', dates=None,
                    extract_wells=True):
