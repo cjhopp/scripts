@@ -26,7 +26,7 @@ from pytz import timezone
 from eqcorrscan.core.match_filter import normxcorr2
 from pandas.errors import ParserError
 from scipy.io.matlab import savemat, loadmat
-from scipy.integrate import trapz
+# from scipy.integrate import trapz
 from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation as R
 from scipy.interpolate import griddata, interp1d
@@ -369,7 +369,7 @@ def read_omnisens_json_dir(root_path, date_range):
     return data, depths, times
 
 
-def read_neubrex(path, header=105, encoding='iso-8859-1'):
+def read_neubrex_solexperts(path, header=105, encoding='iso-8859-1'):
     """Read in raw Neubrex (SolExperts) measurement"""
     # Flip time axis back as only single measurements
     try:
@@ -385,6 +385,31 @@ def read_neubrex(path, header=105, encoding='iso-8859-1'):
         times = read_times(path, header=75, encoding=encoding,
                            time_fmt='%Y/%m/%d %H:%M:%S.%f')
     return data, depths, times
+
+
+def read_neubrex(path, chunks=False):
+    """
+    Read neubrex data to a DataSet with the same structure as the assumed NetCDF structure below
+    :param path: Path to file
+    :param chunks: Dict mapping coordinates to chunking for large datasets (i.e. RFS)
+    :return:
+    """
+    ds = xr.open_dataset(path, chunks=chunks)  # Assuming an hdf5
+    try:
+        ds = ds.assign(phony_dim_0=[datetime.strptime(s, '%m/%d/%Y %H:%M:%S.%f') for s in ds.stamps.values])
+        ds = ds.swap_dims({'phony_dim_1': 'depth'})
+        ds = ds.rename({'phony_dim_0': 'time', 'data': 'microstrain'})
+        ds = ds.set_index({'time': 'time'})
+        # ds['depth'].values = ds['depth'].values.round(decimals=3)  # Artur-approved hack
+        return ds.transpose()
+        # return ds
+    except ValueError as e:  # Artur changed the dt format...
+        ds = ds.assign(phony_dim_1=[datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f') for s in ds.stamps.values])
+        ds = ds.swap_dims({'phony_dim_0': 'depth'})
+        ds = ds.rename({'phony_dim_1': 'time', 'data': 'microstrain'})
+        ds = ds.set_index({'time': 'time'})
+        # ds['depth'].values = ds['depth'].values.round(decimals=3)  # Artur-approved hack
+        return ds
 
 
 def read_potentiometer(path):

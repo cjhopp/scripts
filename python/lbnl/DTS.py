@@ -238,14 +238,14 @@ def read_XTDTS_to_xarray(directory, no_cols):
     measures = np.stack(measures, axis=-1)
     # Only save the temperature DataArray for now; can add stokes arrays if needed
     temp = xr.DataArray(measures[:, no_cols-1, :], name='temperature',
-                        coords={'distance': measures[:, 0, 0],
+                        coords={'depth': measures[:, 0, 0],
                                 'time': times},
-                        dims=['distance', 'time'],
+                        dims=['depth', 'time'],
                         attrs={'units': 'degrees C'})
     delta = xr.DataArray(measures[:, no_cols-1, :], name='deltaT',
-                         coords={'distance': measures[:, 0, 0],
+                         coords={'depth': measures[:, 0, 0],
                                  'time': times},
-                         dims=['distance', 'time'],
+                         dims=['depth', 'time'],
                          attrs={'units': 'degrees C'})
     delta = delta - delta.isel(time=0)
     ds = xr.Dataset({'temperature': temp, 'deltaT': delta})
