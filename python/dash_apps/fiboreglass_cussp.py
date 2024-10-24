@@ -69,7 +69,7 @@ class Fiboreglass(pn.viewable.Viewer):
         elif self.variable == 'temperature':
             self.color_selector = (17, 28)
         dmap = rasterize(hv.QuadMesh(self.da, kdims=['time', 'depth']))
-        dmap = dmap.apply.opts(clim=self.color_selector, cmap='BuRd_r', clabel=self.variable)
+        dmap = dmap.apply.opts(clim=self.color_selector, cmap='BuRd_r', clabel=self.variable, apply_hard_bounds=True)
         # Make pointer stream
         pointer = hv.streams.Tap(x=self.da.time.values[0], y=self.da.depth.values[0], source=dmap)
         # Sections
