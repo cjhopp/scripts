@@ -32,7 +32,7 @@ def get_end(direction, well):
 
 
 def get_data(variable, well, direction, length):
-    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={'depth': 1000})
+    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={'depth': 1000}, engine='zarr')
     ds['deltaT'] = ds['temperature'] - ds['temperature'].isel(time=0)
     start = get_start(direction, well)
     end = get_end(direction, well)
@@ -69,7 +69,8 @@ class Fiboreglass(pn.viewable.Viewer):
             self._plot_pane
         )
 
-    @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector')
+    @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
+                   'length_slider')
     def _update_plot(self):
         # Any of the selections should produce a new set of plots
         self.da = get_data(self.variable, self.well_selector, self.direction_selector, self.length_selector)
