@@ -46,21 +46,15 @@ def read_XTDTS_to_xarray(new_file, no_cols):
     """
 
     times, measures, ref, p1, p2 = read_XTDTS(new_file)
-    times = np.array(times)
+    times = np.atleast_1d(times)
     measures = np.stack(measures, axis=-1)
     # Only save the temperature DataArray for now; can add stokes arrays if needed
-    temp = xr.DataArray(measures[:, no_cols-1, :], name='temperature',
-                        coords={'depth': measures[:, 0, 0],
+    temp = xr.DataArray(measures[:, [no_cols-1]], name='temperature',
+                        coords={'depth': measures[:, 0],
                                 'time': times},
                         dims=['depth', 'time'],
                         attrs={'units': 'degrees C'})
-    delta = xr.DataArray(measures[:, no_cols-1, :], name='deltaT',
-                         coords={'depth': measures[:, 0, 0],
-                                 'time': times},
-                         dims=['depth', 'time'],
-                         attrs={'units': 'degrees C'})
-    delta = delta - delta.isel(time=0)
-    ds = xr.Dataset({'temperature': temp, 'deltaT': delta})
+    ds = xr.Dataset({'temperature': temp})
     return ds
 
 
@@ -93,9 +87,8 @@ class Handler(FileSystemEventHandler):
                 event.src_path = event.src_path.replace('.chan', 'chan').split('.')[0]
                 logging.info(f"Waited for full write and new file named: {event.src_path}")
             # Read in entire dataset
-            ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.nc', chunks={'depth': 1000})
-            ds += read_XTDTS_to_xarray(event.src_path)
-            ds.to_netcdf('/data/chet-cussp/DTS/DTS_all.nc')
+            ds = read_XTDTS_to_xarray(event.src_path)
+            ds.to_zarr('/data/chet-cussp/DTS/DTS_all.zarr', append_dim='zarr')
 
 
 if __name__ == '__main__':

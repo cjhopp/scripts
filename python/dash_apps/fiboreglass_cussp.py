@@ -38,6 +38,10 @@ def get_data(variable, well, direction):
     return da
 
 
+def get_mf_data():
+    return
+
+
 class Fiboreglass(pn.viewable.Viewer):
     variable = param.Selector(objects=['temperature', 'deltaT'], default='temperature')
     color_selector = param.Range((17, 28), bounds=(-10, 40), step=1)
