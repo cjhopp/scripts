@@ -30,7 +30,7 @@ def get_end(direction, well):
 
 
 def get_data(variable, well, direction):
-    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.nc', chunks={'depth': 1000})
+    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={'depth': 1000})
     start = get_start(direction, well)
     end = get_end(direction, well)
     da = ds[variable].sel(depth=slice(start, end))
