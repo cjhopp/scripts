@@ -31,15 +31,13 @@ def get_end(direction, well):
 
 def get_data(variable, well, direction):
     ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={'depth': 1000})
+    ds['deltaT'] = ds['temperature'] - ds['temperature'].isel(time=0)
     start = get_start(direction, well)
     end = get_end(direction, well)
     da = ds[variable].sel(depth=slice(start, end))
     da['depth'] = da['depth'] - da['depth'][0]
     return da
 
-
-def get_mf_data():
-    return
 
 
 class Fiboreglass(pn.viewable.Viewer):
