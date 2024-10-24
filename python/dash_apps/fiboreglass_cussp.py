@@ -92,14 +92,12 @@ class Fiboreglass(pn.viewable.Viewer):
         # Depth section
         if self.variable == 'temperature':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True,
-                                    show_grid=True).redim.range(temperature=self.color_selector)
-            gspec[1, 1:4] = tsec.opts(responsive=True, show_grid=True).redim.range(temerature=self.color_selector)
+                                    show_grid=True, xlim=self.color_selector)#.redim.range(temperature=self.color_selector)
+            gspec[1, 1:4] = tsec.opts(responsive=True, show_grid=True)#.redim.range(temerature=self.color_selector)
         elif self.variable == 'deltaT':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True,
-                                    show_grid=True).redim.range(temperature=self.color_selector)
-            gspec[1, 1:4] = tsec.opts(responsive=True, show_grid=True).redim.range(deltaT=self.color_selector)
-        # # Time section
-        # gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
+                                    show_grid=True, xlim=self.color_selector)#.redim.range(temperature=self.color_selector)
+            gspec[1, 1:4] = tsec.opts(responsive=True, show_grid=True)#.redim.range(deltaT=self.color_selector)
         # Accessory plot
         gspec[2, 1:4] = hv.Scatter([(self.da.time.values[0], 0)], 'time', 'y3',
                                    label='Injection params').opts(responsive=True)
