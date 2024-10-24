@@ -82,10 +82,9 @@ class Handler(FileSystemEventHandler):
     def on_created(event):
         if not event.is_directory:
             logging.info(f"New file created: {event.src_path}")
-            if event.src_path.startswith('.'):
-                time.sleep(2)
-                event.src_path = event.src_path.replace('.chan', 'chan').split('.')[0]
-                logging.info(f"Waited for full write and new file named: {event.src_path}")
+            time.sleep(10)
+            event.src_path = event.src_path.replace('.chan', 'chan').split('.')[0]
+            logging.info(f"Waited for full write and new file named: {event.src_path}")
             # Read in entire dataset
             ds = read_XTDTS_to_xarray(event.src_path, no_cols=6)
             ds.to_zarr('/data/chet-cussp/DTS/DTS_all.zarr', append_dim='zarr')
