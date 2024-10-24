@@ -70,7 +70,7 @@ class Fiboreglass(pn.viewable.Viewer):
         )
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
-                   'length_slider')
+                   'length_selector')
     def _update_plot(self):
         # Any of the selections should produce a new set of plots
         self.da = get_data(self.variable, self.well_selector, self.direction_selector, self.length_selector)
