@@ -32,7 +32,7 @@ def get_end(direction, well):
 
 
 def get_data(variable, well, direction, length):
-    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={}, engine='zarr')
+    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={'depth': 1000}, engine='zarr')
     ds['deltaT'] = ds['temperature'] - ds['temperature'].isel(time=0)
     start = get_start(direction, well)
     end = get_end(direction, well)
