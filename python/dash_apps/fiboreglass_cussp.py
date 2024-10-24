@@ -90,7 +90,7 @@ class Fiboreglass(pn.viewable.Viewer):
         gspec = pn.GridSpec(max_height=2000)
         gspec[0, 1:4] = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True)
         # Depth section
-        gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True, xlim=self.color_selector)#.redim.range(temperature=self.color_selector)
+        gspec[:, 0] = dsec.redim.range(temperature=self.color_selector).opts(responsive=True, invert_axes=True, show_grid=True)
         # Time section
         gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
         # Accessory plot
