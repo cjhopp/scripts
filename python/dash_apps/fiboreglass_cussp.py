@@ -32,7 +32,7 @@ def get_end(direction, well):
 
 
 def get_data(variable, well, direction, length):
-    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={'depth': 1000}, engine='zarr')
+    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={}, engine='zarr')
     ds['deltaT'] = ds['temperature'] - ds['temperature'].isel(time=0)
     start = get_start(direction, well)
     end = get_end(direction, well)
@@ -48,7 +48,7 @@ def get_data(variable, well, direction, length):
 class Fiboreglass(pn.viewable.Viewer):
     variable = param.Selector(objects=['temperature', 'deltaT'], default='temperature')
     color_selector = param.Range((17, 28), bounds=(-10, 40), step=1)
-    length_selector = param.Selector(objects=['12 h', '1 D', '2 D', '1 W', '1 M'], default='2 D')
+    length_selector = param.Selector(objects=['12 h', '1 D', '2 D', '1 W', '3 W'], default='2 D')
     well_selector = param.Selector(objects=buttons, default='Whole fiber')
     direction_selector = param.Selector(objects=['Downgoing', 'Upgoing'], default='Downgoing')
 
