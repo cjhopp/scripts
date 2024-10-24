@@ -90,17 +90,13 @@ class Fiboreglass(pn.viewable.Viewer):
         gspec = pn.GridSpec(max_height=2000)
         gspec[0, 1:4] = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True)
         # Depth section
-        if self.variable == 'temperature':
-            gspec[:, 0] = dsec.redim.range(temperature=self.color_selector).opts(responsive=True, invert_axes=True,
-                                    show_grid=True, xlim=self.color_selector)
-            gspec[1, 1:4] = tsec.redim.range(temerature=self.color_selector).opts(responsive=True, show_grid=True)
-        elif self.variable == 'deltaT':
-            gspec[:, 0] = dsec.redim.range(temperature=self.color_selector).opts(responsive=True, invert_axes=True,
-                                    show_grid=True, xlim=self.color_selector)
-            gspec[1, 1:4] = tsec.redim.range(deltaT=self.color_selector).opts(responsive=True, show_grid=True)
+        gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
+            temperature=self.color_selector)
+        # Time section
+        gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
         # Accessory plot
-        gspec[2, 1:4] = hv.Scatter([(self.da.time.values[0], 0)], 'time', 'y3',
-                                   label='Injection params').opts(responsive=True)
+        gspec[2, 1:4] = hv.Scatter([(self.da.time.values[0], 0)], 'time', 'y3', label='Injection params').opts(
+            responsive=True)
         return gspec
 
     def tap_timeseries(self, x, y):
