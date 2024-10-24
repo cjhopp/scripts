@@ -45,7 +45,7 @@ def read_XTDTS_to_xarray(new_file, no_cols):
     :return:
     """
 
-    times, measures, ref, p1, p2 = read_XTDTS(new_file)
+    times, measures, ref, p1, p2 = read_XTDTS(new_file, no_cols)
     times = np.atleast_1d(times)
     measures = np.stack(measures, axis=-1)
     # Only save the temperature DataArray for now; can add stokes arrays if needed
