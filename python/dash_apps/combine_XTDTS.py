@@ -87,7 +87,7 @@ class Handler(FileSystemEventHandler):
             logging.info(f"Waited for full write and new file named: {event.src_path}")
             # Read in entire dataset
             ds = read_XTDTS_to_xarray(event.src_path, no_cols=6)
-            ds.to_zarr('/data/chet-cussp/DTS/DTS_all.zarr', append_dim='zarr')
+            ds.to_zarr('/data/chet-cussp/DTS/DTS_all.zarr', append_dim='time')
 
 
 if __name__ == '__main__':
