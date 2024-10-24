@@ -1,6 +1,8 @@
 import panel as pn
 import xarray as xr
 import holoviews as hv
+import numpy as np
+
 import param
 
 from holoviews.operation.datashader import rasterize
@@ -29,12 +31,15 @@ def get_end(direction, well):
         return chan_map_4100[well] + fiber_depth_4100[well]
 
 
-def get_data(variable, well, direction):
+def get_data(variable, well, direction, length):
     ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={'depth': 1000})
     ds['deltaT'] = ds['temperature'] - ds['temperature'].isel(time=0)
     start = get_start(direction, well)
     end = get_end(direction, well)
-    da = ds[variable].sel(depth=slice(start, end))
+    no, unit = length.split()
+    timedelta = np.timedelta64(int(no), unit)
+    time_end = ds.time[-1].values
+    da = ds[variable].sel(depth=slice(start, end), time=slice(time_end - timedelta, None))
     da['depth'] = da['depth'] - da['depth'][0]
     return da
 
@@ -43,19 +48,24 @@ def get_data(variable, well, direction):
 class Fiboreglass(pn.viewable.Viewer):
     variable = param.Selector(objects=['temperature', 'deltaT'], default='temperature')
     color_selector = param.Range((17, 28), bounds=(-10, 40), step=1)
+    length_selector = param.Selector(objects=['12 h', '1 D', '2 D', '1 W', '1 M'], default='2 D')
     well_selector = param.Selector(objects=buttons, default='Whole fiber')
     direction_selector = param.Selector(objects=['Downgoing', 'Upgoing'], default='Downgoing')
 
     def __init__(self, **params):
         super().__init__(**params)
-        self.da = get_data(self.variable, self.well_selector, self.direction_selector)
+        self.da = get_data(self.variable, self.well_selector, self.direction_selector, self.length_selector)
         self._plot_pane = self._update_plot
         self._layout = pn.Column(
             pn.Row(
-            self.param.variable,
-                    self.param.well_selector,
-                    self.param.direction_selector,
-                    self.param.color_selector, align='center'),
+                self.param.variable,
+                        self.param.well_selector,
+                        self.param.direction_selector,
+                        align='center'),
+                    pn.Row(
+                self.param.length_selector,
+                        self.param.color_selector,
+                        align='center'),
             self._plot_pane
         )
 
