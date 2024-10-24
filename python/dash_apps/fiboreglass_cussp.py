@@ -91,13 +91,13 @@ class Fiboreglass(pn.viewable.Viewer):
         gspec[0, 1:4] = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True)
         # Depth section
         if self.variable == 'temperature':
-            gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True,
-                                    show_grid=True, xlim=self.color_selector)#.redim.range(temperature=self.color_selector)
-            gspec[1, 1:4] = tsec.opts(responsive=True, show_grid=True)#.redim.range(temerature=self.color_selector)
+            gspec[:, 0] = dsec.redim.range(temperature=self.color_selector).opts(responsive=True, invert_axes=True,
+                                    show_grid=True, xlim=self.color_selector)
+            gspec[1, 1:4] = tsec.redim.range(temerature=self.color_selector).opts(responsive=True, show_grid=True)
         elif self.variable == 'deltaT':
-            gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True,
-                                    show_grid=True, xlim=self.color_selector)#.redim.range(temperature=self.color_selector)
-            gspec[1, 1:4] = tsec.opts(responsive=True, show_grid=True)#.redim.range(deltaT=self.color_selector)
+            gspec[:, 0] = dsec.redim.range(temperature=self.color_selector).opts(responsive=True, invert_axes=True,
+                                    show_grid=True, xlim=self.color_selector)
+            gspec[1, 1:4] = tsec.redim.range(deltaT=self.color_selector).opts(responsive=True, show_grid=True)
         # Accessory plot
         gspec[2, 1:4] = hv.Scatter([(self.da.time.values[0], 0)], 'time', 'y3',
                                    label='Injection params').opts(responsive=True)
