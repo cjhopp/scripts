@@ -83,7 +83,7 @@ class Handler(FileSystemEventHandler):
         if not event.is_directory:
             logging.info(f"New file created: {event.src_path}")
             time.sleep(10)
-            event.src_path = event.src_path.replace('.chan', 'chan').split('.')[0]
+            event.src_path = '.'.join(event.src_path.replace('.chan', 'chan').split('.')[:2])
             logging.info(f"Waited for full write and new file named: {event.src_path}")
             # Read in entire dataset
             ds = read_XTDTS_to_xarray(event.src_path, no_cols=6)
