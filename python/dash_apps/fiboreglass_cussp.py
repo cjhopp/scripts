@@ -98,10 +98,11 @@ class Fiboreglass(pn.viewable.Viewer):
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True,
                                     show_grid=True).redim.range(temperature=self.color_selector)
             gspec[1, 1:4] = tsec.opts(responsive=True, show_grid=True).redim.range(deltaT=self.color_selector)
-        # Time section
-        gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
+        # # Time section
+        # gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
         # Accessory plot
-        gspec[2, 1:4] = hv.Scatter([(self.da.time.values[0], 0)], 'time', 'y3', label='Injection params').opts(responsive=True)
+        gspec[2, 1:4] = hv.Scatter([(self.da.time.values[0], 0)], 'time', 'y3',
+                                   label='Injection params').opts(responsive=True)
         return gspec
 
     def tap_timeseries(self, x, y):
