@@ -12,6 +12,7 @@ except ImportError:
 
 import numpy as np
 import xarray as xr
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from pyproj import Proj
@@ -44,6 +45,29 @@ def read_cape_topo(path):
     topo_reproj = topo.rio.reproject('epsg:26912', nodata=np.nan)
     topo_50m = topo_reproj.interp(x=np.linspace(315300, 345300, 601), y=np.linspace(4246200, 4276200, 601))
     return topo_50m
+
+
+def read_ppmod(path):
+    """
+    Read an earth model file from sw4 pfile format
+
+    :param path: Path to file
+    :return: xarray.Dataset with a DataArray for each variable in the pfile
+    """
+    with open(path, 'r') as f:
+        lines = f.readlines()
+    lat_no, lat_start, lat_end = lines[2].split()
+    latitude = np.linspace(float(lat_start), float(lat_end), int(lat_no))
+    lon_no, lon_start, lon_end = lines[3].split()
+    longitude = np.linspace(float(lon_start), float(lon_end), int(lon_no))
+    dep_no, dep_start, dep_end = lines[4].split()
+    depth = np.linspace(float(dep_start), float(dep_end), int(dep_no))
+    no_depths = int(lines[4].split()[0])  # Assumes uniform grid
+    skippers = [i for i in np.arange(7, latitude.size * longitude.size, no_depths + 1)]
+    header = list(np.arange(7))
+    print(skippers)
+    data = pd.read_csv(path, sep=' ', header=None, skiprows=header+skippers, dtype=np.float64).values
+    return data
 
 
 def write_cape_array(topo, tob):

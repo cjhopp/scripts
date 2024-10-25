@@ -89,7 +89,7 @@ class Fiboreglass(pn.viewable.Viewer):
         # Gridspec
         gspec = pn.GridSpec(max_height=2000)
         gspec[0, 1:4] = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True)
-        # Depth section
+        # Depth section (relim just this panel, since the time series should twin this range)
         if self.variable == 'temperature':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
                 temperature=self.color_selector)
