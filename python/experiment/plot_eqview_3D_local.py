@@ -159,7 +159,7 @@ def plot_3D(datasets, catalog):
                                  name='Basement', color='gray', opacity=0.5, delaunayaxis='z', showlegend=True,
                                  hoverinfo='skip')
             objects.append(tob_mesh)
-    mfact = 1.5  # Magnitude scaling factor
+    mfact = 2.5  # Magnitude scaling factor
     # Add arrays to the plotly objects
     try:
         # id, t, lat, lon, depth, m, agency, status, phases, geo, _, _, _, _, _ = zip(*catalog)
@@ -168,7 +168,11 @@ def plot_3D(datasets, catalog):
         params = []
         for ev in catalog:
             o = ev.preferred_origin()
-            params.append([ev.resource_id.id, o.time.timestamp, o.latitude, o.longitude, o.depth, ev.preferred_magnitude().mag])
+            try:
+                m = ev.preferred_magnitude().mag
+            except AttributeError:
+                m = 0.5
+            params.append([ev.resource_id.id, o.time.timestamp, o.latitude, o.longitude, o.depth, m])
         params = np.array(params)
         id, t, lat, lon, depth, m = np.split(params, 6, axis=1)
         t = t.astype('f').flatten()
@@ -181,7 +185,7 @@ def plot_3D(datasets, catalog):
     ticktext = [datetime.fromtimestamp(t).strftime('%d %b %Y: %H:%M')
                 for t in tickvals]
     ev_east, ev_north = utm(lon, lat)
-    depth = np.array(depth) * -1000
+    depth = np.array(depth) * -1#000
     scat_obj = go.Scatter3d(x=ev_east, y=ev_north, z=depth,
                             mode='markers',
                             name='Seismic event',

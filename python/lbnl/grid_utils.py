@@ -5,6 +5,8 @@ Grid read/write utilities for NLLoc, hypoDD, etc... using xarray
 """
 
 import pyproj
+from nllgrid import NLLGrid
+
 try:
     import rioxarray
 except ImportError:
@@ -16,7 +18,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from pyproj import Proj
-
+from scipy.ndimage import shift
 
 def read_array(path):
     arr = xr.open_dataset(path)
@@ -31,6 +33,11 @@ def basin_gradient_p(depth):
 def basin_gradient_s(depth):
     # Vs gradient model for Cape Modern basin sediments
     return 1.57 * np.log(3.01 * depth + 1.79, out=np.zeros_like(depth) + 0.586, where=(depth > 0.)) - 0.52
+
+
+def shift_model(topo, velocity):
+    # Shift top of model to conform to topography
+    return shift(velocity, topo, mode='nearest')
 
 
 def extrapolate_tob_cape(path):
@@ -54,20 +61,81 @@ def read_ppmod(path):
     :param path: Path to file
     :return: xarray.Dataset with a DataArray for each variable in the pfile
     """
+    variables = ['ind', 'depth_from_surface', 'Vp', 'Vs', 'density', 'Qp', 'Qs']
     with open(path, 'r') as f:
         lines = f.readlines()
+    ds = xr.Dataset()
     lat_no, lat_start, lat_end = lines[2].split()
     latitude = np.linspace(float(lat_start), float(lat_end), int(lat_no))
     lon_no, lon_start, lon_end = lines[3].split()
     longitude = np.linspace(float(lon_start), float(lon_end), int(lon_no))
     dep_no, dep_start, dep_end = lines[4].split()
-    depth = np.linspace(float(dep_start), float(dep_end), int(dep_no))
-    no_depths = int(lines[4].split()[0])  # Assumes uniform grid
-    skippers = [i for i in np.arange(7, latitude.size * longitude.size, no_depths + 1)]
+    depth = np.array([0., 0.01, 0.025, 0.05, 0.075, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,
+                      1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, 5.])
+    skippers = [i for i in np.arange(7, int(lat_no) * int(lon_no) * (int(dep_no)+1), int(dep_no) + 1)]
     header = list(np.arange(7))
-    print(skippers)
     data = pd.read_csv(path, sep=' ', header=None, skiprows=header+skippers, dtype=np.float64).values
-    return data
+    arrays = np.hsplit(data, 7)
+    for i, arr in enumerate(arrays):
+        if i < 1:
+            continue
+        da = xr.DataArray(arr.reshape((int(lat_no), int(lon_no), int(dep_no))),
+                          coords={'latitude': latitude, 'longitude': longitude, 'elevation': depth * -1000},
+                          name=variables[i])
+        ds[variables[i]] = da
+    return ds
+
+
+def create_newberry_3d(ppmod_path, topo_path):
+    """
+    Create a 3D model for Newberry from the sw4 output of LLNL (Eric Matzel) and the DEM. Used the DEM to convert
+    the model into absolute elevation instead of depth from surface.
+
+    :param ppmod_path:
+    :param topo_path:
+    :return:
+    """
+    # New, empty arrays to stack on top of model (elements to be shifted into and eliminated)
+    new_Vp = xr.DataArray(np.zeros([41, 57, 24]) + 0.5, name='Vp',
+                          coords={'latitude': np.linspace(43.68, 43.78, 41),
+                                  'longitude': np.linspace(-121.38, -121.24, 57),
+                                  'elevation': np.arange(100., 2500., 100.)[::-1]})
+    new_Vs = xr.DataArray(np.zeros([41, 57, 24]) + 0.3, name='Vs',
+                          coords={'latitude': np.linspace(43.68, 43.78, 41),
+                                  'longitude': np.linspace(-121.38, -121.24, 57),
+                                  'elevation': np.arange(100., 2500., 100.)[::-1]})
+    new_rho = xr.DataArray(np.zeros([41, 57, 24]), name='density',
+                          coords={'latitude': np.linspace(43.68, 43.78, 41),
+                                  'longitude': np.linspace(-121.38, -121.24, 57),
+                                  'elevation': np.arange(100., 2500., 100.)[::-1]})
+    new_Qp = xr.DataArray(np.zeros([41, 57, 24]), name='Qp',
+                          coords={'latitude': np.linspace(43.68, 43.78, 41),
+                                  'longitude': np.linspace(-121.38, -121.24, 57),
+                                  'elevation': np.arange(100., 2500., 100.)[::-1]})
+    new_Qs = xr.DataArray(np.zeros([41, 57, 24]), name='Qs',
+                          coords={'latitude': np.linspace(43.68, 43.78, 41),
+                                  'longitude': np.linspace(-121.38, -121.24, 57),
+                                  'elevation': np.arange(100., 2500., 100.)[::-1]})
+    new_ds = xr.Dataset({'Vp': new_Vp, 'Vs': new_Vs, 'density': new_rho, 'Qp': new_Qp, 'Qs': new_Qs})
+    vmod = read_ppmod(ppmod_path)
+    vmod = xr.concat([new_ds, vmod], dim='elevation')
+    topo = rioxarray.open_rasterio(topo_path)
+    # Project topography onto WGS84 lat/lon
+    topo = topo.rio.reproject('EPSG:4326')
+    # Upsample the grid to make the shift calculation more precise
+    new_elev = np.linspace(vmod.elevation.min(), vmod.elevation.max(), int(vmod.elevation.max() - vmod.elevation.min()))
+    vmod = vmod.interp(elevation=new_elev)
+    # Interpolate onto vmod grid
+    topo = topo.rolling(y=25, x=25).mean()
+    topo = topo.interp(x=vmod.longitude, y=vmod.latitude).drop(['band', 'x', 'y', 'spatial_ref'])
+    # The elevation node spacing must be 1 meter for this to work!
+    vmod = xr.apply_ufunc(shift_model, topo, vmod, input_core_dims=[[], ['elevation']],
+                          output_core_dims=[['elevation']], vectorize=True)
+    vmod['topography'] = topo
+    # Back to coarser model
+    vmod = vmod.interp(elevation=np.linspace(vmod.elevation.min(), vmod.elevation.max(), 100))
+    vmod['VpVs'] = vmod['Vp'] / vmod['Vs']
+    return vmod.squeeze('band')
 
 
 def write_cape_array(topo, tob):
@@ -227,9 +295,51 @@ def write_simul2000(dataset, outfile, resample_factor=2):
     return p(orig[0], orig[1], inverse=True), orig[-1]
 
 
-def write_NLLoc_grid(dataset, outdir):
+def write_newberry_NLLoc_grid(dataset, outdir):
     """
-    Write NLLoc grids for cascadia array
+    Write NLLoc grids from xarray Dataset of LLNL 3D model
     :return:
     """
-    return
+    # Assume that sampling is uniform
+    # Start a new grid
+    grd_P = NLLGrid()
+    grd_S = NLLGrid()
+    # NLLoc models require units of slowness*length and cubic nodes
+    origin = [dataset.longitude[0].values, dataset.latitude[0].values]
+    # Change from lat/lon to meters
+    x = np.arange(len(dataset.longitude)) * 161.
+    y = np.arange(len(dataset.latitude)) * 222.128
+    dataset = dataset.rename({'latitude': 'y', 'longitude': 'x', 'elevation': 'depth'})
+    dataset = dataset.assign_coords(x=x, y=y, depth=dataset.depth.values*-1)
+    # Interpolate onto 200 m grid
+    dataset = dataset.interp(x=np.arange(dataset.x.min(), dataset.x.max(), step=200.),
+                             y=np.arange(dataset.y.min(), dataset.y.max(), step=200.),
+                             depth=np.arange(dataset.depth.min(), dataset.depth.max(), step=200.)[::-1])
+    # NLLGrid indexing is column-first
+    dataset = dataset.transpose('x', 'y', 'depth')
+    print(dataset)
+    Pslow_len = 0.2 / dataset.Vp.values
+    Sslow_len = 0.2 / dataset.Vs.values
+    # Populate grid headers
+    for grd in [grd_P, grd_S]:
+        grd.dx = 0.2
+        grd.dy = 0.2
+        grd.dz = 0.2
+        grd.x_orig = 0.0
+        grd.y_orig = 0.0
+        grd.z_orig = dataset.depth.min().values / 1000.
+        grd.type = 'SLOW_LEN'
+        grd.orig_lat = origin[1]
+        grd.orig_lon = origin[0]
+        grd.proj_name = 'SIMPLE'
+    # After transpose, still need to flip Z dim for each array
+    grd_P.array = np.flip(Pslow_len, axis=2)
+    grd_P.basename = 'Newberry_LLNL-3d.P.mod'
+    grd_S.array = np.flip(Sslow_len, axis=2)
+    grd_S.basename = 'Newberry_LLNL-3d.S.mod'
+    # Write to file
+    grd_P.write_buf_file()
+    grd_P.write_hdr_file()
+    grd_S.write_buf_file()
+    grd_S.write_hdr_file()
+    return grd_P, grd_S, Pslow_len, Sslow_len

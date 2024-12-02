@@ -14,6 +14,7 @@ import rasterio
 import fiona
 import pickle
 import trimesh
+import pyproj
 
 import numpy as np
 import colorlover as cl
@@ -3240,6 +3241,109 @@ def plot_DAC(dem_dir, vector_dir, catalog=None):
     ax.set_ylabel(r'Latitude [$^o$]')
     ax.set_title('Don A Campbell')
     fig.tight_layout()
+    plt.show()
+    return
+
+
+def plot_5529_seismicity(well_path, catalog):
+    """
+    Plot seismicity relative to 55-29 with a NS and EW cross-section
+
+    :param well_path:
+    :param zone_path:
+    :param catalog:
+    :return:
+    """
+    utm = pyproj.Proj("EPSG:32610")
+    lith_colors = {'Welded Tuff': 'darkkhaki', 'Tuff': 'khaki', 'Basalt': 'darkgray', 'Granodiorite': 'bisque'}
+    method_colors = {'RTDD': 'r', 'NonLinLoc': 'b', 'LOCSAT': 'k', 'SimulPS': 'purple'}
+    depth_factor = {'RTDD': -1., 'NonLinLoc': -1., 'LOCSAT': -1., 'SimulPS': -1000.}
+    depth_correction = {'RTDD': 0., 'NonLinLoc': 0., 'LOCSAT': 0., 'SimulPS': 0.}  # Elevation correction for LOCSAT
+    lim = [-2000, 2000]
+    fig = plt.figure(figsize=(8, 16))
+    spec = gridspec.GridSpec(ncols=8, nrows=16, figure=fig)
+    ax_map = fig.add_subplot(spec[:8, :])
+    ax_e = fig.add_subplot(spec[8:, :4])
+    ax_n = fig.add_subplot(spec[8:, 4:])
+    elev_wh = 1703.2488  # Wellhead elevation
+    Lith_depths = {'Welded Tuff': [[1966, 2057]], 'Tuff': [[2057, 2439]], 'Basalt': [[2439, 2634], [2908, 3067]],
+                   'Granodiorite': [[2634, 2908]],}
+    slotted = [(1912, 2289), (2493, 3045)]
+    # Lithology first
+    for unit, depths in Lith_depths.items():
+        for i, ax in enumerate([ax_e, ax_n]):
+            for j, d in enumerate(depths):
+                if i == 0 and j == 0:
+                    lab = unit
+                else:
+                    lab = ''
+                ax.axhspan(elev_wh - d[1], elev_wh - d[0], color=lith_colors[unit], alpha=.3, label=lab)
+    # Add objects
+    wellpath = np.loadtxt(well_path, delimiter=',', skiprows=1)
+    east = wellpath[:, 0] - wellpath[0, 0]
+    north = wellpath[:, 1] - wellpath[0, 1]
+    elev_m = wellpath[:, 2]
+    # Upper well
+    top_e = east[np.where(elev_m > elev_wh - slotted[0][0])]
+    top_n = north[np.where(elev_m > elev_wh - slotted[0][0])]
+    top_d = elev_m[np.where(elev_m > elev_wh - slotted[0][0])]
+    mid_e = east[np.where((elev_m < elev_wh - slotted[0][1]) & (elev_m > elev_wh - slotted[1][0]))]
+    mid_n = north[np.where((elev_m < elev_wh - slotted[0][1]) & (elev_m > elev_wh - slotted[1][0]))]
+    mid_d = elev_m[np.where((elev_m < elev_wh - slotted[0][1]) & (elev_m > elev_wh - slotted[1][0]))]
+    bot_e = east[np.where(elev_m < (elev_wh - slotted[1][1]))]
+    bot_n = north[np.where(elev_m < (elev_wh - slotted[1][1]))]
+    bot_d = elev_m[np.where(elev_m < (elev_wh - slotted[1][1]))]
+    # Plot them
+    ax_map.plot(top_e, top_n, color='darkgray')
+    ax_map.plot(mid_e, mid_n, color='darkgray')
+    ax_map.plot(bot_e, bot_n, color='darkgray')
+    ax_e.plot(top_e, top_d, color='darkgray')
+    ax_e.plot(mid_e, mid_d, color='darkgray')
+    ax_e.plot(bot_e, bot_d, color='darkgray')
+    ax_n.plot(top_n, top_d, color='darkgray')
+    ax_n.plot(mid_n, mid_d, color='darkgray')
+    ax_n.plot(bot_n, bot_d, color='darkgray')
+    # Slotted sections
+    for slot in slotted:
+        e = east[np.where((elev_m > elev_wh - slot[1]) & (elev_m < elev_wh - slot[0]))]
+        n = north[np.where((elev_m > elev_wh - slot[1]) & (elev_m < elev_wh - slot[0]))]
+        d = elev_m[np.where((elev_m > elev_wh - slot[1]) & (elev_m < elev_wh - slot[0]))]
+        ax_map.plot(e, n, color='goldenrod', linestyle=':')
+        ax_e.plot(e, d, color='goldenrod', linestyle=':')
+        ax_n.plot(n, d, color='goldenrod', linestyle=':')
+    # Now catalog
+    preferred = [ev.preferred_origin() for ev in catalog]
+    methods = list(set([o.method_id for ev in catalog for o in ev.origins]))
+    for method in methods:
+        for origin in preferred:
+            if origin.method_id == method:
+                meth = method.id.split('/')[-1]
+                x, y = utm(origin.longitude, origin.latitude)
+                x -= wellpath[0, 0]
+                y -= wellpath[0, 1]
+                d = (origin.depth * depth_factor[meth]) + depth_correction[meth]
+                ax_map.scatter(x, y, edgecolor=method_colors[meth], facecolor='none', s=2., marker='o', linewidth=0.25)
+                ax_e.scatter(x, d, edgecolor=method_colors[meth], facecolor='none',
+                             s=2., marker='o', linewidth=0.25)
+                ax_n.scatter(y, d, edgecolor=method_colors[meth], facecolor='none',
+                             s=2., marker='o', linewidth=0.25)
+    # Set limits
+    ax_map.set_ylim(lim)
+    ax_map.set_xlim(lim)
+    ax_n.set_xlim(lim)
+    ax_e.set_xlim(lim)
+    ax_e.set_ylim((-3000, 1800))
+    ax_n.set_ylim((-3000, 1800))
+    # label and tick positioning
+    ax_map.xaxis.set_label_position('top')
+    ax_map.set_xlabel('Easting [m]')
+    ax_map.set_ylabel('Northing [m]')
+    ax_map.tick_params(axis='x', labelbottom=False, labeltop=True, bottom=False, top=True)
+    ax_e.set_ylabel('Depth [m]')
+    ax_e.set_xticks([-1700, 1700], ['E', 'W'], size=16, fontweight='bold')
+    ax_n.set_xticks([-1700, 1700], ['N', 'S'], size=16, fontweight='bold')
+    ax_n.tick_params(axis='y', labelleft=False, left=False)
+    fig.legend(loc=4)
     plt.show()
     return
 
