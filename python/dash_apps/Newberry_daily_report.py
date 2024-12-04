@@ -24,7 +24,7 @@ hv.extension('plotly', 'matplotlib')
 def get_data():
     cli = Client('http://131.243.224.19:8085')
     newb_catalog = cli.get_events(starttime=UTCDateTime(2012, 1, 1), latitude=43.726, longitude=-121.316,
-                                  maxradius=0.22)
+                                  maxradius=0.05)
     return newb_catalog
 
 
@@ -84,10 +84,8 @@ def get_seismic_events(catalog):
                             'magnitude': params[: , 3], 'marker size': (params[: , 3] + 1)**2,
                             'timestamp': params[:, 4]})
     dataset["cumulative number"] = dataset['magnitude'].transform(ecdf_transform)
-    print(dataset)
     Mc = calc_max_curv(dataset['magnitude'].values)
     points = dataset.loc[(dataset['magnitude'] > Mc) & (dataset['cumulative number'] > 0.)]
-    print(points)
     b, a = np.polyfit(points['magnitude'], np.log10(points['cumulative number']), 1)
     dataset['b label'] = ['b value: {}'.format(-b) for i in range(len(dataset))]
     dataset['bfit'] = 10**(np.log10(len(points)) + b * points['magnitude'])
@@ -221,8 +219,30 @@ class DailyReport(pn.viewable.Viewer):
         super().__init__(**params)
         self.catalog = get_data()
         self.dataset = get_seismic_events(self.catalog)
-        self._layout = pn.Column(self._link_plots(),
-            align='center'
+        # Full configuration
+        full_config = pn.widgets.TextEditor(toolbar=[
+            ['bold', 'italic', 'underline', 'strike'],  # toggled buttons
+            ['blockquote', 'code-block'],
+
+            [{'header': 1}, {'header': 2}],  # custom button values
+            [{'list': 'ordered'}, {'list': 'bullet'}],
+            [{'script': 'sub'}, {'script': 'super'}],  # superscript/subscript
+            [{'indent': '-1'}, {'indent': '+1'}],  # outdent/indent
+            [{'direction': 'rtl'}],  # text direction
+
+            [{'size': ['small', False, 'large', 'huge']}],  # custom dropdown
+            [{'header': [1, 2, 3, 4, 5, 6, False]}],
+
+            [{'color': []}, {'background': []}],  # dropdown with defaults from theme
+            [{'font': []}],
+            [{'align': []}],
+
+            ['clean']  # remove formatting button
+        ])
+        self._layout = pn.Column(
+            pn.Row(self._link_plots(), height=2000),
+            pn.Row('# Discussion', full_config, align='center', height=500),
+            align='center', scroll=True,
         )
 
     def _link_plots(self):
