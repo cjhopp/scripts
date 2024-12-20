@@ -3245,7 +3245,7 @@ def plot_DAC(dem_dir, vector_dir, catalog=None):
     return
 
 
-def plot_5529_seismicity(well_path, catalog):
+def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
     """
     Plot seismicity relative to 55-29 with a NS and EW cross-section
 

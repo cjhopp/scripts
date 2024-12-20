@@ -97,6 +97,19 @@ chan_map_injection_fsb = {
     'B7': (1320., 1415.2), 'B8': (358.4, 480.8), 'B9': 266.2,
     'B10a': (515.6, 584.), 'B10b': (584., 651.4)}
 
+chan_map_neubrex_23 = {
+    'B1': 106.305,
+    'B9': 273.485,
+    'B11': 671.815,
+    'B12': 462.235,
+    'B10': 864.565,
+    'B5': 1042.135,
+    'B3': 1225.685,
+    'B4': 1396.92,
+    'B6': 1549.87,
+    'B7': 1653.0,
+    'B2': 1851.76
+}
 # chan_map_fsb_23 = {
 #     'B1': 98.5, 'B2': 1781.5, 'B3': 1154.25, 'B4': 1326.375, 'B5': 972.125, 'B6': 1479.,
 #     'B7': 1583.25, #'B8': 428. B8 got hit by drilling
@@ -201,7 +214,7 @@ surf_wind = 25  # Degree for 4850 fiber package
 fiber_depths = {'D1': 21.26, 'D2': 17.1, 'D3': 31.42, 'D4': 35.99, 'D5': 31.38,
                 'D6': 36.28, 'D7': 29.7, 'B1': 51.5, 'B2': 53.3, 'B3': 84.8,
                 'B4': 80., 'B5': 59., 'B6': 49.5, 'B7': 49.3, 'B8': 61.,
-                'B9': 61., 'B10a': 35.5, 'B10b': 35.5, 'B11': 36.25, 'B12': 50, 'Tank': 30}
+                'B9': 61., 'B10a': 35.5, 'B10b': 35.5, 'B10': 35.5, 'B11': 36.25, 'B12': 50, 'Tank': 30}
 
 fiber_depths_surf = {'OT': 60., 'OB': 60., 'PDT': 59.7, 'PDB': 59.9,
                      'PST': 41.8, 'PSB': 59.7, 'AMU': 60, 'AML': 60, 'DMU': 55, 'DML': 55}
@@ -398,18 +411,29 @@ def read_neubrex(path, chunks=False):
     try:
         ds = ds.assign(phony_dim_0=[datetime.strptime(s, '%m/%d/%Y %H:%M:%S.%f') for s in ds.stamps.values])
         ds = ds.swap_dims({'phony_dim_1': 'depth'})
+        ds = ds.assign_coords({'depth': np.round(ds.depth, 3)})
         ds = ds.rename({'phony_dim_0': 'time', 'data': 'microstrain'})
         ds = ds.set_index({'time': 'time'})
         # ds['depth'].values = ds['depth'].values.round(decimals=3)  # Artur-approved hack
         return ds.transpose()
         # return ds
     except ValueError as e:  # Artur changed the dt format...
+        print(e)
         ds = ds.assign(phony_dim_1=[datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f') for s in ds.stamps.values])
         ds = ds.swap_dims({'phony_dim_0': 'depth'})
         ds = ds.rename({'phony_dim_1': 'time', 'data': 'microstrain'})
         ds = ds.set_index({'time': 'time'})
         # ds['depth'].values = ds['depth'].values.round(decimals=3)  # Artur-approved hack
         return ds
+
+
+def read_neubrex_timelapse(path):
+    df = pd.read_excel(path)
+    array = df.iloc[:, 1:]
+    depth = df['MD']
+    time = df.columns.values[1:]
+    da = xr.DataArray(name='microstrain', data=array, coords=dict(depth=depth, time=time))
+    return da
 
 
 def read_potentiometer(path):
@@ -1470,6 +1494,50 @@ def get_frac_piercepoint(wells, well_file):
 
 
 ################  Plotting  Funcs  ############################################
+
+def plot_fsb_timelapse(session3_path, timelapse_path, output_dir):
+    injection_cycles = [datetime(2023, 5, 8, 14),
+                        datetime(2023, 5, 9, 17),
+                        datetime(2023, 5, 10, 11, 50),
+                        datetime(2023, 5, 22)]
+    sesh3 = read_neubrex(session3_path)
+    timelapse = read_neubrex_timelapse(timelapse_path)
+    for well, bottom in chan_map_neubrex_23.items():
+        colors = cycle(sns.color_palette('flare', 12))
+        fig, ax = plt.subplots(figsize=(10, 20))
+        if well in fault_depths:
+            fb = fault_depths[well]
+            ax.axhspan(fb[0], fb[1], color='darkgray', alpha=0.5)
+        drilled_depth = fiber_depths[well]
+        well_slice = slice(bottom - drilled_depth, bottom)
+        sesh3_bh = sesh3.sel(depth=well_slice).compute()
+        tl_bh = timelapse.sel(depth=well_slice)
+        new_ref = sesh3_bh['microstrain'].isel(time=-1).values
+        # First, plot during injection
+        for ic in injection_cycles:
+            time_slice = sesh3_bh.sel(time=ic, method='nearest')
+            real_depth = time_slice.depth.values
+            real_depth -= real_depth[0]
+            ax.plot(time_slice['microstrain'].values, real_depth, color=next(colors), label=ic.date(), alpha=0.5)
+        for lapse in tl_bh.time:
+            time_slice = tl_bh.sel(time=lapse, method='nearest')
+            real_depth = time_slice.depth.values
+            real_depth -= real_depth[0]
+            ax.plot(time_slice.values + new_ref, real_depth, color=next(colors), label=pd.to_datetime(lapse.time.values).date(), alpha=0.5)
+        ax.invert_yaxis()
+        ax.margins(0.)
+        ax.legend()
+        ax.set_title('{} Neubrex TW-COTDR'.format(well), fontsize=30, fontweight='bold')
+        ax.grid(True)
+        ax.set_ylabel('Depth [m]', fontsize=24)
+        ax.set_xlabel('Microstrain', fontsize=24)
+        ax.tick_params(labelsize=18)
+        plt.tight_layout()
+        plt.savefig('{}/{}_RFS_timelapse.png'.format(output_dir, well), dpi=200)
+        plt.close('all')
+        # Now a timeseries plot for the largest amplitudes during the injection
+    return
+
 
 def plot_full_fiber(well_data, dates, xlim, ylim, write_frames=False,
                     frame_interval=timedelta(hours=2), mapping=None, depths=None,
