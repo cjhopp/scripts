@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import pyproj
+import bokeh
 
 import panel as pn
 import holoviews as hv
@@ -303,11 +304,42 @@ def seismicity_3d(dataset):
     ticktext = [UTCDateTime(t).strftime('%d %b %Y: %H:%M')
                 for t in tickvals]
     cticks = [(tv, ticktext[i]) for i, tv in enumerate(tickvals)]
+    right_now = UTCDateTime(2014, 12, 15)
+    one_day = right_now - (86400 * 14)
+    start = UTCDateTime(2014, 1, 1)
+    day_dataset = dataset.select(timestamp=(one_day.timestamp, right_now.timestamp))
+    old_dataset = dataset.select(timestamp=(start.timestamp, one_day.timestamp))
     # Map view, two cross-sections, and 3D
-    mapview = hv.Scatter(
-        dataset, 'east', vdims=['north', 'timestamp', 'magnitude', 'marker size']).opts(
+    mapview1 = hv.Scatter(
+        day_dataset, 'east', vdims=['north', 'timestamp', 'magnitude', 'marker size']).opts(
+        marker='circle',
+        color='firebrick',
+        size='marker size',
+        colorbar=True,
+        cticks=cticks,
+        cmap='greys',
+        xlim=(-2000, 2000), ylim=(-2000, 2000),
+        responsive=True,
+        bgcolor='whitesmoke',
+        backend='bokeh',
+    )
+    mapview2 = hv.Scatter(
+        old_dataset, 'east', vdims=['north', 'timestamp', 'magnitude', 'marker size']).opts(
         marker='circle',
         color='timestamp',
+        size='marker size',
+        colorbar=True,
+        cticks=cticks,
+        cmap='cividis_r',
+        xlim=(-2000, 2000), ylim=(-2000, 2000),
+        responsive=True,
+        bgcolor='whitesmoke',
+        backend='bokeh',
+    )
+    NS1 = hv.Scatter(
+        day_dataset, 'north', vdims=['elevation', 'timestamp', 'magnitude', 'marker size']).opts(
+        marker='circle',
+        color='firebrick',
         size='marker size',
         colorbar=True,
         cticks=cticks,
@@ -317,10 +349,23 @@ def seismicity_3d(dataset):
         bgcolor='whitesmoke',
         backend='bokeh',
     )
-    NS = hv.Scatter(
-        dataset, 'north', vdims=['elevation', 'timestamp', 'magnitude', 'marker size']).opts(
+    NS2 = hv.Scatter(
+        old_dataset, 'north', vdims=['elevation', 'timestamp', 'magnitude', 'marker size']).opts(
         marker='circle',
         color='timestamp',
+        size='marker size',
+        colorbar=True,
+        cticks=cticks,
+        cmap='cividis_r',
+        xlim=(-2000, 2000), ylim=(-2000, 2000),
+        responsive=True,
+        bgcolor='whitesmoke',
+        backend='bokeh',
+    )
+    EW1 = hv.Scatter(
+        day_dataset, 'east', vdims=['elevation', 'timestamp', 'magnitude', 'marker size']).opts(
+        marker='circle',
+        color='firebrick',
         size='marker size',
         colorbar=True,
         cticks=cticks,
@@ -330,14 +375,14 @@ def seismicity_3d(dataset):
         bgcolor='whitesmoke',
         backend='bokeh',
     )
-    EW = hv.Scatter(
-        dataset, 'east', vdims=['elevation', 'timestamp', 'magnitude', 'marker size']).opts(
+    EW2 = hv.Scatter(
+        old_dataset, 'east', vdims=['elevation', 'timestamp', 'magnitude', 'marker size']).opts(
         marker='circle',
         color='timestamp',
         size='marker size',
         colorbar=True,
         cticks=cticks,
-        cmap='Cividis',
+        cmap='cividis_r',
         xlim=(-2000, 2000), ylim=(-2000, 2000),
         responsive=True,
         bgcolor='whitesmoke',
@@ -350,7 +395,7 @@ def seismicity_3d(dataset):
         xlim=(-2000, 2000), ylim=(-2200, 1800), backend='bokeh')
     well_EW = hv.Overlay(EW_paths).opts(
         xlim=(-2000, 2000), ylim=(-2200, 1800), backend='bokeh')
-    return well_map, mapview, well_NS, NS, well_EW, EW
+    return well_map, mapview1 * mapview2, well_NS, NS1 * NS2, well_EW, EW1 * EW2
 
 
 class DailyReport(pn.viewable.Viewer):
@@ -391,10 +436,10 @@ class DailyReport(pn.viewable.Viewer):
         self.row2 = pn.Row(inj_plot, polar_plot, height=700)
         self.row3 = pn.Row(time_plots, height=500)
         self.row4 = pn.Row(injection_panel, height=500)
-        self.row5 = pn.Row('# Discussion', full_config, align='center', height=500)
+        # self.row5 = pn.Row('# Discussion', full_config, align='center', height=500)
         self._layout = pn.Column(
             self.button_pane,
-            self.row1, self.row2, self.row3, self.row4, self.row5,
+            self.row1, self.row2, self.row3, self.row4,# self.row5,
             align='center', scroll=True,
         )
 
