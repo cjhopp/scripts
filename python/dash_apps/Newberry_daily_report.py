@@ -402,38 +402,12 @@ class DailyReport(pn.viewable.Viewer):
 
     def __init__(self, **params):
         super().__init__(**params)
-        self.catalog = get_data()
-        self.wellpath = get_injection(wellpath)
-        self.dataset = get_seismic_events(self.catalog)
-        # self.injection = get_injection(injection_path)
-        self.injection = get_old_injection(old_injection_path)
-        # Full configuration
-        full_config = pn.widgets.TextEditor(toolbar=[
-            ['bold', 'italic', 'underline'],  # toggled buttons
-            ['blockquote', 'code-block'],
-
-            [{'header': 1}, {'header': 2}],  # custom button values
-            [{'list': 'ordered'}, {'list': 'bullet'}],
-            [{'script': 'sub'}, {'script': 'super'}],  # superscript/subscript
-            [{'indent': '-1'}, {'indent': '+1'}],  # outdent/indent
-            [{'direction': 'rtl'}],  # text direction
-
-            [{'size': ['small', False, 'large', 'huge']}],  # custom dropdown
-            [{'header': [1, 2, 3, 4, 5, 6, False]}],
-
-            [{'color': []}, {'background': []}],  # dropdown with defaults from theme
-            [{'font': []}],
-            [{'align': []}],
-
-            ['clean']  # remove formatting button
-        ])
-        linked_plots, time_plots, polar_plot, inj_plot = self._link_plots()
-        injection_panel = injection_plot(self.injection)
+        linked_plots, time_plots, polar_plot, inj_plot, injection_panel = self._update()
         save_button = pn.widgets.Button(name='Save report', button_type='primary')
         save_button.on_click(self._save)
         self.button_pane = pn.Row(save_button)
         self.row1 = pn.Row(linked_plots, height=1500)
-        self.row2 = pn.Row(inj_plot, polar_plot, height=700)
+        self.row2 = pn.Row(inj_plot, polar_plot, height=500)
         self.row3 = pn.Row(time_plots, height=500)
         self.row4 = pn.Row(injection_panel, height=500)
         # self.row5 = pn.Row('# Discussion', full_config, align='center', height=500)
@@ -442,6 +416,17 @@ class DailyReport(pn.viewable.Viewer):
             self.row1, self.row2, self.row3, self.row4,# self.row5,
             align='center', scroll=True,
         )
+
+
+    def _update(self):
+        self.catalog = get_data()
+        self.wellpath = get_injection(wellpath)
+        self.dataset = get_seismic_events(self.catalog)
+        # self.injection = get_injection(injection_path)
+        self.injection = get_old_injection(old_injection_path)
+        linked_plots, time_plots, polar_plot, inj_plot = self._link_plots()
+        injection_panel = injection_plot(self.injection)
+        return linked_plots, time_plots, polar_plot, inj_plot, injection_panel
 
 
     def _save(self, event):
