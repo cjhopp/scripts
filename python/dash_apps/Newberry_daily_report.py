@@ -1,50 +1,81 @@
 #!/usr/bin/python
 
 import pyproj
-import bokeh
+import sys
 
 import panel as pn
 import holoviews as hv
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from obspy import UTCDateTime
+from obspy import UTCDateTime, Catalog
 from obspy.clients.fdsn import Client
+from obspy.clients.fdsn.header import FDSNNoDataException
 from glob import glob
-from datetime import datetime
 from scipy.interpolate import interp1d
 from holoviews.selection import link_selections
 from holoviews.core.data.interface import DataError
+from mplstereonet import StereonetAxes
 
+# Numpy print options
+np.set_printoptions(threshold=sys.maxsize)
 
-wellpath = '/home/chopp/data/chet-meq/newberry/boreholes/55-29/GDR_submission/Deviation_corrected_with-depth.csv'
-injection_path = '/home/chopp/data/chet-meq/newberry/boreholes/injection_data/One Second Data Listing - Time - Pressure - Rate Example.csv'
-old_injection_path = '/home/chopp/data/chet-meq/newberry/boreholes/injection_data/2014'
+wellpath = '/media/chopp/Data1/chet-meq/newberry/boreholes/55-29/GDR_submission/Deviation_corrected_with-depth.csv'
+injection_path = '/media/chopp/Data1/chet-meq/newberry/boreholes/injection_data/2025/**/*.csv'
+old_injection_path = '/media/chopp/Data1/chet-meq/newberry/boreholes/injection_data/2014'
 
 # Stim depths converted to meters
 stages = np.array([9005., 9070., 9170., 9270., 9370., 9470., 9570., 9670., 9770., 9870.]) * 0.3048
+
+# Station locations
+stations = {
+    'NN07': (634844.6396966005, 4845632.817705593),
+    'NN09': (634284.8647707275, 4843588.321519731),
+    'NN17': (634718.8166531781, 4842218.194745983),
+    'NN18': (636725.805793379, 4844127.78104913),
+    'NN24': (636195.1562861714, 4843503.593982187),
+    'NN32': (634759.1292026724, 4840340.144729106),
+    'NNVM': (638819.167317579, 4841236.632520293),
+    'NN19': (636380.0388149575, 4841978.593184383),
+    'NN21': (637721.3374705196, 4843658.363489317)}
+
+start = UTCDateTime(2025, 1, 9)
+end = UTCDateTime()
+
 
 hv.extension('bokeh', 'plotly', 'matplotlib')
 
 def get_data():
     cli = Client('http://131.243.224.19:8085')
-    starttime = UTCDateTime(2014, 1, 1)
-    endtime = UTCDateTime(2015, 1, 1)
+    starttime = start  # UTCDateTime(2014, 1, 1)
+    endtime = end  # UTCDateTime(2015, 1, 1)
     # starttime = UTCDateTime(2024, 11, 1)
     # endtime = UTCDateTime()  # Current time
-    newb_catalog = cli.get_events(starttime=starttime, endtime=endtime,
-                                  latitude=43.726, longitude=-121.316, maxradius=0.05,
-                                  includeallmagnitudes=True)
+    try:
+        newb_catalog = cli.get_events(starttime=starttime, endtime=endtime,
+                                      latitude=43.726, longitude=-121.316, maxradius=0.05,
+                                      includeallmagnitudes=True)
+    except FDSNNoDataException:
+        newb_catalog = Catalog()
     newb_catalog.events.sort(key=lambda x: x.preferred_origin().time)
     return newb_catalog
 
 
 def get_injection(path):
-    injection = pd.read_csv(path, skiprows=15, names=['time', 'psi', 'bpm'], index_col=0, usecols=[0, 1, 2])
-    injection['bps'] = injection['bpm'] / 60
-    injection['cumulative [bbl]'] = injection['bps'].cumsum()  # Assumes 1 Hz data
-    return hv.Dataset(injection)
+    inj_files = glob(path, recursive='True')
+    all_df = []
+    for inj_file in inj_files:
+        injection = pd.read_csv(inj_file, skiprows=15, names=['time', 'psi', 'bpm'], index_col=0, usecols=[0, 1, 2])
+        injection['bps'] = injection['bpm'] / 60
+        # injection['cumulative [bbl]'] = injection['bps'].cumsum()  # Assumes 1 Hz data
+        all_df.append(injection)
+    df = pd.concat(all_df, axis=0)
+    df['cumulative [bbl]'] = df['bps'].cumsum()  # Assumes 1 Hz data
+    print(df['cumulative [bbl]'].values)
+    print('Total injected fluid: {}'.format(df['cumulative [bbl]'].values[-1]))
+    return hv.Dataset(df)
 
 
 def get_old_injection(directory):
@@ -96,12 +127,10 @@ def trajectory_wrapper(ser: pd.Series, df: pd.DataFrame, injection_pt):
 def calc_trajectory(dataset, injection_pt):
     pts = dataset[['east', 'north', 'elevation']].values
     centroid = np.median(pts, axis=0)
-    vector = injection_pt - centroid
-    azrad = np.rad2deg(np.arctan2(vector[1], vector[0]))
-    plunge = np.rad2deg(np.arctan2(vector[2], np.sqrt(np.sum(vector[:2]**2))))
+    vector = centroid - injection_pt
+    azrad = np.rad2deg(np.arctan2(vector[0], vector[1]))
     if azrad < 0:
         azrad += 360
-        plunge *= -1
     return azrad
 
 
@@ -113,20 +142,21 @@ def plunge_wrapper(ser: pd.Series, df: pd.DataFrame, injection_pt):
 def calc_plunge(dataset, injection_pt):
     pts = dataset[['east', 'north', 'elevation']].values
     centroid = np.median(pts, axis=0)
-    vector = injection_pt - centroid
-    azrad = np.rad2deg(np.arctan2(vector[1], vector[0]))
+    vector = centroid - injection_pt
     plunge = -np.rad2deg(np.arctan2(vector[2], np.sqrt(np.sum(vector[:2]**2))))
-    if azrad < 0:
-        azrad += 360
     return plunge
 
 
 def get_seismic_events(catalog):
     utm = pyproj.Proj("EPSG:32610")
     well = np.loadtxt(wellpath, delimiter=',', skiprows=1)
-    params = np.array([(ev.preferred_origin().longitude, ev.preferred_origin().latitude, ev.preferred_origin().depth,
-                        ev.preferred_magnitude().mag, float(ev.preferred_origin().time.timestamp))
-                        for ev in catalog if ev.preferred_origin() != None and ev.preferred_magnitude() != None])
+    if len(catalog) < 2:
+        params = np.array([[0., 0., 0., 1., UTCDateTime(2025, 1, 10, 12).timestamp]])
+    else:
+        params = np.array([(ev.preferred_origin().longitude, ev.preferred_origin().latitude, ev.preferred_origin().depth,
+                            ev.preferred_magnitude().mag, float(ev.preferred_origin().time.timestamp))
+                            for ev in catalog if ev.preferred_origin() != None and ev.preferred_magnitude() != None])
+    print(params)
     dataset = pd.DataFrame({'latitude': params[:, 1], 'longitude': params[:, 0], 'depth': params[:, 2],
                             'magnitude': params[: , 3], 'marker size': (params[: , 3] + 1)**2,
                             'timestamp': params[:, 4]})
@@ -148,7 +178,10 @@ def get_seismic_events(catalog):
         trajectory_wrapper, args=(dataset, np.array([511, -10, -1184.])))['latitude']
     dataset['plunge'] = dataset.rolling(25, center=False).apply(
         plunge_wrapper, args=(dataset, np.array([511, -10, -1184.])))['latitude']
-    b, a = np.polyfit(points['magnitude'], np.log10(points['cumulative number']), 1)
+    try:
+        b, a = np.polyfit(points['magnitude'], np.log10(points['cumulative number']), 1)
+    except TypeError:
+        b = -1.
     dataset['b label'] = ['b value: {}'.format(-b) for i in range(len(dataset))]
     dataset['bfit'] = 10**(np.log10(len(points)) + b * points['magnitude'])
     dataset['cumulative max mag'] = dataset['magnitude'].cummax()
@@ -173,6 +206,27 @@ def get_wellpath(wellpath):
     map_paths = []
     NS_paths = []
     EW_paths = []
+    # Lithology
+    lith_colors = {'Welded Tuff': 'darkkhaki', 'Tuff': 'khaki', 'Basalt': 'darkgray', 'Granodiorite': 'bisque'}
+    Lith_depths = {'Welded Tuff': [[1966, 2057]], 'Tuff': [[2057, 2439]], 'Basalt': [[2439, 2634], [2908, 3067]],
+                   'Granodiorite': [[2634, 2908]],}
+    # Lithology first
+    elev_wh = 1770.
+    line = 'solid'
+    for unit, depths in Lith_depths.items():
+        for i, d in enumerate(depths):
+            if i == 1:
+                line = 'dotted'
+            top = elev_wh - d[0]
+            bottom = elev_wh - d[1]
+            middle = np.mean([top, bottom])
+            span = hv.HSpan(bottom, top).opts(color=lith_colors[unit], alpha=.3, line_dash=line)
+            label = hv.Text(-1500, middle, unit, fontsize=8).opts(color='black')
+            NS_paths.extend([span, label])
+            EW_paths.extend([span, label])
+    qmark = hv.Text(-1500, elev_wh - 3067, '??', fontsize=8).opts(color='black')
+    NS_paths.append(qmark)
+    EW_paths.append(qmark)
     for liner, intervals in slotted.items():
         for s in intervals:
             curve = hv.Curve(
@@ -190,8 +244,8 @@ def get_wellpath(wellpath):
     for stage in stages:
         idx = (well_ds['depth'] - stage).abs().idxmin()
         row = well_ds.loc[idx]
-        scat_map = hv.Scatter((row['east'], row['north'])).opts(size=15., color='black', marker='dash')
-        map_paths.append(scat_map)
+        # scat_map = hv.Scatter((row['east'], row['north'])).opts(size=15., color='black', marker='dash')
+        # map_paths.append(scat_map)
         scat_NS = hv.Scatter((row['north'], row['elevation'])).opts(size=15., color='black', marker='dash')
         NS_paths.append(scat_NS)
         scat_EW = hv.Scatter((row['east'], row['elevation'])).opts(size=15., color='black', marker='dash')
@@ -204,13 +258,18 @@ def injection_plot(injection):
     Plot flow rate and pressure
     :return:
     """
+    injection = injection.dframe()
+    injection['Date + Time'] = pd.to_datetime(injection.index)
+    injection = injection.set_index('Date + Time')
+    injection = injection[~injection.index.duplicated()]
+    injection = injection.asfreq('s')
     try:
-        flow = hv.Curve(injection, 'time', vdims=['bpm']).opts(color='firebrick')
-        pressure = hv.Curve(injection, 'time', vdims=['psi']).opts(color='steelblue')
+        flow = hv.Curve(injection, 'Date + Time', vdims=['bpm']).opts(color='steelblue')
+        pressure = hv.Curve(injection, 'Date + Time', vdims=['psi']).opts(color='firebrick')
     except DataError:
-        flow = hv.Curve(injection, 'Date + Time', vdims=['Corrected UltraSonic (gpm)']).opts(color='firebrick')
-        pressure = hv.Curve(injection, 'Date + Time', vdims=['WHP Corrected (psi)']).opts(color='steelblue')
-    return (flow * pressure).opts(backend='bokeh', multi_y=True, bgcolor='whitesmoke', responsive=True)
+        flow = hv.Curve(injection, 'Date + Time', vdims=['Corrected UltraSonic (gpm)']).opts(color='steelblue')
+        pressure = hv.Curve(injection, 'Date + Time', vdims=['WHP Corrected (psi)']).opts(color='firebrick')
+    return (flow * pressure).opts(backend='bokeh', multi_y=True, bgcolor='whitesmoke', responsive=True, xticks=10)
 
 
 def plot_current_trajectory(dataset):
@@ -220,13 +279,17 @@ def plot_current_trajectory(dataset):
     :return:
     """
     fig = plt.figure()
-    ax = fig.add_subplot(projection='polar')
-    ax.scatter(np.deg2rad(dataset['trend']), dataset['plunge'], marker='o', alpha=0.5, s=5.,
-               c=dataset['timestamp'], cmap='cividis')
-    ax.set_theta_zero_location('N')
-    ax.set_theta_direction(-1)
-    ax.set_rlim([90, 0])
-    ax.set_title('Seismic trajectory (upper hemisphere)')
+    ax = StereonetAxes(rect=[0.1, 0.1, 0.75, 0.75], fig=fig)
+    fig.add_axes(ax)
+    marks = ['o' if p > 0. else 'v' for p in dataset['plunge']]
+    cmap = mpl.colormaps['cividis_r']
+    norm = mpl.colors.Normalize(vmin=dataset['timestamp'].min(), vmax=dataset['timestamp'].max())
+    colors = norm(dataset['timestamp'])
+    for i, p in enumerate(dataset['plunge']):
+        ax.line(np.abs(p), dataset['trend'][i], marker=marks[i], alpha=0.5, color=cmap(colors[i]), markersize=3.)
+    # ax.line(dataset['plunge'], dataset['trend'], markers=marks, alpha=0.5, color='darkgray')
+    ax.grid()
+    fig.suptitle('Seismicity trend')
     return fig
 
 
@@ -238,22 +301,25 @@ def plot_vol_moment(dataset, injection):
     for v in vols:
         gar_max.append(v * 3E10)  # G = 3E10 Pa from McGarr 2014
         galis_max.append(v**(3/2) * gamma)
-    garr = hv.Curve(zip(vols, gar_max), label='McGarr [30 GPa]').opts(color='black', responsive=True, backend='bokeh')
+    garr = hv.Curve(zip(vols, gar_max), label='McGarr [30 GPa]').opts(color='black', responsive=True, backend='bokeh', logx=True, logy=True)
     galis = hv.Curve(zip(vols, galis_max), label='Galis [y=1.5e8]').opts(color='black', line_dash='dashed', backend='bokeh')
     m3 = 0.1589872949  # Conversion factor to m3 from bbl
-    m3 = 0.00378541
+    # m3 = 0.00378541  # To m3 from gallons
     mw_max = np.max(dataset['magnitude'])
     m0 = 10.0 ** (1.5 * mw_max + 9.0 )
-    cum_vol = np.nanmax(injection['cumulative [gal]']) * m3
+    cum_vol = np.nanmax(injection['cumulative [bbl]']) * m3
+    # cum_vol = np.nanmax(injection['cumulative [gal]']) * m3
     # Interpolate cumulative max mag onto cumulative volume
-    vol = injection.dframe()['cumulative [gal]'] * m3
+    vol = injection.dframe()['cumulative [bbl]'] * m3
+    # vol = injection.dframe()['cumulative [gal]'] * m3
     vol = vol[~vol.index.duplicated(keep='first')]
     cat = dataset.dframe()
     cat['Date + Time'] = pd.to_datetime(cat['timestamp'], unit='s')
     cat = cat.set_index('Date + Time')
     cat['cumulative max m0'] = 10.0 ** (1.5 * cat['cumulative max mag'] + 9.0 )
     df = pd.concat([vol, cat['cumulative max m0']], axis=1)
-    df = df.rename(columns={'cumulative [gal]': 'volume', 'cumulative max m0': 'magnitude'})
+    df = df.rename(columns={'cumulative [bbl]': 'volume', 'cumulative max m0': 'magnitude'})
+    # df = df.rename(columns={'cumulative [gal]': 'volume', 'cumulative max m0': 'magnitude'})
     df = df.assign(magnitude=lambda x: x['magnitude'].interpolate())
     df = df.dropna()
     max = hv.Scatter([(cum_vol, m0)]).opts(
@@ -261,6 +327,8 @@ def plot_vol_moment(dataset, injection):
         xlabel='Cumulative volume [m^3]', ylabel='Maximum moment', xlim=(1e2, 3e7),
         bgcolor='whitesmoke')
     max_running = hv.Curve(hv.Dataset(df), 'volume', vdims=['magnitude'])
+    if len(dataset['timestamp']) == 1:
+        return garr * galis
     return garr * galis * max * max_running
 
 
@@ -280,7 +348,7 @@ def mag_time_plot(dataset):
     cat['Date + Time'] = pd.to_datetime(cat['timestamp'], unit='s')
     cat = cat.set_index('Date + Time')
     plot = hv.Scatter(hv.Dataset(cat), 'Date + Time', vdims=['magnitude']).opts(
-        responsive=True, bgcolor='whitesmoke', color='black', backend='bokeh')
+        responsive=True, bgcolor='whitesmoke', color='black', backend='bokeh', alpha=0.)
     return plot
 
 
@@ -309,6 +377,8 @@ def seismicity_3d(dataset):
     start = UTCDateTime(2014, 1, 1)
     day_dataset = dataset.select(timestamp=(one_day.timestamp, right_now.timestamp))
     old_dataset = dataset.select(timestamp=(start.timestamp, one_day.timestamp))
+    wh_loc = np.array([635642.0,4842835.0])
+    sta_locs = np.array([loc for lab, loc in stations.items()]) - wh_loc
     # Map view, two cross-sections, and 3D
     mapview1 = hv.Scatter(
         day_dataset, 'east', vdims=['north', 'timestamp', 'magnitude', 'marker size']).opts(
@@ -336,6 +406,7 @@ def seismicity_3d(dataset):
         bgcolor='whitesmoke',
         backend='bokeh',
     )
+    mapview3 = hv.Scatter({('x', 'y'): sta_locs}).opts(marker='inverted_triangle', color='darkgray', alpha=0.5, size=10.)
     NS1 = hv.Scatter(
         day_dataset, 'north', vdims=['elevation', 'timestamp', 'magnitude', 'marker size']).opts(
         marker='circle',
@@ -395,7 +466,7 @@ def seismicity_3d(dataset):
         xlim=(-2000, 2000), ylim=(-2200, 1800), backend='bokeh')
     well_EW = hv.Overlay(EW_paths).opts(
         xlim=(-2000, 2000), ylim=(-2200, 1800), backend='bokeh')
-    return well_map, mapview1 * mapview2, well_NS, NS1 * NS2, well_EW, EW1 * EW2
+    return well_map, mapview1 * mapview2 * mapview3, well_NS, NS1 * NS2, well_EW, EW1 * EW2
 
 
 class DailyReport(pn.viewable.Viewer):
@@ -407,7 +478,7 @@ class DailyReport(pn.viewable.Viewer):
         save_button.on_click(self._save)
         self.button_pane = pn.Row(save_button)
         self.row1 = pn.Row(linked_plots, height=1500)
-        self.row2 = pn.Row(inj_plot, polar_plot, height=500)
+        self.row2 = pn.Row(inj_plot, polar_plot, height=300)
         self.row3 = pn.Row(time_plots, height=500)
         self.row4 = pn.Row(injection_panel, height=500)
         # self.row5 = pn.Row('# Discussion', full_config, align='center', height=500)
@@ -420,10 +491,10 @@ class DailyReport(pn.viewable.Viewer):
 
     def _update(self):
         self.catalog = get_data()
-        self.wellpath = get_injection(wellpath)
+        # self.wellpath = get_injection(wellpath)
         self.dataset = get_seismic_events(self.catalog)
-        # self.injection = get_injection(injection_path)
-        self.injection = get_old_injection(old_injection_path)
+        self.injection = get_injection(injection_path)
+        # self.injection = get_old_injection(old_injection_path)
         linked_plots, time_plots, polar_plot, inj_plot = self._link_plots()
         injection_panel = injection_plot(self.injection)
         return linked_plots, time_plots, polar_plot, inj_plot, injection_panel
@@ -445,7 +516,7 @@ class DailyReport(pn.viewable.Viewer):
         grich = gr_plot(self.dataset)
         injection_plot = pn.pane.HoloViews(plot_vol_moment(self.dataset, self.injection))
         polar_plot = pn.pane.Matplotlib(plot_current_trajectory(self.dataset), dpi=200, tight=True,
-                                        sizing_mode="stretch_height")
+                                        sizing_mode="scale_both", align='center')
         all_time = all_time_plot(self.dataset)
         layout = (sel(map_seis, index_cols=['timestamp']) * map_well + grich +
                   sel(NS_seis, index_cols=['timestamp']) * NS_well +

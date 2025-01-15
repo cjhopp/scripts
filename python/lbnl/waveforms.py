@@ -223,6 +223,22 @@ patua_reftek_stations = {'AAE2': {'station': 'PT.2128',
                                                'NEW_STREAM5': '10.DHE'}}
                          }
 
+oee_station_map = {'52264': 'GB01', '52268': 'GB02', '52269': 'GB02'}
+
+oee_channel_map = {
+    'GB01': {1: 'DPZ', 2: 'DPZ', 3: 'DPZ', 4: 'DPZ', 5: 'DPZ', 6: 'DPZ', 7: 'DPZ', 8: 'DPZ', 9: 'DPZ', 10: 'DPZ',
+             11: 'DPZ', 12: 'DPZ', 13: 'DPZ', 14: 'DPZ', 15: 'DPZ', 16: 'DPZ', 17: 'DPZ', 18: 'DPZ', 19: 'DPZ',
+             20: 'DPZ', 21: 'DPZ', 22: 'DPZ', 23: 'DPZ', 24: 'DPZ'},
+    'GB02': {1: 'DPZ', 2: 'DP1', 3: 'DP2', 4: 'DPZ', 5: 'DP1', 6: 'DP2', 7: 'DPZ', 8: 'DP1', 9: 'DP2', 10: 'DPZ',
+             11: 'DP1', 12: 'DP2', 13: 'DPZ', 14: 'DP1', 15: 'DP2', 16: 'DPZ', 17: 'DP1', 18: 'DP2', 19: 'DPZ',
+             20: 'DP1', 21: 'DP2', 22: 'DPZ', 23: 'DP1', 24: 'DP2', 25: 'DPZ', 26: 'DP1', 27: 'DP2', 28: 'DPZ',
+             29: 'DP1', 30: 'DP2', 31: 'DPZ', 32: 'DP1', 33: 'DP2', 34: 'DPZ', 35: 'DP1', 36: 'DP2', 37: 'DPZ',
+             38: 'DP1', 39: 'DP2',40: 'DPZ', 41: 'DP1', 42: 'DP2', 43: 'DPZ', 44: 'DP1', 45: 'DP2', 46: 'DPZ',
+             47: 'DP1', 48: 'DP2', 49: 'DPZ', 50: 'DP1', 51: 'DP2', 52: 'DPZ', 53: 'DP1', 54: 'DP2', 55: 'DPZ',
+             56: 'DP1', 57: 'DP2', 58: 'DPZ', 59: 'DP1', 60: 'DP2', 61: 'DPZ', 62: 'DP1', 63: 'DP2', 64: 'DPZ',
+             65: 'DP1', 66: 'DP2', 67: 'DPZ', 68: 'DP1', 69: 'DP2', 70: 'DPZ', 71: 'DP1',72: 'DP2'}
+}
+
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta
@@ -239,6 +255,24 @@ def pressure_to_velocity(st, inv, rho, Vp):
     for tr in st:
         tr.data /= (-1 * rho * Vp)
     return st
+
+
+def read_seismic_source_segy(file):
+    """
+    Read a single Seismic Source segy file to obspy stream
+    :param file:
+    :return: obspy.core.Stream
+    """
+    segy = read(file)
+    serial = file.split('/')[-1].split('_')[0]
+    station = oee_station_map[serial]
+    for tr in segy:
+        location = tr.stats.segy.trace_header['trace_sequence_number_within_line']
+        tr.stats.station = station
+        tr.stats.channel = oee_channel_map[station][location]
+        tr.stats.network = 'ZF'
+        tr.stats.location = '{:02d}'.format(location)
+    return segy
 
 
 def read_numo_acc(path, columns=6, npts=20000):

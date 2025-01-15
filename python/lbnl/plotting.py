@@ -1363,6 +1363,11 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
                      float(sta.extra.hmc_elev.value))
                     for sta in inventory[0] if sta.code[-2] != 'S']
         sx, sy, sz = zip(*stations)
+        sources = [(float(sta.extra.hmc_east.value) * 0.3048,
+                     float(sta.extra.hmc_north.value) * 0.3048,
+                     float(sta.extra.hmc_elev.value))
+                    for sta in inventory[0] if sta.code[-2] == 'S']
+        srx, sry, srz = zip(*sources)
     for well, xyzd in boreholes.items():
         if well[0] == 'T':
             color = 'steelblue'
@@ -1396,7 +1401,8 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
                 axes_map.plot([pt1[0], pt2[0]], [pt1[1], pt2[1]], linewidth=5., color='dodgerblue')
     # Stations
     if inventory:
-        axes_3D.scatter(sx, sy, sz, marker='v', color='r', label='Seismic sensor')
+        axes_3D.scatter(sx, sy, sz, s=50., marker='v', color='r', label='Seismic sensor')
+        axes_3D.scatter(srx, sry, srz, s=50, marker='o', color='purple', label='Seismic source')
     if catalog:
         sizes = ((mags - np.min(mags)))**2 + 20.
         mpl = axes_3D.scatter(
@@ -1489,7 +1495,8 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
             for z in zone_list:
                 axes_map.scatter(z[0], z[1], marker='*', s=100, c=color)
     if inventory:
-        axes_map.scatter(sx, sy, marker='v', color='r')
+        axes_map.scatter(sx, sy, s=50., marker='v', color='r')
+        axes_map.scatter(srx, sry, s=50., marker='o', color='purple')
     if drift_polygon:
         axes_map.add_patch(PolygonPatch(drift_polygon, fc='darkgray', ec='k'))
     # axes_map.plot(hull_pts[0, :], hull_pts[1, :], linewidth=0.9, color='k')
@@ -1504,7 +1511,9 @@ def plot_4100(boreholes, inventory=None, drift_polygon=None, hull=None,
     fig2.tight_layout()
     # plt.subplots_adjust(left=0.05, right=0.93, bottom=0.08, top=0.95, hspace=1.4)
     if filename:
-        plt.savefig(filename, dpi=300)
+        fig.savefig(filename.replace('.png', '_3D.png'), dpi=300)
+        fig_map.savefig(filename.replace('.png', '_map.png'), dpi=300)
+        fig2.savefig(filename.replace('.png', '_timeseries.png'), dpi=300)
     else:
         plt.show()
     return

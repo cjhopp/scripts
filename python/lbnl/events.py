@@ -12,13 +12,19 @@ Arbitrary zero depth point is elev = 130 m
 import io
 import os
 import shutil
+import pyproj
 
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 from glob import glob
+from itertools import cycle
 from subprocess import call
+from scipy.linalg import lstsq
+from sklearn.cluster import DBSCAN
+from mplstereonet import StereonetAxes
 from obspy import UTCDateTime, Catalog, read, read_inventory, Stream, Trace,\
     read_events, Inventory
 from obspy.core.util import AttribDict
@@ -43,6 +49,121 @@ except ImportError as e:
 
 three_comps = ['OB13', 'OB15', 'OT16', 'OT18', 'PDB3', 'PDB4', 'PDB6', 'PDT1',
                'PSB7', 'PSB9', 'PST10', 'PST12']
+
+
+# Planes and shiz taken from workflow.focal_mecs
+def cluster_catalog(catalog):
+    # Assuming Newberry right now, allow argument for this later
+    utm = pyproj.Proj("EPSG:32610")
+    cmap = sns.color_palette('deep', 10)
+    cycler = cycle(cmap)
+    locs = np.array([(ev.preferred_origin().longitude, ev.preferred_origin().latitude, ev.preferred_origin().depth)
+                     for ev in catalog])
+    east, north = utm(locs[:, 0], locs[:, 1])
+    XYZ = np.vstack([east, north, locs[:, 2]]).T
+    db = DBSCAN(eps=20, min_samples=5).fit(XYZ)
+    fig = plt.figure(figsize=(5, 10))
+    ax = fig.add_axes(rect=[0.1, 0.5, 0.8, 0.4], projection='3d')
+    ax_stereo = StereonetAxes(rect=[0.1, 0.1, 0.8, 0.4], fig=fig)
+    fig.add_axes(ax_stereo)
+    ax.scatter(xs=XYZ[:, 0], ys=XYZ[:, 1], zs=XYZ[:, 2], c=db.labels_, s=5.)
+    for lab in set(db.labels_):
+        color = next(cycler)
+        if lab == -1:
+            continue
+        cluster_mask = db.labels_ == lab
+        xyz = XYZ[cluster_mask]
+        Xs, Ys, Zs, strike, dip = pts_to_plane(xyz[:, 0], xyz[:, 1], xyz[:, 2])
+        print(strike, dip)
+        ax.plot_surface(Xs, Ys, Zs, color=color)
+        ax_stereo.plane(strike, dip, color=color)
+        ax_stereo.pole(strike, dip, color=color)
+    ax.axis('equal')
+    ax_stereo.grid(True)
+    plt.show()
+    return db
+
+
+def pts_to_plane(x, y, z, method='lstsq'):
+    # Create a grid over the desired area
+    # Here just define it over the x and y range of the cluster (100 pts)
+    x_ran = max(x) - min(x)
+    y_ran = max(y) - max(y)
+    if method == 'lstsq':
+        # Add 20 percent to x and y dimensions for viz purposes
+        X, Y = np.meshgrid(np.arange(min(x) - (0.2 * x_ran),
+                                     max(x) + (0.2 * x_ran),
+                                     (max(x) - min(x)) / 10.),
+                           np.arange(min(y) - (0.2 * y_ran),
+                                     max(y) + (0.2 * y_ran),
+                                     (max(y) - min(y)) / 10.))
+        # Now do the linear fit and generate the coefficients of the plane
+        A = np.c_[x, y, np.ones(len(x))]
+        C, _, _, _ = lstsq(A, z)  # Coefficients (also the vector normal?)
+    elif method == 'svd':
+        print('SVD not implemented')
+        return
+    # Evaluate the plane for the points of the grid
+    Z = C[0] * X + C[1] * Y + C[2]
+    # strike and dip
+    pt1 = (X[0][2], Y[0][2], Z[0][2])
+    pt2 = (X[3][1], Y[3][1], Z[3][1])
+    pt3 = (X[0][0], Y[0][0], Z[0][0])
+    strike, dip = strike_dip_from_pts(pt1, pt2, pt3)
+    return X, Y, Z, strike, dip
+
+
+def pts_to_ellipsoid(x, y, z):
+    # Function from:
+    # https://github.com/aleksandrbazhin/ellipsoid_fit_python/blob/master/ellipsoid_fit.py
+    # http://www.mathworks.com/matlabcentral/fileexchange/24693-ellipsoid-fit
+    # for arbitrary axes
+    D = np.array([x * x,
+                  y * y,
+                  z * z,
+                  2 * x * y,
+                  2 * x * z,
+                  2 * y * z,
+                  2 * x,
+                  2 * y,
+                  2 * z])
+    DT = D.conj().T
+    v = np.linalg.solve(D.dot(DT), D.dot(np.ones(np.size(x))))
+    A = np.array([[v[0], v[3], v[4], v[6]],
+                  [v[3], v[1], v[5], v[7]],
+                  [v[4], v[5], v[2], v[8]],
+                  [v[6], v[7], v[8], -1]])
+    center = np.linalg.solve(- A[:3, :3], [[v[6]], [v[7]], [v[8]]])
+    T = np.eye(4)
+    T[3, :3] = center.T
+    R = T.dot(A).dot(T.conj().T)
+    evals, evecs = np.linalg.eig(R[:3, :3] / -R[3, 3])
+    radii = np.sqrt(1. / np.abs(evals)) # Absolute value to eliminate imaginaries?
+    return center, radii, evecs, v
+
+
+def strike_dip_from_pts(pt1, pt2, pt3):
+    # Take the output from the best fit plane and calculate strike and dip
+    vec_1 = np.array(pt3) - np.array(pt1)
+    vec_2 = np.array(pt3) - np.array(pt2)
+    U = np.cross(vec_1, vec_2)
+    # Standard rectifying for right-hand rule
+    if U[2] < 0:
+        easting = U[1]
+        northing = -U[0]
+    else:
+        easting = -U[1]
+        northing = U[0]
+    if easting >= 0:
+        partA_strike = easting**2 + northing**2
+        strike = np.rad2deg(np.arccos(northing / np.sqrt(partA_strike)))
+    else:
+        partA_strike = northing / np.sqrt(easting**2 + northing**2)
+        strike = 360. - np.rad2deg(np.arccos(partA_strike))
+    part1_dip = np.sqrt(U[1]**2 + U[0]**2)
+    part2_dip = np.sqrt(part1_dip**2 + U[2]**2)
+    dip = np.rad2deg(np.arcsin(part1_dip / part2_dip))
+    return strike, dip
 
 
 def parse_filenames_to_eid(path, method='SURF', cassm=False):
@@ -609,13 +730,16 @@ def retrieve_usgs_catalog(**kwargs):
                 pk = Pick(time=UTCDateTime(phase_info['Arrival Time']),
                           method=phase_info['Status'], waveform_id=wf_id,
                           phase_hint=phase_info['Phase'])
-                ev.picks.append(pk)
-                arr = Arrival(pick_id=pk.resource_id.id, phase=pk.phase_hint,
-                              azimuth=phase_info['Azimuth'],
-                              distance=phase_info['Distance'],
-                              time_residual=phase_info['Residual'],
-                              time_weight=phase_info['Weight'])
-                o.arrivals.append(arr)
+                try:
+                    arr = Arrival(pick_id=pk.resource_id.id, phase=pk.phase_hint,
+                                  azimuth=phase_info['Azimuth'],
+                                  distance=phase_info['Distance'],
+                                  time_residual=phase_info['Residual'],
+                                  time_weight=phase_info['Weight'])
+                    o.arrivals.append(arr)
+                    ev.picks.append(pk)
+                except ValueError:
+                    continue
         except AttributeError:
             rms.append(ev)
             continue
