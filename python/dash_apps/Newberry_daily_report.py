@@ -41,9 +41,11 @@ stations = {
     'NN19': (636380.0388149575, 4841978.593184383),
     'NN21': (637721.3374705196, 4843658.363489317)}
 
-start = UTCDateTime(2025, 1, 9)
-end = UTCDateTime()
+# start = UTCDateTime(2025, 1, 9)
+# end = UTCDateTime()
 
+start = UTCDateTime(2014, 1, 1)
+end = UTCDateTime(2015, 1, 1)
 
 hv.extension('bokeh', 'plotly', 'matplotlib')
 
@@ -67,13 +69,16 @@ def get_injection(path):
     inj_files = glob(path, recursive='True')
     all_df = []
     for inj_file in inj_files:
-        injection = pd.read_csv(inj_file, skiprows=15, names=['time', 'psi', 'bpm'], index_col=0, usecols=[0, 1, 2])
+        if 'SurgiFrac' in inj_file:
+            injection = pd.read_csv(inj_file, skiprows=15, names=['time', 'psi', 'bpm'], index_col=0, usecols=[0, 1, 3])
+            print(injection)
+        else:
+            injection = pd.read_csv(inj_file, skiprows=15, names=['time', 'psi', 'bpm'], index_col=0, usecols=[0, 1, 2])
         injection['bps'] = injection['bpm'] / 60
         # injection['cumulative [bbl]'] = injection['bps'].cumsum()  # Assumes 1 Hz data
         all_df.append(injection)
     df = pd.concat(all_df, axis=0)
     df['cumulative [bbl]'] = df['bps'].cumsum()  # Assumes 1 Hz data
-    print(df['cumulative [bbl]'].values)
     print('Total injected fluid: {}'.format(df['cumulative [bbl]'].values[-1]))
     return hv.Dataset(df)
 
@@ -150,22 +155,26 @@ def calc_plunge(dataset, injection_pt):
 def get_seismic_events(catalog):
     utm = pyproj.Proj("EPSG:32610")
     well = np.loadtxt(wellpath, delimiter=',', skiprows=1)
-    if len(catalog) < 2:
+    if len(catalog) < 3:
         params = np.array([[0., 0., 0., 1., UTCDateTime(2025, 1, 10, 12).timestamp]])
     else:
         params = np.array([(ev.preferred_origin().longitude, ev.preferred_origin().latitude, ev.preferred_origin().depth,
                             ev.preferred_magnitude().mag, float(ev.preferred_origin().time.timestamp))
                             for ev in catalog if ev.preferred_origin() != None and ev.preferred_magnitude() != None])
-    print(params)
     dataset = pd.DataFrame({'latitude': params[:, 1], 'longitude': params[:, 0], 'depth': params[:, 2],
-                            'magnitude': params[: , 3], 'marker size': (params[: , 3] + 1)**2,
+                            'magnitude': params[: , 3], 'marker size': (params[: , 3] + 1.5)**2,
                             'timestamp': params[:, 4]})
     dataset["cumulative number"] = dataset['magnitude'].transform(ecdf_transform)
-    # Rolling b values (this overwrites all columns with the result for some reason...take a random column
-    dataset['b'] = -1. * dataset.rolling(100, center=False).apply(bval_wrapper, args=(dataset,))['latitude']
-    # Overall bval calculation
-    Mc = calc_max_curv(dataset['magnitude'].values)
-    points = dataset.loc[(dataset['magnitude'] > Mc) & (dataset['cumulative number'] > 0.)]
+    if params.shape[0] > 25:
+        # Rolling b values (this overwrites all columns with the result for some reason...take a random column
+        dataset['b'] = -1. * dataset.rolling(100, center=False).apply(bval_wrapper, args=(dataset,))['latitude']
+        # Overall bval calculation
+        Mc = calc_max_curv(dataset['magnitude'].values)
+        points = dataset.loc[(dataset['magnitude'] > Mc) & (dataset['cumulative number'] > 0.)]
+    else:
+        Mc = -2.
+        points = dataset.loc[(dataset['magnitude'] > Mc) & (dataset['cumulative number'] > 0.)]
+        dataset['b'] = dataset['depth'] * 0. + 1
     east, north = utm(dataset['longitude'], dataset['latitude'])
     east -= well[0][0]
     north -= well[0][1]
@@ -180,7 +189,7 @@ def get_seismic_events(catalog):
         plunge_wrapper, args=(dataset, np.array([511, -10, -1184.])))['latitude']
     try:
         b, a = np.polyfit(points['magnitude'], np.log10(points['cumulative number']), 1)
-    except TypeError:
+    except (TypeError, UnboundLocalError):
         b = -1.
     dataset['b label'] = ['b value: {}'.format(-b) for i in range(len(dataset))]
     dataset['bfit'] = 10**(np.log10(len(points)) + b * points['magnitude'])
@@ -303,23 +312,23 @@ def plot_vol_moment(dataset, injection):
         galis_max.append(v**(3/2) * gamma)
     garr = hv.Curve(zip(vols, gar_max), label='McGarr [30 GPa]').opts(color='black', responsive=True, backend='bokeh', logx=True, logy=True)
     galis = hv.Curve(zip(vols, galis_max), label='Galis [y=1.5e8]').opts(color='black', line_dash='dashed', backend='bokeh')
-    m3 = 0.1589872949  # Conversion factor to m3 from bbl
-    # m3 = 0.00378541  # To m3 from gallons
+    # m3 = 0.1589872949  # Conversion factor to m3 from bbl
+    m3 = 0.00378541  # To m3 from gallons
     mw_max = np.max(dataset['magnitude'])
     m0 = 10.0 ** (1.5 * mw_max + 9.0 )
-    cum_vol = np.nanmax(injection['cumulative [bbl]']) * m3
-    # cum_vol = np.nanmax(injection['cumulative [gal]']) * m3
+    # cum_vol = np.nanmax(injection['cumulative [bbl]']) * m3
+    cum_vol = np.nanmax(injection['cumulative [gal]']) * m3
     # Interpolate cumulative max mag onto cumulative volume
-    vol = injection.dframe()['cumulative [bbl]'] * m3
-    # vol = injection.dframe()['cumulative [gal]'] * m3
+    # vol = injection.dframe()['cumulative [bbl]'] * m3
+    vol = injection.dframe()['cumulative [gal]'] * m3
     vol = vol[~vol.index.duplicated(keep='first')]
     cat = dataset.dframe()
     cat['Date + Time'] = pd.to_datetime(cat['timestamp'], unit='s')
     cat = cat.set_index('Date + Time')
     cat['cumulative max m0'] = 10.0 ** (1.5 * cat['cumulative max mag'] + 9.0 )
     df = pd.concat([vol, cat['cumulative max m0']], axis=1)
-    df = df.rename(columns={'cumulative [bbl]': 'volume', 'cumulative max m0': 'magnitude'})
-    # df = df.rename(columns={'cumulative [gal]': 'volume', 'cumulative max m0': 'magnitude'})
+    # df = df.rename(columns={'cumulative [bbl]': 'volume', 'cumulative max m0': 'magnitude'})
+    df = df.rename(columns={'cumulative [gal]': 'volume', 'cumulative max m0': 'magnitude'})
     df = df.assign(magnitude=lambda x: x['magnitude'].interpolate())
     df = df.dropna()
     max = hv.Scatter([(cum_vol, m0)]).opts(
@@ -373,7 +382,9 @@ def seismicity_3d(dataset):
                 for t in tickvals]
     cticks = [(tv, ticktext[i]) for i, tv in enumerate(tickvals)]
     right_now = UTCDateTime(2014, 12, 15)
+    # right_now = UTCDateTime()
     one_day = right_now - (86400 * 14)
+    # start = UTCDateTime(2024, 11, 1)
     start = UTCDateTime(2014, 1, 1)
     day_dataset = dataset.select(timestamp=(one_day.timestamp, right_now.timestamp))
     old_dataset = dataset.select(timestamp=(start.timestamp, one_day.timestamp))
@@ -493,8 +504,8 @@ class DailyReport(pn.viewable.Viewer):
         self.catalog = get_data()
         # self.wellpath = get_injection(wellpath)
         self.dataset = get_seismic_events(self.catalog)
-        self.injection = get_injection(injection_path)
-        # self.injection = get_old_injection(old_injection_path)
+        # self.injection = get_injection(injection_path)
+        self.injection = get_old_injection(old_injection_path)
         linked_plots, time_plots, polar_plot, inj_plot = self._link_plots()
         injection_panel = injection_plot(self.injection)
         return linked_plots, time_plots, polar_plot, inj_plot, injection_panel

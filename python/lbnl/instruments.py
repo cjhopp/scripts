@@ -39,6 +39,18 @@ dac_locations = {
     'DAC09': (-118.31497, 38.83273, 1300)
 }
 
+jv_locations = {
+    'JV01': (-117.4805, 40.1777, 1429, 200.),
+    #### JV02 has moved since this point
+    'JV02': (-117.4747, 40.1687, 1474, 101.5),
+    'JV03': (-117.4698, 40.1761, 1519, 100.),
+    'JV04': (-117.4725, 40.1837, 1468, 169.5),
+    'JV05': (-117.4835, 40.1709, 1426, 150.2664),
+    'JV06': (-117.4910, 40.1736, 1376, 202.4),
+    'JV07': (-117.4679, 40.1632, 1533, 52.7),
+    'JV08': (-117.5024, 40.1657, 1321, 202.4)
+}
+
 fsb_accelerometers = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647',
                       'B659', 'B748', 'B75']
 
@@ -71,6 +83,82 @@ resp_ls_map = {'Silicon Audio ULN Accelerometer': '-',
                'Geospace HS-1-LT Geophone': '-',
                'Geospace GS-11D Geophone': '-',
                'Nanometrics Trillium 120s PH broadband': '-'}
+
+
+def nodal_to_inv(excel_sheet, channel_inv):
+    """
+    Take Nori's nodal spreadsheet and return an inventory object
+
+    :param excel_sheet: Path to the sheet
+    :param channel_inv: Inventory containing the response to be used for all channels (not correct)
+    :return:
+    """
+    nodal_sheet = pd.read_excel(excel_sheet, sheet_name='All sensors')
+    # Select only rows where
+    imu_sheet = nodal_sheet[nodal_sheet['flag (=0: IGU, =1: IGU_EB, =2: Sercel, =3: IMU, =4: IMU_3C)'] > 2]
+    inv_nodes = Inventory(networks=[Network(code='SS')])
+    used_stas = []
+    for i, station in imu_sheet.iterrows():
+        if np.isnan(station['Elevation_m_1']):
+            continue
+        start = UTCDateTime(station['Start_time_1'])
+        try:
+            end = UTCDateTime(station['End_time_1'])
+        except TypeError:
+            end = None
+        code = str(int(station['IMU_id']))[-5:]
+        if not code in used_stas:
+            sta = Station(code=code, latitude=station['Latitude_deg_1'], longitude=station['Longitude_deg_1'],
+                          elevation=station['Elevation_m_1'], start_date=start)
+            chan = channel_inv[0][0][0].copy()
+            chan.location_code = ''
+            chan.code = 'GP{}'.format(station['Channel code'])
+            chan.start_date = start
+            chan.end_date = end
+            chan.latitude = station['Latitude_deg_1']
+            chan.longitude = station['Longitude_deg_1']
+            chan.elevation = station['Elevation_m_1']
+            chan.sample_rate = 1000.
+            chan.depth = 0.
+            if chan.code[-1] == 'Z':
+                chan.azimuth = 0.0
+                chan.dip = -90.
+            elif chan.code[-1] == 'N':
+                chan.azimuth = 0.
+                chan.dip = 0.
+            elif chan.code[-1] == 'E':
+                chan.azimuth = 90.
+                chan.dip = 0.
+            sta.channels.append(chan)
+            inv_nodes[0].stations.append(sta)
+            used_stas.append(code)
+        else:
+            which = [i for i, sta in enumerate(inv_nodes[0].stations) if sta.code == code][0]
+            sta = inv_nodes[0][which]
+            chan = channel_inv[0][0][0].copy()
+            chan.location_code = ''
+            chan.code = 'GP{}'.format(station['Channel code'])
+            chan.start_date = start
+            chan.end_date = end
+            chan.latitude = sta.latitude
+            chan.longitude = sta.longitude
+            chan.elevation = sta.elevation
+            chan.sample_rate = 1000.
+            chan.depth = 0.
+            if chan.code[-1] == 'Z':
+                chan.azimuth = 0.0
+                chan.dip = -90.
+            elif chan.code[-1] == 'N':
+                chan.azimuth = 0.
+                chan.dip = 0.
+            elif chan.code[-1] == 'E':
+                chan.azimuth = 90.
+                chan.dip = 0.
+            sta.channels.append(chan)
+            starts = [c.start_date for c in sta.channels]
+            sta.start_date = min(starts)
+    return inv_nodes
+
 
 def plot_resp(resp_dir, min_freq, sampling_rate):
     """

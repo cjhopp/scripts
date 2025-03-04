@@ -3274,10 +3274,12 @@ def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
     ax_map = fig.add_subplot(spec[:8, :])
     ax_e = fig.add_subplot(spec[8:, :4])
     ax_n = fig.add_subplot(spec[8:, 4:])
-    elev_wh = 1703.2488  # Wellhead elevation
+    # elev_wh = 1703.2488  # Wellhead elevation
+    elev_wh = 1770.
     Lith_depths = {'Welded Tuff': [[1966, 2057]], 'Tuff': [[2057, 2439]], 'Basalt': [[2439, 2634], [2908, 3067]],
                    'Granodiorite': [[2634, 2908]],}
     slotted = [(1912, 2289), (2493, 3045)]
+    flowing = [2300, 2500, 2920]
     # Lithology first
     for unit, depths in Lith_depths.items():
         for i, ax in enumerate([ax_e, ax_n]):
@@ -3286,7 +3288,8 @@ def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
                     lab = unit
                 else:
                     lab = ''
-                ax.axhspan(elev_wh - d[1], elev_wh - d[0], color=lith_colors[unit], alpha=.3, label=lab)
+                # 15 meter fudge factor to account for deviation
+                ax.axhspan(elev_wh - d[1] - 15, elev_wh - d[0] - 15, color=lith_colors[unit], alpha=.3, label=lab)
     # Add objects
     wellpath = np.loadtxt(well_path, delimiter=',', skiprows=1)
     east = wellpath[:, 0] - wellpath[0, 0]
@@ -3302,6 +3305,15 @@ def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
     bot_e = east[np.where(elev_m < (elev_wh - slotted[1][1]))]
     bot_n = north[np.where(elev_m < (elev_wh - slotted[1][1]))]
     bot_d = elev_m[np.where(elev_m < (elev_wh - slotted[1][1]))]
+    # Plot flowing sections per PTS
+    for flow in flowing:
+        which = np.argmin(np.abs(flow - wellpath[:, 4]))
+        x = east[which]
+        y = north[which]
+        e = elev_m[which]
+        ax_e.scatter(x, e, marker='x', color='purple')
+        ax_n.scatter(y, e, marker='x', color='purple')
+        ax_map.scatter(x, y, marker='x', color='purple')
     # Plot them
     ax_map.plot(top_e, top_n, color='darkgray')
     ax_map.plot(mid_e, mid_n, color='darkgray')
@@ -3321,7 +3333,13 @@ def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
         ax_e.plot(e, d, color='goldenrod', linestyle=':')
         ax_n.plot(n, d, color='goldenrod', linestyle=':')
     # Now catalog
-    preferred = [ev.preferred_origin() for ev in catalog]
+    preferred = []
+    for ev in catalog:
+        try:
+            o = [o for o in ev.origins if o.method_id.id.endswith(location_method)][0]
+        except IndexError:
+            o = ev.preferred_origin()
+        preferred.append(o)
     methods = list(set([o.method_id for ev in catalog for o in ev.origins]))
     for method in methods:
         for origin in preferred:
@@ -3348,9 +3366,9 @@ def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
     ax_map.set_xlabel('Easting [m]')
     ax_map.set_ylabel('Northing [m]')
     ax_map.tick_params(axis='x', labelbottom=False, labeltop=True, bottom=False, top=True)
-    ax_e.set_ylabel('Depth [m]')
+    ax_e.set_ylabel('Elevation [masl]')
     ax_e.set_xticks([-1700, 1700], ['E', 'W'], size=16, fontweight='bold')
-    ax_n.set_xticks([-1700, 1700], ['N', 'S'], size=16, fontweight='bold')
+    ax_n.set_xticks([-1700, 1700], ['S', 'N'], size=16, fontweight='bold')
     ax_n.tick_params(axis='y', labelleft=False, left=False)
     fig.legend(loc=4)
     plt.show()

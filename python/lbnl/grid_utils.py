@@ -20,6 +20,14 @@ import matplotlib.pyplot as plt
 from pyproj import Proj
 from scipy.ndimage import shift
 
+
+# Gillian Foulger final 1D model at Newberry; 2100 m elevation as surface
+foulger_elev = [2.1, 1.8, 1.65, 1.5, 1.35, 1.1, 0.2, -3.]
+foulger_vp = [2.034, 3.33, 3.507, 3.673, 3.767, 3.8, 4.7]
+foulger_vs = [1.236, 2.015, 2.122, 2.222, 2.279, 2.299, 2.843]
+
+
+
 def read_array(path):
     arr = xr.open_dataset(path)
     return arr
@@ -83,6 +91,47 @@ def read_ppmod(path):
                           coords={'latitude': latitude, 'longitude': longitude, 'elevation': depth * -1000},
                           name=variables[i])
         ds[variables[i]] = da
+    return ds
+
+
+def create_newberry_1d(topo_path):
+    simple_x = np.linspace(-121.38, -121.38 + 0.12444560483672994, 200)
+    simple_y = np.linspace(43.68, 43.77, 200)
+    vp_1d = np.hstack(
+        [np.zeros(int((foulger_elev[i] - foulger_elev[i+1]) / 0.05)) + foulger_vp[i]
+        for i in range(len(foulger_vp))])
+    vs_1d = np.hstack(
+        [np.zeros(int((foulger_elev[i] - foulger_elev[i+1]) / 0.05)) + foulger_vs[i]
+        for i in range(len(foulger_vp))])
+    air_p = xr.DataArray(np.ones([200, 200, 50]) * foulger_vp[0], name='Vp',
+                         coords={'latitude': simple_y,
+                                 'longitude': simple_x,
+                                 'elevation': np.arange(0, 2500., 50.)[::-1]})
+    air_s = xr.DataArray(np.ones([200, 200, 50]) * foulger_vs[0], name='Vs',
+                         coords={'latitude': simple_y,
+                                 'longitude': simple_x,
+                                 'elevation': np.arange(0, 2500., 50.)[::-1]})
+    Vp = xr.DataArray(np.ones([200, 200, 100]) * vp_1d[np.newaxis, np.newaxis, :], name='Vp',
+                      coords={'latitude': simple_y,
+                              'longitude': simple_x,
+                              'elevation': np.arange(-5000., 0., 50.)[::-1]})
+    Vs = xr.DataArray(np.ones([200, 200, 100]) * vs_1d[np.newaxis, np.newaxis, :], name='Vs',
+                      coords={'latitude': simple_y,
+                              'longitude': simple_x,
+                              'elevation': np.arange(-5000., 0., 50.)[::-1]})
+    ds = xr.concat([xr.Dataset({'Vp': air_p, 'Vs': air_s}), xr.Dataset({'Vp': Vp, 'Vs': Vs})], dim='elevation')
+    # Upsample the grid to make the shift calculation more precise
+    new_elev = np.linspace(ds.elevation.min(), ds.elevation.max(), int(ds.elevation.max() - ds.elevation.min()))
+    ds = ds.interp(elevation=new_elev)
+    # Read in the topography
+    topo = rioxarray.open_rasterio(topo_path)
+    # topo = topo.rolling(y=25, x=25).mean()
+    topo = topo.interp(x=ds.longitude, y=ds.latitude).drop(['band', 'x', 'y', 'spatial_ref']).squeeze('band')
+    ds = xr.apply_ufunc(shift_model, topo, ds, input_core_dims=[[], ['elevation']],
+                        output_core_dims=[['elevation']], vectorize=True)
+    # Back to coarser model
+    # ds = ds.interp(elevation=np.linspace(ds.elevation.min(), ds.elevation.max(), 50))
+    ds['topography'] = topo
     return ds
 
 
@@ -295,7 +344,57 @@ def write_simul2000(dataset, outfile, resample_factor=2):
     return p(orig[0], orig[1], inverse=True), orig[-1]
 
 
-def write_newberry_NLLoc_grid(dataset, outdir):
+def write_newberry1d_NLLoc_grid(dataset):
+    """
+    Write NLLoc grids from xarray Dataset of LLNL 3D model
+    :return:
+    """
+    # Assume that sampling is uniform
+    # Start a new grid
+    grd_P = NLLGrid()
+    grd_S = NLLGrid()
+    # NLLoc models require units of slowness*length and cubic nodes
+    origin = [dataset.longitude[0].values, dataset.latitude[0].values]
+    # Change from lat/lon to meters (SIMPLE TRANS from NLLoc)
+    x = (dataset.longitude - dataset.longitude[0]) * 111.111 * np.cos(np.deg2rad(dataset.latitude[100]))
+    y = (dataset.latitude - dataset.latitude[0]) * 111.111
+    dataset = dataset.rename({'latitude': 'y', 'longitude': 'x', 'elevation': 'depth'})
+    dataset = dataset.assign_coords(x=x.values*1000, y=y.values*1000, depth=dataset.depth.values*-1)
+    # Interpolate onto 200 m grid
+    dataset = dataset.interp(x=np.arange(dataset.x.min(), dataset.x.max(), step=50.),
+                             y=np.arange(dataset.y.min(), dataset.y.max(), step=50.),
+                             depth=np.arange(dataset.depth.min(), dataset.depth.max(), step=50.)[::-1])
+    # NLLGrid indexing is column-first
+    dataset = dataset.transpose('x', 'y', 'depth')
+    print(dataset)
+    Pslow_len = 0.05 / dataset.Vp.values
+    Sslow_len = 0.05 / dataset.Vs.values
+    # Populate grid headers
+    for grd in [grd_P, grd_S]:
+        grd.dx = 0.05
+        grd.dy = 0.05
+        grd.dz = 0.05
+        grd.x_orig = 0.0
+        grd.y_orig = 0.0
+        grd.z_orig = dataset.depth.min().values / 1000.
+        grd.type = 'SLOW_LEN'
+        grd.orig_lat = origin[1]
+        grd.orig_lon = origin[0]
+        grd.proj_name = 'SIMPLE'
+    # After transpose, still need to flip Z dim for each array
+    grd_P.array = np.flip(Pslow_len, axis=2)
+    grd_P.basename = 'Newberry_1d-topo.P.mod'
+    grd_S.array = np.flip(Sslow_len, axis=2)
+    grd_S.basename = 'Newberry_1d-topo.S.mod'
+    # Write to file
+    grd_P.write_buf_file()
+    grd_P.write_hdr_file()
+    grd_S.write_buf_file()
+    grd_S.write_hdr_file()
+    return grd_P, grd_S, Pslow_len, Sslow_len
+
+
+def write_newberry3d_NLLoc_grid(dataset, outdir):
     """
     Write NLLoc grids from xarray Dataset of LLNL 3D model
     :return:
