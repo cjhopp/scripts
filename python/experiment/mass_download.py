@@ -10,7 +10,7 @@ from obspy.clients.fdsn.mass_downloader import Restrictions, GlobalDomain, MassD
 domain = GlobalDomain()
 
 restrictions = Restrictions(starttime=UTCDateTime(2014, 9, 1), endtime=UTCDateTime(2015, 2, 14),
-                            chunklength_in_sec=86400, network='9K', station='NN*', location='*', channel='*',
+                            chunklength_in_sec=86400, network='9G', station='NN*', location='*', channel='*',
                             reject_channels_with_gaps=False, minimum_length=0.0)
 
 mdl = MassDownloader(providers=['IRIS'])
