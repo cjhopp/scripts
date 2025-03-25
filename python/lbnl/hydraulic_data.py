@@ -14,12 +14,15 @@ from matplotlib.dates import DateFormatter, DayLocator, MonthLocator, HourLocato
 from matplotlib.collections import LineCollection
 from matplotlib.dates import date2num, DateFormatter
 from matplotlib import gridspec
-from nptdms import TdmsFile
 from glob import glob
 from scipy.io import loadmat
 from datetime import datetime, timedelta
 from itertools import cycle
-
+from pandas._libs.tslibs.parsing import DateParseError
+try:
+    from nptdms import TdmsFile
+except ImportError:
+    print('No TDMS package installed.')
 
 def datenum_to_datetime(datenums):
     # Helper to correctly convert matlab datenum to python datetime
@@ -283,23 +286,31 @@ def read_4100_circulation(path):
 
 def read_4100_hydro(path):
     flow_files = glob('{}/*.csv'.format(path))
+    flow_files.sort()
     df = pd.DataFrame()
     for f in flow_files:
-        zone = f.split('_')[0].split('/')[-1]
+        print(f)
+        # zone = f.split('_')[0].split('/')[-1]
         cols_tri = ['Time', 'Quizix Flow', 'Quixiz Pressure',
                     'PT 403', 'Net Flow']
-        ndf = pd.read_csv(f, usecols=cols_tri,
-                          skiprows=[1], parse_dates=True)
+        ndf = pd.read_csv(f, usecols=cols_tri, skiprows=[1, 2], index_col=False)#, parse_dates=[0], date_format='%m/%d/%y %H:%M:%S')
         rename_dict = {
-            'Quizix Flow': 'Quizix Flow: {}'.format(zone),
-            'Quixiz Pressure': 'Quizix P: {}'.format(zone),
-            'Net Flow': 'Triplex Flow: {}'.format(zone)
+            'Quizix Flow': 'Quizix Flow',
+            'Quixiz Pressure': 'Quizix P',
+            'Net Flow': 'Triplex Flow'
         }
         ndf.rename(columns=rename_dict, inplace=True)
+        print(ndf)
+        try:
+            ndf['Datetime'] = pd.to_datetime(ndf['Time'], format='%m/%d/%y %H:%M:%S')
+        except ValueError:
+            print(ndf)
+            continue
+        ndf = ndf.set_index('Datetime')
+        ndf.sort_index(inplace=True)
+        ndf.drop('Time', axis=1, inplace=True)
+        ndf = ndf.resample('1Min').mean()
         df = pd.concat([df, ndf])
-    df['Datetime'] = pd.to_datetime(df['Time'])
-    df = df.set_index('Datetime')
-    df.sort_index(inplace=True)
     return df
 
 
