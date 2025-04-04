@@ -52,3 +52,42 @@ def compare_newberry_magnitudes(catalog1, catalog2):
     ax.set_xlabel('MLc [new]')
     plt.show()
     return
+
+
+def plot_radius_vs_magnitude():
+    # Define moment magnitude range
+    Mw_extended = np.linspace(-5, 3, 200)
+
+    # Define stress drops in Pascals
+    stress_drops = [0.1e6, 1e6, 3e6, 10e6]  # 0.1, 1, 3, and 10 MPa
+    colors = ['crimson', 'goldenrod', 'mediumseagreen', 'steelblue']
+    labels = ['0.1 MPa', '1 MPa', '3 MPa', '10 MPa']
+
+    # Compute seismic moment M0 from Mw
+    log_M0_extended = 1.5 * Mw_extended + 9.1
+    M0_extended = 10 ** log_M0_extended  # N·m
+
+    # Initialize plot
+    plt.figure(figsize=(10, 6))
+
+    # Plot fracture radius curves for each stress drop
+    for stress_drop, color, label in zip(stress_drops, colors, labels):
+        const_factor = 7 / (16 * stress_drop)
+        r = (const_factor * M0_extended) ** (1/3)  # radius in meters
+        plt.plot(Mw_extended, r, label=label, color=color)
+
+    # Plot formatting
+    plt.yscale('log')
+    plt.xlabel("Moment Magnitude (Mw)")
+    plt.ylabel("Estimated Fracture Radius (m, log scale)")
+    plt.title("Estimated Fracture Radius vs. Moment Magnitude\n(Various Stress Drops)")
+    plt.grid(True, which='both', linestyle='--', alpha=0.5)
+    plt.legend(title="Stress Drop")
+    plt.ticklabel_format(style='plain', axis='y')  # Standard numeric format on y-axis
+    plt.tight_layout()
+
+    # Display the plot
+    plt.show()
+    return
+
+
