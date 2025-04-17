@@ -266,16 +266,28 @@ def read_seismic_source_segy(file):
     segy = read(file)
     serial = file.split('/')[-1].split('_')[0]
     station = oee_station_map[serial]
+    segy.traces.sort(key=lambda x: x.stats.segy.trace_header['trace_sequence_number_within_line'])
+    rms = []
     for i, tr in enumerate(segy):
         if i > 13 and serial == '52264':
+            rms.append(tr)
             continue  # Remove unused channels
         elif i > 17 and serial == '52269':
+            rms.append(tr)
             continue  # Remove unused channels
         location = tr.stats.segy.trace_header['trace_sequence_number_within_line']
-        tr.stats.station = f'{station}{(location//3)+1:02d}'
+        print(i, location)
+        if serial == '52264':
+            tr.stats.station = f'{station}{i+1:02d}'
+        elif serial == '52268':
+            tr.stats.station = f'{station}{(i//3)+1:02d}'
+        else:
+            tr.stats.station = f'{station}{((i+24)//3)+1:02d}'
         tr.stats.channel = oee_channel_map[station][location]
         tr.stats.network = 'ZF'
         tr.stats.location = ''
+    for rm in rms:
+        segy.traces.remove(rm)
     return segy
 
 
