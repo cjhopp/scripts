@@ -276,7 +276,6 @@ def read_seismic_source_segy(file):
             rms.append(tr)
             continue  # Remove unused channels
         location = tr.stats.segy.trace_header['trace_sequence_number_within_line']
-        print(i, location)
         if serial == '52264':
             tr.stats.station = f'{station}{i+1:02d}'
         elif serial == '52268':
