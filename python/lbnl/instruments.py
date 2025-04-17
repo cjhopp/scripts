@@ -85,6 +85,92 @@ resp_ls_map = {'Silicon Audio ULN Accelerometer': '-',
                'Nanometrics Trillium 120s PH broadband': '-'}
 
 
+# Because I screwed up the SS miniseed convertion, GB01 is now the western, 1C station
+# ...GB02 is the eastern, 3C station
+oee_station_map = {
+    'GB01': {'latitude': 40.4860, 'longitude': -88.4813, 'elev': 231.},
+    'GB02': {'latitude': 40.4860, 'longitude': -88.4685, 'elev': 241.},
+}
+
+
+oee_channel_map = {
+    'GB01': {1: 'DPZ', 2: 'DPZ', 3: 'DPZ', 4: 'DPZ', 5: 'DPZ', 6: 'DPZ', 7: 'DPZ', 8: 'DPZ', 9: 'DPZ', 10: 'DPZ',
+             11: 'DPZ', 12: 'DPZ', 13: 'DPZ', 14: 'DPZ', 15: 'DPZ', 16: 'DPZ', 17: 'DPZ', 18: 'DPZ', 19: 'DPZ',
+             20: 'DPZ', 21: 'DPZ', 22: 'DPZ', 23: 'DPZ', 24: 'DPZ'},
+    'GB02': {1: 'DPZ', 2: 'DP1', 3: 'DP2', 4: 'DPZ', 5: 'DP1', 6: 'DP2', 7: 'DPZ', 8: 'DP1', 9: 'DP2', 10: 'DPZ',
+             11: 'DP1', 12: 'DP2', 13: 'DPZ', 14: 'DP1', 15: 'DP2', 16: 'DPZ', 17: 'DP1', 18: 'DP2', 19: 'DPZ',
+             20: 'DP1', 21: 'DP2', 22: 'DPZ', 23: 'DP1', 24: 'DP2', 25: 'DPZ', 26: 'DP1', 27: 'DP2', 28: 'DPZ',
+             29: 'DP1', 30: 'DP2', 31: 'DPZ', 32: 'DP1', 33: 'DP2', 34: 'DPZ', 35: 'DP1', 36: 'DP2', 37: 'DPZ',
+             38: 'DP1', 39: 'DP2', 40: 'DPZ', 41: 'DP1', 42: 'DP2', 43: 'DPZ', 44: 'DP1', 45: 'DP2', 46: 'DPZ',
+             47: 'DP1', 48: 'DP2', 49: 'DPZ', 50: 'DP1', 51: 'DP2', 52: 'DPZ', 53: 'DP1', 54: 'DP2', 55: 'DPZ',
+             56: 'DP1', 57: 'DP2', 58: 'DPZ', 59: 'DP1', 60: 'DP2', 61: 'DPZ', 62: 'DP1', 63: 'DP2', 64: 'DPZ',
+             65: 'DP1', 66: 'DP2', 67: 'DPZ', 68: 'DP1', 69: 'DP2', 70: 'DPZ', 71: 'DP1', 72: 'DP2'}
+}
+
+oee_depth_map = np.linspace(6.7, 136.7, 14)
+
+
+def edit_oee_inventory(old_inventory):
+    """
+    Change the original OEE inventory to conform to the station names getting swapped in my Seismic Source
+    miniseed conversion and correcting location codes and depths
+    """
+    new_inventory = old_inventory.copy()
+    for sta in new_inventory[0]:
+        if sta.code == 'GB01':
+            sta.channels.sort(key=lambda x: x.location_code)
+            for i, chan in enumerate(sta.channels):
+                try:
+                    loc = int(chan.location_code.lstrip('0'))
+                except ValueError:
+                    continue  # SAULN
+                chan.code = oee_channel_map['GB02'][i-2]
+                chan.location_code = '{:02d}'.format(i-2)
+                chan.depth = oee_depth_map[loc-1]
+                chan.latitude = oee_station_map['GB02']['latitude']
+                chan.longitude = oee_station_map['GB02']['longitude']
+                chan.elevation = oee_station_map['GB02']['elev']
+            sta.code = 'GB02'
+            sta.latitude = oee_station_map['GB02']['latitude']
+            sta.longitude = oee_station_map['GB02']['longitude']
+            sta.elevation = oee_station_map['GB02']['elev']
+        elif sta.code == 'GB02':
+            for chan in sta.channels:
+                try:
+                    loc = int(chan.location_code.lstrip('0'))
+                except ValueError:
+                    continue  # SAULN
+                chan.code = oee_channel_map['GB01'][int(chan.location_code)]
+                chan.location_code = '{:02d}'.format(loc)
+                chan.depth = oee_depth_map[loc-1]
+                chan.latitude = oee_station_map['GB01']['latitude']
+                chan.longitude = oee_station_map['GB01']['longitude']
+                chan.elevation = oee_station_map['GB01']['elev']
+            sta.code = 'GB01'
+            sta.latitude = oee_station_map['GB01']['latitude']
+            sta.longitude = oee_station_map['GB01']['longitude']
+            sta.elevation = oee_station_map['GB01']['elev']
+    # Add DAS stations
+    das500 = Station(code='D0500', latitude=oee_station_map['GB02']['latitude'],
+                     longitude=oee_station_map['GB02']['longitude'],
+                     elevation=oee_station_map['GB02']['elev'])
+    das500chan = new_inventory.select(station='GB01')[0][0][0].copy()
+    das500chan.code = 'FSF'
+    das500chan.location_code = ''
+    das500chan.depth = 500.
+    das500.channels = [das500chan]
+    das1200 = Station(code='D1200', latitude=oee_station_map['GB02']['latitude'],
+                    longitude=oee_station_map['GB02']['longitude'],
+                    elevation=oee_station_map['GB02']['elev'])
+    das1200chan = new_inventory.select(station='GB01')[0][0][0].copy()
+    das1200chan.code = 'FSF'
+    das1200chan.location_code = ''
+    das1200chan.depth = 1200.
+    das1200.channels = [das1200chan]
+    new_inventory[0].stations.extend([das500, das1200])
+    return new_inventory
+
+
 def nodal_to_inv(excel_sheet, channel_inv):
     """
     Take Nori's nodal spreadsheet and return an inventory object

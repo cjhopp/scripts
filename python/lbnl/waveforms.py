@@ -223,13 +223,13 @@ patua_reftek_stations = {'AAE2': {'station': 'PT.2128',
                                                'NEW_STREAM5': '10.DHE'}}
                          }
 
-oee_station_map = {'52264': 'GB01', '52268': 'GB02', '52269': 'GB02'}
+oee_station_map = {'52264': 'GB2', '52268': 'GB1', '52269': 'GB1'}
 
 oee_channel_map = {
-    'GB01': {1: 'DPZ', 2: 'DPZ', 3: 'DPZ', 4: 'DPZ', 5: 'DPZ', 6: 'DPZ', 7: 'DPZ', 8: 'DPZ', 9: 'DPZ', 10: 'DPZ',
+    'GB2': {1: 'DPZ', 2: 'DPZ', 3: 'DPZ', 4: 'DPZ', 5: 'DPZ', 6: 'DPZ', 7: 'DPZ', 8: 'DPZ', 9: 'DPZ', 10: 'DPZ',
              11: 'DPZ', 12: 'DPZ', 13: 'DPZ', 14: 'DPZ', 15: 'DPZ', 16: 'DPZ', 17: 'DPZ', 18: 'DPZ', 19: 'DPZ',
              20: 'DPZ', 21: 'DPZ', 22: 'DPZ', 23: 'DPZ', 24: 'DPZ'},
-    'GB02': {1: 'DPZ', 2: 'DP1', 3: 'DP2', 4: 'DPZ', 5: 'DP1', 6: 'DP2', 7: 'DPZ', 8: 'DP1', 9: 'DP2', 10: 'DPZ',
+    'GB1': {1: 'DPZ', 2: 'DP1', 3: 'DP2', 4: 'DPZ', 5: 'DP1', 6: 'DP2', 7: 'DPZ', 8: 'DP1', 9: 'DP2', 10: 'DPZ',
              11: 'DP1', 12: 'DP2', 13: 'DPZ', 14: 'DP1', 15: 'DP2', 16: 'DPZ', 17: 'DP1', 18: 'DP2', 19: 'DPZ',
              20: 'DP1', 21: 'DP2', 22: 'DPZ', 23: 'DP1', 24: 'DP2', 25: 'DPZ', 26: 'DP1', 27: 'DP2', 28: 'DPZ',
              29: 'DP1', 30: 'DP2', 31: 'DPZ', 32: 'DP1', 33: 'DP2', 34: 'DPZ', 35: 'DP1', 36: 'DP2', 37: 'DPZ',
@@ -266,12 +266,16 @@ def read_seismic_source_segy(file):
     segy = read(file)
     serial = file.split('/')[-1].split('_')[0]
     station = oee_station_map[serial]
-    for tr in segy:
+    for i, tr in enumerate(segy):
+        if i > 13 and serial == '52264':
+            continue  # Remove unused channels
+        elif i > 17 and serial == '52269':
+            continue  # Remove unused channels
         location = tr.stats.segy.trace_header['trace_sequence_number_within_line']
-        tr.stats.station = station
+        tr.stats.station = f'{station}{(location//3)+1:02d}'
         tr.stats.channel = oee_channel_map[station][location]
         tr.stats.network = 'ZF'
-        tr.stats.location = '{:02d}'.format(location)
+        tr.stats.location = ''
     return segy
 
 

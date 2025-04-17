@@ -837,3 +837,15 @@ def plot_well_logs(wells, fit_funcs=None, popts=None, xmeans=None, ymeans=None):
     plt.tight_layout()
     # plt.show()
     return ax
+
+
+def read_cape_trajectory(path):
+    """
+    Read the trajectory files for the Cape wells
+    :param path: Path to directory with trajectory files
+    :return: Dict of wells
+    """
+    xyz = pd.read_excel(path, skiprows=29, usecols=['X', 'Y', 'SSTVD']).values
+    xyz = np.roll(xyz, -1, axis=1)
+    xyz[:, -1] *= 0.3048
+    return xyz

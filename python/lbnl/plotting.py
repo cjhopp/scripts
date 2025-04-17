@@ -3254,6 +3254,103 @@ def plot_DAC(dem_dir, vector_dir, catalog=None):
     return
 
 
+def plot_cape_seismicity(well_path, tob_path, catalog, location_method='NonLinLoc', status='manual'):
+    """
+    Plot seismicity relative to 55-29 with a NS and EW cross-section
+
+    :param well_path:
+    :param tob_path: Directory with top of basement xsections
+    :param catalog:
+    :return:
+    """
+    utm = pyproj.Proj("EPSG:26912")
+    state_plane = pyproj.Proj("EPSG:2282")  # UT Southern; US State Plane projection
+    transform = pyproj.Transformer.from_proj(state_plane, utm, always_xy=True).transform
+    lith_colors = {'Basin': 'khaki', 'Granite': 'bisque'}
+    method_colors = {'RTDD': 'r', 'NonLinLoc': 'b', 'LOCSAT': 'k', 'SimulPS': 'purple', 'HYP2000': 'orange'}
+    depth_factor = {'RTDD': -1., 'NonLinLoc': -1., 'LOCSAT': -1., 'SimulPS': -1000., 'HYP2000': -1.}
+    depth_correction = {'RTDD': 0., 'NonLinLoc': 0., 'LOCSAT': 0., 'SimulPS': 0., 'HYP2000': 0.}  # Elevation correction for LOCSAT
+    lim = [-2000, 2000]
+    fig = plt.figure(figsize=(8, 16))
+    spec = gridspec.GridSpec(ncols=8, nrows=16, figure=fig)
+    ax_map = fig.add_subplot(spec[:8, :])
+    ax_e = fig.add_subplot(spec[8:, :4])
+    ax_n = fig.add_subplot(spec[8:, 4:])
+    elev_wh = 1570.
+    frisco_xy = transform(1235145.09, 10512277.9)
+    # Lithology first
+    xsections = glob('{}/*.csv'.format(tob_path))
+    for xsec in xsections:
+        if 'NS' in xsec:
+            array = pd.read_csv(xsec, delimiter=',')
+            ax_n.plot(array['northing'] - frisco_xy[1], array['ToB'], color='k',
+                      linestyle='--', linewidth=0.5)
+        elif 'EW' in xsec:
+            array = pd.read_csv(xsec, delimiter=',')
+            ax_e.plot(array['easting'] - frisco_xy[0], array['ToB'], color='k',
+                      linestyle='--', linewidth=0.5)
+    # Add objects
+    wells = glob('{}/*.xlsx'.format(well_path))
+    for well in wells:
+        xyz = pd.read_excel(well, skiprows=29, usecols=['X', 'Y', 'SSTVD']).values
+        xyz = np.roll(xyz, -1, axis=1)
+        x, y = transform(xyz[:, 0], xyz[:, 1])
+        x -= frisco_xy[0]
+        y -= frisco_xy[1]
+        # Plot them
+        ax_map.plot(x, y, color='darkgray')
+        ax_e.plot(x, xyz[:, 2] * .3048, color='darkgray')
+        ax_n.plot(y, xyz[:, 2] * .3048, color='darkgray')
+    # Now catalog
+    preferred = []
+    magnitudes = []
+    for ev in catalog:
+        try:
+            o = [o for o in ev.origins if o.method_id.id.endswith(location_method) and
+                 o.evaluation_mode == status]
+            o.sort(key=lambda x: x.creation_info.creation_time)
+            o = o[-1]
+            preferred.append(o)
+            magnitudes.append(ev.preferred_magnitude().mag)
+        except IndexError:
+            continue
+        # preferred.append(o)
+    # methods = list(set([o.method_id for o]))
+    # for method in methods:
+    for i, origin in enumerate(preferred):
+        # if origin.method_id == method:
+        meth = origin.method_id.id.split('/')[-1]
+        x, y = utm(longitude=origin.longitude, latitude=origin.latitude)
+        x -= frisco_xy[0]
+        y -= frisco_xy[1]
+        d = (origin.depth * depth_factor[meth]) + depth_correction[meth]
+        ax_map.scatter(x, y, edgecolor=method_colors[meth], facecolor='none', s=(magnitudes[i])**4,
+                       marker='o', linewidth=0.25)
+        ax_e.scatter(x, d, edgecolor=method_colors[meth], facecolor='none', s=(magnitudes[i])**4,
+                     marker='o', linewidth=0.25)
+        ax_n.scatter(y, d, edgecolor=method_colors[meth], facecolor='none', s=(magnitudes[i])**4, 
+                     marker='o', linewidth=0.25)
+    # Set limits
+    ax_map.set_ylim(lim)
+    ax_map.set_xlim(lim)
+    ax_n.set_xlim(lim)
+    ax_e.set_xlim(lim)
+    ax_e.set_ylim((-3000, 1800))
+    ax_n.set_ylim((-3000, 1800))
+    # label and tick positioning
+    ax_map.xaxis.set_label_position('top')
+    ax_map.set_xlabel('Easting [m]')
+    ax_map.set_ylabel('Northing [m]')
+    ax_map.tick_params(axis='x', labelbottom=False, labeltop=True, bottom=False, top=True)
+    ax_e.set_ylabel('Elevation [masl]')
+    ax_e.set_xticks([-1700, 1700], ['W', 'E'], size=16, fontweight='bold')
+    ax_n.set_xticks([-1700, 1700], ['S', 'N'], size=16, fontweight='bold')
+    ax_n.tick_params(axis='y', labelleft=False, left=False)
+    fig.legend(loc=4)
+    plt.show()
+    return
+
+
 def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
     """
     Plot seismicity relative to 55-29 with a NS and EW cross-section
