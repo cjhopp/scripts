@@ -766,6 +766,22 @@ def downsample_mseeds(wavs, samp_rate, start, end, outdir):
     return st
 
 
+def combine_baselines(path):
+    """
+    Combine SQLX baselines exported from detail view. I'm starting from the median baseline
+    and merging across the whole network. Could modify this if Richard adds per-station baselines
+    """
+    medians = glob(path)
+    median_df = pd.DataFrame()
+    for median in medians:
+        new_df = pd.read_csv(median, delimiter='\t', index_col='Period',
+                             names=['Period', '.'.join(median.split(".")[-3:])])
+        new_df = new_df.drop(new_df[new_df.index < 0.009].index)
+        median_df = pd.concat([median_df, new_df], axis=1)
+    median_df['mean'] = median_df.mean(axis=1, skipna=True, numeric_only=True)
+    return median_df
+
+
 def combine_ppsds(npz_dir, netstalocchans, outdir, inventory=None):
     """
     Combine a number of npz files (daylong) into one large one

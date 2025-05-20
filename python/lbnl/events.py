@@ -24,7 +24,11 @@ from itertools import cycle
 from subprocess import call
 from scipy.linalg import lstsq
 from sklearn.cluster import DBSCAN
-from mplstereonet import StereonetAxes
+try:
+    from mplstereonet import StereonetAxes
+except ImportError:
+    print('No mplstereonet. Not plotting stereonets')
+    StereonetAxes = None
 from obspy import UTCDateTime, Catalog, read, read_inventory, Stream, Trace,\
     read_events, Inventory
 from obspy.core.util import AttribDict
@@ -687,6 +691,45 @@ def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
         print(cmd)
         call(cmd, shell=True)
     return
+
+
+def get_events_seiscomp(status, location_method, **kwargs):
+    """
+    Get events from seiscomp database using obspy.client.fdsn.Client
+
+    :param status: Status of events to fetch (e.g. 'manual', 'automatic')
+    :param location_method: Location method of origins to fetch (NonLinLoc or RTDD)
+
+    :return obspy.core.events.Catalog
+    """
+    if location_method not in ['NonLinLoc', 'RTDD']:
+        raise ValueError('Location method must be NonLinLoc or RTDD')
+    if status not in ['automatic', 'manual']:
+        raise ValueError('Status must be automatic or manual')
+    
+    cli = Client("http://131.243.224.19:8085", timeout=3600)
+    hungry_cat = cli.get_events(**kwargs)
+    full_cat = Catalog()
+    for ev in hungry_cat:
+        print(f'Pulling all ojects for event {ev.resource_id.id}')
+        full_ev = cli.get_events(eventid=ev.resource_id.id.split('/')[-1], includeallorigins=True,
+                                 includearrivals=True)[0]
+        print(full_ev)
+        origin = full_ev.preferred_origin()
+        if origin.method_id.id.endswith(location_method) and origin.evaluation_mode == status:
+            full_ev.origins = [origin]
+        else:
+            origins = [o for o in full_ev.origins if o.method_id.id.endswith(location_method)
+                       and o.evaluation_mode == status]
+            origins.sort(key=lambda x: x.creation_info.creation_time)
+            try:
+                origin = origins[-1]
+                full_ev.origins = [origin]
+            except IndexError:
+                print('No origins found for this event')
+                continue
+        full_cat.append(full_ev)
+    return full_cat
 
 
 def retrieve_usgs_catalog(**kwargs):

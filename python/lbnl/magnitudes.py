@@ -83,7 +83,7 @@ def plot_radius_vs_magnitude():
     plt.title("Estimated Fracture Radius vs. Moment Magnitude\n(Various Stress Drops)")
     plt.grid(True, which='both', linestyle='--', alpha=0.5)
     plt.legend(title="Stress Drop")
-    plt.ticklabel_format(style='plain', axis='y')  # Standard numeric format on y-axis
+    # plt.ticklabel_format(style='plain', axis='y')  # Standard numeric format on y-axis
     plt.tight_layout()
 
     # Display the plot

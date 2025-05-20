@@ -9,6 +9,7 @@ For SURF, the arbitrary zero depth point is elev = 130 m
 
 """
 import os
+import pyproj
 
 import numpy as np
 import pandas as pd
@@ -16,6 +17,7 @@ import math as M
 import matplotlib.pyplot as plt
 
 from glob import glob
+from copy import deepcopy
 from obspy import read_inventory, UTCDateTime
 from obspy.core.util import AttribDict
 from obspy.core.inventory import Inventory, Network, Station, Channel, Response
@@ -23,6 +25,7 @@ from obspy.core.inventory import ResponseListResponseStage
 from obspy.core.inventory.response import ResponseListElement, InstrumentPolynomial
 from obspy.core.inventory.response import InstrumentSensitivity, ResponseStage
 from obspy.core.inventory.util import Latitude, Longitude, Equipment
+from mpl_toolkits.mplot3d import Axes3D
 
 from lbnl.coordinates import SURF_converter, FSB_converter
 from lbnl.boreholes import create_FSB_boreholes
@@ -88,81 +91,142 @@ resp_ls_map = {'Silicon Audio ULN Accelerometer': '-',
 # Because I screwed up the SS miniseed convertion, GB01 is now the western, 1C station
 # ...GB02 is the eastern, 3C station
 oee_station_map = {
-    'GB01': {'latitude': 40.4860, 'longitude': -88.4813, 'elev': 231.},
-    'GB02': {'latitude': 40.4860, 'longitude': -88.4685, 'elev': 241.},
+    'GB2': {'latitude': 40.4860, 'longitude': -88.4813, 'elev': 231.},
+    'GB1': {'latitude': 40.4860, 'longitude': -88.4685, 'elev': 241.},
 }
 
 
 oee_channel_map = {
-    'GB01': {1: 'DPZ', 2: 'DPZ', 3: 'DPZ', 4: 'DPZ', 5: 'DPZ', 6: 'DPZ', 7: 'DPZ', 8: 'DPZ', 9: 'DPZ', 10: 'DPZ',
-             11: 'DPZ', 12: 'DPZ', 13: 'DPZ', 14: 'DPZ', 15: 'DPZ', 16: 'DPZ', 17: 'DPZ', 18: 'DPZ', 19: 'DPZ',
-             20: 'DPZ', 21: 'DPZ', 22: 'DPZ', 23: 'DPZ', 24: 'DPZ'},
-    'GB02': {1: 'DPZ', 2: 'DP1', 3: 'DP2', 4: 'DPZ', 5: 'DP1', 6: 'DP2', 7: 'DPZ', 8: 'DP1', 9: 'DP2', 10: 'DPZ',
-             11: 'DP1', 12: 'DP2', 13: 'DPZ', 14: 'DP1', 15: 'DP2', 16: 'DPZ', 17: 'DP1', 18: 'DP2', 19: 'DPZ',
-             20: 'DP1', 21: 'DP2', 22: 'DPZ', 23: 'DP1', 24: 'DP2', 25: 'DPZ', 26: 'DP1', 27: 'DP2', 28: 'DPZ',
-             29: 'DP1', 30: 'DP2', 31: 'DPZ', 32: 'DP1', 33: 'DP2', 34: 'DPZ', 35: 'DP1', 36: 'DP2', 37: 'DPZ',
-             38: 'DP1', 39: 'DP2', 40: 'DPZ', 41: 'DP1', 42: 'DP2', 43: 'DPZ', 44: 'DP1', 45: 'DP2', 46: 'DPZ',
-             47: 'DP1', 48: 'DP2', 49: 'DPZ', 50: 'DP1', 51: 'DP2', 52: 'DPZ', 53: 'DP1', 54: 'DP2', 55: 'DPZ',
-             56: 'DP1', 57: 'DP2', 58: 'DPZ', 59: 'DP1', 60: 'DP2', 61: 'DPZ', 62: 'DP1', 63: 'DP2', 64: 'DPZ',
-             65: 'DP1', 66: 'DP2', 67: 'DPZ', 68: 'DP1', 69: 'DP2', 70: 'DPZ', 71: 'DP1', 72: 'DP2'}
+    'GB2': {1: ['DPZ'], 2: ['DPZ'], 3: ['DPZ'], 4: ['DPZ'], 5: ['DPZ'], 6: ['DPZ'], 7: ['DPZ'], 8: ['DPZ'],
+            9: ['DPZ'], 10: ['DPZ'], 11: ['DPZ'], 12: ['DPZ'], 13: ['DPZ'], 14: ['DPZ']},
+    'GB1': {1: ['DPZ', 'DP1', 'DP2'], 2: ['DPZ', 'DP1', 'DP2'], 3: ['DPZ', 'DP1', 'DP2'], 4: ['DPZ', 'DP1', 'DP2'],
+             5: ['DPZ', 'DP1', 'DP2'], 6: ['DPZ', 'DP1', 'DP2'], 7: ['DPZ', 'DP1', 'DP2'], 8: ['DPZ', 'DP1', 'DP2'],
+             9: ['DPZ', 'DP1', 'DP2'], 10: ['DPZ', 'DP1', 'DP2'], 11: ['DPZ', 'DP1', 'DP2'], 12: ['DPZ', 'DP1', 'DP2'],
+             13: ['DPZ', 'DP1', 'DP2'], 14: ['DPZ', 'DP1', 'DP2']}
 }
 
 oee_depth_map = np.linspace(6.7, 136.7, 14)
 
 
+
+class Inventory3D(Inventory):
+    """
+    Subclass of Inventory to add 3D plotting functionality
+    
+    """
+    def __init__(self, inventory):
+        # Directly initialize the Inventory part by extracting networks
+        super().__init__(networks=inventory.networks, source=inventory.source, sender=inventory.sender,
+                         created=inventory.created, module=inventory.module, module_uri=inventory.module_uri)
+    
+    def plot_3d(self, utm_zone, elev_scale=1.0):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        # Define a pyproj Proj for the UTM zone for central Illinois
+        utm_proj = pyproj.Proj(proj="utm", zone=utm_zone, datum="WGS84")
+        
+        # To store unique channel combinations and their assigned colors
+        channel_combinations = {}
+        colors = plt.cm.get_cmap("tab10")  # Use a colormap for distinct colors
+        
+        color_index = 0  # Index to go through available colors
+        labels_added = set()  # To avoid duplicate labels in the legend
+
+        # Loop over all stations in the inventory
+        for network in self:
+            for station in network:
+                east, north = utm_proj(station.longitude, station.latitude)  # Convert to UTM
+                depth = station.elevation - station[0].depth
+                
+                # Get the unique combination of channels for this station
+                channel_names = set([ch.code for ch in station.channels])
+                channel_combination = tuple(sorted(channel_names))  # Sort to ensure uniqueness
+                # If this combination hasn't been encountered, assign it a new color
+                if channel_combination not in channel_combinations:
+                    channel_combinations[channel_combination] = colors(color_index % 10)  # Use next color in colormap
+                    color_index += 1
+
+                # Plot with color corresponding to the channel combination
+                color = channel_combinations[channel_combination]
+                if channel_combination not in labels_added:
+                    ax.scatter(east, north, depth, c=[color], marker='v', label=str(channel_combination))
+                    labels_added.add(channel_combination)
+                else:
+                    ax.scatter(east, north, depth, c=[color], marker='v', label="_nolegend_")
+
+        ax.set_xlabel('Easting')
+        ax.set_ylabel('Northing')
+        ax.set_zlabel('Elevation (m)')
+        plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1))
+        ax.set_aspect('equal')  # Make axes units equal
+        plt.show()
+
+
 def edit_oee_inventory(old_inventory):
     """
-    Change the original OEE inventory to conform to the station names getting swapped in my Seismic Source
-    miniseed conversion and correcting location codes and depths
+    Change the original OEE inventory to include DAS and geophone channels as separate stations
     """
-    new_inventory = old_inventory.copy()
-    for sta in new_inventory[0]:
-        if sta.code == 'GB01':
-            sta.channels.sort(key=lambda x: x.location_code)
-            for i, chan in enumerate(sta.channels):
-                try:
-                    loc = int(chan.location_code.lstrip('0'))
-                except ValueError:
-                    continue  # SAULN
-                chan.code = oee_channel_map['GB02'][i-2]
-                chan.location_code = '{:02d}'.format(i-2)
-                chan.depth = oee_depth_map[loc-1]
-                chan.latitude = oee_station_map['GB02']['latitude']
-                chan.longitude = oee_station_map['GB02']['longitude']
-                chan.elevation = oee_station_map['GB02']['elev']
-            sta.code = 'GB02'
-            sta.latitude = oee_station_map['GB02']['latitude']
-            sta.longitude = oee_station_map['GB02']['longitude']
-            sta.elevation = oee_station_map['GB02']['elev']
-        elif sta.code == 'GB02':
-            for chan in sta.channels:
-                try:
-                    loc = int(chan.location_code.lstrip('0'))
-                except ValueError:
-                    continue  # SAULN
-                chan.code = oee_channel_map['GB01'][int(chan.location_code)]
-                chan.location_code = '{:02d}'.format(loc)
-                chan.depth = oee_depth_map[loc-1]
-                chan.latitude = oee_station_map['GB01']['latitude']
-                chan.longitude = oee_station_map['GB01']['longitude']
-                chan.elevation = oee_station_map['GB01']['elev']
-            sta.code = 'GB01'
-            sta.latitude = oee_station_map['GB01']['latitude']
-            sta.longitude = oee_station_map['GB01']['longitude']
-            sta.elevation = oee_station_map['GB01']['elev']
+    response = old_inventory.select(station='GB01')[0][0][-1].response
+    new_inventory = Inventory(networks=[Network(code='ZF', start_date=UTCDateTime(2024, 8, 22))])
+    for sta, chans in oee_channel_map.items():
+        # Create a new station for each channel
+        for no, chans in chans.items():
+            new_sta = Station(code=f'{sta}{no:02d}', latitude=oee_station_map[sta]['latitude'],
+                              longitude=oee_station_map[sta]['longitude'],
+                              elevation=oee_station_map[sta]['elev'],
+                              start_date=UTCDateTime(2024, 8, 22))
+            for c in chans:
+                channel = Channel(code=c, location_code='', latitude=new_sta.latitude,
+                                  longitude=new_sta.longitude, elevation=new_sta.elevation,
+                                  depth=oee_depth_map[no-1], sample_rate=1000.,
+                                  response=deepcopy(response),
+                                  start_date=UTCDateTime(2024, 8, 22))
+                new_sta.channels.append(channel)
+            new_inventory[0].stations.append(new_sta)
+
+    # for sta in old_inventory[0]:
+    #     if sta.code == 'GB01':
+    #         new_sta.channels.sort(key=lambda x: x.location_code)
+    #         for i, chan in enumerate(new_sta.channels):
+    #             try:
+    #                 loc = int(chan.location_code.lstrip('0'))
+    #             except ValueError:
+    #                 continue  # SAULN
+    #             new_sta = sta.copy()
+    #             new_sta.code = f'GB1{i-2:02d}'
+    #             chan.code = oee_channel_map['GB01'][i-2]
+    #             chan.location_code = ''
+    #             chan.depth = oee_depth_map[loc-1]
+    #             chan.latitude = oee_station_map['GB01']['latitude']
+    #             chan.longitude = oee_station_map['GB01']['longitude']
+    #             chan.elevation = oee_station_map['GB01']['elev']
+    #     elif sta.code == 'GB02':
+    #         for chan in sta.channels:
+    #             try:
+    #                 loc = int(chan.location_code.lstrip('0'))
+    #             except ValueError:
+    #                 continue  # SAULN
+    #             new_sta = sta.copy()
+    #             new_sta.code = f'GB1{i-2:02d}'
+    #             chan.code = oee_channel_map['GB02'][int(chan.location_code)]
+    #             chan.location_code = ''
+    #             chan.depth = oee_depth_map[loc-1]
+    #             chan.latitude = oee_station_map['GB02']['latitude']
+    #             chan.longitude = oee_station_map['GB02']['longitude']
+    #             chan.elevation = oee_station_map['GB02']['elev']
     # Add DAS stations
-    das500 = Station(code='D0500', latitude=oee_station_map['GB02']['latitude'],
-                     longitude=oee_station_map['GB02']['longitude'],
-                     elevation=oee_station_map['GB02']['elev'])
-    das500chan = new_inventory.select(station='GB01')[0][0][0].copy()
+    das500 = Station(code='D0500', latitude=oee_station_map['GB2']['latitude'],
+                     longitude=oee_station_map['GB1']['longitude'],
+                     elevation=oee_station_map['GB1']['elev'])
+    das500chan = old_inventory.select(station='GB01')[0][0][0].copy()
     das500chan.code = 'FSF'
     das500chan.location_code = ''
     das500chan.depth = 500.
     das500.channels = [das500chan]
-    das1200 = Station(code='D1200', latitude=oee_station_map['GB02']['latitude'],
-                    longitude=oee_station_map['GB02']['longitude'],
-                    elevation=oee_station_map['GB02']['elev'])
-    das1200chan = new_inventory.select(station='GB01')[0][0][0].copy()
+    das1200 = Station(code='D1200', latitude=oee_station_map['GB1']['latitude'],
+                    longitude=oee_station_map['GB1']['longitude'],
+                    elevation=oee_station_map['GB1']['elev'])
+    das1200chan = old_inventory.select(station='GB01')[0][0][0].copy()
     das1200chan.code = 'FSF'
     das1200chan.location_code = ''
     das1200chan.depth = 1200.

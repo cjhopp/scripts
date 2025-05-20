@@ -62,9 +62,9 @@ def read_cape_topo(path):
     return topo_50m
 
 
-def read_ppmod(path):
+def read_ppmod_newberry(path):
     """
-    Read an earth model file from sw4 pfile format
+    Read an earth model file from sw4 pfile format (seems to be hardcoded for Newberry depths, etc...from E Matzel)
 
     :param path: Path to file
     :return: xarray.Dataset with a DataArray for each variable in the pfile

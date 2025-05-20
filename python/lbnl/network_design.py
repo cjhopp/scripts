@@ -6,14 +6,19 @@ at VUW
 
 Assumes straight ray paths and perfectly known hypocenters
 """
+import math
+import random
 
 import numpy as np
 import matplotlib.pyplot as plt
+import geopandas as gpd
 
 from numpy.linalg import LinAlgError
 from scipy.spatial import ConvexHull, Delaunay
 from numpy.linalg import det
 from scipy.stats import dirichlet
+from shapely.geometry import Point, Polygon, MultiPolygon
+from shapely.ops import unary_union
 
 # Local imports
 from lbnl.boreholes import make_4100_boreholes
@@ -204,6 +209,124 @@ def design_4100(well_file, n_sources, n_sensors, f, q, vp, outdir=None):
     if outdir:
         np.savetxt('{}/station_locations.txt'.format(outdir), stations)
     return stations
+
+
+def _grid_on_region(region, step, origin):
+    """
+    Perfect rectilinear grid of spacing=step, aligned so that
+    origin lies on a grid node.  Returns all pts inside region.
+    """
+    minx, miny, maxx, maxy = region.bounds
+    # offset so origin sits on a node
+    dx = (origin.x - minx) % step
+    dy = (origin.y - miny) % step
+    xs = np.arange(minx + dx, maxx + step/2, step)
+    ys = np.arange(miny + dy, maxy + step/2, step)
+    pts = []
+    for x in xs:
+        for y in ys:
+            p = Point(x, y)
+            if region.contains(p):
+                pts.append(p)
+    return pts
+
+def count_for_radius(poly, center, 
+                     R_inner, s1, s2, R_max):
+    """Return number of points if you clip to R_max, do two-zone grids."""
+    clip_poly = poly.intersection(center.buffer(R_max))
+    inner_reg = clip_poly.intersection(center.buffer(R_inner))
+    outer_reg = clip_poly.difference(inner_reg)
+    pts_in = _grid_on_region(inner_reg, s1, origin=center)
+    pts_out = _grid_on_region(outer_reg, s2, origin=center)
+    return len(pts_in) + len(pts_out)
+
+def find_two_zone_grid(
+    poly, center, 
+    R_inner, s1, s2, 
+    N_target,
+    R_min=None, R_max=None,
+    tol=0, max_iter=25,
+    plot=False
+):
+    """
+    Find a max_radius so that a perfect s1/s2 two-zone grid
+    clipped to max_radius yields as close to N_target points
+    as possible.  Returns (final_radius, pts_inner, pts_outer).
+    """
+    # 1) bounding search interval for R
+    if R_min is None:
+        R_min = R_inner
+    if R_max is None:
+        # worst-case upper bound: distance to farthest vertex of poly
+        minx, miny, maxx, maxy = poly.bounds
+        # circle covering entire bbox center→corner
+        import math
+        dx = max(abs(center.x - minx), abs(center.x - maxx))
+        dy = max(abs(center.y - miny), abs(center.y - maxy))
+        R_max = math.hypot(dx, dy) * 1.01
+
+    # 2) bisection on R_max
+    best = None  # (R, count, pts_in, pts_out)
+    low, high = R_min, R_max
+    for i in range(max_iter):
+        mid = 0.5*(low + high)
+        clip = poly.intersection(center.buffer(mid))
+        inner = clip.intersection(center.buffer(R_inner))
+        outer = clip.difference(inner)
+
+        pts_in  = _grid_on_region(inner, s1, origin=center)
+        pts_out = _grid_on_region(outer, s2, origin=center)
+        cnt = len(pts_in) + len(pts_out)
+
+        # keep track of best so far (closest to target)
+        if best is None or abs(cnt - N_target) < abs(best[1] - N_target):
+            best = (mid, cnt, pts_in, pts_out)
+
+        if abs(cnt - N_target) <= tol:
+            break
+
+        # if we have too many points, shrink radius
+        if cnt > N_target:
+            high = mid
+        else:
+            low = mid
+
+    R_final, cnt_final, pts_in_final, pts_out_final = best
+
+    if plot:
+        fig, ax = plt.subplots(1,1,figsize=(6,6))
+        # plot poly
+        def _plot_poly(p, **kw):
+            if isinstance(p, Polygon):
+                x,y = p.exterior.xy; ax.plot(x,y,**kw)
+                for hole in p.interiors:
+                    xh,yh = hole.xy; ax.plot(xh,yh,**kw,linestyle='--')
+            else:
+                for sub in p.geoms:
+                    _plot_poly(sub, **kw)
+
+        _plot_poly(poly, color='k')
+        # circles
+        for r,c,ls in [(R_inner,'orange',':'),
+                       (R_final,'gray','--')]:
+            xc,yc = center.buffer(r).exterior.xy
+            ax.plot(xc,yc,color=c,linestyle=ls)
+        # points
+        ax.scatter([p.x for p in pts_out_final],
+                   [p.y for p in pts_out_final],
+                   c='C0',s=20,alpha=0.6,label=f'outer ({len(pts_out_final)})')
+        ax.scatter([p.x for p in pts_in_final],
+                   [p.y for p in pts_in_final],
+                   c='C1',marker='^',s=30,alpha=0.8,
+                   label=f'inner ({len(pts_in_final)})')
+        ax.scatter(center.x, center.y,
+                   c='gold',marker='*',s=150,edgecolor='k')
+        ax.set_aspect('equal')
+        ax.legend()
+        ax.set_title(f'N={cnt_final} @ R_max={R_final:.1f}')
+        plt.show()
+
+    return R_final, pts_in_final, pts_out_final
 
 
 ### Plotting funcs ###
