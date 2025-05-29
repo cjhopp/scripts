@@ -336,9 +336,11 @@ def write_pfile_from_fracture_fullgrid(
     if mat_inside  is None: mat_inside  = dict(Vp=1000.,  Vs=100., rho=1000.)
     if mat_below   is None: mat_below   = dict(Vp=6900., Vs=3730., rho=2950.)
 
+
     # determine outfile
     if outfile is None:
         outfile = Path(ifile_path).with_suffix("_pfile.txt")
+
 
     # ---- read the 4-column ifile: x y z_top z_bottom
     df = pd.read_csv(
@@ -349,6 +351,7 @@ def write_pfile_from_fracture_fullgrid(
         dtype=float,
     )
 
+
     # ---- optional rebasing into local coords + positive-down depth
     if not rebased:
         x0, y0, z0 = origin
@@ -357,7 +360,153 @@ def write_pfile_from_fracture_fullgrid(
         # elevation->depth below origin
         df["z1"] = z0 - df["z1"]
         df["z2"] = z0 - df["z2"]
-    # else: assume x,y already in [0–80]
+    # else: assume x,y already in [0–80],[0–50] and z1,z2 in [0–model_depth]
+
+
+    # ---- horizontal grid bounds
+    if grid_bounds is None:
+        xmin, xmax = 0.0, 80.0
+        ymin, ymax = 0.0, 50.0
+    else:
+        (xmin, xmax), (ymin, ymax) = grid_bounds
+
+
+    x_vals = np.arange(xmin, xmax + snap_tol, dxy)
+    y_vals = np.arange(ymin, ymax + snap_tol, dxy)
+    nx, ny = len(x_vals), len(y_vals)
+
+
+    # prepare bin-grid storage
+    z1_grid = np.full((nx, ny), np.nan)
+    z2_grid = np.full((nx, ny), np.nan)
+
+
+    # ---- bin each fracture point into the nearest cell
+    mask_ok = (df.z2 > 0) & (df.z1 < model_depth) & (df.z2 > df.z1)
+    df = df[mask_ok]
+    raw_x = df.x.values
+    raw_y = df.y.values
+    ix = np.rint((raw_x - xmin) / dxy).astype(int)
+    iy = np.rint((raw_y - ymin) / dxy).astype(int)
+    ix = np.clip(ix, 0, nx-1)
+    iy = np.clip(iy, 0, ny-1)
+    z1_grid[ix, iy] = df.z1.values
+    z2_grid[ix, iy] = df.z2.values
+
+
+    # ---- optional contiguous fill
+    if contiguous:
+        Xi, Yi = np.meshgrid(x_vals, y_vals, indexing="ij")
+        pts = np.column_stack((raw_x, raw_y))
+        z1_int = griddata(pts, df.z1.values, (Xi, Yi), method=contiguous_method, fill_value=np.nan)
+        z2_int = griddata(pts, df.z2.values, (Xi, Yi), method=contiguous_method, fill_value=np.nan)
+        mask1 = np.isnan(z1_int)
+        mask2 = np.isnan(z2_int)
+        z1_int[mask1] = z1_grid[mask1]
+        z2_int[mask2] = z2_grid[mask2]
+        z1_grid, z2_grid = z1_int, z2_int
+
+
+    # ---- ensure we have at least one fracture point in the grid
+    m1 = ~np.isnan(z1_grid)
+    m2 = ~np.isnan(z2_grid)
+    if not (m1.any() and m2.any()):
+        raise RuntimeError("No fracture points landed inside your XY grid!")
+
+
+    # ---- clamp all depths to [0, model_depth]
+    z1c = np.clip(z1_grid[m1], 0.0, model_depth)
+    z2c = np.clip(z2_grid[m2], 0.0, model_depth)
+    top_depth = z1c.min()      # shallowest top ≥ 0
+    bot_depth = z2c.max()      # deepest bottom ≤ model_depth
+
+
+    # ---- build the ONE global vertical grid
+    z_above = np.arange(0.0,       top_depth, dz_coarse)
+    z_fine  = np.arange(top_depth, bot_depth,  dz_fine)
+    z_below = np.arange(bot_depth, model_depth + snap_tol, dz_coarse)
+    z_all   = np.unique(np.concatenate([z_above, z_fine, z_below]))
+    nz      = len(z_all)
+
+
+    # ---- header coords Xgrid, Ygrid
+    if coord_system.lower() == 'cartesian':
+        Xgrid, Ygrid = x_vals, y_vals
+    else:
+        lat0 = np.radians(lat0_deg)
+        dlat = (y_vals - y_vals[0]) / earth_radius
+        dlon = (x_vals - x_vals[0]) / (earth_radius * np.cos(lat0))
+        Ygrid = lat0_deg + np.degrees(dlat)
+        Xgrid = lon0_deg + np.degrees(dlon)
+
+
+    # ---- write the SW4 p-file
+    NY, NX, Ndep = ny, nx, nz
+    Ymin, Ymax = Ygrid.min(), Ygrid.max()
+    Xmin, Xmax = Xgrid.min(), Xgrid.max()
+    Ised, IMoho, I410, I660 = discontinuity_idx
+    qflag = 'T' if q_available else 'F'
+
+
+    with open(outfile, "w") as f:
+        # header
+        f.write(f"{model_name}\n")
+        f.write(f"{dxy:.4f}\n")
+        f.write(f"{NX:d} {Xmin:.4f} {Xmax:.4f}\n")
+        f.write(f"{NY:d} {Ymin:.4f} {Ymax:.4f}\n")
+        f.write(f"{Ndep:d} {z_all.min():.3f} {z_all.max():.3f}\n")
+        f.write(f"{Ised:d} {IMoho:d} {I410:d} {I660:d}\n")
+        f.write(qflag + "\n")
+
+
+        buf = []
+        BATCH = 250
+        hdr_fmt = "{:.3f} {:.3f} {}\n".format
+        row_fmt = "{:7d} {:7.3f} {:7.1f} {:7.1f} {:7.1f}\n".format
+
+
+        for iy, Y in enumerate(Ygrid):
+            for ix, X in enumerate(Xgrid):
+                ztop = z1_grid[ix, iy]
+                if np.isnan(ztop):
+                    k1 = k2 = 0
+                else:
+                    zbot = z2_grid[ix, iy]
+
+
+                    # require a real overlap
+                    if ztop >= model_depth or zbot <= 0 or zbot <= ztop:
+                        # no intersection
+                        k1 = k2 = 0
+                    else:
+                        # compute only once, from the clipped-but-tested values
+                        z1c = max(0.0, ztop)
+                        z2c = min(model_depth, zbot)
+                        k1 = np.searchsorted(z_all, z1c, side="left")
+                        k2 = np.searchsorted(z_all, z2c, side="left")
+
+
+                buf.append(hdr_fmt(X, Y, nz))
+                for k, zm in enumerate(z_all):
+                    if k < k1:
+                        m = mat_above
+                    elif k < k2:
+                        m = mat_inside
+                    else:
+                        m = mat_below
+                    buf.append(row_fmt(k, zm, m["Vp"], m["Vs"], m["rho"]))
+
+
+                if len(buf) > BATCH*(nz+1):
+                    f.write("".join(buf))
+                    buf.clear()
+
+
+        if buf:
+            f.write("".join(buf))
+
+
+    print(f"Wrote SW4 pfile to: {outfile}")
 
 
 def _parse_header(lines):
