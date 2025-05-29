@@ -1,46 +1,32 @@
 #!/usr/bin/env python3
 """
-Quick-look comparison plots:
-AI (PhaseNet) picks vs. standard autopicks for *all* events
-found beneath a given root folder.
+Plot AI (PhaseNet) picks vs. standard autopicks for many events.
 
-Directory layout expected:
+Window:
+    origin_time  …  origin_time + 5 s
+Fallback:
+    first_pick - 2 s … first_pick + 10 s
 
-    ROOT/
-        lbnl2024eroy.ms               ← waveform file (parent folder)
-        lbnl2024eroy/                 ← event directory with picks
-            └── xml/
-                  ├─ dlpicks_phasenet_instance.xml
-                  └─ ...autopicks.xml
-        20240501_1234.mseed
-        20240501_1234/
-            └── xml/…
-
-A figure lbnl2024eroy.png is produced for each event.
+Events that have no picks inside the selected window are skipped.
 """
 
 from __future__ import annotations
 import argparse
 import glob
 import os
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from typing import Dict, List, Tuple, Iterable, Optional
 
 import matplotlib.pyplot as plt
-from obspy import read, read_events, Catalog
+from obspy import read, read_events, Catalog, UTCDateTime
+
 
 # -----------------------------------------------------------------------------#
-# -------------------------- helper: picks to dict ----------------------------#
+# -------------------------  helper: load pick files  -------------------------#
 # -----------------------------------------------------------------------------#
-def _picks_to_dict(cat: Optional[Catalog]) -> Dict[Tuple[str, str, str, str], List]:
-    """
-    Convert an ObsPy Catalog into a dictionary keyed by
-    (net, sta, loc, cha) for fast lookup when plotting.
-    """
+def _picks_to_dict(cat: Catalog) -> Dict[Tuple[str, str, str, str], List]:
     out: Dict[Tuple[str, str, str, str], List] = defaultdict(list)
-    if cat is None:
-        return out
-
     for pick in cat.picks:
         wf = pick.waveform_id
         key = (
@@ -53,8 +39,82 @@ def _picks_to_dict(cat: Optional[Catalog]) -> Dict[Tuple[str, str, str, str], Li
     return out
 
 
+def _manual_pick_parse(xml_file: str) -> Dict[Tuple[str, str, str, str], List]:
+    class _MiniPick:
+        def __init__(self, t, phase, net, sta, loc, cha):
+            self.time = UTCDateTime(t)
+            self.phase_hint = phase
+            class _WfID:
+                pass
+            wf = _WfID()
+            wf.network_code = net
+            wf.station_code = sta
+            wf.location_code = loc
+            wf.channel_code = cha
+            self.waveform_id = wf
+
+    out: Dict[Tuple[str, str, str, str], List] = defaultdict(list)
+
+    it = ET.iterparse(xml_file)
+    for _, el in it:
+        if "}" in el.tag:
+            el.tag = el.tag.split("}", 1)[1]
+    root = it.root
+
+    for p in root.iter("pick"):
+        t_txt = p.findtext("./time/value")
+        if t_txt is None:
+            continue
+        phase = p.findtext("phaseHint") or ""
+        wf = p.find("waveformID")
+        net = wf.attrib.get("networkCode", "") if wf is not None else ""
+        sta = wf.attrib.get("stationCode", "") if wf is not None else ""
+        loc = wf.attrib.get("locationCode", "") if wf is not None else ""
+        cha = wf.attrib.get("channelCode", "") if wf is not None else ""
+
+        out[(net, sta, loc, cha)].append(_MiniPick(t_txt, phase, net, sta, loc, cha))
+    return out
+
+
+def load_pick_file(xml_file: str) -> Dict[Tuple[str, str, str, str], List]:
+    try:
+        cat = read_events(xml_file)
+        if len(cat.picks):
+            return _picks_to_dict(cat)
+    except Exception:
+        pass
+    return _manual_pick_parse(xml_file)
+
+
 # -----------------------------------------------------------------------------#
-# ----------------------------- single event plot -----------------------------#
+# ---------------------  helper: read origin time -----------------------------#
+# -----------------------------------------------------------------------------#
+def read_origin_time(origin_xml: str) -> Optional[UTCDateTime]:
+    if not os.path.isfile(origin_xml):
+        return None
+    try:
+        cat = read_events(origin_xml)
+        for ev in cat:
+            if ev.origins:
+                return ev.origins[0].time
+    except Exception:
+        pass
+    try:
+        it = ET.iterparse(origin_xml)
+        for _, el in it:
+            if "}" in el.tag:
+                el.tag = el.tag.split("}", 1)[1]
+        root = it.root
+        otime = root.findtext(".//origin/time/value")
+        if otime:
+            return UTCDateTime(otime)
+    except Exception:
+        pass
+    return None
+
+
+# -----------------------------------------------------------------------------#
+# ----------------------------- single-event plot -----------------------------#
 # -----------------------------------------------------------------------------#
 def plot_event(
     event_dir: str,
@@ -64,42 +124,62 @@ def plot_event(
     savefile: Optional[str] = None,
     fig_dpi: int = 200,
 ) -> None:
-    """
-    Produce one figure for *event_dir*.
-
-    The waveform file is searched in the *parent* directory and has to be
-    called  <event_name>.{ms|mseed|miniseed}.
-    """
     event_dir = os.path.abspath(event_dir)
     evid = os.path.basename(event_dir)
     parent = os.path.dirname(event_dir)
 
-    # 1 — waveform file --------------------------------------------------------
-    mseed_file = None
-    for ext in (".ms", ".mseed", ".miniseed"):
-        cand = os.path.join(parent, evid + ext)
-        if os.path.isfile(cand):
-            mseed_file = cand
-            break
+    # ---------- 1. load picks ------------------------------------------------
+    picks_ph, picks_auto = {}, {}
+    phfile = os.path.join(event_dir, phasenet_fname)
+    if os.path.isfile(phfile):
+        picks_ph = load_pick_file(phfile)
+
+    auto_xmls = glob.glob(os.path.join(event_dir, autopick_glob))
+    if auto_xmls:
+        picks_auto = load_pick_file(auto_xmls[0])
+
+    # flatten list of all pick times
+    all_picks = [
+        pick
+        for lst in list(picks_ph.values()) + list(picks_auto.values())
+        for pick in lst
+    ]
+    all_times = [p.time for p in all_picks]
+
+    # ---------- 2. determine time window ------------------------------------
+    origin_xml = os.path.join(parent, f"{evid}.xml")
+    t_origin = read_origin_time(origin_xml)
+
+    if t_origin is not None:
+        t0, t1 = t_origin, t_origin + 5.0
+    elif all_times:
+        first_pick = min(all_times)
+        t0, t1 = first_pick - 2.0, first_pick + 10.0
+    else:
+        raise ValueError("no picks and no origin -> skip")
+
+    # ---------- 3. skip event if no pick in window --------------------------
+    n_in_window = sum(1 for p in all_picks if t0 <= p.time <= t1)
+    if n_in_window == 0:
+        raise ValueError("no picks in window")
+
+    # ---------- 4. waveform file --------------------------------------------
+    mseed_file = next(
+        (
+            os.path.join(parent, evid + ext)
+            for ext in (".ms", ".mseed", ".miniseed")
+            if os.path.isfile(os.path.join(parent, evid + ext))
+        ),
+        None,
+    )
     if mseed_file is None:
-        raise FileNotFoundError(
-            f"Waveform file {evid}.(ms|mseed|miniseed) not found in {parent}"
-        )
+        raise FileNotFoundError(f"Waveform {evid}.ms/mseed not in {parent}")
 
     st = read(mseed_file)
-    # st.sort(keys=("network", "station", "channel"))
+    st.sort()
+    st.trim(starttime=t0, endtime=t1, pad=True, fill_value=0.0)
 
-    # 2 — pick files -----------------------------------------------------------
-    ph_xml = os.path.join(event_dir, phasenet_fname)
-    auto_xmls = glob.glob(os.path.join(event_dir, autopick_glob))
-
-    cat_ph = read_events(ph_xml) if os.path.isfile(ph_xml) else None
-    cat_auto = read_events(auto_xmls[0]) if auto_xmls else None
-
-    picks_ph = _picks_to_dict(cat_ph)
-    picks_auto = _picks_to_dict(cat_auto)
-
-    # 3 — plotting -------------------------------------------------------------
+    # ---------- 5. plotting --------------------------------------------------
     ntr = len(st)
     fig, axes = plt.subplots(
         ntr, 1, figsize=(12, 1.6 * ntr), sharex=True, squeeze=False
@@ -117,8 +197,9 @@ def plot_event(
             tr.stats.channel,
         )
 
-        # PhaseNet picks
         for pick in picks_ph.get(key, []):
+            if not (t0 <= pick.time <= t1):
+                continue
             t = pick.time.matplotlib_date
             ax.axvline(t, color="red", lw=1)
             ax.text(
@@ -132,8 +213,9 @@ def plot_event(
                 ha="center",
             )
 
-        # Autopicks
         for pick in picks_auto.get(key, []):
+            if not (t0 <= pick.time <= t1):
+                continue
             t = pick.time.matplotlib_date
             ax.axvline(t, color="blue", lw=1, ls="--")
             ax.text(
@@ -153,7 +235,8 @@ def plot_event(
         plt.Line2D([], [], color="blue", lw=1, ls="--", label="Autopick"),
     ]
     fig.legend(handles=handles, loc="upper right")
-    fig.suptitle(evid)
+    suffix = f"origin {t_origin}" if t_origin else f"window {t0}–{t1}"
+    fig.suptitle(f"{evid}  ({suffix})")
     fig.autofmt_xdate()
 
     if savefile:
@@ -164,17 +247,9 @@ def plot_event(
 
 
 # -----------------------------------------------------------------------------#
-# ---------------------------- event discovery --------------------------------#
+# ----------------------------- event discovery ------------------------------ #
 # -----------------------------------------------------------------------------#
 def discover_event_dirs(root: str, recursive: bool = False) -> Iterable[str]:
-    """
-    Yield paths to event directories.
-
-    Criterion:
-        • path is a directory
-        • its parent folder contains a waveform file called
-          <dirname>.{ms|mseed|miniseed}
-    """
     root = os.path.abspath(root)
 
     if recursive:
@@ -196,15 +271,15 @@ def discover_event_dirs(root: str, recursive: bool = False) -> Iterable[str]:
         for d in subdirs:
             ev_dir = os.path.join(cur_dir, d)
             parent = os.path.dirname(ev_dir)
-            # look for waveform file in parent directory
-            for ext in (".ms", ".mseed", ".miniseed"):
-                if os.path.isfile(os.path.join(parent, d + ext)):
-                    yield ev_dir
-                    break
+            if any(
+                os.path.isfile(os.path.join(parent, d + ext))
+                for ext in (".ms", ".mseed", ".miniseed")
+            ):
+                yield ev_dir
 
 
 # -----------------------------------------------------------------------------#
-# ------------------------- bulk processing helper ----------------------------#
+# ------------------------- bulk processing helper --------------------------- #
 # -----------------------------------------------------------------------------#
 def plot_all_events(
     root: str,
@@ -212,20 +287,17 @@ def plot_all_events(
     out_dir: Optional[str] = None,
     overwrite: bool = True,
     show_when_saving: bool = False,
+    debug: bool = False,
 ) -> None:
-    """
-    Loop through all event directories beneath *root* and plot them.
-    """
     root = os.path.abspath(root)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
-    for ev_dir in discover_event_dirs(root, recursive=recursive):
+    for ev_dir in discover_event_dirs(root, recursive):
         evid = os.path.basename(ev_dir)
         outfile = os.path.join(out_dir, evid + ".png") if out_dir else None
-
         if outfile and (not overwrite) and os.path.exists(outfile):
-            print(f"[skip] {evid} (figure exists)")
+            print(f"[skip] {evid} (png exists)")
             continue
 
         print(f"[plot] {evid}")
@@ -235,36 +307,35 @@ def plot_all_events(
                 show=show_when_saving if out_dir else True,
                 savefile=outfile,
             )
+        except ValueError as ve:
+            # benign skip conditions
+            print(f"  -> skip ({ve})")
         except Exception as exc:
             print(f"  -> failed: {exc}")
+            if debug:
+                import traceback
+                traceback.print_exc()
 
 
 # -----------------------------------------------------------------------------#
-# ------------------------------- CLI -----------------------------------------#
+# ----------------------------------- CLI ------------------------------------ #
 # -----------------------------------------------------------------------------#
 def _cli() -> None:
-    p = argparse.ArgumentParser(
-        description="Plot PhaseNet vs. autopicks for many events."
-    )
-    p.add_argument("root", help="Root directory containing waveform files and pick sub-folders")
+    p = argparse.ArgumentParser(description="Plot pick comparison.")
+    p.add_argument("root", help="Root directory with waveform files + subdirs")
+    p.add_argument("--recursive", action="store_true", help="search recursively")
     p.add_argument(
-        "--recursive", action="store_true", help="search for events recursively"
-    )
-    p.add_argument(
-        "--out",
-        dest="out_dir",
-        default=None,
+        "--out", dest="out_dir", default=None,
         help="output directory for PNGs (omit for interactive display)",
     )
+    p.add_argument("--no-overwrite", action="store_true", help="skip existing PNGs")
     p.add_argument(
-        "--no-overwrite",
-        action="store_true",
-        help="skip an event when the PNG already exists",
+        "--also-show", action="store_true",
+        help="when writing PNGs still pop up the figure window",
     )
     p.add_argument(
-        "--also-show",
-        action="store_true",
-        help="if --out is used, still pop up figure windows",
+        "--debug", action="store_true",
+        help="print full traceback when an event fails",
     )
     args = p.parse_args()
 
@@ -274,6 +345,7 @@ def _cli() -> None:
         out_dir=args.out_dir,
         overwrite=not args.no_overwrite,
         show_when_saving=args.also_show,
+        debug=args.debug,
     )
 
 
