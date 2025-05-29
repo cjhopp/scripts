@@ -14,6 +14,11 @@ import xarray as xr
 import pandas as pd
 import dask.array as da
 import matplotlib.pyplot as plt
+import numpy as np
+import struct
+import datetime
+import dask
+import pandas as pd
 
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import griddata, Rbf
@@ -353,3 +358,330 @@ def write_pfile_from_fracture_fullgrid(
         df["z1"] = z0 - df["z1"]
         df["z2"] = z0 - df["z2"]
     # else: assume x,y already in [0–80]
+
+
+def _parse_header(lines):
+    """
+    Parse the header lines of an SW4 p-file.
+
+    This helper function reads the first 7 lines of a p-file and extracts
+    metadata such as model name, grid dimensions, depth limits, and discontinuity indices.
+
+    Parameters
+    ----------
+    lines : list of str
+        A list of 7 header lines read from the p-file.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the parsed header information.
+    """
+    model_name = lines[0].strip()
+    delta_deg = float(lines[1])
+    NX, Xmin, Xmax = map(float, lines[2].split())
+    NY, Ymin, Ymax = map(float, lines[3].split())
+    Ndep, dmin_m, dmax_m = map(float, lines[4].split())
+    Ised, IMoho, I410, I660 = map(int, lines[5].split())
+    qflag = lines[6].strip()
+    NY = int(NY); NX = int(NX); Ndep = int(Ndep)
+    header_info = dict(
+        model_name=model_name,
+        delta_deg=delta_deg,
+        NY=NY,
+        NX=NX,
+        Ndep=Ndep,
+        Ymin=Ymin,
+        Ymax=Ymax,
+        Xmin=Xmin,
+        Xmax=Xmax,
+        dmin_m=dmin_m,
+        dmax_m=dmax_m,
+        Ised=Ised,
+        IMoho=IMoho,
+        I410=I410,
+        I660=I660,
+        q_available=(qflag.upper() == 'T')
+    )
+    return header_info
+
+
+def _scan_file_for_offsets(path):
+    """
+    Scan an SW4 p-file to determine the file offsets for each latitude-row block.
+
+    This function reads the header and then records the byte offset for each 
+    latitude row in the p-file. These offsets allow for efficient delayed reading 
+    of subsets of the file.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the SW4 p-file.
+
+    Returns
+    -------
+    tuple
+        Contains the header dictionary, a list of byte offsets for each latitude row,
+        and the reconstructed latitude, longitude, and depth arrays.
+    """
+    path = Path(path)
+    offsets = []
+    with open(path, 'rb') as f:
+        # Read global header.
+        lines = [f.readline().decode('ascii') for _ in range(7)]
+        hdr = _parse_header(lines)
+        NY, NX, Nz = hdr['NY'], hdr['NX'], hdr['Ndep']
+        hdr_q = hdr['q_available']
+
+        # Reconstruct lat/lon arrays.
+        Ymin, Ymax = hdr['Ymin'], hdr['Ymax']
+        Xmin, Xmax = hdr['Xmin'], hdr['Xmax']
+        Y_grid = np.linspace(Ymin, Ymax, NY)
+        X_grid = np.linspace(Xmin, Xmax, NX)
+
+        for j in range(NY):
+            offsets.append(f.tell())
+            for _ in range(NX):
+                _ = f.readline()  # Skip profile header.
+                for _ in range(Nz):
+                    _ = f.readline()  # Skip profile data.
+    with open(path, 'rb') as f:
+        f.seek(offsets[0])
+        _ = f.readline().decode('ascii')
+        raw = np.asarray([f.readline().decode('ascii').split() for _ in range(Nz)])
+        data0 = np.asarray(raw, dtype=float)
+        depth_m = data0[:, 1]
+    return hdr, offsets, Y_grid, X_grid, depth_m
+
+
+@dask.delayed
+def _read_latitude_row(path, byte_offset, Nz, NX, q_available):
+    """
+    Delayed function to read one latitude-row block from a SW4 p-file.
+
+    Reads one row of profiles (each of depth Nz) starting from the given byte 
+    offset. This function returns the arrays for Vp, Vs, density, and optionally 
+    quality factors Qp and Qs.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the SW4 p-file.
+    byte_offset : int
+        The byte offset in the file where the latitude row begins.
+    Nz : int
+        Number of depth levels in each profile.
+    NX : int
+        Number of profiles (longitude points) in this latitude row.
+    q_available : bool
+        Flag indicating whether quality factor data (Qp, Qs) is available.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        Returns (vp, vs, rh) if q_available is False, or (vp, vs, rh, qp, qs) if True.
+        Each array has shape (NX, Nz) and dtype float32.
+    """
+    path = Path(path)
+    with open(path, 'rb') as f:
+        f.seek(byte_offset)
+        rows_vp, rows_vs, rows_rh = [], [], []
+        rows_qp, rows_qs = [], []
+        for _ in range(NX):
+            f.readline().decode('ascii')  # Skip profile header.
+            raw = np.asarray([f.readline().decode('ascii').split() for __ in range(Nz)])
+            data = np.asarray(raw, dtype=float)
+            rows_vp.append(data[:, 2])
+            rows_vs.append(data[:, 3])
+            rows_rh.append(data[:, 4])
+            if q_available:
+                rows_qp.append(data[:, 5])
+                rows_qs.append(data[:, 6])
+
+    vp = np.stack(rows_vp, axis=0).astype(np.float32)
+    vs = np.stack(rows_vs, axis=0).astype(np.float32)
+    rh = np.stack(rows_rh, axis=0).astype(np.float32)
+    if q_available:
+        qp = np.stack(rows_qp, axis=0).astype(np.float32)
+        qs = np.stack(rows_qs, axis=0).astype(np.float32)
+        return vp, vs, rh, qp, qs
+    else:
+        return vp, vs, rh
+
+
+def read_sw4_pfile_dask(path, return_q=False, chunk_rows=1):
+    """
+    Read an SW4 p-file into an xarray Dataset using Dask for out-of-core processing.
+
+    This function uses delayed functions to read the p-file in chunks along the 
+    latitude axis. It concatenates the delayed arrays for material properties into 
+    Dask arrays and builds an xarray Dataset with appropriate coordinates.
+
+    Parameters
+    ----------
+    path : str or Path
+        Path to the SW4 p-file.
+    return_q : bool, optional
+        If True and if quality factor data is available, include Qp and Qs in the Dataset.
+        Default is False.
+    chunk_rows : int, optional
+        Number of latitude rows to read per Dask chunk. Default is 1.
+
+    Returns
+    -------
+    xr.Dataset
+        An xarray Dataset containing material properties (Vp, Vs, density, and optionally Qp and Qs)
+        with dimensions ('latitude', 'longitude', 'depth') and relevant coordinate information.
+    """
+    path = Path(path)
+    hdr, offsets, Y_grid, X_grid, depth_m = _scan_file_for_offsets(path)
+    Nz = hdr['Ndep']
+    Ny = hdr['NY']
+    Nx = hdr['NX']
+    q_avail = hdr['q_available'] and return_q
+
+    # Build delayed tasks chunked by latitude rows.
+    row_tasks = []
+    for start_j in range(0, Ny, chunk_rows):
+        end_j = min(start_j + chunk_rows, Ny)
+        offs = offsets[start_j:end_j]
+        row_tasks.append(_read_latitude_row(path, offs[0], Nz, Nx, q_avail))
+
+    vp_chunks = []
+    vs_chunks = []
+    rh_chunks = []
+    if q_avail:
+        qp_chunks = []
+        qs_chunks = []
+
+    for task in row_tasks:
+        vp_t = task[0]
+        vs_t = task[1]
+        rh_t = task[2]
+
+        vp_da = da.from_delayed(vp_t, shape=(Nx, Nz), dtype=np.float32)
+        vs_da = da.from_delayed(vs_t, shape=(Nx, Nz), dtype=np.float32)
+        rh_da = da.from_delayed(rh_t, shape=(Nx, Nz), dtype=np.float32)
+
+        vp_chunks.append(vp_da[np.newaxis, ...])
+        vs_chunks.append(vs_da[np.newaxis, ...])
+        rh_chunks.append(rh_da[np.newaxis, ...])
+
+        if q_avail:
+            qp_da = da.from_delayed(task[3], shape=(Nx, Nz), dtype=np.float32)
+            qs_da = da.from_delayed(task[4], shape=(Nx, Nz), dtype=np.float32)
+            qp_chunks.append(qp_da[np.newaxis, ...])
+            qs_chunks.append(qs_da[np.newaxis, ...])
+
+    Vp = da.concatenate(vp_chunks, axis=0)
+    Vs = da.concatenate(vs_chunks, axis=0)
+    Rh = da.concatenate(rh_chunks, axis=0)
+    if q_avail:
+        Qp = da.concatenate(qp_chunks, axis=0)
+        Qs = da.concatenate(qs_chunks, axis=0)
+
+    coords = dict(
+        latitude=('latitude', Y_grid),
+        longitude=('longitude', X_grid),
+        depth=('depth', depth_m),
+    )
+    data_vars = dict(
+        Vp=(('latitude', 'longitude', 'depth'), Vp),
+        Vs=(('latitude', 'longitude', 'depth'), Vs),
+        density=(('latitude', 'longitude', 'depth'), Rh),
+    )
+    if q_avail:
+        data_vars['Qp'] = (('latitude', 'longitude', 'depth'), Qp)
+        data_vars['Qs'] = (('latitude', 'longitude', 'depth'), Qs)
+
+    ds = xr.Dataset(data_vars=data_vars, coords=coords, attrs=hdr)
+    return ds
+
+
+def read_sw4img_volume(filename, verbose=False, machineformat='native'):
+    """
+    Read a volumetric .sw4img file and return its contents as an xarray Dataset.
+
+    This function reads the header and volumetric data from a .sw4img file,
+    verifies that the file contains a full 3D volume (plane = -1), and constructs
+    an xarray Dataset with the volume and its corresponding spatial coordinates.
+
+    Parameters
+    ----------
+    filename : str or Path
+        Path to the .sw4img file.
+    verbose : bool, optional
+        If True, output header details to the console. Default is False.
+    machineformat : {'native', 'little', 'big'}, optional
+        Byte order specifier. Default is 'native'.
+
+    Returns
+    -------
+    xr.Dataset
+        An xarray Dataset containing the 3D volume under the key 'volume' along with
+        coordinate arrays 'x', 'y', and 'z'. Additional header attributes are stored in attrs.
+
+    Raises
+    ------
+    ValueError
+        If the file does not represent a full 3D volume (i.e. if plane != -1).
+    """
+    byte_order = {'native': '=', 'little': '<', 'big': '>'}.get(machineformat, '=')
+
+    with open(filename, 'rb') as f:
+        prec = struct.unpack(byte_order + 'i', f.read(4))[0]
+        npatches = struct.unpack(byte_order + 'i', f.read(4))[0]
+        t = struct.unpack(byte_order + 'd', f.read(8))[0]
+        plane = struct.unpack(byte_order + 'i', f.read(4))[0]
+        coord = struct.unpack(byte_order + 'd', f.read(8))[0]
+        mode = struct.unpack(byte_order + 'i', f.read(4))[0]
+        gridinfo = struct.unpack(byte_order + 'i', f.read(4))[0]
+        timecreated = f.read(25).decode('ascii').strip()
+
+        if plane != -1:
+            raise ValueError("This function only supports volumetric files with plane = -1")
+
+        if verbose:
+            print(f"Precision: {prec}")
+            print(f"Patches: {npatches}")
+            print(f"Time: {t}")
+            print(f"Plane: {plane}")
+            print(f"Coord: {coord}")
+            print(f"Time created: {timecreated}")
+
+        h = struct.unpack(byte_order + 'd', f.read(8))[0]
+        zmin = struct.unpack(byte_order + 'd', f.read(8))[0]
+        ib = struct.unpack(byte_order + 'i', f.read(4))[0]
+        ni = struct.unpack(byte_order + 'i', f.read(4))[0]
+        jb = struct.unpack(byte_order + 'i', f.read(4))[0]
+        nj = struct.unpack(byte_order + 'i', f.read(4))[0]
+        kb = struct.unpack(byte_order + 'i', f.read(4))[0]
+        nk = struct.unpack(byte_order + 'i', f.read(4))[0]
+
+        nx = ni - ib + 1
+        ny = nj - jb + 1
+        nz = nk - kb + 1
+
+        dtype = np.float32 if prec == 4 else np.float64
+        volume = np.fromfile(f, dtype=dtype, count=nx * ny * nz).reshape((nx, ny, nz), order='F')
+
+        x = np.arange(ib, ni + 1) * h
+        y = np.arange(jb, nj + 1) * h
+        z = zmin + np.arange(kb, nk + 1) * h
+
+        ds = xr.Dataset(
+            {"volume": (("x", "y", "z"), volume)},
+            coords={"x": x, "y": y, "z": z},
+            attrs={
+                "precision": prec,
+                "time": t,
+                "coord": coord,
+                "grid_spacing": h,
+                "time_created": timecreated,
+                "mode": mode,
+                "gridinfo": gridinfo,
+                "ib": ib, "ni": ni, "jb": jb, "nj": nj, "kb": kb, "nk": nk
+            }
+        )
+    return ds
