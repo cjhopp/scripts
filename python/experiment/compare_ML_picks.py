@@ -87,7 +87,7 @@ def plot_event(
         )
 
     st = read(mseed_file)
-    st.sort(keys=("network", "station", "channel"))
+    # st.sort(keys=("network", "station", "channel"))
 
     # 2 — pick files -----------------------------------------------------------
     ph_xml = os.path.join(event_dir, phasenet_fname)
