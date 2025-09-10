@@ -7,6 +7,7 @@ import fileinput
 import logging
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -34,9 +35,8 @@ site_polygons = {
 datasets = {
     'Newberry': ['{}/newberry/boreholes/Deviation_corrected.csv'.format(data_directory),
                  '{}/newberry/DEMs/USGS_13_merged_epsg-26910_just_edifice_very-coarse.tif'.format(data_directory)],
-    'JV': [],
-    'DAC': [],
-    'TM': [],
+    'JV': ['{}/JV/Offset_Wells_Surveys_JV.csv'.format(data_directory),],
+    'DAC': ['{}/DAC/Offset_Wells_Surveys_DAC.csv'.format(data_directory)],
     'Cape': ['{}/DEM/Cape-modern_Lidar_downsample.tif'.format(data_directory),
              '{}/Cape_share/Frisco-1_trajectory.csv'.format(data_directory),
              '{}/Cape_share/Frisco-2_trajectory.csv'.format(data_directory),
@@ -46,7 +46,28 @@ datasets = {
 }
 
 projections = {'cape': pyproj.Proj("EPSG:26912"),
-               'newberry': pyproj.Proj("EPSG:32610")}
+               'newberry': pyproj.Proj("EPSG:32610"),
+               'JV': pyproj.Proj("EPSG:32611"),
+               'DAC': pyproj.Proj("EPSG:26911"),}
+
+
+color_dict = {
+    'JV': {
+        ('14-34'): 'black',
+        ('18A-27', '46-28', '14-27', '81-28', '81A-28'): 'steelblue',
+        ('86-28', '87-28', '77A-28'): 'firebrick',
+    },
+    'DAC': {
+        ('68-1RD'): 'black',
+        ('24-6', '24A-6', '26-6', '26A-6', '36-6', '24-6', '24A-6'): 'steelblue',
+        ('64-11', '64A-11', '64B-11', '64C-11', '65-11', '65A-11', '85-11', '85A-11', '54-11', '54A-11'): 'firebrick',
+    },
+}
+
+depth_correction = {
+    'JV': 1446.,
+    'DAC': 1286.,
+}
 
 def read_stdin():
     return [ln for ln in fileinput.input()]
@@ -110,7 +131,7 @@ def get_pixel_coords(dataset):
     return (np.arange(cols) * pixw) + xo, (np.arange(rows) * pixh) + yo, band
 
 
-def plot_3D(datasets, catalog):
+def plot_3D(datasets, catalog, field):
     """
     Make plotly html of selected earthquakes
 
@@ -120,9 +141,6 @@ def plot_3D(datasets, catalog):
     :return:
     """
     objects = []
-    # What field is this?
-    # field = datasets[0].split('/')[-3]
-    field = 'newberry'
     try:
         utm = projections[field]
     except KeyError:
@@ -130,16 +148,52 @@ def plot_3D(datasets, catalog):
     for data in datasets:
         if not data.endswith(('tif', 'nc')):
             # Add objects
-            wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
-            east = wellpath[:, 0]
-            north = wellpath[:, 1]
-            dep_m = wellpath[:, 2]
-            objects.append(go.Scatter3d(x=east,
-                                        y=north,
-                                        z=dep_m,
-                                        mode='lines',
-                                        line=dict(color='black', width=6),
-                                        hoverinfo='skip'))
+            try:
+                wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
+                east = wellpath[:, 0]
+                north = wellpath[:, 1]
+                dep_m = wellpath[:, 2]
+                objects.append(go.Scatter3d(x=east,
+                            y=north,
+                            z=dep_m,
+                            mode='lines',
+                            line=dict(color='black', width=6),
+                            hoverinfo='skip'))
+            except ValueError:
+                wellpath = pd.read_csv(data)
+                if 'Well_ID' in wellpath.columns and wellpath['Well_ID'].nunique() > 1:
+                    for well_id in wellpath['Well_ID'].unique():
+                        cd = color_dict[field]
+                        color = 'gray'
+                        for lst, col in cd.items():
+                            if well_id in lst:
+                                color = col
+                                break
+                        wp = wellpath[wellpath['Well_ID'] == well_id]
+                        east = wp['X (m)'].values
+                        north = wp['Y (m)'].values
+                        dep_m = wp['Z (m)'].values
+                        objects.append(go.Scatter3d(
+                            x=east,
+                            y=north,
+                            z=dep_m,
+                            mode='lines',
+                            line=dict(color=color, width=6),
+                            name=str(well_id),
+                            hoverinfo='skip'
+                        ))
+                else:
+                    east = wellpath['X (m)'].values
+                    north = wellpath['Y (m)'].values
+                    dep_m = wellpath['Z (m)'].values
+                    objects.append(go.Scatter3d(
+                        x=east,
+                        y=north,
+                        z=dep_m,
+                        mode='lines',
+                        line=dict(color='black', width=6),
+                        hoverinfo='skip'
+                    ))
         elif data.endswith('tif'):
             topo = gdal.Open(data, gdal.GA_ReadOnly)
             x, y, band = get_pixel_coords(topo)
@@ -180,12 +234,16 @@ def plot_3D(datasets, catalog):
         lon = lon.astype('f').flatten()
         depth = depth.astype('f').flatten()
         m = m.astype('f').flatten()
-    print(t)
     tickvals = np.linspace(min(t), max(t), 10)
     ticktext = [datetime.fromtimestamp(t).strftime('%d %b %Y: %H:%M')
                 for t in tickvals]
     ev_east, ev_north = utm(lon, lat)
-    depth = np.array(depth) * -1#000
+    # depth = np.array(depth) * -1#000
+    if field in depth_correction:
+        depth = depth_correction[field] - np.array(depth)
+    else:
+        depth = -np.array(depth)
+    depth = 1450 - np.array(depth)
     scat_obj = go.Scatter3d(x=ev_east, y=ev_north, z=depth,
                             mode='markers',
                             name='Seismic event',
@@ -252,7 +310,7 @@ if __name__ in '__main__':
     # catalog = get_events(lines)
     catalog = read_events(lines[1])
     datas = datasets[lines[2]]
-    fig = plot_3D(datas, catalog)
+    fig = plot_3D(datas, catalog, lines[2])
     html = plotly.io.to_html(fig)
     fig.write_html('eqview_3d_compare.html')
     # fig.write_html('output.html')

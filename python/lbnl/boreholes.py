@@ -15,6 +15,15 @@ from operator import itemgetter
 from glob import glob
 from scipy.optimize import curve_fit
 try:
+    import geopandas as gpd
+    from shapely.geometry import Point
+    from shapely.geometry import LineString
+except ModuleNotFoundError:
+    print('No geopandas here, skipping some functions')
+    gpd = None
+    Point = None
+    LineString = None
+try:
     from scipy.interpolate import Rbf
     from skspatial.objects import Plane
 except ModuleNotFoundError:
@@ -849,3 +858,109 @@ def read_cape_trajectory(path):
     xyz = np.roll(xyz, -1, axis=1)
     xyz[:, -1] *= 0.3048
     return xyz
+
+
+def minimum_curvature_method(collar_df, survey_df):
+    collar_df = collar_df.rename(columns=lambda x: x.strip())
+    survey_df = survey_df.rename(columns=lambda x: x.strip())
+    all_traces = []
+    for well in set(survey_df['Well_ID']).intersection(set(collar_df['Well_ID'])):
+        c = collar_df[collar_df['Well_ID'] == well].iloc[0]
+        x0, y0, z0 = c['Easting (m)'], c['Northing (m)'], c['Elevation (m)']
+        s = survey_df[survey_df['Well_ID'] == well].sort_values('Depth (m)').reset_index(drop=True)
+        X, Y, Z = [x0], [y0], [z0]
+        MDs = s['Depth (m)'].values
+        Incl = np.deg2rad(90 - s['Inclination'].values)
+        Azi = np.deg2rad(s['Azimuth'].values)
+        for i in range(1, len(s)):
+            md1, md2 = MDs[i-1], MDs[i]
+            inc1, inc2 = Incl[i-1], Incl[i]
+            azi1, azi2 = Azi[i-1], Azi[i]
+            dMD = md2 - md1
+            cos_dl = (np.sin(inc1)*np.sin(inc2)*np.cos(azi2-azi1) + np.cos(inc1)*np.cos(inc2))
+            cos_dl = np.clip(cos_dl, -1, 1)
+            dogleg = np.arccos(cos_dl)
+            rf = 1.0 if dogleg < 1e-6 else (2/dogleg)*np.tan(dogleg/2)
+            dN = 0.5 * dMD * (np.sin(inc1)*np.cos(azi1) + np.sin(inc2)*np.cos(azi2)) * rf
+            dE = 0.5 * dMD * (np.sin(inc1)*np.sin(azi1) + np.sin(inc2)*np.sin(azi2)) * rf
+            dV = 0.5 * dMD * (np.cos(inc1) + np.cos(inc2)) * rf
+            X.append(X[-1] + dE)
+            Y.append(Y[-1] + dN)
+            Z.append(Z[-1] - dV)
+        trace = pd.DataFrame({
+            'Well_ID': well,
+            'MD': MDs,
+            'X': X,
+            'Y': Y,
+            'Z': Z,
+            'Incl': np.rad2deg(Incl),
+            'Azimuth': np.rad2deg(Azi)
+        })
+        all_traces.append(trace)
+    return pd.concat(all_traces, ignore_index=True)
+
+def process_wells_ormat(excel_path, plot=False, write=None):
+    # Sheet name conventions: collar {field}, survey {field}
+    xl = pd.ExcelFile(excel_path)
+    # Find all collar/survey pairs
+    fields = []
+    for sheet in xl.sheet_names:
+        if sheet.lower().startswith('collar'):
+            field = sheet.split('collar',1)[1].strip()
+            if f'survey {field}' in xl.sheet_names or f'survey{field}' in xl.sheet_names:
+                fields.append(field)
+    all_xyz = []
+    for field in fields:
+        # Try both with and without space in sheet name
+        collar_sheet = f'collar {field}' if f'collar {field}' in xl.sheet_names else f'collar{field}'
+        survey_sheet = f'survey {field}' if f'survey {field}' in xl.sheet_names else f'survey{field}'
+        collar_df = xl.parse(collar_sheet)
+        survey_df = xl.parse(survey_sheet)
+        xyz_df = minimum_curvature_method(collar_df, survey_df)
+        xyz_df['Field'] = field
+        all_xyz.append(xyz_df)
+    result = pd.concat(all_xyz, ignore_index=True)
+    # Reorder columns
+    cols = ['Field', 'Well_ID', 'MD', 'X', 'Y', 'Z', 'Incl', 'Azimuth']
+    result = result[cols]
+    if write is not None:
+        # Write one CSV and one shapefile per field
+        try:
+            for field in result['Field'].unique():
+                field_df = result[result['Field'] == field]
+                # Write CSV for this field
+                csv_path = Path(write).with_stem(f"{Path(write).stem}_{field}").with_suffix('.csv')
+                field_df.to_csv(csv_path, index=False)
+                # Write shapefile (LineString geometry for each well)
+                lines = []
+                well_ids = []
+                for well in field_df['Well_ID'].unique():
+                    sub = field_df[field_df['Well_ID'] == well]
+                    sub_sorted = sub.sort_values('MD')
+                    coords = list(zip(sub_sorted['X'], sub_sorted['Y'], sub_sorted['Z']))
+                    if len(coords) > 1:
+                        lines.append(LineString(coords))
+                        well_ids.append(well)
+                gdf = gpd.GeoDataFrame({'Well_ID': well_ids, 'geometry': lines}, crs="EPSG:26911")
+                shp_path = Path(write).with_stem(f"{Path(write).stem}_{field}").with_suffix('.shp')
+                gdf.to_file(shp_path)
+        except ImportError:
+            print("geopandas or shapely not installed, skipping shapefile output.")
+    if plot is not None:
+        plot_xyz(result, plot)
+    return result
+
+def plot_xyz(df, field):
+    fig = plt.figure(figsize=(12,8))
+    ax = fig.add_subplot(111, projection='3d')
+    wells = df[df['Field'] == field]['Well_ID'].unique()
+    for well in wells:
+        sub = df[df['Well_ID']==well]
+        ax.plot(sub['X'], sub['Y'], sub['Z'], label=well)
+    ax.set_xlabel('Easting (m)')
+    ax.set_ylabel('Northing (m)')
+    ax.set_zlabel('Elevation (m)')
+    # ax.invert_zaxis()  # So depth increases downward
+    ax.legend()
+    plt.tight_layout()
+    plt.show()

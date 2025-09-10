@@ -44,7 +44,8 @@ datasets = {
 }
 
 projections = {'cape': pyproj.Proj("EPSG:26912"),
-               'newberry': pyproj.Proj("EPSG:32610")}
+               'newberry': pyproj.Proj("EPSG:32610"),
+               'newberry': pyproj.Proj("EPSG:26911")}
 
 def read_stdin():
     return [ln for ln in fileinput.input()]

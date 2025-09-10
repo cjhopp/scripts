@@ -693,21 +693,23 @@ def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
     return
 
 
-def get_events_seiscomp(status, location_method, **kwargs):
+def get_events_seiscomp(status, location_methods, url=None, **kwargs):
     """
     Get events from seiscomp database using obspy.client.fdsn.Client
 
     :param status: Status of events to fetch (e.g. 'manual', 'automatic')
-    :param location_method: Location method of origins to fetch (NonLinLoc or RTDD)
+    :param location_method: Location method of origins to fetch (LOCSAT, NonLinLoc, or RTDD)
 
     :return obspy.core.events.Catalog
     """
-    if location_method not in ['NonLinLoc', 'RTDD']:
-        raise ValueError('Location method must be NonLinLoc or RTDD')
+    if not all(method in ['NonLinLoc', 'RTDD', 'LOCSAT', 'HYPO71'] for method in location_methods):
+        raise ValueError('All location methods must be NonLinLoc, RTDD, or LOCSAT')
     if status not in ['automatic', 'manual']:
         raise ValueError('Status must be automatic or manual')
-    
-    cli = Client("http://131.243.224.19:8085", timeout=3600)
+    if not url:
+        cli = Client("http://131.243.224.19:8085", timeout=3600)
+    else:
+        cli = Client(url, timeout=3600)
     hungry_cat = cli.get_events(**kwargs)
     full_cat = Catalog()
     for ev in hungry_cat:
@@ -716,12 +718,17 @@ def get_events_seiscomp(status, location_method, **kwargs):
                                  includearrivals=True)[0]
         print(full_ev)
         origin = full_ev.preferred_origin()
-        if origin.method_id.id.endswith(location_method) and origin.evaluation_mode == status:
-            full_ev.origins = [origin]
+        if origin.method_id is not None:
+            if origin.method_id.id in location_methods and origin.evaluation_mode == status:
+                full_ev.origins = [origin]
         else:
-            origins = [o for o in full_ev.origins if o.method_id.id.endswith(location_method)
-                       and o.evaluation_mode == status]
-            origins.sort(key=lambda x: x.creation_info.creation_time)
+            print(origin)
+            try:
+                origins = [o for o in full_ev.origins if o.method_id.id in location_methods
+                        and o.evaluation_mode == status]
+                origins.sort(key=lambda x: x.creation_info.creation_time)
+            except AttributeError:
+                origins = full_ev.origins
             try:
                 origin = origins[-1]
                 full_ev.origins = [origin]
@@ -898,7 +905,7 @@ def plot_cumulative_catalog(catalogs, xlim=None, title=None):
     """Simple cumulative number of events with time"""
     fig, ax = plt.subplots()
     for cat in catalogs:
-        times = [ev.picks[-1].time.datetime for ev in cat]
+        times = [ev.picks[-1].time.datetime for ev in cat if len(ev.picks) > 0]
         times.sort()
         vals = np.arange(len(times))
         ax.step(times, vals)

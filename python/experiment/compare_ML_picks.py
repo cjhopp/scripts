@@ -15,12 +15,48 @@ import argparse
 import glob
 import os
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from itertools import islice
 from collections import defaultdict
 from typing import Dict, List, Tuple, Iterable, Optional
 
 import matplotlib.pyplot as plt
 from obspy import read, read_events, Catalog, UTCDateTime
 
+# ---------------------------------------------------------------------#
+# --- helper: walk up the directory tree until a file is encountered --#
+# ---------------------------------------------------------------------#
+def _find_in_parents(
+    start_dir: str,
+    base_name: str,
+    extensions: Iterable[str],
+    max_levels: int = 5,
+) -> Optional[str]:
+    """
+    Search *start_dir* and up to *max_levels* parents for a file whose
+    basename matches *base_name* **or any truncated version obtained by
+    repeatedly dropping the last '_'-separated token**.
+
+    Example
+    -------
+    base_name = "lbnl2024dkex_default"
+      -> we look for        lbnl2024dkex_default.ext
+         then (if not found) lbnl2024dkex.ext
+         then                lbnl2024dkex              (etc.)
+    """
+    # list of candidate basenames we are willing to try
+    parts = base_name.split("_")
+    candidates = ["_".join(parts[:i]) for i in range(len(parts), 0, -1)]
+
+    cur = Path(start_dir).resolve()
+    for _ in range(max_levels + 1):
+        for stem in candidates:
+            for ext in extensions:
+                f = cur / f"{stem}{ext}"
+                if f.is_file():
+                    return str(f)
+        cur = cur.parent
+    return None
 
 # -----------------------------------------------------------------------------#
 # -------------------------  helper: load pick files  -------------------------#
@@ -147,9 +183,14 @@ def plot_event(
     all_times = [p.time for p in all_picks]
 
     # ---------- 2. determine time window ------------------------------------
-    origin_xml = os.path.join(parent, f"{evid}.xml")
-    t_origin = read_origin_time(origin_xml)
-
+    # 1) try to locate the origin file in this dir or in a parent dir
+    origin_xml = _find_in_parents(
+        event_dir,
+        evid,
+        extensions=[".xml"],
+        max_levels=5,                      # <-- raise if necessary
+    )
+    t_origin = read_origin_time(origin_xml) if origin_xml else None
     if t_origin is not None:
         t0, t1 = t_origin, t_origin + 5.0
     elif all_times:
@@ -164,16 +205,17 @@ def plot_event(
         raise ValueError("no picks in window")
 
     # ---------- 4. waveform file --------------------------------------------
-    mseed_file = next(
-        (
-            os.path.join(parent, evid + ext)
-            for ext in (".ms", ".mseed", ".miniseed")
-            if os.path.isfile(os.path.join(parent, evid + ext))
-        ),
-        None,
+    mseed_file = _find_in_parents(
+        event_dir,
+        evid,
+        extensions=[".ms", ".mseed", ".miniseed"],
+        max_levels=5,
     )
     if mseed_file is None:
-        raise FileNotFoundError(f"Waveform {evid}.ms/mseed not in {parent}")
+        raise FileNotFoundError(
+            f"Could not locate waveform file {evid}.ms/.mseed/.miniseed "
+            f"in {event_dir} or any of its parents"
+        )
 
     st = read(mseed_file)
     st.sort()
@@ -270,13 +312,12 @@ def discover_event_dirs(root: str, recursive: bool = False) -> Iterable[str]:
     for cur_dir, subdirs, _ in walker:
         for d in subdirs:
             ev_dir = os.path.join(cur_dir, d)
-            parent = os.path.dirname(ev_dir)
-            if any(
-                os.path.isfile(os.path.join(parent, d + ext))
-                for ext in (".ms", ".mseed", ".miniseed")
+            # --- NEW: does this dir contain *any* known pick file? ----------
+            if (
+                os.path.isfile(os.path.join(ev_dir, "xml/dlpicks_phasenet_instance.xml"))
+                or glob.glob(os.path.join(ev_dir, "xml/*cape_autopicks.xml"))
             ):
                 yield ev_dir
-
 
 # -----------------------------------------------------------------------------#
 # ------------------------- bulk processing helper --------------------------- #

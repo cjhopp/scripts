@@ -23,7 +23,8 @@ from mplstereonet import StereonetAxes
 np.set_printoptions(threshold=sys.maxsize)
 
 wellpath = '/media/chopp/Data1/chet-meq/newberry/boreholes/55-29/GDR_submission/Deviation_corrected_with-depth.csv'
-injection_path = '/media/chopp/Data1/chet-meq/newberry/boreholes/injection_data/2025/**/*.csv'
+wellpathA = '/media/chopp/Data1/chet-meq/newberry/boreholes/55A-29/55A-29_trajectory.csv'
+injection_path = '/media/chopp/Data1/chet-meq/newberry/boreholes/injection_data/2025/55A-29/*.csv'
 old_injection_path = '/media/chopp/Data1/chet-meq/newberry/boreholes/injection_data/2014'
 
 # Stim depths converted to meters
@@ -44,8 +45,8 @@ stations = {
 # start = UTCDateTime(2025, 1, 9)
 # end = UTCDateTime()
 
-start = UTCDateTime(2014, 1, 1)
-end = UTCDateTime(2015, 1, 1)
+start = UTCDateTime(2025, 1, 1)
+end = UTCDateTime()
 
 hv.extension('bokeh', 'plotly', 'matplotlib')
 
@@ -71,7 +72,8 @@ def get_injection(path):
     for inj_file in inj_files:
         if 'SurgiFrac' in inj_file:
             injection = pd.read_csv(inj_file, skiprows=15, names=['time', 'psi', 'bpm'], index_col=0, usecols=[0, 1, 3])
-            print(injection)
+        elif 'Test' in inj_file:
+            injection = pd.read_csv(inj_file, skiprows=15, names=['time', 'psi', 'bpm'], index_col=0, usecols=[0, 1, 4])
         else:
             injection = pd.read_csv(inj_file, skiprows=15, names=['time', 'psi', 'bpm'], index_col=0, usecols=[0, 1, 2])
         injection['bps'] = injection['bpm'] / 60
@@ -197,15 +199,20 @@ def get_seismic_events(catalog):
     return hv.Dataset(dataset)
 
 
-def get_wellpath(wellpath):
+def get_wellpath(wellpath, year=2025):
     liner_color = {'cased': 'black', 'slotted': 'red'}
     liner_style = {'cased': 'solid', 'slotted': 'dotted'}
     # This should produce a DataFrame with
-    slotted = {'cased': [(0, 1912), (2289, 2493)],
-               'slotted': [(1912, 2289), (2493, 3045)]}
+    if year < 2023:
+        slotted = {'cased': [(0, 1912), (2289, 2493)],
+                   'slotted': [(1912, 2289), (2493, 3045)]}
+    else:
+        slotted = {'cased': [(0, 3200)],
+                   'slotted': [(0, 0)]}
+    wh_loc = np.array([635642.0,4842835.0])
     wellpath = np.loadtxt(wellpath, delimiter=',', skiprows=1)
-    wellpath[:, 0] -= wellpath[0, 0]
-    wellpath[:, 1] -= wellpath[0, 1]
+    wellpath[:, 0] -= wh_loc[0]
+    wellpath[:, 1] -= wh_loc[1]
     fx = interp1d(wellpath[:, 2], wellpath[:, 0])
     fy = interp1d(wellpath[:, 2], wellpath[:, 1])
     fd = interp1d(wellpath[:, 2], wellpath[:, 4])
@@ -250,6 +257,8 @@ def get_wellpath(wellpath):
                 well_ds.query('{} > depth and {} < depth'.format(s[1], s[0])),
                 'east', 'elevation').opts(color=liner_color[liner], line_dash=liner_style[liner], line_width=3.)
             EW_paths.append(curve)
+    if year < 2023:
+        return map_paths, NS_paths, EW_paths
     for stage in stages:
         idx = (well_ds['depth'] - stage).abs().idxmin()
         row = well_ds.loc[idx]
@@ -312,23 +321,23 @@ def plot_vol_moment(dataset, injection):
         galis_max.append(v**(3/2) * gamma)
     garr = hv.Curve(zip(vols, gar_max), label='McGarr [30 GPa]').opts(color='black', responsive=True, backend='bokeh', logx=True, logy=True)
     galis = hv.Curve(zip(vols, galis_max), label='Galis [y=1.5e8]').opts(color='black', line_dash='dashed', backend='bokeh')
-    # m3 = 0.1589872949  # Conversion factor to m3 from bbl
-    m3 = 0.00378541  # To m3 from gallons
+    m3 = 0.1589872949  # Conversion factor to m3 from bbl
+    # m3 = 0.00378541  # To m3 from gallons
     mw_max = np.max(dataset['magnitude'])
     m0 = 10.0 ** (1.5 * mw_max + 9.0 )
-    # cum_vol = np.nanmax(injection['cumulative [bbl]']) * m3
-    cum_vol = np.nanmax(injection['cumulative [gal]']) * m3
+    cum_vol = np.nanmax(injection['cumulative [bbl]']) * m3
+    # cum_vol = np.nanmax(injection['cumulative [gal]']) * m3
     # Interpolate cumulative max mag onto cumulative volume
-    # vol = injection.dframe()['cumulative [bbl]'] * m3
-    vol = injection.dframe()['cumulative [gal]'] * m3
+    vol = injection.dframe()['cumulative [bbl]'] * m3
+    # vol = injection.dframe()['cumulative [gal]'] * m3
     vol = vol[~vol.index.duplicated(keep='first')]
     cat = dataset.dframe()
     cat['Date + Time'] = pd.to_datetime(cat['timestamp'], unit='s')
     cat = cat.set_index('Date + Time')
     cat['cumulative max m0'] = 10.0 ** (1.5 * cat['cumulative max mag'] + 9.0 )
     df = pd.concat([vol, cat['cumulative max m0']], axis=1)
-    # df = df.rename(columns={'cumulative [bbl]': 'volume', 'cumulative max m0': 'magnitude'})
-    df = df.rename(columns={'cumulative [gal]': 'volume', 'cumulative max m0': 'magnitude'})
+    df = df.rename(columns={'cumulative [bbl]': 'volume', 'cumulative max m0': 'magnitude'})
+    # df = df.rename(columns={'cumulative [gal]': 'volume', 'cumulative max m0': 'magnitude'})
     df = df.assign(magnitude=lambda x: x['magnitude'].interpolate())
     df = df.dropna()
     max = hv.Scatter([(cum_vol, m0)]).opts(
@@ -471,13 +480,20 @@ def seismicity_3d(dataset):
         backend='bokeh',
     )
     map_paths, NS_paths, EW_paths = get_wellpath(wellpath)
+    map_pathsA, NS_pathsA, EW_pathsA = get_wellpath(wellpathA)
     well_map = hv.Overlay(map_paths, 'east', 'north').opts(
         xlim=(-2000, 2000), ylim=(-2000, 2000), backend='bokeh')
     well_NS = hv.Overlay(NS_paths).opts(
         xlim=(-2000, 2000), ylim=(-2200, 1800), backend='bokeh')
     well_EW = hv.Overlay(EW_paths).opts(
         xlim=(-2000, 2000), ylim=(-2200, 1800), backend='bokeh')
-    return well_map, mapview1 * mapview2 * mapview3, well_NS, NS1 * NS2, well_EW, EW1 * EW2
+    well_mapA = hv.Overlay(map_pathsA, 'east', 'north').opts(
+        xlim=(-2000, 2000), ylim=(-2000, 2000), backend='bokeh')
+    well_NSA = hv.Overlay(NS_pathsA).opts(
+        xlim=(-2000, 2000), ylim=(-2200, 1800), backend='bokeh')
+    well_EWA = hv.Overlay(EW_pathsA).opts(
+        xlim=(-2000, 2000), ylim=(-2200, 180), backend='bokeh')
+    return well_map * well_mapA, mapview1 * mapview2 * mapview3, well_NS * well_NSA, NS1 * NS2, well_EW * well_EWA, EW1 * EW2
 
 
 class DailyReport(pn.viewable.Viewer):
@@ -504,8 +520,8 @@ class DailyReport(pn.viewable.Viewer):
         self.catalog = get_data()
         # self.wellpath = get_injection(wellpath)
         self.dataset = get_seismic_events(self.catalog)
-        # self.injection = get_injection(injection_path)
-        self.injection = get_old_injection(old_injection_path)
+        self.injection = get_injection(injection_path)
+        # self.injection = get_old_injection(old_injection_path)
         linked_plots, time_plots, polar_plot, inj_plot = self._link_plots()
         injection_panel = injection_plot(self.injection)
         return linked_plots, time_plots, polar_plot, inj_plot, injection_panel

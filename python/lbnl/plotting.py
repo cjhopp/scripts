@@ -52,11 +52,11 @@ from obspy import Trace, Catalog
 from plotly.figure_factory import create_gantt
 from matplotlib import animation, cm
 from matplotlib.dates import DayLocator, HourLocator
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Rectangle
 from matplotlib_scalebar.scalebar import ScaleBar
 from matplotlib.gridspec import GridSpec
 from matplotlib.dates import date2num, num2date
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from matplotlib.colors import ListedColormap, Normalize, LinearSegmentedColormap
 
 # Local imports (assumed to be in python path)
@@ -671,10 +671,10 @@ def plot_fsb_inventory(well_dict, inventory, plot_asbuilt=False):
     return
 
 
-def legend_without_duplicate_labels(ax):
+def legend_without_duplicate_labels(ax, loc='upper right'):
     handles, labels = ax.get_legend_handles_labels()
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
-    ax.legend(*zip(*unique))
+    ax.legend(*zip(*unique), loc=loc)
 
 
 def plot_4850_2D(autocad_path, strike=347.,
@@ -2735,7 +2735,7 @@ def plot_amplify_sites(dem_dir, vector_dir, catalog=None, outfile=None):
     return
 
 
-def plot_patua(dem_dir, vector_dir, inventory, catalog):
+def plot_patua(dem_dir, vector_dir, inventory, catalog=None, plot_pipelines=False):
     """Patua overview plot"""
     # Station --> RT130 serial mapping
     RT130_serial = {
@@ -2746,8 +2746,8 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
         '4509': 'B2C8',
         '23A-17': 'B2C8'
     }
-    patua_extents = [(-119.17, 39.63), (-119.17, 39.51),
-                     (-119.01, 39.51), (-119.01, 39.63)]
+    patua_extents = [(-119.14, 39.63), (-119.14, 39.52),
+                     (-119.01, 39.52), (-119.01, 39.63)]
     dem_file = glob('{}/*n40w120*.tif'.format(dem_dir))[0]
     overview = rasterio.open(dem_file)
     write_bbox_shp(patua_extents, './tmp_bbox.shp')
@@ -2757,7 +2757,7 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     # Hillshade
     hillshade = es.hillshade(topo[0].copy(), azimuth=90, altitude=20)
     # Seismic catalog
-    if catalog:
+    if catalog != None:
         cat = pd.read_excel(catalog, skiprows=[0, 1])
     # Read in vectors
     ch_roads = gpd.read_file('{}/ChurchillRoads.shp'.format(vector_dir)).to_crs(4326)
@@ -2788,8 +2788,13 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     ly_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
     ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
     rr.plot(ax=ax, linewidth=1., color='firebrick', alpha=0.5)
-    I_pipe.plot(ax=ax, color='b', alpha=0.5)
-    P_pipe.plot(ax=ax, color='r', alpha=0.5)
+    if plot_pipelines:
+        I_pipe.plot(ax=ax, color='b', alpha=0.5)
+        P_pipe.plot(ax=ax, color='r', alpha=0.5)
+        # Injection wells
+        wells.loc[wells.status == 'injector'].plot(ax=ax, markersize=10, color='b')
+        # Production wells
+        wells.loc[wells.status == 'producer'].plot(ax=ax, markersize=10, color='r')
     plant.geometry.plot(ax=ax, color='k')
     springs.plot(ax=ax, markersize=10., marker='*', color='dodgerblue')
     # circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
@@ -2798,10 +2803,6 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     ax.annotate('Hot Springs', xy=springs.geometry[0].coords[0], xytext=(-30, 10),
                 textcoords='offset points', fontsize=8, fontstyle='italic',
                 color='dodgerblue')
-    # Injection wells
-    wells.loc[wells.status == 'injector'].plot(ax=ax, markersize=10, color='b')
-    # Production wells
-    wells.loc[wells.status == 'producer'].plot(ax=ax, markersize=10, color='r')
     # Leidos catalog
     if catalog:
         ax.scatter(cat['Longitude'], cat['Latitude'], marker='o', color='k',
@@ -2810,28 +2811,28 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     for sta in inventory.select(location='10')[0]:
         if sta.code == '2317':
             continue
-        ax.scatter(sta.longitude, sta.latitude, marker='v', s=40., color='purple')
-        ax.annotate(
-            '{}\n{}'.format(sta.code, RT130_serial[sta.code]),
-            xy=(sta.longitude, sta.latitude), xytext=(6, -8),
-            textcoords='offset points', fontsize=10, fontweight='bold',
-            color='purple')
+        ax.scatter(sta.longitude, sta.latitude, marker='v', s=75., color='purple')
+        # ax.annotate(
+        #     '{}\n{}'.format(sta.code, RT130_serial[sta.code]),
+        #     xy=(sta.longitude, sta.latitude), xytext=(6, -8),
+        #     textcoords='offset points', fontsize=10, fontweight='bold',
+        #     color='purple')
     # Add 23A-17
     well_23a17 = wells.loc[wells.name.isin(['23A-17'])]
-    well_23a17.plot(ax=ax, marker='v', markersize=40, color='purple')
-    ax.annotate(xy=(well_23a17.geometry.x,
-                    well_23a17.geometry.y), text='23A-17\nB2C8',
-                textcoords='offset points', xytext=(6, 0),
-                fontsize=10, fontweight='bold', color='purple')
+    well_23a17.plot(ax=ax, marker='v', markersize=75, color='purple')
+    # ax.annotate(xy=(well_23a17.geometry.x,
+    #                 well_23a17.geometry.y), text='23A-17\nB2C8',
+    #             textcoords='offset points', xytext=(6, 0),
+    #             fontsize=10, fontweight='bold', color='purple')
     # Injection well
     wells.loc[wells.name == '16-29'].plot(ax=ax, marker='*', color='yellow',
-                                          markersize=60.)
+                                          markersize=150., linewidths=.5, edgecolors='k')
     # Potentially functioning seismometers
     wells.loc[wells.name.isin(['36-5 TGH', '87-25 TGH', '26-31 TGH',
                                '77-31 TGH', '35-33 TGH', '88-33 TGH',
                                '36-15', '28-13', '45-27', '33-23',
                                '28-13', '36-15', '21A-19', '27-29'])].plot(
-        ax=ax, marker='v', color='sienna', markersize=40.)
+        ax=ax, marker='v', color='peru', markersize=75., linewidths=0.5, edgecolors='k')
     ax.set_xlim([extent[0], extent[1]])
     ax.set_ylim([extent[2], extent[3]])
     # Scale bar
@@ -2840,9 +2841,9 @@ def plot_patua(dem_dir, vector_dir, inventory, catalog):
     points = points.to_crs(32611)  # Projected WGS 84 - meters
     distance_meters = points[0].distance(points[1])
     ax.add_artist(ScaleBar(distance_meters))
-    ax.set_xlabel(r'Longitude [$^o$]')
-    ax.set_ylabel(r'Latitude [$^o$]')
-    ax.set_title('Patua')
+    ax.set_xlabel(r'Longitude [$^o$]', fontsize=16)
+    ax.set_ylabel(r'Latitude [$^o$]', fontsize=16)
+    ax.set_title('Patua', fontsize=20, fontweight='bold')
     plt.show()
     return
 
@@ -2950,7 +2951,8 @@ def plot_newberry(dem_dir, vector_dir, inventory):
     # Read in vectors
     sensors = obspy.read_inventory(inventory)
     # Figure setup
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, axins = plt.subplots(figsize=(10, 10))
+    ax = axins.inset_axes([0.6, 0.6, 0.5, 0.5])
     # Only top half of colormap
     # Evaluate an existing colormap from 0.5 (midpoint) to 1 (upper end)
     cmap = plt.get_cmap('gist_earth')
@@ -2958,46 +2960,86 @@ def plot_newberry(dem_dir, vector_dir, inventory):
     # Create a new colormap from those colors
     cmap2 = LinearSegmentedColormap.from_list('Upper Half', colors)
     # Bottom up, first DEM
-    ax.imshow(dem_vals[0], cmap=cmap2, alpha=0.2, extent=extent_lidar)
+    # ax.imshow(dem_vals[0], cmap=cmap2, alpha=0.2, extent=extent_lidar)
     ax.imshow(dem_hillshade, cmap="Greys", alpha=0.3, extent=extent_lidar)
-    ax.imshow(lidar_vals[0], cmap=cmap2, alpha=0.3, extent=extent_lidar)
-    # Then hillshade
-    ax.imshow(lidar_hillshade, cmap="Greys", alpha=0.3, extent=extent_lidar)
+    # axins.imshow(dem_vals[0], cmap=cmap2, alpha=0.2, extent=extent_lidar)
+    # axins.imshow(dem_hillshade, cmap="Greys", alpha=0.3, extent=extent_lidar)
+    axins.imshow(lidar_vals[0], cmap=cmap2, alpha=0.3, extent=extent_lidar)
+    # # Then hillshade
+    axins.imshow(lidar_hillshade, cmap="Greys", alpha=0.3, extent=extent_lidar)
     # Vector layers
-    roads = gpd.read_file('{}/Newberry_roads_clipped.shp'.format(vector_dir)).to_crs(26910)
+    fsrd = gpd.read_file('{}/FSRd-9735.shp'.format(vector_dir)).to_crs(26910)
+    padrd = gpd.read_file('{}/9735-to-29-pad.shp'.format(vector_dir)).to_crs(26910)
+    hwy = gpd.read_file('{}/Hwy_21_Paulina-EastLake.shp'.format(vector_dir)).to_crs(26910)
     lakes = gpd.read_file('{}/Newberry_lakes_clipped.shp'.format(vector_dir)).to_crs(26910)
-    # roads.plot(ax=ax, linewidth=0.5, color='dimgray', alpha=0.5)
+    fsrd.plot(ax=axins, linewidth=0.75, color='dimgray', alpha=0.5)
+    padrd.plot(ax=axins, linewidth=0.75, color='dimgray', alpha=0.5)
+    hwy.plot(ax=axins, linewidth=1.0, color='firebrick', alpha=0.3)
     ax = lakes.geometry.plot(ax=ax, color='dodgerblue', alpha=0.5)
+    axins = lakes.geometry.plot(ax=axins, color='dodgerblue', alpha=0.5)
+    # 55-29
+    well = gpd.read_file('{}/55-29_trajectory_UTM.geojson'.format(vector_dir))#.to_crs(26910)
+    wellA = gpd.read_file('{}/55A-29_trajectory_latlon.geojson'.format(vector_dir)).to_crs(26910)
+    # ax.plot(well.geometry[0].xy[0], well.geometry[0].xy[1], color='purple', linewidth=2.)
+    for w in [well, wellA]:
+        ax.scatter(w.geometry[0].xy[0][0], w.geometry[0].xy[1][0], color='yellow', marker='*', ec='k', s=50, label='55-29')
+        axins.plot(w.geometry[0].xy[0], w.geometry[0].xy[1], color='purple', linewidth=2.)
+        axins.scatter(w.geometry[0].xy[0][0], w.geometry[0].xy[1][0], color='purple', marker='o', s=20)
     # Seismic stations
     marker_dict = {'UW': ['^', 'dodgerblue'], 'CC': ['^', 'r'],
-                   '9G': ['v', 'purple']}
+                   '9G': ['v', 'purple'], '2M': ['v', 'purple'],
+                   'UO': ['^', 'firebrick']}
     for net in sensors:
         for sta in net:
             if net.code == 'UW' and sta.code in ['NN17', 'NN32', 'NNVM']:
                 continue
-            elif net.code == '9G' and (sta.code.startswith('NM')
-                                       or sta.code in ['NN19', 'NN21']):
+            if sta.code.startswith('NM'):
+                continue
+            elif net.code in ['9G', 'UO']:
                 continue
             pt = gpd.GeoSeries([Point(sta.longitude, sta.latitude)], crs=4326)
             pt = pt.to_crs(26910)
+            if sta.code == 'NNVM':
+                ax.scatter(pt.x, pt.y, marker='^', s=50.,
+                           color='k', edgecolors='k', label='NNVM')
+                axins.scatter(pt.x, pt.y, marker='^', s=90.,
+                              color='k', edgecolors='k', label='NNVM')
+                continue
+            if sta.code in ['NN19', 'NN21']:
+                ax.scatter(pt.x, pt.y, marker='v', s=50.,
+                           color='dodgerblue', edgecolors='k', label=net.code)
+                axins.scatter(pt.x, pt.y, marker='v', s=90.,
+                              color='dodgerblue', edgecolors='k', label=net.code)
+                continue
             ax.scatter(pt.x, pt.y, marker=marker_dict[net.code][0], s=50.,
                        color=marker_dict[net.code][1], label=net.code,
                        edgecolors='k')
+            axins.scatter(pt.x, pt.y, marker=marker_dict[net.code][0], s=90.,
+                          color=marker_dict[net.code][1], label=net.code,
+                          edgecolors='k')
+    unfilled_box = Rectangle((635642 - 3000, 4842835 - 3000), 7000., 7000.,
+                             facecolor='none', edgecolor='k', linewidth=2)
+    # Add the patch to the axes
+    ax.add_patch(unfilled_box)
+    # mark_inset(ax, axins, loc1=3, loc2=3, fc="none")
     # Proposed locations
     ax.set_xlim([extent_lidar[0], extent_lidar[1]])
     ax.set_ylim([extent_lidar[2], extent_lidar[3]])
+    axins.set_xlim([635642 - 3000, 635642 + 4000])
+    axins.set_ylim([4842835 - 3000, 4842835 + 4000])
+    ax.tick_params(labelbottom=False, labelleft=False)
     # Scale bar
     # points = gpd.GeoSeries([Point(630000, extent_lidar[2]),
     #                         Point(635000, extent_lidar[2])], crs=4326)
     # points = points.to_crs(32611)  # Projected WGS 84 - meters
     # distance_meters = points[0].distance(points[1])
     # ax.add_artist(ScaleBar(distance_meters))
-    ax.set_xlabel(r'Easting [m]')
-    ax.set_ylabel(r'Northing [m]')
-    ax.set_title('Newberry seismic networks')
-    ax.ticklabel_format(style='plain', useOffset=False)
-    ax.legend()
-    legend_without_duplicate_labels(ax)
+    axins.set_xlabel(r'Easting [m]', fontsize=16)
+    axins.set_ylabel(r'Northing [m]', fontsize=16)
+    axins.set_title('Newberry', fontsize=20, fontweight='bold')
+    axins.ticklabel_format(style='plain', useOffset=False)
+    axins.legend(loc='lower left')
+    legend_without_duplicate_labels(axins, loc='lower left')
     plt.show()
     return
 
@@ -3078,10 +3120,10 @@ def plot_TM(dem_dir, vector_dir):
     return
 
 
-def plot_JV(dem_dir, vector_dir):
+def plot_JV(dem_dir, vector_dir, catalog=None, plot_radii=False, plot_lease=False, plot_pipelines=False, plot_roksed=False):
     """Patua overview plot"""
-    JV_extents = [(-117.505, 40.195), (-117.447, 40.195),
-                  (-117.447, 40.145), (-117.505, 40.145)]
+    JV_extents = [(-117.505, 40.195), (-117.46, 40.195),
+                  (-117.46, 40.155), (-117.505, 40.155)]
     JV_plant_extents = [(-117.47696, 40.18190), (-117.47471, 40.18190),
                         (-117.47471, 40.18005), (-117.47696, 40.18005)]
     stations = {'ROK': (-117.47066, 40.17340), 'SED': (-117.49506, 40.17577)}
@@ -3103,6 +3145,11 @@ def plot_JV(dem_dir, vector_dir):
     tracks = gpd.read_file('{}/JV_tracks.shp'.format(vector_dir)).to_crs(4326)
     two_track = gpd.read_file('{}/JV_S-two-track.shp'.format(vector_dir)).to_crs(4326)
     sensors = gpd.read_file('{}/JV_sensors.shp'.format(vector_dir)).to_crs(4326)
+    if catalog is not None:
+        lats = [ev.preferred_origin().latitude for ev in catalog]
+        longs = [ev.preferred_origin().longitude for ev in catalog]
+        deps = [ev.preferred_origin().depth for ev in catalog]
+        mags = [ev.preferred_magnitude().mag if ev.preferred_magnitude() != None else 0.0 for ev in catalog]
     # Figure setup
     fig, ax = plt.subplots(figsize=(10, 10))
     # Only top half of colormap
@@ -3118,25 +3165,31 @@ def plot_JV(dem_dir, vector_dir):
     # Vector layers
     ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
     plant.geometry.plot(ax=ax, color='k')
-    circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
-    circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
-    lease.boundary.plot(ax=ax, linestyle=':', color='firebrick')
+    if plot_radii:
+        circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
+        circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
+    if catalog is not None:
+        ax.scatter(longs, lats, marker='o', color='k',
+                   facecolor=None, s=10.*(1**np.array(mags)), alpha=0.3)
+    if plot_lease:
+        lease.boundary.plot(ax=ax, linestyle=':', color='firebrick')
     tracks.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
-    two_track.plot(ax=ax, linewidth=1., color='dimgray', linestyle='--',
-                   alpha=0.5)
+    # two_track.plot(ax=ax, linewidth=1., color='dimgray', linestyle='--',
+    #                alpha=0.5)
     # Proposed locations
-    sensors.plot(ax=ax, marker='v', color='indigo', markersize=40)
+    sensors.plot(ax=ax, marker='v', color='indigo', markersize=75)
     # Stim well
     ax.scatter(-117.47384, 40.17023, marker='*', color='yellow',
-               s=60.)
+               s=150., linewidths=.5, edgecolors='k')
     # Labels
     # Seismic stations
-    for sta, loc in stations.items():
-        ax.scatter(loc[0], loc[1], marker='^', s=40., color='purple')
-        ax.annotate(
-            sta, xy=loc, xytext=(3, 3),
-            textcoords='offset points', fontsize=10, fontweight='bold',
-            color='purple')
+    if plot_roksed:
+        for sta, loc in stations.items():
+            ax.scatter(loc[0], loc[1], marker='^', s=40., color='purple')
+            ax.annotate(
+                sta, xy=loc, xytext=(3, 3),
+                textcoords='offset points', fontsize=10, fontweight='bold',
+                color='purple')
     ax.set_xlim([extent[0], extent[1]])
     ax.set_ylim([extent[2], extent[3]])
     # Scale bar
@@ -3145,18 +3198,18 @@ def plot_JV(dem_dir, vector_dir):
     points = points.to_crs(32611)  # Projected WGS 84 - meters
     distance_meters = points[0].distance(points[1])
     ax.add_artist(ScaleBar(distance_meters))
-    ax.set_xlabel(r'Longitude [$^o$]')
-    ax.set_ylabel(r'Latitude [$^o$]')
-    ax.set_title('Jersey Valley')
+    ax.set_xlabel(r'Longitude [$^o$]', fontsize=16)
+    ax.set_ylabel(r'Latitude [$^o$]', fontsize=16)
+    ax.set_title('Jersey Valley', fontsize=20, fontweight='bold')
     ax.ticklabel_format(style='plain', useOffset=False)
     plt.show()
     return
 
 
-def plot_DAC(dem_dir, vector_dir, catalog=None):
+def plot_DAC(dem_dir, vector_dir, catalog=None, plot_radii=False, plot_lease=False, plot_pipelines=False, plot_roksed=False):
     """Patua overview plot"""
-    DAC_extents = [(-118.39, 38.87), (-118.28, 38.87),
-                  (-118.28, 38.80), (-118.39, 38.80)]
+    DAC_extents = [(-118.355, 38.865), (-118.285, 38.865),
+                  (-118.285, 38.815), (-118.355, 38.815)]
     DAC1_plant_extents = [(-118.32956, 38.83626), (-118.32452, 38.83626),
                           (-118.32452, 38.83530), (-118.32956, 38.83530)]
     DAC2_plant_extents = [(-118.32623, 38.83769), (-118.32140, 38.83769),
@@ -3193,7 +3246,7 @@ def plot_DAC(dem_dir, vector_dir, catalog=None):
         lats = [ev.preferred_origin().latitude for ev in catalog]
         longs = [ev.preferred_origin().longitude for ev in catalog]
         deps = [ev.preferred_origin().depth for ev in catalog]
-        mags = [ev.preferred_magnitude().mag for ev in catalog]
+        mags = [ev.preferred_magnitude().mag if ev.preferred_magnitude() != None else 0.0 for ev in catalog]
     # Figure setup
     fig, ax = plt.subplots(figsize=(10, 10))
     # Only top half of colormap
@@ -3214,30 +3267,34 @@ def plot_DAC(dem_dir, vector_dir, catalog=None):
     ch_roads.plot(ax=ax, linewidth=1., color='dimgray', alpha=0.5)
     plant1.geometry.plot(ax=ax, color='k')
     plant2.geometry.plot(ax=ax, color='k')
-    lease.boundary.plot(ax=ax, linestyle=':', color='firebrick')
-    I_pipe.plot(ax=ax, color='b', alpha=0.5)
-    P_pipe.plot(ax=ax, color='r', alpha=0.5)
-    I_wells.plot(ax=ax, marker='o', color='b', markersize=20, alpha=0.5)
-    P_wells.plot(ax=ax, marker='o', color='r', markersize=20, alpha=0.5)
+    if plot_lease:
+        lease.boundary.plot(ax=ax, linestyle=':', color='firebrick')
+    if plot_pipelines:
+        I_pipe.plot(ax=ax, color='b', alpha=0.5)
+        P_pipe.plot(ax=ax, color='r', alpha=0.5)
+        I_wells.plot(ax=ax, marker='o', color='b', markersize=20, alpha=0.5)
+        P_wells.plot(ax=ax, marker='o', color='r', markersize=20, alpha=0.5)
     woo_well.plot(ax=ax, marker='*', color='yellow',
-                  markersize=60.)
-    circle0.plot(ax=ax, color='dodgerblue', linewidth=1.)
-    circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
-    circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
+                  markersize=150., linewidth=.5, edgecolors='k')
+    if plot_radii:
+        circle0.plot(ax=ax, color='dodgerblue', linewidth=1.)
+        circle1.plot(ax=ax, color='dodgerblue', linewidth=1.)
+        circle2.plot(ax=ax, color='dodgerblue', linewidth=1.)
     if catalog is not None:
         ax.scatter(longs, lats, marker='o', color='k',
                    facecolor=None, s=10.*(1**np.array(mags)), alpha=0.3)
     # Labels
     # Seismic stations
-    stations.plot(ax=ax, marker='v', markersize=50, color='indigo')
-    dac_rok.plot(ax=ax, marker='^', markersize=60, color='purple')
-    ax.annotate('ROK', dac_rok.geometry[0].coords[0][:2], xytext=(3, 3),
-                textcoords='offset points', fontsize=10, fontweight='bold',
-                color='purple')
-    dac_sed.plot(ax=ax, marker='^', markersize=60, color='purple')
-    ax.annotate('SED', dac_sed.geometry[0].coords[0][:2], xytext=(3, 3),
-                textcoords='offset points', fontsize=10, fontweight='bold',
-                color='purple')
+    stations.plot(ax=ax, marker='v', markersize=75, color='indigo')
+    if plot_roksed:
+        dac_rok.plot(ax=ax, marker='^', markersize=60, color='purple')
+        ax.annotate('ROK', dac_rok.geometry[0].coords[0][:2], xytext=(3, 3),
+                    textcoords='offset points', fontsize=10, fontweight='bold',
+                    color='purple')
+        dac_sed.plot(ax=ax, marker='^', markersize=60, color='purple')
+        ax.annotate('SED', dac_sed.geometry[0].coords[0][:2], xytext=(3, 3),
+                    textcoords='offset points', fontsize=10, fontweight='bold',
+                    color='purple')
     ax.set_xlim([extent[0], extent[1]])
     ax.set_ylim([extent[2], extent[3]])
     # Scale bar
@@ -3246,9 +3303,9 @@ def plot_DAC(dem_dir, vector_dir, catalog=None):
     points = points.to_crs(32611)  # Projected WGS 84 - meters
     distance_meters = points[0].distance(points[1])
     ax.add_artist(ScaleBar(distance_meters))
-    ax.set_xlabel(r'Longitude [$^o$]')
-    ax.set_ylabel(r'Latitude [$^o$]')
-    ax.set_title('Don A Campbell')
+    ax.set_xlabel(r'Longitude [$^o$]', fontsize=16)
+    ax.set_ylabel(r'Latitude [$^o$]', fontsize=16)
+    ax.set_title('Don A Campbell', fontsize=20, fontweight='bold')
     fig.tight_layout()
     plt.show()
     return
@@ -3365,7 +3422,7 @@ def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
     method_colors = {'RTDD': 'r', 'NonLinLoc': 'b', 'LOCSAT': 'k', 'SimulPS': 'purple'}
     depth_factor = {'RTDD': -1., 'NonLinLoc': -1., 'LOCSAT': -1., 'SimulPS': -1000.}
     depth_correction = {'RTDD': 0., 'NonLinLoc': 0., 'LOCSAT': 0., 'SimulPS': 0.}  # Elevation correction for LOCSAT
-    lim = [-2000, 2000]
+    lim = [-750, 750]
     fig = plt.figure(figsize=(8, 16))
     spec = gridspec.GridSpec(ncols=8, nrows=16, figure=fig)
     ax_map = fig.add_subplot(spec[:8, :])
@@ -3464,8 +3521,8 @@ def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
     ax_map.set_ylabel('Northing [m]')
     ax_map.tick_params(axis='x', labelbottom=False, labeltop=True, bottom=False, top=True)
     ax_e.set_ylabel('Elevation [masl]')
-    ax_e.set_xticks([-1700, 1700], ['E', 'W'], size=16, fontweight='bold')
-    ax_n.set_xticks([-1700, 1700], ['S', 'N'], size=16, fontweight='bold')
+    ax_e.set_xticks([-750, 750], ['W', 'E'], size=16, fontweight='bold')
+    ax_n.set_xticks([-750, 750], ['S', 'N'], size=16, fontweight='bold')
     ax_n.tick_params(axis='y', labelleft=False, left=False)
     fig.legend(loc=4)
     plt.show()
