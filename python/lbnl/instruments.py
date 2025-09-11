@@ -20,7 +20,7 @@ from glob import glob
 from copy import deepcopy
 from obspy import read_inventory, UTCDateTime
 from obspy.core.util import AttribDict
-from obspy.core.inventory import Inventory, Network, Station, Channel, Response
+from obspy.core.inventory import Inventory, Network, Station, Channel, Response, Site
 from obspy.core.inventory import ResponseListResponseStage
 from obspy.core.inventory.response import ResponseListElement, InstrumentPolynomial
 from obspy.core.inventory.response import InstrumentSensitivity, ResponseStage
@@ -160,6 +160,108 @@ class Inventory3D(Inventory):
         plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1))
         ax.set_aspect('equal')  # Make axes units equal
         plt.show()
+
+
+def excel_to_inventory(
+    excel_file,
+    network_col='Network Code',
+    station_col='Station Code',
+    site_col='Site',
+    lat_col='Latitude',
+    lon_col='Longitude',
+    elev_col='Elevation (m)',
+    depth_col='Depth',
+    start_col='Start Date',
+    end_col='End Date',
+    band_col='Band Code',
+    inst_col='Inst. Code',
+    comp_col='Comp',
+    samplerate_col='Sample Rate (Hz/SPS)',
+    sensor_col='Sensor'
+):
+    """
+    Convert Tim's excel with station/channel metadata from the old refteks to an ObsPy Inventory object.
+    """
+    df = pd.read_excel(excel_file)
+
+    networks = {}
+
+    for _, row in df.iterrows():
+        net_code = row[network_col]
+        sta_code = row[station_col]
+        lat = float(row[lat_col])
+        lon = float(row[lon_col])
+        elev = float(row[elev_col])
+        sta_name = row[site_col]
+        start = UTCDateTime(row[start_col]) if pd.notnull(row[start_col]) else None
+        end = UTCDateTime(row[end_col]) if pd.notnull(row[end_col]) else None
+
+        # Prepare channel code (e.g., BHZ)
+        sample_rate = float(row[samplerate_col])
+        print(sample_rate)
+        if np.isnan(sample_rate) or sample_rate <= 0:
+            continue  # Skip invalid sample rates
+        depth = float(row[depth_col]) if pd.notnull(row[depth_col]) else 0.0
+        # Create a separate channel for each Z, N, and E orientation
+        channels = []
+        orientations = [
+            ("Z", 0.0, -90.0),
+            ("N", 0.0, 0.0),
+            ("E", 90.0, 0.0)
+        ]
+        for comp, azimuth, dip in orientations:
+            channel = Channel(
+                code=f"{row[band_col]}{row[inst_col]}{comp}",
+                location_code="",  # Set if you have location codes
+                latitude=lat,
+                longitude=lon,
+                elevation=elev,
+                depth=depth,
+                azimuth=azimuth,
+                dip=dip,
+                sample_rate=sample_rate,
+                start_date=start,
+                end_date=end,
+                sensor=row[sensor_col] if pd.notnull(row[sensor_col]) else "",
+                response=None  # Add a Response object if you have response info
+            )
+            channels.append(channel)
+        if len(channels) == 0:
+            continue  # Skip stations with no valid channels
+        # Create Station object or add channel to existing station
+        if net_code not in networks:
+            networks[net_code] = {}
+        if sta_code not in networks[net_code]:
+            station = Station(
+                code=sta_code,
+                latitude=lat,
+                longitude=lon,
+                elevation=elev,
+                site=Site(sta_name),
+                creation_date=start,
+                termination_date=end,
+                channels=[channel]
+            )
+            networks[net_code][sta_code] = station
+        else:
+            networks[net_code][sta_code].channels.append(channel)
+
+    # Build Network objects
+    network_objs = []
+    for net_code, stations_dict in networks.items():
+        network = Network(
+            code=net_code,
+            stations=list(stations_dict.values()),
+            description=f"Network {net_code}"
+        )
+        network_objs.append(network)
+
+    # Create the Inventory
+    inventory = Inventory(
+        networks=network_objs,
+        source="Created from DataFrame"
+    )
+    return inventory
 
 
 def edit_oee_inventory(old_inventory):

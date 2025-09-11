@@ -43,7 +43,7 @@ from sklearn.cluster import KMeans
 from scipy.io import loadmat
 from scipy.linalg import lstsq, norm
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
-from shapely.ops import cascaded_union, polygonize
+from shapely.ops import unary_union, polygonize
 from scipy.spatial import Delaunay
 from scipy.spatial.transform import Rotation as R
 from obspy.imaging.beachball import beach
@@ -3001,9 +3001,9 @@ def plot_newberry(dem_dir, vector_dir, inventory):
             pt = pt.to_crs(26910)
             if sta.code == 'NNVM':
                 ax.scatter(pt.x, pt.y, marker='^', s=50.,
-                           color='k', edgecolors='k', label='NNVM')
+                           color='purple', edgecolors='k')
                 axins.scatter(pt.x, pt.y, marker='^', s=90.,
-                              color='k', edgecolors='k', label='NNVM')
+                              color='purple', edgecolors='k')
                 continue
             if sta.code in ['NN19', 'NN21']:
                 ax.scatter(pt.x, pt.y, marker='v', s=50.,
