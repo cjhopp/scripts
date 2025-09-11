@@ -239,6 +239,7 @@ oee_channel_map = {
              65: 'DP1', 66: 'DP2', 67: 'DPZ', 68: 'DP1', 69: 'DP2', 70: 'DPZ', 71: 'DP1',72: 'DP2'}
 }
 
+
 def date_generator(start_date, end_date):
     # Generator for date looping
     from datetime import timedelta

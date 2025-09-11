@@ -22,7 +22,7 @@ from shapely.geometry import Polygon, MultiLineString, LineString
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG, filename='log.txt')
 
-data_directory = '/home/chopp/spatial_data'
+data_directory = '/media/chopp/HDD1/chet-meq/cape_modern/spatial_data'
 
 site_polygons = {
     'Newberry': Polygon([(-121.0736, 43.8988), (-121.0736, 43.5949), (-121.4918, 43.5949), (-121.4918, 43.8988)]),
@@ -37,12 +37,19 @@ datasets = {
                  '{}/newberry/DEMs/USGS_13_merged_epsg-26910_just_edifice_very-coarse.tif'.format(data_directory)],
     'JV': ['{}/JV/Offset_Wells_Surveys_JV.csv'.format(data_directory),],
     'DAC': ['{}/DAC/Offset_Wells_Surveys_DAC.csv'.format(data_directory)],
-    'Cape': ['{}/DEM/Cape-modern_Lidar_downsample.tif'.format(data_directory),
-             '{}/Cape_share/Frisco-1_trajectory.csv'.format(data_directory),
-             '{}/Cape_share/Frisco-2_trajectory.csv'.format(data_directory),
-             '{}/Cape_share/Frisco-3_trajectory.csv'.format(data_directory),
-             '{}/Cape_share/Frisco-4_trajectory.csv'.format(data_directory),
-             '{}/vmods/ToB_50m_grid_3-1-24.nc'.format(data_directory)]
+    'TM': [],
+    'Cape': {'Topography': '{}/DEM/Cape-modern_Lidar_downsample.tif'.format(data_directory),
+             'Frisco-1': '{}/Cape_share/Frisco-1_trajectory.csv'.format(data_directory),
+             'Frisco-2': '{}/Cape_share/Frisco-2_trajectory.csv'.format(data_directory),
+             'Frisco-3': '{}/Cape_share/Frisco-3_trajectory.csv'.format(data_directory),
+             'Frisco-4': '{}/Cape_share/Frisco-4_trajectory.csv'.format(data_directory),
+             'Basement': '{}/vmods/ToB_50m_grid_3-1-24.nc'.format(data_directory),
+             'Bearskin-1IA': '{}/vector/boreholes/Bearskin_1IA_xyz.csv'.format(data_directory),
+             'Bearskin-2IB': '{}/vector/boreholes/Bearskin_2IB_xyz.csv'.format(data_directory),
+             'Bearskin-4PB': '{}/vector/boreholes/Bearskin_4PB_xyz.csv'.format(data_directory),
+             'Bearskin-6IB': '{}/vector/boreholes/Bearskin_6IB_xyz.csv'.format(data_directory),
+             'Bearskin-7PA': '{}/vector/boreholes/Bearskin_7PA_xyz.csv'.format(data_directory),
+             'Bearskin-8IA': '{}/vector/boreholes/Bearskin_8IA_xyz.csv'.format(data_directory)}
 }
 
 projections = {'cape': pyproj.Proj("EPSG:26912"),
@@ -141,66 +148,35 @@ def plot_3D(datasets, catalog, field):
     :return:
     """
     objects = []
+    # What field is this?
+    # field = datasets[0].split('/')[-3]
+    field = 'cape'
     try:
         utm = projections[field]
     except KeyError:
         return
-    for data in datasets:
+    for label, data in datasets.items():
         if not data.endswith(('tif', 'nc')):
             # Add objects
-            try:
-                wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
-                east = wellpath[:, 0]
-                north = wellpath[:, 1]
-                dep_m = wellpath[:, 2]
-                objects.append(go.Scatter3d(x=east,
-                            y=north,
-                            z=dep_m,
-                            mode='lines',
-                            line=dict(color='black', width=6),
-                            hoverinfo='skip'))
-            except ValueError:
-                wellpath = pd.read_csv(data)
-                if 'Well_ID' in wellpath.columns and wellpath['Well_ID'].nunique() > 1:
-                    for well_id in wellpath['Well_ID'].unique():
-                        cd = color_dict[field]
-                        color = 'gray'
-                        for lst, col in cd.items():
-                            if well_id in lst:
-                                color = col
-                                break
-                        wp = wellpath[wellpath['Well_ID'] == well_id]
-                        east = wp['X (m)'].values
-                        north = wp['Y (m)'].values
-                        dep_m = wp['Z (m)'].values
-                        objects.append(go.Scatter3d(
-                            x=east,
-                            y=north,
-                            z=dep_m,
-                            mode='lines',
-                            line=dict(color=color, width=6),
-                            name=str(well_id),
-                            hoverinfo='skip'
-                        ))
-                else:
-                    east = wellpath['X (m)'].values
-                    north = wellpath['Y (m)'].values
-                    dep_m = wellpath['Z (m)'].values
-                    objects.append(go.Scatter3d(
-                        x=east,
-                        y=north,
-                        z=dep_m,
-                        mode='lines',
-                        line=dict(color='black', width=6),
-                        hoverinfo='skip'
-                    ))
+            wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
+            east = wellpath[:, 0]
+            north = wellpath[:, 1]
+            dep_m = wellpath[:, 2]
+            objects.append(go.Scatter3d(x=east,
+                                        y=north,
+                                        z=dep_m,
+                                        name=label,
+                                        mode='lines',
+                                        line=dict(color='black', width=6),
+                                        hoverinfo='skip'),
+                                        )
         elif data.endswith('tif'):
             topo = gdal.Open(data, gdal.GA_ReadOnly)
             x, y, band = get_pixel_coords(topo)
             X, Y = np.meshgrid(x, y, indexing='xy')
             raster_values = band.ReadAsArray()
             topo_mesh = go.Mesh3d(x=X.flatten(), y=Y.flatten(),
-                                  z=raster_values.flatten(), name='Topography', color='gray',
+                                  z=raster_values.flatten(), name=label, color='gray',
                                   opacity=0.3, delaunayaxis='z', showlegend=True,
                                   hoverinfo='skip')
             objects.append(topo_mesh)
@@ -210,62 +186,59 @@ def plot_3D(datasets, catalog, field):
             X, Y = np.meshgrid(tob.easting, tob.northing, indexing='xy')
             Z = tob.values.flatten()
             tob_mesh = go.Mesh3d(x=X.flatten(), y=Y.flatten(), z=Z,
-                                 name='Basement', color='gray', opacity=0.5, delaunayaxis='z', showlegend=True,
+                                 name=label, color='gray', opacity=0.5, delaunayaxis='z', showlegend=True,
                                  hoverinfo='skip')
             objects.append(tob_mesh)
     mfact = 2.5  # Magnitude scaling factor
     # Add arrays to the plotly objects
-    try:
-        # id, t, lat, lon, depth, m, agency, status, phases, geo, _, _, _, _, _ = zip(*catalog)
-        id, t, lat, lon, depth, m = zip(*catalog)
-    except ValueError:  # When passing an obspy Catalog
-        params = []
-        for ev in catalog:
-            o = ev.preferred_origin()
-            try:
-                m = ev.preferred_magnitude().mag
-            except AttributeError:
-                m = 0.5
-            params.append([ev.resource_id.id, o.time.timestamp, o.latitude, o.longitude, o.depth, m])
-        params = np.array(params)
-        id, t, lat, lon, depth, m = np.split(params, 6, axis=1)
-        t = t.astype('f').flatten()
-        lat = lat.astype('f').flatten()
-        lon = lon.astype('f').flatten()
-        depth = depth.astype('f').flatten()
-        m = m.astype('f').flatten()
-    tickvals = np.linspace(min(t), max(t), 10)
-    ticktext = [datetime.fromtimestamp(t).strftime('%d %b %Y: %H:%M')
-                for t in tickvals]
-    ev_east, ev_north = utm(lon, lat)
-    # depth = np.array(depth) * -1#000
-    if field in depth_correction:
-        depth = depth_correction[field] - np.array(depth)
-    else:
-        depth = -np.array(depth)
-    depth = 1450 - np.array(depth)
-    scat_obj = go.Scatter3d(x=ev_east, y=ev_north, z=depth,
-                            mode='markers',
-                            name='Seismic event',
-                            hoverinfo='text',
-                            text=np.array(id),
-                            marker=dict(color=t,
-                                        cmin=min(tickvals),
-                                        cmax=max(tickvals),
-                                        size=(mfact * np.array(m)) ** 2,
-                                        symbol='circle',
-                                        line=dict(color=t,
-                                                  width=1,
-                                                  colorscale='Cividis'),
-                                        colorbar=dict(
-                                            title=dict(text='Timestamp',
-                                                       font=dict(size=18)),
-                                            x=-0.2,
-                                            ticktext=ticktext,
-                                            tickvals=tickvals),
-                                        colorscale='Bluered',
-                                        opacity=0.5))
-    objects.append(scat_obj)
+    catalog_names = ['NLLoc', 'HypoDD', 'Fervo']  # Here assuming you pass the catalog files in this order...
+    for i, catalog in enumerate(catalogs):
+        try:
+            # id, t, lat, lon, depth, m, agency, status, phases, geo, _, _, _, _, _ = zip(*catalog)
+            id, t, lat, lon, depth, m = zip(*catalog)
+        except ValueError:  # When passing an obspy Catalog
+            params = []
+            for ev in catalog:
+                o = ev.preferred_origin()
+                try:
+                    m = ev.preferred_magnitude().mag
+                except AttributeError:
+                    m = 0.5
+                params.append([ev.resource_id.id, o.time.timestamp, o.latitude, o.longitude, o.depth, m])
+            params = np.array(params)
+            id, t, lat, lon, depth, m = np.split(params, 6, axis=1)
+            t = t.astype('f').flatten()
+            lat = lat.astype('f').flatten()
+            lon = lon.astype('f').flatten()
+            depth = depth.astype('f').flatten()
+            m = m.astype('f').flatten()
+        tickvals = np.linspace(min(t), max(t), 10)
+        ticktext = [datetime.fromtimestamp(int(t)).strftime('%d %b %Y: %H:%M')
+                    for t in tickvals]
+        ev_east, ev_north = utm(lon, lat)
+        depth = np.array(depth) * -1#000
+        scat_obj = go.Scatter3d(x=ev_east, y=ev_north, z=depth,
+                                mode='markers',
+                                name=catalog_names[i],
+                                hoverinfo='text',
+                                text=np.array(id),
+                                marker=dict(color=t,
+                                            cmin=min(tickvals),
+                                            cmax=max(tickvals),
+                                            size=(mfact * np.array(m)) ** 2,
+                                            symbol='circle',
+                                            line=dict(color=t,
+                                                    width=1,
+                                                    colorscale='Cividis'),
+                                            colorbar=dict(
+                                                title=dict(text='Timestamp',
+                                                        font=dict(size=18)),
+                                                x=-0.2,
+                                                ticktext=ticktext,
+                                                tickvals=tickvals),
+                                            colorscale='Bluered',
+                                            opacity=0.5))
+        objects.append(scat_obj)
     # Start figure
     fig = go.Figure(data=objects)
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
@@ -308,9 +281,9 @@ if __name__ in '__main__':
     print(lines)
     # bbox = get_selection_area(lines)
     # catalog = get_events(lines)
-    catalog = read_events(lines[1])
-    datas = datasets[lines[2]]
-    fig = plot_3D(datas, catalog, lines[2])
+    catalogs = [read_events(l) for l in lines[1:-1]]
+    datas = datasets[lines[-1]]
+    fig = plot_3D(datas, catalogs)
     html = plotly.io.to_html(fig)
     fig.write_html('eqview_3d_compare.html')
     # fig.write_html('output.html')

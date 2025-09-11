@@ -11,12 +11,14 @@ Arbitrary zero depth point is elev = 130 m
 
 import io
 import os
+import re
 import shutil
 import pyproj
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import networkx as nx
 import matplotlib.pyplot as plt
 
 from glob import glob
@@ -872,6 +874,41 @@ def ncedc_dd_to_cat(path):
     return cat
 
 
+def fervo_to_cat(path):
+    # Fervo catalog relative to 16B wellhead (in feet)
+    X0 = 334641.1891
+    Y0 = 4263443.693
+    Z0 = 1650.0249
+
+    df_test = pd.read_csv(path, skipinitialspace=True)
+    df_test.columns = df_test.columns.str.strip()
+    df_test['Easting (m)'] = X0 + df_test['X'] * 0.3048
+    df_test['Northing (m)'] = Y0 + df_test['Y'] * 0.3048
+    df_test['Elevation (m)'] = Z0 - pd.to_numeric(df_test['Depth'], errors='coerce') * 0.3048
+    # Convert Easting/Northing (EPSG:6341) to lat/lon
+    proj = pyproj.Proj("EPSG:6341")
+    df_test['Longitude'], df_test['Latitude'] = proj(df_test['Easting (m)'], df_test['Northing (m)'], inverse=True)
+    cat = Catalog()
+    for _, row in df_test.iterrows():
+        try:
+            ot = UTCDateTime().strptime(row['Origin Date'] + row['Origin Time'], '%d/%m/%Y%H:%M:%S.%f')
+        except:
+            continue
+        o = Origin(
+            time=ot,
+            longitude=row['Longitude'],
+            latitude=row['Latitude'],
+            depth= -1. * row['Elevation (m)']
+        )
+        m = Magnitude(
+            mag=row['MomMag'] if 'MomMag' in row else 1.0
+        )
+        ev = Event(origins=[o], magnitudes=[m])
+        ev.preferred_origin_id = o.resource_id.id
+        cat.events.append(ev)
+    return cat
+
+
 def parse_pyrocko_markers(marker_file):
     """Parse picks in Pyrocko markers format"""
     picks = []
@@ -920,3 +957,49 @@ def plot_cumulative_catalog(catalogs, xlim=None, title=None):
     ax.set_facecolor('whitesmoke')
     plt.show()
     return
+
+
+def extract_lbnl_template(comment_text):
+    """
+    Extracts the first occurrence of 'lbnl202' followed by letters/digits from a string.
+    Returns None if not found.
+    """
+    match = re.search(r'(lbnl202\w+)', comment_text)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
+def plot_template_event_bipartite(cat, max_labels=50):
+    """
+    Plot a bipartite graph of template-event connections from an ObsPy Catalog,
+    extracting template names of the form 'lbnl202...' from Origin comments.
+    """
+    edges = []
+    for event in cat:
+        event_id = event.resource_id.id.split('/')[-1]
+        for origin in event.origins:
+            template_name = extract_lbnl_template(origin.comments[0].text)
+            if template_name:
+                edges.append((template_name, event_id))
+
+    if not edges:
+        print("No template-event edges found. Check your comment format.")
+        return
+
+    # Unique lists for coloring and layout
+    template_names = sorted(set(template for template, _ in edges))
+    event_ids = sorted(set(event for _, event in edges))
+    print(len(edges))
+
+    # Build a DataFrame: rows=templates, cols=events, values=1/0
+    df = pd.DataFrame(0, index=template_names, columns=event_ids)
+    for template, event in edges:
+        df.loc[template, event] = 1
+
+    # Clustered heatmap
+    sns.clustermap(df, cmap="Blues", figsize=(12, 8))
+    plt.title("Template-Event Detection Matrix")
+    plt.show()
+
