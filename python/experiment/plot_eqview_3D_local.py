@@ -138,7 +138,7 @@ def get_pixel_coords(dataset):
     return (np.arange(cols) * pixw) + xo, (np.arange(rows) * pixh) + yo, band
 
 
-def plot_3D(datasets, catalog, field):
+def plot_3D(datasets, catalog):
     """
     Make plotly html of selected earthquakes
 

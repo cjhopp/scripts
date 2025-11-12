@@ -54,6 +54,49 @@ jv_locations = {
     'JV08': (-117.5024, 40.1657, 1321, 202.4)
 }
 
+fallon_locations = {
+    'F06': {'latitude': 39.4159,
+            'longitude': -118.6875,
+            'elevation': 1174.0,
+            'depth': 90.0},
+    'F05': {'latitude': 39.4026,
+            'longitude': -118.7247,
+            'elevation': 1172.0,
+            'depth': 90.0},
+    'F01': {'latitude': 39.3905,
+            'longitude': -118.6783,
+            'elevation': 1168.0,
+            'depth': 90.0},
+    'F08': {'latitude': 39.3807,
+            'longitude': -118.6361,
+            'elevation': 1174.4000,
+            'depth': 90.0},
+    'F04': {'latitude': 39.3879,
+            'longitude': -118.6979,
+            'elevation': 1170.0999,
+            'depth': 90.0},
+    'F10': {'latitude': 39.3671,
+            'longitude': -118.7072,
+            'elevation': 1167.7000,
+            'depth': 90.0},
+    'F09': {'latitude': 39.3564,
+            'longitude': -118.6534,
+            'elevation': 1170.6000,
+            'depth': 90.0},
+    'F02': {'latitude': 39.3860,
+            'longitude': -118.6625,
+            'elevation': 1170.0,
+            'depth': 90.0},
+    'F03': {'latitude': 39.3726,
+            'longitude': -118.6689,
+            'elevation': 1168.3000,
+            'depth': 90.0},
+    'F07': {'latitude': 39.4168,
+            'longitude': -118.6471,
+            'elevation': 1171.4000,
+            'depth': 90.0}}
+
+
 fsb_accelerometers = ['B31', 'B34', 'B42', 'B43', 'B551', 'B585', 'B647',
                       'B659', 'B748', 'B75']
 
@@ -187,6 +230,8 @@ def excel_to_inventory(
     networks = {}
 
     for _, row in df.iterrows():
+        if row['Site'] in ['KRECHBA', 'NEWBERRY', 'BAKKEN', 'GEYSERS']:
+            continue
         net_code = row[network_col]
         sta_code = row[station_col]
         lat = float(row[lat_col])
@@ -211,7 +256,7 @@ def excel_to_inventory(
         ]
         for comp, azimuth, dip in orientations:
             channel = Channel(
-                code=f"{row[band_col]}{row[inst_col]}{comp}",
+                code=f"{row[band_col]}P{comp}",
                 location_code="",  # Set if you have location codes
                 latitude=lat,
                 longitude=lon,
@@ -240,7 +285,7 @@ def excel_to_inventory(
                 site=Site(sta_name),
                 creation_date=start,
                 termination_date=end,
-                channels=[channel]
+                channels=channels
             )
             networks[net_code][sta_code] = station
         else:
@@ -421,6 +466,7 @@ def create_paz_inventory(
     longitude,
     elevation,
     depth,
+    sample_rate,
     natural_frequency,
     damping,
     number_of_zeros_at_origin,
@@ -491,9 +537,11 @@ def create_paz_inventory(
         depth=depth,
         azimuth=0.0,
         dip=-90.0,
+        sample_rate=sample_rate,
         response=response,
         sensor=Equipment(
-            type=instrument_description,
+            type='Geophone',
+            description=instrument_description,
             manufacturer=manufacturer,
             model=model,
             serial_number=serial_number
@@ -1321,3 +1369,123 @@ def modify_SAULN_inventory(inv):
                     if stage.output_units != 'V':
                         stage.output_units = stage.output_units.lower()
     return inv
+
+
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import numpy as np
+from geopy.distance import geodesic
+
+def compare_station_locations(inv1: Inventory, inv2: Inventory, network_code=None, labels=None):
+    """
+    Plot a comparison between two ObsPy Inventory objects containing the same network.
+    Shows station location discrepancies on a map and as histograms.
+    Optionally filter for a specific network code.
+    """
+    # Helper to collect stations info into a dict
+    def get_station_dict(inv):
+        sta_dict = {}
+        for net in inv:
+            if (network_code is not None) and (net.code != network_code):
+                continue
+            for sta in net.stations:
+                sta_dict[sta.code] = {
+                    'latitude': sta.latitude,
+                    'longitude': sta.longitude,
+                    'elevation': sta.elevation
+                }
+        return sta_dict
+
+    # Retrieve station metadata
+    sta1_dict = get_station_dict(inv1)
+    sta2_dict = get_station_dict(inv2)
+    
+    # Get the set of common stations
+    stations = sorted(set(sta1_dict.keys()) & set(sta2_dict.keys()))
+    if not stations:
+        raise ValueError("No matching station codes in both inventories.")
+    
+    # Gather lat/lon for each
+    lats1 = np.array([sta1_dict[sta]['latitude'] for sta in stations])
+    lons1 = np.array([sta1_dict[sta]['longitude'] for sta in stations])
+    lats2 = np.array([sta2_dict[sta]['latitude'] for sta in stations])
+    lons2 = np.array([sta2_dict[sta]['longitude'] for sta in stations])
+    
+    # Distance discrepancies (meters)
+    distances = np.array([
+        geodesic((lat1, lon1), (lat2, lon2)).meters
+        for lat1, lon1, lat2, lon2 in zip(lats1, lons1, lats2, lons2)
+    ])
+    
+    # Map region
+    buffer_margin = 0.5  # degrees
+    min_lat = min(lats1.min(), lats2.min()) - buffer_margin
+    max_lat = max(lats1.max(), lats2.max()) + buffer_margin
+    min_lon = min(lons1.min(), lons2.min()) - buffer_margin
+    max_lon = max(lons1.max(), lons2.max()) + buffer_margin
+    
+    # Start plotting
+    fig = plt.figure(figsize=(16, 8))
+    
+    # === Panel 1: Map ===
+    ax_map = plt.subplot2grid((2,2), (0,0), colspan=1, rowspan=2, projection=ccrs.PlateCarree())
+    ax_map.set_extent([min_lon, max_lon, min_lat, max_lat], ccrs.PlateCarree())
+    ax_map.add_feature(cfeature.LAND)
+    ax_map.add_feature(cfeature.COASTLINE)
+    ax_map.add_feature(cfeature.BORDERS, linestyle=':')
+    ax_map.gridlines(draw_labels=True)
+
+    # Plot both inventories' stations
+    if labels:
+        labs = labels
+    else:
+        labs = ['Inventory 1', 'Inventory 2']
+    ax_map.scatter(lons1, lats1, label=labs[0], marker='o', color='blue', edgecolor='k', zorder=3)
+    ax_map.scatter(lons2, lats2, label=labs[1], marker='^', color='red', edgecolor='k', zorder=3)
+    # Draw lines showing discrepancy
+    for lon1, lat1, lon2, lat2 in zip(lons1, lats1, lons2, lats2):
+        ax_map.plot([lon1, lon2], [lat1, lat2], color='gray', linewidth=1, alpha=0.5, zorder=2)
+    # Annotate with station code (optional: only if few stations)
+    if len(stations) <= 25:
+        for sta, lon, lat in zip(stations, lons1, lats1):
+            ax_map.text(lon, lat, sta, fontsize=8, ha='right', transform=ccrs.PlateCarree())
+        for sta, lon, lat in zip(stations, lons2, lats2):
+            ax_map.text(lon, lat, sta, fontsize=8, ha='left', color='red', transform=ccrs.PlateCarree())
+    
+    ax_map.legend(loc='upper right')
+    ax_map.set_title("Station Locations – Inventory 1 (blue) vs. Inventory 2 (red)\n" 
+                     "Lines connect matching stations")
+    
+    # === Panel 2: Histogram of location discrepancies ===
+    ax_hist = plt.subplot2grid((2,2), (0,1))
+    ax_hist.hist(distances, bins=20, color='orange', edgecolor='k', alpha=0.7)
+    ax_hist.set_xlabel("Location Discrepancy (meters)")
+    ax_hist.set_ylabel("Number of Stations")
+    ax_hist.set_title("Histogram: Location Discrepancies")
+    
+    # === Panel 3: Per-station discrepancies ===
+    ax_bar = plt.subplot2grid((2,2), (1,1))
+    sorted_idx = np.argsort(distances)[::-1]  # largest discrepancies first
+    stas_sorted = np.array(stations)[sorted_idx]
+    dsts_sorted = distances[sorted_idx]
+    ax_bar.barh(stas_sorted, dsts_sorted, color='teal', alpha=0.7)
+    ax_bar.set_xlabel('Discrepancy (meters)')
+    ax_bar.set_title('Per-Station Discrepancies')
+    ax_bar.invert_yaxis()
+    
+    # Summary statistics
+    stats = f"""
+    Number of stations: {len(stations)}
+    Min/Mean/Max discrepancy: {distances.min():.2f} / {distances.mean():.2f} / {distances.max():.2f} m
+    """
+    plt.figtext(0.5, 0.02, stats.strip(), ha='center', fontsize=12, bbox=dict(facecolor='wheat', alpha=0.5))
+    
+    plt.tight_layout(rect=[0, 0.04, 1, 0.98])
+    plt.show()
+    
+    # Optionally: also return a per-station summary
+    return {
+        "stations": stations,
+        "distances": distances
+    }

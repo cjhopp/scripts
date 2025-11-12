@@ -218,6 +218,6 @@ if __name__ in '__main__':
     datasets = check_if_in_field(bbox)
     fig = plot_3D(datasets, catalog)
     html = plotly.io.to_html(fig)
-    fig.write_html('/home/sysop/.seiscomp/scripts/gaps/output/output.html')
-    # fig.write_html('output.html')
+    # fig.write_html('/home/sysop/.seiscomp/scripts/gaps/output/output.html')
+    fig.write_html('output.html')
     # sys.stdout.write(html)

@@ -25,11 +25,14 @@ import cartopy.crs as ccrs
 import cartopy.feature as cf
 import chart_studio.plotly as py
 import plotly.graph_objs as go
+import holoviews as hv
 import shapely.geometry as geometry
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.dates as mdates
 import earthpy.spatial as es
 
+from holoviews import opts
 from rasterio import mask as msk
 from rasterio.merge import merge
 from rasterio.plot import plotting_extent
@@ -48,7 +51,7 @@ from scipy.spatial import Delaunay
 from scipy.spatial.transform import Rotation as R
 from obspy.imaging.beachball import beach
 from cartopy.mpl.geoaxes import GeoAxes
-from obspy import Trace, Catalog
+from obspy import Trace, Catalog, Inventory, UTCDateTime
 from plotly.figure_factory import create_gantt
 from matplotlib import animation, cm
 from matplotlib.dates import DayLocator, HourLocator
@@ -3313,7 +3316,7 @@ def plot_DAC(dem_dir, vector_dir, catalog=None, plot_radii=False, plot_lease=Fal
 
 def plot_cape_seismicity(well_path, tob_path, catalog, location_method='NonLinLoc', status='manual'):
     """
-    Plot seismicity relative to 55-29 with a NS and EW cross-section
+    Plot seismicity relative to wells with a NS and EW cross-section
 
     :param well_path:
     :param tob_path: Directory with top of basement xsections
@@ -3529,6 +3532,304 @@ def plot_5529_seismicity(well_path, catalog, location_method='NonLinLoc'):
     return
 
 
+def latlon_to_enu(lat, lon, center_lat, center_lon):
+    """Convert lat/lon to local ENU x/y (in km) relative to given center point."""
+    deg2km_lat = 111.32
+    mid_lat = np.deg2rad(center_lat)
+    deg2km_lon = 111.32 * np.cos(mid_lat)
+    x = (lon - center_lon) * deg2km_lon    # Easting in km
+    y = (lat - center_lat) * deg2km_lat    # Northing in km
+    return x, y
+
+def plot_interactive_section_linked(inv: Inventory, cat: Catalog,
+                                    ns_width_km=5, ew_width_km=5,
+                                    title=None):
+    # Get stations
+    sta_lats, sta_lons, sta_codes = [], [], []
+    for net in inv:
+        for sta in net.stations:
+            sta_lats.append(sta.latitude)
+            sta_lons.append(sta.longitude)
+            sta_codes.append(f"{net.code}.{sta.code}")
+    sta_lats = np.array(sta_lats)
+    sta_lons = np.array(sta_lons)
+
+    # Get events
+    ev_lats, ev_lons, ev_deps, ev_times, ev_mags = [], [], [], [], []
+    for ev in cat:
+        orig = ev.preferred_origin() or ev.origins[0]
+        mag = ev.preferred_magnitude() or ev.magnitudes[0]
+        time = orig.time.datetime if isinstance(orig.time, UTCDateTime) else orig.time
+        ev_lats.append(orig.latitude)
+        ev_lons.append(orig.longitude)
+        ev_deps.append(orig.depth + 1)
+        ev_times.append(time)
+        ev_mags.append((mag.mag + 2)**2)
+    ev_lats = np.array(ev_lats)
+    ev_lons = np.array(ev_lons)
+    ev_deps = np.array(ev_deps)
+    ev_mags = np.array(ev_mags)
+    ev_times = pd.to_datetime(ev_times) # pandas datetime for HoloViews
+
+    # ---- Convert event time to float for color mapping
+    ev_times_float = ev_times.view(np.int64) / 1e9  # seconds since epoch
+    
+    # Center (median)
+    center_lat = np.median(np.concatenate([ev_lats, sta_lats]))
+    center_lon = np.median(np.concatenate([ev_lons, sta_lons]))
+
+    # Convert to ENU (km)
+    sta_e, sta_n = latlon_to_enu(sta_lats, sta_lons, center_lat, center_lon)
+    ev_e, ev_n = latlon_to_enu(ev_lats, ev_lons, center_lat, center_lon)
+
+    # Build pandas DataFrame for Holoviews
+    events = pd.DataFrame({
+        'e': ev_e,
+        'n': ev_n,
+        'depth': ev_deps,
+        'mag': ev_mags,
+        'time': ev_times,            # original datetime for tooltip
+        'time_float': ev_times_float, # for colormap
+        'latitude': ev_lats,
+        'longitude': ev_lons
+    })
+    stations = pd.DataFrame({
+        'e': sta_e, 'n': sta_n, 'code': sta_codes
+    })
+
+    # Section masks
+    ew_mask = np.abs(events['n']) < ns_width_km  # E-W cross section (within N slab)
+    ns_mask = np.abs(events['e']) < ew_width_km  # N-S cross section (within E slab)
+    
+    if title is None:
+        title = 'Map (events by time, stations red)'
+    # --- Main EN map
+    points = hv.Points(
+        events, ['e', 'n'], ['depth', 'time', 'latitude', 'longitude', 'time_float', 'mag']
+    ).opts(
+        color='time_float', cmap='RdYlBu', colorbar=True,
+        alpha=0.3,
+        toolbar='above',
+        width=420, height=420, 
+        xlabel='Easting (km)', ylabel='Northing (km)', 
+        title=title, 
+        colorbar_position='right', 
+        size='mag',
+        # xlim=(events['e'].min(), events['e'].max()),
+        # ylim=(events['n'].min(), events['n'].max()),
+        xlim=(-6., 6.),
+        ylim=(-6., 6.),
+        shared_axes=True,
+        active_tools=['pan','wheel_zoom'],
+        framewise=True,
+        xformatter='%.1f',
+        yformatter='%.1f',
+        axiswise=False
+    )
+
+    # Add station overlay (no legend_label)
+    station_dots = hv.Points(
+        stations, ['e','n'], ['code']
+    ).opts(
+        marker='triangle', color='black', size=14, line_color='black', alpha=0.7, tools=['hover']
+    )
+
+    # Mark cross-section lines
+    vcenter = hv.VLine(0).opts(color='gray', line_dash='dashed')
+    hcenter = hv.HLine(0).opts(color='gray', line_dash='dashed')
+    map_panel = (points * station_dots * vcenter * hcenter).opts(shared_axes=True)
+
+    # --- EW section: E vs Depth (for |Northing| < slab)
+    ew_section = hv.Points(
+        events[ew_mask], ['e', 'depth'], ['time', 'latitude', 'longitude', 'time_float', 'mag']
+    ).opts(
+        color='time_float', cmap='RdYlBu', colorbar=True, colorbar_position='right',
+        width=420, height=420, size='mag', alpha=0.3,
+        xlabel='Easting (km)', ylabel='Depth (km)',
+        invert_yaxis=True,
+        title=f'E-W Cross Section, |N|< {ns_width_km:.1f} km',
+        shared_axes=True, xlim=map_panel.range('x'), ylim=(-0.5, 5.)
+    )
+    proj_sta_EW = stations[np.abs(stations['n']) < ns_width_km]
+    sta_ew = hv.Points(
+        pd.DataFrame({
+            'e': proj_sta_EW['e'],
+            'depth': np.zeros(len(proj_sta_EW))
+        }),
+        ['e', 'depth']
+    ).opts(marker='triangle', color='black', size=12, alpha=0.6)
+    ew_panel = (ew_section * sta_ew).opts(shared_axes=True)
+
+    # --- NS section: N vs Depth (for |Easting| < slab)
+    ns_section = hv.Points(
+        events[ns_mask], ['n', 'depth'], ['time', 'latitude', 'longitude', 'time_float', 'mag']
+    ).opts(
+        color='time_float', cmap='RdYlBu', colorbar=True, colorbar_position='right',
+        width=420, height=420, size='mag', alpha=0.3,
+        xlabel='Northing (km)', ylabel='Depth (km)',
+        invert_yaxis=True,
+        title=f'N-S Cross Section, |E|< {ew_width_km:.1f} km',
+        shared_axes=True, xlim=map_panel.range('y'), ylim=(-0.5, 5.)
+    )
+    proj_sta_NS = stations[np.abs(stations['e']) < ew_width_km]
+    sta_ns = hv.Points(
+        pd.DataFrame({
+            'n': proj_sta_NS['n'],
+            'depth': np.zeros(len(proj_sta_NS))
+        }),
+        ['n', 'depth']
+    ).opts(marker='triangle', color='black', size=12, alpha=0.6)
+    ns_panel = (ns_section * sta_ns).opts(shared_axes=True)
+
+    # Info panel
+    info = (
+        f"<b>Stations:</b> {len(stations)}<br>"
+        f"<b>Events:</b> {len(events)}<br>"
+        f"<b>Center:</b> {center_lat:.4f}N, {center_lon:.4f}E<br>"
+        f"E-W cross section width: ±{ns_width_km:.1f} km (N from ctr)<br>"
+        f"N-S cross section width: ±{ew_width_km:.1f} km (E from ctr)<br>"
+        f"<b>Time span</b>: {events['time'].min()} to {events['time'].max()}"
+    )
+    info_panel = hv.Div(info).opts(width=420, height=80)
+
+    # Compose layout
+    layout = (
+        (map_panel + ns_panel) +
+        (ew_panel + info_panel)
+    ).cols(2).opts(shared_axes=True)
+    hv.save(layout, 'interactive_cross_sections.html')
+    return layout
+
+
+def plot_cartesian_cross_sections(inv: Inventory, cat: Catalog,
+                                  ns_width_km=1.5, ew_width_km=1.5,
+                                  map_buffer_km=2.0):
+    """
+    Plots: 
+      1. Station/event map in local km (E, N), events colored by time.
+      2. E-W (Easting-depth) cross section.
+      3. N-S (Northing-depth) cross section.
+      4. Info box/stats.
+    ns/ew_width_km: half-width of slab in km for cross sections.
+    """
+    # Collect and convert stations
+    sta_lats = []
+    sta_lons = []
+    for net in inv:
+        for sta in net.stations:
+            sta_lats.append(sta.latitude)
+            sta_lons.append(sta.longitude)
+    sta_lats = np.array(sta_lats)
+    sta_lons = np.array(sta_lons)
+
+    # Events lat/lon/depth/time
+    ev_lats, ev_lons, ev_deps, ev_times = [], [], [], []
+    for ev in cat:
+        orig = ev.preferred_origin() or ev.origins[0]
+        time = orig.time.datetime if isinstance(orig.time, UTCDateTime) else orig.time
+        ev_lats.append(orig.latitude)
+        ev_lons.append(orig.longitude)
+        ev_deps.append(orig.depth / 1000) # km
+        ev_times.append(time)
+    ev_lats = np.array(ev_lats)
+    ev_lons = np.array(ev_lons)
+    ev_deps = np.array(ev_deps)
+    ev_times = np.array(ev_times) # array of datetime
+
+    # Center: median station position (safer for regional settings)
+    center_lat = np.median(np.concatenate([ev_lats, sta_lats]))
+    center_lon = np.median(np.concatenate([ev_lons, sta_lons]))
+
+    # Use local ENU kinematics
+    sta_e, sta_n = latlon_to_enu(sta_lats, sta_lons, center_lat, center_lon)
+    ev_e, ev_n = latlon_to_enu(ev_lats, ev_lons, center_lat, center_lon)
+
+    # Map buffer
+    min_e = min(ev_e.min(), sta_e.min()) - map_buffer_km
+    max_e = max(ev_e.max(), sta_e.max()) + map_buffer_km
+    min_n = min(ev_n.min(), sta_n.min()) - map_buffer_km
+    max_n = max(ev_n.max(), sta_n.max()) + map_buffer_km
+
+    # Cross-section selection:
+    ew_mask = np.abs(ev_n) < ns_width_km # E-W: events near N=0
+    ns_mask = np.abs(ev_e) < ew_width_km # N-S: events near E=0
+
+    # ---- Color mapping on times ----
+    # Avoid warnings with matplotlib and handle single-event catalogs
+    if len(ev_times) > 1:
+        t_start = min(ev_times)
+        t_end = max(ev_times)
+    elif len(ev_times) == 1:
+        t_start = t_end = ev_times[0]
+    else:
+        t_start = t_end = None
+
+    norm = plt.Normalize(mdates.date2num(t_start), mdates.date2num(t_end))
+    cmap = plt.get_cmap('plasma')
+
+    datetimes_nums = mdates.date2num(ev_times)
+    colors = cmap(norm(datetimes_nums))
+
+    # ---------- PLOTTING ----------
+    fig = plt.figure(figsize=(15, 10))
+    # Panel 1: EN map
+    ax_map = plt.subplot2grid((2, 2), (0, 0))
+    sc = ax_map.scatter(ev_e, ev_n, c=datetimes_nums, cmap=cmap, norm=norm, s=30, marker='.', lw=0, label='Events')
+    ax_map.scatter(sta_e, sta_n, marker='^', color='crimson', edgecolor='k', s=70, label='Stations')
+    ax_map.axhline(0, color='gray', ls='--', lw=1, alpha=0.7)
+    ax_map.axvline(0, color='gray', ls='--', lw=1, alpha=0.7)
+    ax_map.set_aspect('equal', adjustable='box')
+    ax_map.legend(loc='upper right')
+    ax_map.set_xlabel("Easting (km)")
+    ax_map.set_ylabel("Northing (km)")
+    ax_map.set_xlim(min_e, max_e)
+    ax_map.set_ylim(min_n, max_n)
+    ax_map.set_title("Stations (red) and Events (colored by time)\nDashed lines: section centers")
+    cbar = plt.colorbar(sc, ax=ax_map, orientation='vertical', pad=0.01)
+    cbar.set_label("Event Time")
+    cbar.ax.yaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
+
+    # Panel 2: E-W cross section (Easting-depth, for |N| < ns_width_km)
+    ax_ew = plt.subplot2grid((2, 2), (1, 0))
+    ax_ew.scatter(ev_e[ew_mask], ev_deps[ew_mask], c=datetimes_nums[ew_mask], cmap=cmap, norm=norm, s=25, lw=0)
+    for e, n in zip(sta_e, sta_n):
+        if np.abs(n) < ns_width_km:
+            ax_ew.plot(e, 0, marker='v', color='crimson', markersize=10, alpha=0.4)
+    ax_ew.invert_yaxis()
+    ax_ew.set_xlabel('Easting (km)')
+    ax_ew.set_ylabel('Depth (km)')
+    ax_ew.set_xlim(min_e, max_e)
+    ax_ew.set_title(f"E-W Cross Section (|N| < {ns_width_km:.1f} km)")
+    
+    # Panel 3: N-S cross section (Northing-depth, for |E| < ew_width_km)
+    ax_ns = plt.subplot2grid((2, 2), (0, 1))
+    ax_ns.scatter(ev_n[ns_mask], ev_deps[ns_mask], c=datetimes_nums[ns_mask], cmap=cmap, norm=norm, s=25, lw=0)
+    for e, n in zip(sta_e, sta_n):
+        if np.abs(e) < ew_width_km:
+            ax_ns.plot(n, 0, marker='v', color='crimson', markersize=10, alpha=0.4)
+    ax_ns.invert_yaxis()
+    ax_ns.set_xlabel('Northing (km)')
+    ax_ns.set_ylabel('Depth (km)')
+    ax_ns.set_xlim(min_n, max_n)
+    ax_ns.set_title(f"N-S Cross Section (|E| < {ew_width_km:.1f} km)")
+
+    # Panel 4: info
+    ax_info = plt.subplot2grid((2, 2), (1, 1))
+    ax_info.axis('off')
+    info = f'''
+    Stations: {len(sta_e)}
+    Events: {len(ev_e)}
+    Map center: {center_lat:.4f}N {center_lon:.4f}E
+    E-W cross section slab: ±{ns_width_km:.1f} km (N)
+    N-S cross section slab: ±{ew_width_km:.1f} km (E)
+    Timespan: {t_start} to {t_end}
+    '''
+    ax_info.text(0.05, 0.6, info, fontsize=13, va='top')
+
+    plt.tight_layout()
+    plt.show()
+
+
 #### One-off Collab plotting
 optasense_dicts = [dict(Task='Optasense', Start=datetime(2022, 3, 17, 22, 3),
                         Finish=datetime(2022, 6, 1, 16, 55),
@@ -3571,6 +3872,7 @@ terra15_dicts = [dict(Task='Terra15', Start=datetime(2022, 3, 18, 15, 57),
                       Finish=datetime(2022, 6, 21, 18, 20),
                       Resource="Good timing")
                  ]
+
 def plot_Collab_gantt(cassm_files, vbox_files, dss_files, dts_files, outfile):
     """
     Plot gantt chart of data coverage for various monitoring systems

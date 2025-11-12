@@ -29,6 +29,7 @@ from itertools import cycle
 from bitarray import bitarray
 from bitarray.util import ba2int
 from pathlib import Path
+from lxml import etree
 from datetime import timedelta, datetime, date
 from joblib import Parallel, delayed
 from obspy import read, Stream, Catalog, UTCDateTime, Trace, ObsPyException, read_events
@@ -59,6 +60,7 @@ from scipy import fftpack
 from scipy.io import savemat
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
+from scipy.ndimage import gaussian_filter1d
 from scipy.spatial.transform import Rotation
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
@@ -1021,40 +1023,51 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
     return
 
 
-def tribe_from_client(catalog, client, parameters):
+def tribe_from_client(catalog, client, parameters, seeds=None):
     """
-    Small wrapper for creating a tribe from client
-
-    Basically just to catch merge exceptions and skip
-
-    :param catalog: Catalog of events (we'll loop over days)
-    :param params: Rest of kwargs for Tribe.construct
-
-    :return:
+    Efficiently create a Tribe by pulling each day's data once and looping over events in that day.
+    Pulls exactly 86400s for each UTC day.
+    Calls template_gen once on the entire catalog after filtering picks.
     """
     tribe = Tribe()
     catalog.events.sort(key=lambda x: x.preferred_origin().time)
-    for ev in catalog:
-        # Remove all picks not associated to preferred_origin
-        arr_picks = [arr.pick_id.get_referred_object() for arr in ev.preferred_origin().arrivals]
-        ev.picks = arr_picks
-        ev_cat = Catalog(events=[ev])
+    # Remove picks not in seeds list
+    if seeds is not None:
+        for ev in catalog:
+            arr_picks = [arr.pick_id.get_referred_object() for arr in ev.preferred_origin().arrivals]
+            arr_picks = [p for p in arr_picks if p.waveform_id.get_seed_string() in seeds]
+            ev.picks = arr_picks
+        # Remove events with no picks left
+        catalog.events = [ev for ev in catalog if len(ev.picks) > 0]
+    if len(catalog) == 0:
+        print("No events left after filtering picks with seeds.")
+        return tribe
+
+    # Gather all unique seed ids for the filtered catalog
+    all_picks = [pk for ev in catalog for pk in ev.picks]
+    ids = list({p.waveform_id.get_seed_string() for p in all_picks})
+    if not ids:
+        print("No picks for any events in catalog after filtering. Skipping.")
+        return tribe
+
+    # Call template_gen once on the entire catalog
+    print("Generating templates for filtered catalog")
+    temp_list = template_gen(
+        method='from_client',
+        client_id=client,
+        catalog=catalog,
+        data_pad=20,
+        **parameters
+    )
+    for i, temp in enumerate(temp_list):
+        ev = catalog[i]
         eid = ev.resource_id.id.split('/')[-1]
-        date = ev.picks[0].time
-        ids = [p.waveform_id.get_seed_string() for p in arr_picks]
-        bulk = [i.split('.') for i in ids]
-        proc_len = parameters['process_length']
-        for b in bulk:
-            b.extend([date - proc_len / 2, date + proc_len / 2])
-        bulk = [tuple(b) for b in bulk]
-        print(bulk)
-        print('Generating template {}'.format(eid))
-        st = client.get_waveforms_bulk(bulk)
-        print(st)
-        temp = template_gen(method='from_meta_file', name=eid, st=st, meta_file=ev_cat, **parameters)
-        temp_new = Template(name=eid, event=ev, st=temp[0], lowcut=parameters['lowcut'], highcut=parameters['highcut'],
-                            samp_rate=parameters['samp_rate'], filt_order=parameters['filt_order'],
-                            prepick=parameters['prepick'], process_length=parameters['process_length'])
+        temp_new = Template(
+            name=eid, event=ev, st=temp,
+            lowcut=parameters['lowcut'], highcut=parameters['highcut'],
+            samp_rate=parameters['samp_rate'], filt_order=parameters['filt_order'],
+            prepick=parameters['prepick'], process_length=parameters['process_length']
+        )
         tribe.templates.append(temp_new)
     return tribe
 
@@ -1248,7 +1261,7 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
 
 
 def detect_tribe_client(tribe, client, start, end, param_dict,
-                        daylong_dir=None):
+                        daylong_dir, party_dir):
     """
     Run detect for tribe on specified wav client
 
@@ -1263,10 +1276,9 @@ def detect_tribe_client(tribe, client, start, end, param_dict,
 
     logging.basicConfig(
         filename='tribe-detect_run.txt',
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
-    party = Party()
     for date in date_generator(start.datetime, end.datetime):
         print('Running detect: {}'.format(date))
         # try:
@@ -1287,17 +1299,19 @@ def detect_tribe_client(tribe, client, start, end, param_dict,
                         tr.data = tr.data.filled()
                 day_st.write('{}/{}.mseed'.format(daylong_dir, str(date).replace(' ', '_').replace(':', '.')),
                              format='MSEED')
+                del day_st
         else:
             day_party = tribe.client_detect(
                 client=client, starttime=UTCDateTime(date),
                 endtime=UTCDateTime(date) + 86400,
                 **param_dict)
-        party += day_party
-        # except (OSError, IndexError, MatchFilterError, Exception) as e:
-        #     # Any number of lame pre-processing errors, usually
-        #     logging.exception(e)
-        #     continue
-    return party
+        # Decluster the party to the trig_int before writing
+        day_party.decluster(trig_int=param_dict['trig_int'])
+        # Just save the party for each day
+        # Gets around RAM overruns for enormous daylong parties getting appended to each other over many days
+        day_party.write('{}/party_{}'.format(party_dir, str(date).replace(' ', '_').replace(':', '.')))
+        del day_party
+    return
 
 
 def detect_tribe(tribe, wav_dir, start, end, param_dict):
@@ -1381,7 +1395,7 @@ def detect_tribe_h5(tribe, wav_dir, start, end, param_dict):
     h5s = glob('{}/*.h5'.format(wav_dir))
     h5s.sort()
     # Establish list of needed stations
-    stas = list(set([tr.stats.station for temp in tribe for tr in temp.st]))
+    stas = list(set([tr.stats.station for temp in tribe for tr in temp.event.picks]))
     for h5 in h5s:
         continuous = Stream()
         filestart = datetime.strptime(
@@ -1612,6 +1626,214 @@ def party_multiplot_wavdir(party, wav_dir, plotdir, start, end):
     return
 
 
+def _finalise_figure(fig, **kwargs):  # pragma: no cover
+    """
+    Internal function to wrap up a figure.
+    {plotting_kwargs}
+    """
+    import matplotlib.pyplot as plt
+
+    title = kwargs.get("title")
+    show = kwargs.get("show", True)
+    save = kwargs.get("save", False)
+    savefile = kwargs.get("savefile", "EQcorrscan_figure.png")
+    return_figure = kwargs.get("return_figure", False)
+    size = kwargs.get("size", (10.5, 7.5))
+    fig.set_size_inches(size)
+    if title:
+        fig.suptitle(title)
+    if save:
+        fig.savefig(savefile, bbox_inches="tight")
+        Logger.info("Saved figure to {0}".format(savefile))
+    if show:
+        plt.show(block=True)
+    if return_figure:
+        return fig
+    try:
+        fig.clf()
+        plt.close(fig)
+    except Exception as e:
+        import tkinter
+        if not (isinstance(e, tkinter.TclError) and 'invalid command name' in str(e)):
+            raise
+        # Otherwise, ignore
+    return None
+
+
+def detection_multiplot(stream, template=None, times=None, party=None,
+                        streamcolour='k', cmap='tab10', template_labels=None,
+                        **kwargs):
+    """
+    Plot a stream with one-or-more templates overlaid at detection times.
+
+    Usage:
+      - Old (single template): detection_multiplot(stream, template=Stream, times=[UTCDateTime,...], ...)
+      - Multi-template: detection_multiplot(stream, template=[Stream1,Stream2], times=[[t1...],[t2...]], ...)
+      - Party (eqcorrscan Party): detection_multiplot(stream, party=party_object, ...)
+        For a Party, each Family in the Party is used: Family.template.st is the template Stream,
+        Family.detections yields Detection objects with detect_time attribute.
+
+    template / times are ignored if party is provided.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+    from itertools import cycle
+    from matplotlib.lines import Line2D
+
+    # --- Build templates and times_list from party if provided ---
+    if party is not None:
+        templates = []
+        times_list = []
+        template_labels = template_labels or []
+        for fam in party:
+            fam_tpl = getattr(fam, 'template', None)
+            if fam_tpl is None:
+                continue
+            # Template stream is either fam.template.st or fam.template (already a Stream)
+            tpl_st = fam_tpl.st if hasattr(fam_tpl, 'st') else fam_tpl
+            templates.append(tpl_st)
+            dets = getattr(fam, 'detections', []) or getattr(fam, 'dets', [])
+            # extract detect_time (support different attribute names)
+            det_times = []
+            for d in dets:
+                t = getattr(d, 'detect_time', None) or getattr(d, 'detect_time_utc', None) or getattr(d, 'time', None)
+                if t is not None:
+                    det_times.append(t)
+            times_list.append(det_times)
+            # label fallback
+            lbl = getattr(fam_tpl, 'name', None) or getattr(fam, 'name', None) or f"Template_{len(templates)}"
+            template_labels.append(lbl)
+    else:
+        # --- Normalize template(s) and times argument ---
+        if template is None:
+            raise ValueError("Either template+times or party must be provided.")
+        if isinstance(template, (list, tuple)):
+            templates = list(template)
+        else:
+            templates = [template]
+        # times can be list-of-lists or single list to broadcast
+        if times is None:
+            times_list = [[] for _ in templates]
+        elif isinstance(times, (list, tuple)) and len(templates) > 1 and all(isinstance(t, (list, tuple)) for t in times):
+            times_list = [list(t) for t in times]
+        else:
+            times_list = [list(times) for _ in templates]
+        if template_labels is None:
+            template_labels = [f"Template {i+1}" for i in range(len(templates))]
+
+    # collect unique station+channel traces across all templates preserving order
+    template_stachans = []
+    for tpl in templates:
+        template_stachans.extend([(tr.stats.station, tr.stats.channel) for tr in tpl])
+    seen = set()
+    unique_stachans = []
+    for stachan in template_stachans:
+        if stachan not in seen:
+            seen.add(stachan)
+            unique_stachans.append(stachan)
+
+    if len(unique_stachans) == 0:
+        raise ValueError("No traces present in template(s).")
+
+    # --- Prepare figure/axes ---
+    ntraces = len(unique_stachans)
+    fig, axes = plt.subplots(ntraces, 1, sharex=True)
+    if ntraces == 1:
+        axes = [axes]
+
+    # determine global mintime across all template traces for alignment
+    all_template_traces = [tr for tpl in templates for tr in tpl]
+    mintime = min([tr.stats.starttime for tr in all_template_traces])
+
+    # color list for templates
+    try:
+        cmap_obj = cm.get_cmap(cmap)
+        tpl_colors = [cmap_obj(i) for i in range(cmap_obj.N)]
+    except Exception:
+        tpl_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    # make deterministic per-template color list (wrap if necessary)
+    tpl_color_list = [tpl_colors[i % len(tpl_colors)] for i in range(len(templates))]
+
+    # --- Loop axes / stachans and plot background + overlays ---
+    for i, (station, channel) in enumerate(unique_stachans):
+        axis = axes[i]
+        image = stream.select(station=station, channel='*' + channel[-1])
+        if not image:
+            print(f'No data for {station} {channel}')
+            continue
+        image = image.merge()[0]
+
+        # datetime vector for samples
+        image_times = [image.stats.starttime.datetime +
+                       timedelta((j * image.stats.delta) / 86400)
+                       for j in range(len(image.data))]
+
+        # normalize background safely
+        denom = max(np.abs(image.data)) if max(np.abs(image.data)) != 0 else 1.0
+        image_norm = image.data / denom
+        axis.plot(image_times, image_norm, streamcolour, linewidth=1.2)
+
+        handles = []
+        # For each template, find matching trace and plot each detection overlay
+        for tpl_idx, tpl in enumerate(templates):
+            color = tpl_color_list[tpl_idx]
+            tpl_tr = None
+            for tr in tpl:
+                if (tr.stats.station, tr.stats.channel) == (station, channel):
+                    tpl_tr = tr
+                    break
+            if tpl_tr is None:
+                continue
+            any_plotted = False
+            for det_time in times_list[tpl_idx]:
+                # compute lag to align template with detection time
+                lagged_time = (UTCDateTime(det_time) + (tpl_tr.stats.starttime - mintime))
+                lagged_dt = lagged_time.datetime
+                template_times = [lagged_dt + timedelta((j * tpl_tr.stats.delta) / 86400)
+                                  for j in range(len(tpl_tr.data))]
+                # normalize template against local image segment (safe)
+                try:
+                    start_idx = int((template_times[0] - image_times[0]).total_seconds() / image.stats.delta)
+                    end_idx = int((template_times[-1] - image_times[0]).total_seconds() / image.stats.delta)
+                    if start_idx < 0 or end_idx <= start_idx:
+                        raise ValueError
+                    segment = image.data[max(0, start_idx):min(len(image.data), end_idx)]
+                    normalizer = max(np.abs(segment)) if len(segment) > 0 and max(np.abs(segment)) != 0 else denom
+                except Exception:
+                    normalizer = denom
+                tpl_denom = max(np.abs(tpl_tr.data)) if max(np.abs(tpl_tr.data)) != 0 else 1.0
+                scale = normalizer / tpl_denom
+                axis.plot(template_times, tpl_tr.data * scale, color=color, linewidth=1.2, alpha=0.9)
+                any_plotted = True
+
+            if any_plotted:
+                label = template_labels[tpl_idx] if tpl_idx < len(template_labels) else f"Template {tpl_idx+1}"
+                handles.append(Line2D([0], [0], color=color, linewidth=1.5, label=label))
+
+        # axis label and legend (include stream handle)
+        ylab = f"{station}.{channel}"
+        axis.set_ylabel(ylab, rotation=0, horizontalalignment='right')
+        if handles:
+            bg_handle = Line2D([0], [0], color=streamcolour, linewidth=1.2, label='Stream')
+            unique_handles = [bg_handle]
+            seen_lbls = set()
+            for h in handles:
+                if h.get_label() not in seen_lbls:
+                    unique_handles.append(h)
+                    seen_lbls.add(h.get_label())
+            axis.legend(handles=unique_handles, loc='upper right', fontsize=8)
+
+    # final formatting
+    if ntraces > 1:
+        axes[-1].set_xlabel('Time')
+    else:
+        axes[0].set_xlabel('Time')
+    plt.subplots_adjust(hspace=0, left=0.175, right=0.95, bottom=0.07)
+    plt.xticks(rotation=10)
+    fig = _finalise_figure(fig=fig, **kwargs)  # pragma: no cover
+    return fig
+
+
 def party_lag_extract(party, wav_dir, out_dir, prepick=30, length=90,
                       shift_len=0.2, min_cc=0.6, process_cores=1, cores=8):
     """
@@ -1660,8 +1882,8 @@ def party_lag_extract(party, wav_dir, out_dir, prepick=30, length=90,
         for wav_file in wav_files:
             try:
                 daylong += read(wav_file)
-            except FileNotFoundError:
-                print('{} doesnt exist'.format(wav_file))
+            except FileNotFoundError as e:
+                print(e)
                 continue
         # Deal with shitty CN sampling rates
         for tr in daylong:
@@ -2341,7 +2563,7 @@ def find_largest_SURF(wav_dir, catalog, method='avg', sig=2):
     return big_ev_cat
 
 
-def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
+def cluster_from_dist_mat(dist_mat, tribe, threshold,
                           show=False, debug=1, method='single'):
     """
     In the case that the distance matrix has been saved, forego calculating it
@@ -2356,50 +2578,69 @@ def cluster_from_dist_mat(dist_mat, temp_list, corr_thresh,
     :param method: Method fed to scipy.heirarchy.linkage
     :return: Groups of templates
     """
+
     dist_vec = squareform(dist_mat)
     if debug >= 1:
         print('Computing linkage')
     Z = linkage(dist_vec, method=method)
-    if show:
-        if debug >= 1:
-            print('Plotting the dendrogram')
-        dendrogram(Z, color_threshold=1 - corr_thresh,
-                   distance_sort='ascending')
-        plt.show()
-    # Get the indices of the groups
     if debug >= 1:
         print('Clustering')
-    indices = fcluster(Z, t=1 - corr_thresh, criterion='distance')
-    # Indices start at 1...
-    group_ids = list(set(indices))  # Unique list of group ids
+    indices = fcluster(Z, t=threshold, criterion='distance')
+    group_ids = list(set(indices))
     if debug >= 1:
         msg = ' '.join(['Found', str(len(group_ids)), 'groups'])
         print(msg)
     # Convert to tuple of (group id, stream id)
-    indices = [(indices[i], i) for i in range(len(indices))]
-    # Sort by group id
-    indices.sort(key=lambda tup: tup[0])
+    indices_tuples = [(indices[i], i) for i in range(len(indices))]
+    indices_tuples.sort(key=lambda tup: tup[0])
+
+    # --- seaborn clustermap plotting ---
+    if show:
+        if debug >= 1:
+            print('Plotting seaborn clustermap')
+        # Assign a color to each cluster
+        palette = sns.color_palette("tab20b", len(group_ids))
+        lut = dict(zip(group_ids, palette))
+        row_colors = pd.Series(indices).map(lut).to_numpy()
+        # Mask diagonal for better visualization
+        mask = np.eye(dist_mat.shape[0], dtype=bool)
+        dist_mat_plot = np.copy(dist_mat)
+        dist_mat_plot[mask] = np.nan
+        # Plot
+        g = sns.clustermap(
+            dist_mat_plot,
+            row_linkage=Z,
+            col_linkage=Z,
+            row_colors=row_colors,
+            col_colors=row_colors,
+            cmap='vlag_r',
+            figsize=(10, 10),
+            xticklabels=False,
+            yticklabels=False,
+            vmin=0, vmax=1
+        )
+        g.ax_row_dendrogram.axvline(threshold, color='red', linestyle='--', linewidth=1.0)
+        g.ax_col_dendrogram.axhline(threshold, color='red', linestyle='--', linewidth=1.0)
+        plt.show()
+
+    # --- grouping logic unchanged ---
     groups = []
     if debug >= 1:
         print('Extracting and grouping')
     for group_id in group_ids:
         group = []
-        for ind in indices:
+        for ind in indices_tuples:
             if ind[0] == group_id:
-                group.append(temp_list[ind[1]])
+                group.append(tribe[ind[1]])
             elif ind[0] > group_id:
-                # Because we have sorted by group id, when the index is greater
-                # than the group_id we can break the inner loop.
-                # Patch applied by CJC 05/11/2015
                 groups.append(group)
                 break
-    # Catch the final group
     groups.append(group)
     return groups
 
 
-def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
-                dist_mat=False, show=False, method='average'):
+def cluster_cat(catalog, wav_dir, param_dict, single_station=False,
+                stations='all'):
     """
     Cross correlate all events in a catalog and return separate tribes for
     each cluster
@@ -2422,16 +2663,16 @@ def cluster_cat(catalog, corr_thresh, corr_params=None, raw_wav_dir=None,
     """
     # Effing catalogs not being sorted by default
     catalog.events.sort(key=lambda x: x.origins[0].time)
-    if corr_params and raw_wav_dir:
-        shift_len = corr_params['shift_len']
-        lowcut = corr_params['lowcut']
-        highcut = corr_params['highcut']
-        samp_rate = corr_params['samp_rate']
-        filt_order = corr_params['filt_order']
-        pre_pick = corr_params['pre_pick']
-        length = corr_params['length']
-        cores = corr_params['cores']
-        wav_dict = read_raw_wavs(raw_wav_dir)
+    if param_dict and wav_dir:
+        shift_len = param_dict['shift_len']
+        lowcut = param_dict['lowcut']
+        highcut = param_dict['highcut']
+        samp_rate = param_dict['samp_rate']
+        filt_order = param_dict['filt_order']
+        pre_pick = param_dict['prepick']
+        length = param_dict['length']
+        cores = param_dict['cores']
+        wav_dict = read_raw_wavs(wav_dir)
         eids = [ev.resource_id.id.split('/')[-1] for ev in catalog]
         try:
             wavs = [wav_dict[eid] for eid in eids]
@@ -3394,6 +3635,82 @@ def plot_raw_spectra(st, ev, seed_ids, inv=None, savefig=None):
     return axes
 
 
+def plot_combined_spectra(streams, labels=None, target_rate=None, smooth_sigma=2.0, normalize=True):
+    # Check if any streams are provided
+    if not streams:
+        print("No streams provided.")
+        return
+
+    # Check if labels are provided and have the correct length
+    if labels is not None and len(labels) != len(streams):
+        raise ValueError("The length of labels must be equal to the number of streams.")
+
+    # Prepare to store frequency and averaged PSD data for plotting
+    avg_psd_list = []
+    freq_list = []
+
+    # Loop through each stream and combine traces
+    for i, stream in enumerate(streams):
+        # Ensure the stream is non-empty
+        if len(stream) == 0:
+            print(f"Stream {i} is empty.")
+            continue
+
+        # Prepare to accumulate the PSDs for averaging
+        psd_sum = None
+        count = 0
+        
+        # Finding the longest trace for consistent frequency axis
+        max_length = max(len(trace.data) for trace in stream)
+
+        # Loop through each Trace in the Stream
+        for trace in stream:
+            # Resample the data if target_rate is specified
+            if target_rate is not None:
+                trace.resample(target_rate)
+
+            # Compute the FFT
+            N = len(trace.data)
+            full_length = max_length  # Use the maximum length for zero-padding
+            fft = np.fft.fft(trace.data, full_length)  # Padding using max length
+            psd = np.abs(fft) ** 2  # Calculate Power Spectral Density
+            if psd_sum is None:
+                psd_sum = np.zeros(full_length)  # Initialize the sum array
+            
+            psd_sum += psd  # Accumulate the PSDs
+            count += 1
+
+        # Average the PSD for this stream
+        if count > 0:
+            avg_psd = psd_sum / count
+            if normalize:
+                avg_psd /= np.max(avg_psd)  # Normalize
+            if smooth_sigma > 0:
+                avg_psd = gaussian_filter1d(avg_psd, sigma=smooth_sigma)  # Smooth
+
+            # Append frequency and average PSD
+            freq = np.fft.fftfreq(full_length, d=1 / (target_rate or trace.stats.sampling_rate))
+            avg_psd_list.append(avg_psd[:full_length // 2])  # Only take the first half
+            freq_list.append(freq[:full_length // 2])  # Frequency should correspond to the PSD
+
+    # Plotting the spectra
+    plt.figure(figsize=(14, 6))
+    
+    for i, (avg_psd, freq) in enumerate(zip(avg_psd_list, freq_list)):
+        label = labels[i] if labels is not None else f'Stream {i+1}'
+        plt.plot(freq, 10 * np.log10(avg_psd), label=label, linewidth=.75, alpha=0.5)
+
+    plt.title('Average Spectra of Seismic Stations')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Power/Frequency (dB/Hz)')
+    plt.xlim(0, (target_rate or stream[0].stats.sampling_rate) / 2)
+    plt.grid()
+    plt.legend(loc='upper right')
+    
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_psds(psd_dir, seeds, reference_seed='NV.NSMTC.B2.CNZ', eq_psd=None, xlim=None):
     """
     Take pre-computed ppsds and plot the means and diffs for all specified
@@ -3922,3 +4239,77 @@ def plot_extracted_seiscomp(event, stream, prepick, length, outdir, event2=None)
     plt.savefig('{}/{}.png'.format(outdir, event.resource_id.id.split('/')[-1]), dpi=300)
     plt.close('all')
     return
+
+
+def extract_picks_from_xml(pick_xml_path, tmin, tmax):
+    picks = []
+    tree = etree.parse(pick_xml_path)
+    ns = {'sc': 'http://geofon.gfz-potsdam.de/ns/seiscomp3-schema/0.13'}
+    for pick in tree.xpath('//sc:pick', namespaces=ns):
+        time_str = pick.find('sc:time/sc:value', namespaces=ns).text
+        station = pick.find('sc:waveformID', namespaces=ns).get('stationCode')
+        channel = pick.find('sc:waveformID', namespaces=ns).get('channelCode')
+        phase = pick.find('sc:phaseHint', namespaces=ns).text
+        t = UTCDateTime(time_str)
+        if tmin <= t <= tmax:
+            picks.append({
+                'time': t,
+                'station': station,
+                'channel': channel,
+                'phase': phase,
+            })
+    return picks
+
+
+def plot_event_waveforms_with_picks(
+    event_xml_path,
+    waveform_path,
+    picks_ml_path,
+    picks_auto_path,
+    window_before=1.0,  # seconds before first arrival
+    window_after=2.0    # seconds after last arrival
+):
+    # 1. Read event and get arrivals
+    event = read_events(event_xml_path)[0]
+    origin = event.preferred_origin() or event.origins[0]
+
+    # Get arrival times from Arrivals in the preferred origin
+    arrival_times = []
+    for arr in origin.arrivals:
+        pick = arr.pick_id.get_referred_object()
+        arrival_times.append(pick.time)
+
+    if not arrival_times:
+        raise ValueError("No arrivals found in event XML.")
+
+    tmin = min(arrival_times) - window_before
+    tmax = max(arrival_times) + window_after
+
+    ml_picks = extract_picks_from_xml(picks_ml_path, tmin, tmax)
+    auto_picks = extract_picks_from_xml(picks_auto_path, tmin, tmax)
+
+    # 3. Read and trim waveform
+    st = read(waveform_path)
+    st.trim(tmin, tmax)
+
+    # 4. Plot
+    for tr in st:
+        fig, ax = plt.subplots(figsize=(12, 4))
+        t = tr.times("utcdatetime")
+        ax.plot([ti.datetime for ti in t], tr.data, label=f"{tr.stats.station}.{tr.stats.channel}")
+
+        # Overlay picks (ML)
+        for pick in ml_picks:
+            if pick['station'] == tr.stats.station and pick['channel'] == tr.stats.channel:
+                ax.axvline(pick['time'].datetime, color='r', linestyle='--', label='ML Pick')
+        # Overlay picks (Auto)
+        for pick in auto_picks:
+            if pick['station'] == tr.stats.station and pick['channel'] == tr.stats.channel:
+                ax.axvline(pick['time'].datetime, color='b', linestyle=':', label='Auto Pick')
+
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))  # Remove duplicate labels
+        ax.legend(by_label.values(), by_label.keys())
+        ax.set_title(f"{tr.stats.station}.{tr.stats.channel}")
+        ax.set_xlim([tmin.datetime, tmax.datetime])
+        plt.show()

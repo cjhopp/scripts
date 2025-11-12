@@ -1,0 +1,284 @@
+@startuml
+
+' Define styles
+skinparam rectangle {
+  BackgroundColor #eef
+  BorderColor Black
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam component {
+  BackgroundColor #d6e7dfff
+  BorderColor Black
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam database {
+  BackgroundColor #ffd
+  BorderColor Black
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam cloud {
+  BackgroundColor #f8f8f8
+  BorderColor #333
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam actor {
+  BackgroundColor #ffc
+  BorderColor #555
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam node {
+  BackgroundColor #ffc
+  BorderColor #555
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam port {
+  BackgroundColor #000000ff
+  BorderColor #555
+  FontSize 24
+  ArrowFontSize 24
+}
+
+    
+together {
+    together {
+        cloud "Don Campbell" as RT130DAC {
+            node "DAC01" as RT1
+            node "DAC02" as RT2
+            node "DAC03" as RT3
+            node "DAC04" as RT4
+            node "DAC05" as RT5
+            node "DAC06" as RT6
+            node "DAC07" as RT7
+            node "DAC08" as RT8
+            node "DAC09" as RT9
+
+            }
+        cloud "Jersey Valley" as WRANGLERJV {
+            node "JV01" as WR1
+            node "JV02" as WR2
+            node "JV03" as WR3
+            node "JV04" as WR4
+            node "JV05" as WR5
+            node "JV06" as WR6
+            node "JV07" as WR7
+            node "JV08" as WR8
+            }
+        }
+
+    component "chopp-u96\n//131.243.224.51//" as SCM2 {
+        node "Amplify seiscomp" as SCAMPLIFY {
+            rectangle "**Messaging**\n**Server**" as SCMSG2
+            rectangle "**seedlink client**" as SLCLIENT2
+            rectangle "Processing" as PROC2 {
+                rectangle "scamp" as SCAMP2
+                rectangle "scevent" as SCEVENT2
+                rectangle "//Jersey Valley pipeline//" as JVPIPE {
+                    rectangle "jv-autopick" as JVAUTOPICK
+                    rectangle "jv-scanloc" as JVSCANLOC
+                    rectangle "jv-screloc" as JVRELOC
+                    rectangle "jv-scrtdd" as JVRTDD
+                    }
+                rectangle "//Don Campbell pipeline//" as DACPIPE {
+                    rectangle "dac-autopick" as DACAUTOPICK
+                    rectangle "dac-scanloc" as DACSCANLOC
+                    rectangle "dac-screloc" as DACRELOC
+                    rectangle "dac-scrtdd" as DACRTDD
+                    }
+                }
+            rectangle "**fdsnws**\nPort 8085" as FDSNWS2
+            rectangle "**seedlink-export**\n Port 18002" as SLEXPORT2
+            rectangle "GAPS Web Apps" as GAPSAMP {
+                rectangle "GAPS Amplify" as GAPSAMPLIFY
+                rectangle "GAPS Amplify (public)" as GAPSAMPLIFYPUB
+                }
+            }
+        node "RTPD" as RTPD2 {
+            rectangle "SLSVR" as SLSVR2
+            }
+
+        database "Seiscomp DB\nmariadb\n\n" as SCDB2
+
+        database "Waveform archive\n\n" as WFDB2
+
+        port 2543 as RTP_PORT2
+
+        port 18000 as SLPORT2
+
+        port 2049 as NFS_MOUNT2
+
+        port 8085 as FDSNWS_PORT2D
+
+        port 18002 as SLEXPORT_PORT2
+
+        }
+    }
+
+together {
+    actor "User" as USER
+    cloud "Earthscope" as EARTHSCOPE
+    }
+
+together {
+    together {
+        cloud "Newberry" as NEWBCENTAUR {
+            node "NN07" as CENT7
+            node "NN09" as CENT9
+            node "NN17" as CENT17
+            node "NN18" as CENT18
+            node "NN19" as CENT19
+            node "NN21" as CENT21
+            node "NN24" as CENT24
+            node "NN32" as CENT32
+            }
+        cloud "Cape Modern" as RT130CAPE {
+            node "CS01" as CAPE1
+            node "CS02" as CAPE2
+            node "CS03" as CAPE3
+            node "CS04" as CAPE4
+            node "CS05" as CAPE5
+            node "CS06" as CAPE6
+            node "HITP" as HITP
+            node "HITP2" as HITP2
+            }
+        }
+
+    together {
+        cloud "SmartSolo IMUs" as SMARTSOLO {
+            node "Station 1" as SS1
+            node "Station 2" as SS2
+            node "Station N" as SSN
+            }
+        component "SmartSolo Ingest Machine\n//131.243.227.87//" as SSM {
+            database "SmartSolo Waveform DB\n" as SSWDB
+            }
+        }
+
+    component "fracture\n//131.243.224.19//" as SCM {
+        node "Seiscomp" as SC {
+            rectangle "**Messaging**\n**Server**" as SCMSG
+            rectangle "**seedlink client**" as SLCLIENT
+            rectangle "Processing" as PROC {
+                rectangle "scamp" as SCAMP
+                rectangle "scevent" as SCEVENT
+                rectangle "//Cape pipeline//" as CAPEPIPE {
+                    rectangle "cape-autopick" as CAPEAUTOPICK
+                    rectangle "cape-scanloc" as CAPESCANLOC
+                    rectangle "cape-screloc" as CAPERELOC
+                    rectangle "cape-scrtdd" as CAPERTDD
+                    }
+                rectangle "//Newberry pipeline//" as NEWBPIPE {
+                    rectangle "newb-autopick" as NEWBAUTOPICK
+                    rectangle "newb-scanloc" as NEWBSCANLOC
+                    rectangle "newb-screloc" as NEWBRELOC
+                    rectangle "newb-scrtdd" as NEWBRTDD
+                    }
+                }
+            rectangle "**fdsnws**\nPort 8085" as FDSNWS
+            rectangle "**seedlink-export**\n Port 18002" as SLEXPORT
+            rectangle "GAPS Web Apps" as GAPSALL {
+                rectangle "GAPS Cape" as GAPSCAPE
+                rectangle "GAPS Cape (public)" as GAPSCAPEPUB
+                rectangle "GAPS Mazama" as GAPSMAZAMA
+                rectangle "GAPS Mazama (public)" as GAPSMAZAMAPUB
+                }
+            }
+        node "RTPD" as RTPD {
+            rectangle "SLSVR" as SLSVR
+            }
+
+        database "Seiscomp DB\nmariadb\n\n" as SCDB
+
+        database "Waveform archive\n\n" as WFDB
+
+        port 2543 as RTP_PORT
+
+        port 18000 as SLPORT
+
+        port 2049 as NFS_MOUNT
+
+        port 8085 as FDSNWS_PORT
+
+        port 18002 as SLEXPORT_PORT
+
+        }
+    }
+
+cloud "NGINX proxy server\n//128.3.71.56//" as NGINX
+
+cloud "LBNL Cloudflare" as CLOUDFLARE {
+    rectangle "HTTP basic auth" as AUTH {
+        rectangle "cape.lbl.gov" as CAPEWEB
+        rectangle "mazama.lbl.gov" as MAZAMAWEB
+        rectangle "amplify.lbl.gov" as AMPLIFYWEB
+        }
+    rectangle "No authorization" as NOAUTH {
+        rectangle "cape-public.lbl.gov" as CAPEPUBWEB
+        rectangle "emeequeue.lbl.gov" as MAZAMAPUBWEB
+        rectangle "amplify-public.lbl.gov" as AMPLIFYPUBWEB
+        }
+    }
+
+' Connections
+NEWBCENTAUR -[#blue,bold]-> SLPORT
+RT130DAC -[#blue,bold]-> RTP_PORT2
+WRANGLERJV -[#blue,bold]-> SLPORT2
+RT130CAPE -[#blue,bold]-> RTP_PORT
+HITP -[#blue,dotted,thickness=5]-> RTP_PORT
+HITP2 -[#blue,dashed,thickness=4]-> SLPORT
+
+SLSVR -[#blue,bold]-> SLCLIENT
+SLSVR2 -[#blue,bold]-> SLCLIENT2
+
+RTP_PORT -[#blue,bold]-> RTPD
+RTP_PORT2 -[#blue,bold]-> RTPD2
+
+SSWDB -[#blue,bold]-> NFS_MOUNT
+
+SMARTSOLO -[#blue,bold]-> SSM
+
+SLPORT -[#blue,bold]-> SLCLIENT
+SLPORT2 -[#blue,bold]-> SLCLIENT2
+
+NFS_MOUNT -[#blue,bold]-> SLCLIENT
+
+SCMSG <-[#black,bold]-> NEWBPIPE
+SCMSG <-[#black,bold]-> CAPEPIPE
+SCMSG <-[#black,bold]-> SCEVENT
+SCMSG <-[#black,bold]-> SCAMP
+SCMSG <-[#black,bold]-> SCDB
+
+SCMSG2 <-[#black,bold]-> DACPIPE
+SCMSG2 <-[#black,bold]-> JVPIPE
+SCMSG2 <-[#black,bold]-> SCEVENT2
+SCMSG2 <-[#black,bold]-> SCAMP2
+SCMSG2 <-[#black,bold]-> SCDB2
+
+SLCLIENT -[#blue,bold]-> WFDB : "slarchive"
+SLCLIENT2 -[#blue,bold]-> WFDB2 : "slarchive"
+
+GAPSALL <-[#black,bold]- NGINX
+GAPSAMP <-[#black,bold]- NGINX
+
+NGINX <-[#black,bold]- CLOUDFLARE : "HTTPS"
+
+FDSNWS -[#green,bold]-> FDSNWS_PORT
+FDSNWS2 -[#green,bold]-> FDSNWS_PORT2
+
+FDSNWS_PORT -[#green,bold]-> USER
+FDSNWS_PORT2 -[#green,bold]-> USER
+
+SLEXPORT -[#blue,bold]-> SLEXPORT_PORT
+SLEXPORT2 -[#blue,bold]-> SLEXPORT_PORT2
+
+SLEXPORT_PORT -[#blue,bold]-> EARTHSCOPE
+SLEXPORT_PORT2 -[#blue,bold]-> EARTHSCOPE
+
+}
+
+@enduml
