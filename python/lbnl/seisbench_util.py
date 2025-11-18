@@ -41,21 +41,9 @@ class Cape_downloader(WaveformDataset):
 
 
     def __init__(self, **kwargs):
-        citation = (
-            "Each individual network has its own DOI. From publicly available data:\n"
-            "6K: https://doi.org/10.7914/m9sf-hx70\n"
-            "UU: https://doi.org/10.7914/SN/UU\n"
-        )
 
-
-        seisbench.logger.warning(
-            "Check available storage and memory before downloading and general use "
-            "of Cape dataset. "
-        )
-
-
+        self.path = '/media/chopp/HDD1/chet-meq/cape_modern/seisbench/testing/dataset/'
         self._clients = None
-        super().__init__(citation=citation, repository_lookup=True, **kwargs)
 
 
     @classmethod
