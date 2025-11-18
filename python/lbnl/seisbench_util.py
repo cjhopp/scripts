@@ -43,35 +43,35 @@ class Cape(BenchmarkDataset):
     def __init__(self, **kwargs):
         citation = (
             "Each individual network has its own DOI. From publicly available data:\n"
-            "CH: https://doi.org/10.12686/sed/networks/ch\n"
-            "C4: https://doi.org/10.12686/sed/networks/c4\n"
-            "8D: https://doi.org/10.12686/sed/networks/8d\n"
-            "S:  https://doi.org/10.12686/sed/networks/s\n"
-            "XT: https://doi.org/10.12686/alparray/xt_2014"
+            "6K: https://doi.org/10.7914/m9sf-hx70\n"
+            "UU: https://doi.org/10.7914/SN/UU\n"
         )
 
 
         seisbench.logger.warning(
             "Check available storage and memory before downloading and general use "
-            "of ETHZ dataset. "
-            "Dataset size: waveforms.hdf5 ~22Gb, metadata.csv ~13Mb"
+            "of Cape dataset. "
         )
 
 
-        self._client = None
+        self._clients = None
         super().__init__(citation=citation, repository_lookup=True, **kwargs)
 
 
     @classmethod
-    def _fdsn_client(cls):
-        return Client("ETH")
+    def _fdsn_clients(cls):
+        return {'6K': Client("http://131.243.224.19:8085"),
+                'SS': Client("http://131.243.224.19:8085"),
+                'UU': Client("IRIS")}
+
+
 
 
     @property
     def client(self):
-        if self._client is None:
-            self._client = self._fdsn_client()
-        return self._client
+        if self._clients is None:
+            self._clients = self._fdsn_clients()
+        return self._clients
     
     @staticmethod
     def _get_event_params(event):
@@ -179,11 +179,15 @@ class Cape(BenchmarkDataset):
         return trace_params
 
 
-    def _download_dataset(self, writer, time_before=10, time_after=10, **kwargs):
+    def _download_dataset(self, catalog, inventory, writer, time_before=10, time_after=10, **kwargs):
         """
         Download dataset from raw data source via FDSN client.
 
 
+        :param catalog: Catalog of events to download.
+        :type catalog: obspy.core.event.Catalog
+        :param inventory: Inventory of stations.
+        :type inventory: obspy.core.inventory.Inventory
         :param writer:  WaveformDataWriter instance for writing waveforms and metadata.
         :type writer: seisbench.data.base.WaveformDataWriter
         :param time_before: Extract waveform recordings from event onset - time_before, defaults to 60
@@ -194,7 +198,7 @@ class Cape(BenchmarkDataset):
 
         """
         seisbench.logger.info(
-            "No pre-processed version of ETHZ dataset found. "
+            "No pre-processed version of Cape dataset found. "
             "Download and conversion of raw data will now be "
             "performed. This may take a while."
         )
@@ -207,19 +211,6 @@ class Cape(BenchmarkDataset):
             "unit": "counts",
             "instrument_response": "not restituted",
         }
-
-
-        inv = self.client.get_stations(includerestricted=False)
-        inventory_mapper = InventoryMapper(inv)
-
-
-        if (self.path / "ethz_events.xml").exists():
-            seisbench.logger.info("Reading quakeml event catalog from cache.")
-            catalog = obspy.read_events(
-                str(self.path / "ethz_events.xml"), format="QUAKEML"
-            )
-        else:
-            catalog = self._download_ethz_events_xml()
 
 
         self.not_in_inv_catches = 0
@@ -256,9 +247,9 @@ class Cape(BenchmarkDataset):
                 t_start = min(pick.time for pick in picks) - time_before
                 t_end = max(pick.time for pick in picks) + time_after
 
-
+                cli = self.client[trace_params["station_network_code"]]
                 try:
-                    waveforms = self.client.get_waveforms(
+                    waveforms = cli.get_waveforms(
                         network=trace_params["station_network_code"],
                         station=trace_params["station_code"],
                         location="*",
@@ -271,9 +262,7 @@ class Cape(BenchmarkDataset):
                     self.no_data_catches += 1
                     continue
 
-
-                rotate_stream_to_zne(waveforms, inv)
-
+                # rotate_stream_to_zne(waveforms, inv)
 
                 if len(waveforms) == 0:
                     seisbench.logger.debug(
@@ -346,8 +335,6 @@ class Cape(BenchmarkDataset):
 class InventoryMapper:
     """
     Helper class to map station inventories to metadata.
-
-
     """
 
 
