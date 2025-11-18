@@ -3,7 +3,7 @@ SeisBench utility functions.
 """
 
 import seisbench
-from seisbench.data.base import BenchmarkDataset
+from seisbench.data.base import WaveformDataset
 from seisbench.util.trace_ops import (
     rotate_stream_to_zne,
     stream_to_array,
@@ -27,7 +27,7 @@ from obspy.geodetics import gps2dist_azimuth
 from obspy.clients.fdsn import Client
 
 
-class Cape(BenchmarkDataset):
+class Cape_downloader(WaveformDataset):
     """
     Regional benchmark dataset of publicly available waveform data & corresponding
     metadata in Swiss Seismological Service (SED) archive. Contains data from
@@ -63,8 +63,6 @@ class Cape(BenchmarkDataset):
         return {'6K': Client("http://131.243.224.19:8085"),
                 'SS': Client("http://131.243.224.19:8085"),
                 'UU': Client("IRIS")}
-
-
 
 
     @property
@@ -180,7 +178,7 @@ class Cape(BenchmarkDataset):
         return trace_params
 
 
-    def _download_dataset(self, catalog, inventory, writer, time_before=10, time_after=10, **kwargs):
+    def download_dataset(self, catalog, inventory, writer, time_before=10, time_after=10, **kwargs):
         """
         Download dataset from raw data source via FDSN client.
 
