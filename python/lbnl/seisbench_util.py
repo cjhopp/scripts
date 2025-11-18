@@ -101,13 +101,13 @@ class Cape(BenchmarkDataset):
         }
 
 
-        if str(origin.time) < "2019-01-08":
-            split = "train"
-        elif str(origin.time) < "2019-09-04":
-            split = "dev"
-        else:
-            split = "test"
-        event_params["split"] = split
+        # if str(origin.time) < "2019-01-08":
+        #     split = "train"
+        # elif str(origin.time) < "2019-09-04":
+        #     split = "dev"
+        # else:
+        #     split = "test"
+        # event_params["split"] = split
 
 
         if mag is not None:
@@ -150,7 +150,7 @@ class Cape(BenchmarkDataset):
         sta = pick.waveform_id.station_code
 
 
-        lat, lon, elev = inventory.get_station_location(network=net, station=sta)
+        lat, lon, elev, depth = inventory.get_station_location(network=net, station=sta)
 
 
         if not np.isnan(lat * lon):
@@ -173,6 +173,7 @@ class Cape(BenchmarkDataset):
             "station_latitude_deg": lat,
             "station_longitude_deg": lon,
             "station_elevation_m": elev,
+            "station_depth_m": depth
         }
 
 
@@ -359,6 +360,7 @@ class InventoryMapper:
                     "latitude": station._latitude,
                     "longitude": station._longitude,
                     "elevation": station._elevation,
+                    "depth": station[0].depth
                 }
 
 
@@ -376,6 +378,7 @@ class InventoryMapper:
                 sta_meta["latitude"],
                 sta_meta["longitude"],
                 sta_meta["elevation"],
+                sta_meta["depth"],
             )
         except KeyError as e:
             raise KeyError(f"station code '{e.args[0]}' not in inventory")
