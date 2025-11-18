@@ -2,6 +2,7 @@ import os
 import zipfile
 import shutil
 import logging
+import tempfile
 
 from glob import glob
 from obspy import read, read_inventory
@@ -84,25 +85,33 @@ def process_zip_directory(zip_dir_path, output_base_path, inventory):
     zip_dirs = glob(f'{zip_dir_path}/*.zip')
     for zd in zip_dirs:
         logging.info(f"Found zip file: {zd}")
-        # Create a temporary directory to unzip files
-        temp_dir = zd.replace('.zip', '')
+        # Create a temporary directory in the current working directory to unzip files
+        # using TemporaryDirectory ensures automatic cleanup and does not require write perms
         try:
-            with zipfile.ZipFile(zd, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-            logging.info(f"Extracted {zd} to {temp_dir}")
+            with tempfile.TemporaryDirectory(prefix='unz_', dir=os.getcwd()) as temp_dir:
+                try:
+                    with zipfile.ZipFile(zd, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                    logging.info(f"Extracted {zd} to {temp_dir}")
+                except Exception as e:
+                    logging.error(f"Failed to unzip {zd}: {e}")
+                    # continue to next zip file
+                    continue
+
+                # Loop through unzipped Y files and convert to miniseed
+                for root, _, files in os.walk(temp_dir):
+                    for file in files:
+                        y_file_path = os.path.join(root, file)
+                        # optional: skip non-Y files
+                        # if not y_file_path.lower().endswith('.y'):
+                        #     continue
+                        convert_y_to_miniseed(y_file_path, output_base_path, inventory)
+
+                # TemporaryDirectory context will remove temp_dir automatically
+                logging.info(f"Finished processing {zd} and cleaned up temporary directory")
         except Exception as e:
-            logging.error(f"Failed to unzip {zd}: {e}")
-            return
-
-        # Loop through unzipped Y files and convert to miniseed
-        for root, _, files in os.walk(temp_dir):
-            for file in files:
-                y_file_path = os.path.join(root, file)
-                convert_y_to_miniseed(y_file_path, output_base_path, inventory)
-
-        # Remove the unzipped directory
-        shutil.rmtree(temp_dir)
-        logging.info(f"Removed temporary directory: {temp_dir}")
+            logging.error(f"Failed creating temporary directory for {zd}: {e}")
+            continue
 
 def main(input_path, output_base_path):
     logging.info(f"Starting processing with input file: {input_path}")

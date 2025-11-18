@@ -44,13 +44,24 @@ datasets = {
              'Frisco-3': '{}/Cape_share/Frisco-3_trajectory.csv'.format(data_directory),
              'Frisco-4': '{}/Cape_share/Frisco-4_trajectory.csv'.format(data_directory),
              'Basement': '{}/vmods/ToB_50m_grid_3-1-24.nc'.format(data_directory),
-             'Bearskin-1IA': '{}/vector/boreholes/Bearskin_1IA_xyz.csv'.format(data_directory),
-             'Bearskin-2IB': '{}/vector/boreholes/Bearskin_2IB_xyz.csv'.format(data_directory),
-             'Bearskin-4PB': '{}/vector/boreholes/Bearskin_4PB_xyz.csv'.format(data_directory),
-             'Bearskin-6IB': '{}/vector/boreholes/Bearskin_6IB_xyz.csv'.format(data_directory),
-             'Bearskin-7PA': '{}/vector/boreholes/Bearskin_7PA_xyz.csv'.format(data_directory),
-             'Bearskin-8IA': '{}/vector/boreholes/Bearskin_8IA_xyz.csv'.format(data_directory)}
+             'Bearskin-1IA': '{}/vector/boreholes/Bearskin_1IA_trajectory.csv'.format(data_directory),
+             'Bearskin-2IB': '{}/vector/boreholes/Bearskin_2IB_trajectory.csv'.format(data_directory),
+            #  'Bearskin-3PA': '{}/vector/boreholes/Bearskin_3PA_trajectory.csv'.format(data_directory),
+             'Bearskin-4PB': '{}/vector/boreholes/Bearskin_4PB_trajectory.csv'.format(data_directory),
+            #  'Bearskin-5IA': '{}/vector/boreholes/Bearskin_5IA_trajectory.csv'.format(data_directory),
+             'Bearskin-6IB': '{}/vector/boreholes/Bearskin_6IB_trajectory.csv'.format(data_directory),
+             'Bearskin-7PA': '{}/vector/boreholes/Bearskin_7PA_trajectory.csv'.format(data_directory),
+             'Bearskin-8IA': '{}/vector/boreholes/Bearskin_8IA_trajectory.csv'.format(data_directory),
+             'Gold-1PB': '{}/vector/boreholes/Gold_1PB_trajectory.csv'.format(data_directory),
+             'Gold-2IB': '{}/vector/boreholes/Gold_2IB_trajectory.csv'.format(data_directory),
+             'Gold-3PA': '{}/vector/boreholes/Gold_3PA_trajectory.csv'.format(data_directory),
+             'Gold-4PB': '{}/vector/boreholes/Gold_4PB_trajectory.csv'.format(data_directory),
+            #  'Gold-5IA': '{}/vector/boreholes/Gold_5IA_trajectory.csv'.format(data_directory),
+             'Gold-6IB': '{}/vector/boreholes/Gold_6IB_trajectory.csv'.format(data_directory),
+             'Gold-7PA': '{}/vector/boreholes/Gold_7PA_trajectory.csv'.format(data_directory),
+             'Gold-8PB': '{}/vector/boreholes/Gold_8PB_trajectory.csv'.format(data_directory),}
 }
+
 
 projections = {'cape': pyproj.Proj("EPSG:26912"),
                'newberry': pyproj.Proj("EPSG:32610"),
@@ -157,6 +168,7 @@ def plot_3D(datasets, catalog):
         return
     for label, data in datasets.items():
         if not data.endswith(('tif', 'nc')):
+            print(data)
             # Add objects
             wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
             east = wellpath[:, 0]

@@ -1,0 +1,225 @@
+@startuml
+' LBNL SeisComP processing overview with isolated messaging pipelines
+
+'eft to right direction
+
+' Define styles
+skinparam titleFontSize 50
+skinparam ranksep 300
+'sinparam nodesep 100
+
+skinparam rectangle {
+  BackgroundColor #eef
+  BorderColor Black
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam rectangle {
+  BackgroundColor #d6e7dfff
+  BorderColor Black
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam component {
+  BackgroundColor #fdf8d0ff
+  BorderColor Black
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam database {
+  BackgroundColor #ffd
+  BorderColor Black
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam cloud {
+  BackgroundColor #f8f8f8
+  BorderColor #333
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam actor {
+  BackgroundColor #ffc
+  BorderColor #555
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam node {
+  BackgroundColor #ffc
+  BorderColor #555
+  FontSize 24
+  ArrowFontSize 24
+}
+skinparam port {
+  BackgroundColor #000000ff
+  BorderColor #555
+  FontSize 24
+  ArrowFontSize 24
+}
+
+
+title SeisComP messaging flow: fracture
+
+' SeisComP modules
+component "Cape-specific Modules" {
+    rectangle "cape-autopick" {
+        rectangle r1 [
+            Makes picks on Cape continuous waveforms
+            ----
+            Sends Pick objects to CAPEPICK group
+        ]
+    }
+    rectangle "cape-scanloc" {
+        rectangle r2 [
+            Takes picks from CAPEPICK group
+            ----
+            Performs DBSCAN clustering on picks,
+            locates clustered picks, then sends
+            origin objects to CAPELOCATION group
+        ]
+    }
+    rectangle "screloc-cape" {
+        rectangle r3 [
+            Takes origins from CAPELOCATION
+            ----
+            Relocates each origin with NLLoc,
+            sends new origin to CAPELOCATION
+        ]
+    }
+    rectangle scrtdd {
+        rectangle r4 [
+            Takes origins from CAPELOCATION
+            ----
+            Relocates with HypoDD and sends
+            origin to CAPERELOCATION
+        ]
+    }
+}
+
+component "Common Modules" {
+    rectangle scamp [
+        <b>scamp
+        ----
+        Takes picks from PICKS groups
+        ---
+        Sends amplitudes to AMPLITUDE group
+    ]
+    rectangle scmag [
+        <b>scmag
+        ----
+        Takes amplitudes from AMPLITUDE group
+        and origins from LOCATION groups
+        ---
+        Sends magnitudes to MAGNITUDE group
+    ]
+    rectangle scevent [
+        <b><i>scevent
+        ----
+        Takes origins and magnitudes from
+        LOCATION and MAGNITUDE messaging
+        groups.
+        ----
+        Sends event objects to EVENT group
+    ]
+}
+
+component "Newberry-specific Modules" {
+    rectangle "newb-autopick" {
+        rectangle r5 [
+            Makes picks on Newberry continuous waveforms
+            ----
+            Sends Pick objects to NEWBPICK group
+        ]
+    }
+    rectangle "newb-scanloc" {
+        rectangle r6 [
+            Takes picks from NEWBPICK group
+            ----
+            Performs DBSCAN clustering on picks,
+            locates clustered picks, then sends
+            origin objects to NEWBLOCATION group
+        ]
+    }
+    rectangle screloc {
+        rectangle r7 [
+            Takes origins from NEWBLOCATION
+            ----
+            Relocates each origin with NLLoc,
+            sends new origin to NEWBLOCATION
+        ]
+    }
+    rectangle "newb_scrtdd" {
+        rectangle r8 [
+            Takes origins from NEWBLOCATION
+            ----
+            Relocates with HypoDD and sends
+            origin to NEWBRELOCATION
+        ]
+    }
+}
+
+
+
+' Messaging groups - each pipeline is isolated
+component "Cape messaging groups" {
+    rectangle CAPEPICK
+    rectangle CAPELOCATION
+    rectangle CAPERELOCATION
+}
+
+component "Common messaging groups" {
+    rectangle EVENT
+    rectangle AMPLITUDE
+    rectangle MAGNITUDE
+    rectangle LOCATION
+    rectangle PICK
+}
+
+component "Newberry messaging groups" {
+    rectangle NEWBPICK
+    rectangle NEWBLOCATION
+    rectangle NEWBRELOCATION
+}
+
+rectangle note [
+    <b><color:blue>Blue arrows indicate Pick objects
+    <b><color:red>Red arrows indicate Origin objects
+    <b><color:purple>Purple arrows indicate Amplitude objects
+    <b><color:green>Green arrows indicate Magnitude objects
+    <b>Black arrows indicate Event objects
+]
+
+
+' Connections between modules and pipelines (direction = data flow)
+"newb-autopick" -[#blue,thickness=3]-> NEWBPICK
+"cape-autopick" -[#blue,thickness=3]-> CAPEPICK
+"newb-scanloc" <-[#blue,thickness=3]- NEWBPICK
+"cape-scanloc" <-[#blue,thickness=3]- CAPEPICK
+"newb-scanloc" <-[#red,thickness=3]-> NEWBLOCATION
+"cape-scanloc" <-[#red,thickness=3]-> CAPELOCATION
+screloc <-[#red,thickness=3]-> NEWBLOCATION
+"screloc-cape" <-[#red,thickness=3]-> CAPELOCATION
+newb_scrtdd <-[#red,thickness=3]- NEWBLOCATION
+newb_scrtdd -[#red,thickness=3]-> NEWBRELOCATION
+scrtdd <-[#red,thickness=3]- CAPELOCATION
+scrtdd -[#red,thickness=3]-> CAPERELOCATION
+scamp <-[#blue,thickness=3]- PICK
+scamp <-[#blue,thickness=3]- NEWBPICK
+scamp <-[#blue,thickness=3]- CAPEPICK
+scamp -[#purple,thickness=3]-> AMPLITUDE
+scmag <-[#purple,thickness=3]- AMPLITUDE
+scmag <-[#red,thickness=3]- LOCATION
+scmag <-[#red,thickness=3]- NEWBLOCATION
+scmag <-[#red,thickness=3]- CAPELOCATION
+scmag <-[#red,thickness=3]- CAPERELOCATION
+scmag <-[#red,thickness=3]- NEWBRELOCATION
+scmag -[#green,thickness=3]-> MAGNITUDE
+scevent <-[#red,thickness=3]- LOCATION
+scevent <-[#red,thickness=3]- CAPELOCATION
+scevent <-[#red,thickness=3]- CAPERELOCATION
+scevent <-[#green,thickness=3]- MAGNITUDE
+scevent <-[#red,thickness=3]- NEWBLOCATION
+scevent <-[#red,thickness=3]- NEWBRELOCATION
+scevent -[#black,thickness=3]-> EVENT
+
+@enduml

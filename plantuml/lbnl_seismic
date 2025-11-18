@@ -112,7 +112,7 @@ together {
 
         port 2049 as NFS_MOUNT2
 
-        port 8085 as FDSNWS_PORT2D
+        port 8085 as FDSNWS_PORT2
 
         port 18002 as SLEXPORT_PORT2
 
@@ -195,6 +195,8 @@ together {
         database "Seiscomp DB\nmariadb\n\n" as SCDB
 
         database "Waveform archive\n\n" as WFDB
+
+        database "   SQLX   \n\n" as SQLX
 
         port 2543 as RTP_PORT
 
@@ -279,6 +281,7 @@ SLEXPORT2 -[#blue,bold]-> SLEXPORT_PORT2
 SLEXPORT_PORT -[#blue,bold]-> EARTHSCOPE
 SLEXPORT_PORT2 -[#blue,bold]-> EARTHSCOPE
 
-}
+WFDB -[#blue,bold]-> SQLX
+WFDB2 -[#blue,bold]-> SQLX
 
 @enduml
