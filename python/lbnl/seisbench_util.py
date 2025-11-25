@@ -181,7 +181,6 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
             event_split = split_assignments[i]
             origin, mag, fm, event_params = get_event_params(event, event_split)
 
-            origin, mag, fm, event_params = get_event_params(event, split)
             seisbench.logger.info(f"Downloading {event.resource_id}")
 
             station_groups = defaultdict(list)
