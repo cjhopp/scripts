@@ -162,35 +162,6 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
             "instrument_response": "not restituted",
         }
 
-        for event in catalog:
-            event_params = get_event_params(event)
-            for pick in event.picks:
-                trace_params = get_trace_params(pick)
-                waveforms = get_waveforms(pick, trace_params)
-
-                if len(waveforms) == 0:
-                    # No waveform data available
-                    continue
-
-                sampling_rate = waveforms[0].stats.sampling_rate
-                # Check that the traces have the same sampling rate
-                assert all(
-                    trace.stats.sampling_rate == sampling_rate for trace in waveforms
-                )
-
-                actual_t_start, data, _ = sbu.stream_to_array(
-                    waveforms,
-                    component_order=writer.data_format["component_order"],
-                )
-
-                trace_params["trace_sampling_rate_hz"] = sampling_rate
-                trace_params["trace_start_time"] = str(actual_t_start)
-
-                sample = (pick.time - actual_t_start) * sampling_rate
-                trace_params[f"trace_{pick.phase_hint}_arrival_sample"] = int(sample)
-                trace_params[f"trace_{pick.phase_hint}_status"] = pick.evaluation_mode
-
-                writer.add_trace({**event_params, **trace_params}, data)
 
         not_in_inv_catches = 0
         no_data_catches = 0
