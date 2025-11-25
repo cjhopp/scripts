@@ -16,6 +16,8 @@ import string
 import requests
 import sys
 import numpy as np
+import logging
+
 from tqdm import tqdm
 from collections import defaultdict
 from pathlib import Path
@@ -26,6 +28,8 @@ from obspy.clients.fdsn.header import FDSNNoDataException
 from obspy.geodetics import gps2dist_azimuth
 from obspy.clients.fdsn import Client
 
+logger = seisbench.logger
+logger.setLevel(logging.INFO)
 
 dataset_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/dataset')
 metadata_path = dataset_root / "metadata.csv"
@@ -146,11 +150,6 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
 
 
     """
-    seisbench.logger.info(
-        "No pre-processed version of Cape dataset found. "
-        "Download and conversion of raw data will now be "
-        "performed. This may take a while."
-    )
     # Iterate over events and picks, write to SeisBench format
     with seisbench.data.WaveformDataWriter(metadata_path, waveforms_path) as writer:
         # Define data format
@@ -191,13 +190,6 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
                 trace_params[f"trace_{pick.phase_hint}_status"] = pick.evaluation_mode
 
                 writer.add_trace({**event_params, **trace_params}, data)
-        writer.data_format = {
-            "dimension_order": "CW",
-            "component_order": "ZNE",
-            "measurement": "velocity",
-            "unit": "counts",
-            "instrument_response": "not restituted",
-        }
 
         not_in_inv_catches = 0
         no_data_catches = 0
