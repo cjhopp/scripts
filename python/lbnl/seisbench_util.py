@@ -162,7 +162,8 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
             "instrument_response": "not restituted",
         }
 
-
+        inventory_mapper = InventoryMapper(inventory)
+        
         not_in_inv_catches = 0
         no_data_catches = 0
 
