@@ -163,7 +163,7 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
         }
 
         inventory_mapper = InventoryMapper(inventory)
-        
+
         not_in_inv_catches = 0
         no_data_catches = 0
 
@@ -333,7 +333,7 @@ class InventoryMapper:
 if __name__ == "__main__":
     from obspy import read_events, read_inventory
 
-    catalog = read_events('/media/chopp/HDD1/chet-meq/cape_modern/catalogs/seiscomp/manually_reviewed/Cape_manually-reviewed_5-10-24.xml')
+    catalog = read_events('/media/chopp/HDD1/chet-meq/cape_modern/catalogs/seiscomp/manually_reviewed/Cape_manually-reviewed_11-25-25.xml')
     inventory = read_inventory("/media/chopp/HDD1/chet-meq/cape_modern/instruments/Cape_modern_all_inventories_11-25-2025.xml")
 
     download_dataset(catalog, inventory, num_splits=5) # Assuming num_splits is an argument
