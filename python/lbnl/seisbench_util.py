@@ -40,10 +40,10 @@ class Cape_downloader(WaveformDataset):
     """
 
 
-def __init__(self, **kwargs):
-    super().__init__(**kwargs)
-    self._path = '/media/chopp/HDD1/chet-meq/cape_modern/seisbench/testing/dataset/'
-    self._clients = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._path = '/media/chopp/HDD1/chet-meq/cape_modern/seisbench/testing/dataset/'
+        self._clients = None
 
 
     @classmethod
