@@ -368,7 +368,7 @@ class InventoryMapper:
 
 
 if __name__ == "__main__":
-    from seisbench.io import read_events, read_inventory
+    from obspy import read_events, read_inventory
 
     catalog = read_events('/media/chopp/HDD1/chet-meq/cape_modern/catalogs/seiscomp/manually_reviewed/Cape_manually-reviewed_5-10-24.xml')
     inventory = read_inventory("/media/chopp/HDD1/chet-meq/cape_modern/instruments/Cape_modern_all_inventories_11-25-2025.xml")
