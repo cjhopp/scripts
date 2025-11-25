@@ -29,8 +29,8 @@ from obspy.clients.fdsn import Client
 
 
 dataset_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/dataset')
-metadata_path = base_path / "metadata.csv"
-waveforms_path = base_path / "waveforms.hdf5"
+metadata_path = dataset_root / "metadata.csv"
+waveforms_path = dataset_root / "waveforms.hdf5"
 
 
 clients = {'6K': Client("http://131.243.224.19:8085"),
