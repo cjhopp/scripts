@@ -3,7 +3,6 @@ SeisBench utility functions.
 """
 
 import seisbench
-from seisbench.data.base import WaveformDataset
 from seisbench.util.trace_ops import (
     rotate_stream_to_zne,
     stream_to_array,
@@ -153,7 +152,7 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
         "performed. This may take a while."
     )
     # Iterate over events and picks, write to SeisBench format
-    with sbd.WaveformDataWriter(metadata_path, waveforms_path) as writer:
+    with seisbench.data.WaveformDataWriter(metadata_path, waveforms_path) as writer:
         # Define data format
         writer.data_format = {
             "dimension_order": "CW",
