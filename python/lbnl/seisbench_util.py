@@ -19,6 +19,7 @@ import sys
 import numpy as np
 from tqdm import tqdm
 from collections import defaultdict
+from pathlib import Path
 
 
 import obspy
