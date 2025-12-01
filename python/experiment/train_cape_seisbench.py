@@ -133,7 +133,7 @@ if __name__ == "__main__":
         valid_generator = sbg.GenericGenerator(valid_data)
 
         augmentations = [
-            sbg.WindowAroundSample(list(phase_dict.keys()), samples_before=3000, windowlen=6000, selection="random", strategy="variable"),
+            sbg.WindowAroundSample(["P", "S"], samples_before=3000, windowlen=6000, selection="random", strategy="variable"),
             sbg.RandomWindow(windowlen=3001, strategy="pad"),
             sbg.ChangeDtype(np.float32),
             sbg.ProbabilisticLabeller(label_columns=phase_dict, model_labels=model.labels, sigma=30, dim=0),
