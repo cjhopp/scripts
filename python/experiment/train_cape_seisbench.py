@@ -136,7 +136,7 @@ if __name__ == "__main__":
             sbg.WindowAroundSample(["P", "S"], samples_before=3000, windowlen=6000, selection="random", strategy="variable"),
             sbg.RandomWindow(windowlen=3001, strategy="pad"),
             sbg.ChangeDtype(np.float32),
-            sbg.ProbabilisticLabeller(sigma=30, dim=0),
+            sbg.ProbabilisticLabeller(model_labels=model.labels, sigma=30, dim=0),
         ]
 
         train_generator.add_augmentations(augmentations)
