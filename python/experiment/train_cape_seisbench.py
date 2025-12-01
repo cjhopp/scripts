@@ -1,29 +1,15 @@
-import seisbench
-from seisbench.data import WaveformDataWriter, WaveformDataset
-from seisbench.util.trace_ops import (
-    rotate_stream_to_zne,
-    stream_to_array,
-    trace_has_spikes,
-    waveform_id_to_network_station_location,
-)
+import seisbench.data as sbd
+import seisbench.generate as sbg
+import seisbench.models as sbm
+from seisbench.util import worker_seeding
 
-
-import random
-import string
-import requests
-import sys
 import numpy as np
-import logging
-
-from tqdm import tqdm
-from collections import defaultdict
-from pathlib import Path
-
-
-import obspy
-from obspy.clients.fdsn.header import FDSNNoDataException
-from obspy.geodetics import gps2dist_azimuth
+import matplotlib.pyplot as plt
+import torch
+from torch.utils.data import DataLoader
 from obspy.clients.fdsn import Client
+from obspy import UTCDateTime
+
 
 logger = seisbench.logger
 logger.setLevel(logging.INFO)
@@ -129,7 +115,7 @@ if __name__ == "__main__":
     num_workers = 4  # Number of threads for data loading
 
     # Initialize a PhaseNet model
-    model = seisbench.model.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
+    model = sbm.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
     model.to_preferred_device(verbose=True)
     # Iterate through each fold
     for fold in range(total_folds):
