@@ -129,7 +129,7 @@ if __name__ == "__main__":
     num_workers = 4  # Number of threads for data loading
 
     # Initialize a PhaseNet model
-    model = sbm.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
+    model = seisbench.model.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
     model.to_preferred_device(verbose=True)
     # Iterate through each fold
     for fold in range(total_folds):
