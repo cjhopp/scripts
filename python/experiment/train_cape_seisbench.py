@@ -111,6 +111,8 @@ def test_loop(dataloader):
             test_loss += loss_fn(pred, batch["y"].to(model.device)).item()
 
     model.train()  # re-open model for training stage
+    test_loss /= num_batches
+    print(f"Test avg loss: {test_loss:>8f} \n")
 
 
 if __name__ == "__main__":
@@ -154,9 +156,6 @@ if __name__ == "__main__":
 
         # Define optimizer and loss function
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    test_loss /= num_batches
-    print(f"Test avg loss: {test_loss:>8f} \n")
 
         # Train the model for the specified number of epochs
         for epoch in range(epochs):
