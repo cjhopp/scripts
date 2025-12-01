@@ -1,3 +1,5 @@
+import seisbench
+
 import seisbench.data as sbd
 import seisbench.generate as sbg
 import seisbench.models as sbm
