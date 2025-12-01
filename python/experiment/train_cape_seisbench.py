@@ -118,9 +118,43 @@ if __name__ == "__main__":
     learning_rate = 1e-2
     num_workers = 4  # Number of threads for data loading
 
+    phase_dict = {
+        "trace_p_arrival_sample": "P",
+        "trace_pP_arrival_sample": "P",
+        "trace_P_arrival_sample": "P",
+        "trace_P1_arrival_sample": "P",
+        "trace_Pg_arrival_sample": "P",
+        "trace_Pn_arrival_sample": "P",
+        "trace_PmP_arrival_sample": "P",
+        "trace_pwP_arrival_sample": "P",
+        "trace_pwPm_arrival_sample": "P",
+        "trace_s_arrival_sample": "S",
+        "trace_S_arrival_sample": "S",
+        "trace_S1_arrival_sample": "S",
+        "trace_Sg_arrival_sample": "S",
+        "trace_SmS_arrival_sample": "S",
+        "trace_Sn_arrival_sample": "S",
+    }
+
     # Initialize a PhaseNet model
     model = sbm.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
     model.to_preferred_device(verbose=True)
+
+    augmentations = [
+        sbg.WindowAroundSample(
+            list(phase_dict.keys()),
+            samples_before=3000,
+            windowlen=6000,
+            selection="random",
+            strategy="variable",
+        ),
+        sbg.RandomWindow(windowlen=3001, strategy="pad"),
+        sbg.ChangeDtype(np.float32),
+        sbg.ProbabilisticLabeller(
+            label_columns=phase_dict, model_labels=model.labels, sigma=30, dim=0
+        ),
+    ]
+
     # Iterate through each fold
     for fold in range(total_folds):
         print(f"Starting Fold {fold + 1}")
@@ -131,13 +165,6 @@ if __name__ == "__main__":
         # Setup data generators
         train_generator = sbg.GenericGenerator(train_data)
         valid_generator = sbg.GenericGenerator(valid_data)
-
-        augmentations = [
-            sbg.WindowAroundSample(["P", "S"], samples_before=3000, windowlen=6000, selection="random", strategy="variable"),
-            sbg.RandomWindow(windowlen=3001, strategy="pad"),
-            sbg.ChangeDtype(np.float32),
-            sbg.ProbabilisticLabeller(model_labels=model.labels, sigma=30, dim=0),
-        ]
 
         train_generator.add_augmentations(augmentations)
         valid_generator.add_augmentations(augmentations)
