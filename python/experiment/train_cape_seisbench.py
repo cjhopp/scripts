@@ -24,7 +24,7 @@ model_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/PN_t
 
 
 
-class CustomWaveformDataset(WaveformDataset):
+class CustomWaveformDataset(sbd.WaveformDataset):
     def __init__(self, metadata, **kwargs):
         super().__init__(metadata, **kwargs)
 
