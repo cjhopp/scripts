@@ -185,7 +185,8 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
             seisbench.logger.info(f"Downloading {event.resource_id}")
 
             station_groups = defaultdict(list)
-            for pick in event.picks:
+            for arrival in event.preferred_origin().arrivals:
+                pick = arrival.pick_id.get_referred_object()
                 if pick.phase_hint is None:
                     continue
 
