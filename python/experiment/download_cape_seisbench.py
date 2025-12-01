@@ -43,41 +43,6 @@ clients = {'6K': Client("http://131.243.224.19:8085"),
 
 
 
-class CustomWaveformDataset(WaveformDataset):
-    def __init__(self, metadata, **kwargs):
-        super().__init__(metadata, **kwargs)
-
-    def cross_fold(self, fold_number, total_folds=5):
-        """
-        Returns the datasets for the specified cross-validation fold.
-
-        :param fold_number: Index of the fold (0 to total_folds - 1)
-        :param total_folds: Total number of folds for cross-validation
-        :return: Training dataset and validation dataset
-        """
-        if "split" not in self.metadata.columns:
-            raise ValueError("Cross-fold requested but no split defined in metadata")
-
-        unique_splits = sorted(self.metadata["split"].unique())
-        
-        # Assuming that the unique splits are evenly distributed across the folds
-        if fold_number < 0 or fold_number >= total_folds:
-            raise IndexError(f"Fold number must be between 0 and {total_folds - 1}")
-
-        # Create a mask for the validation split and training splits
-        valid_split = unique_splits[fold_number]
-        train_splits = unique_splits[:fold_number] + unique_splits[fold_number + 1:]
-
-        valid_mask = (self.metadata["split"] == valid_split).values
-        train_mask = self.metadata["split"].isin(train_splits)
-
-        # Return datasets for the specified fold
-        train_dataset = self.filter(train_mask, inplace=False)
-        valid_dataset = self.filter(valid_mask, inplace=False)
-
-        return train_dataset, valid_dataset
-
-
 def get_event_params(event, split):
     origin = event.preferred_origin()
     mag = event.preferred_magnitude()
