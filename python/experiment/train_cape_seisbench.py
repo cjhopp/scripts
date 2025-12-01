@@ -5,6 +5,7 @@ import seisbench.data as sbd
 import seisbench.generate as sbg
 import seisbench.models as sbm
 from seisbench.util import worker_seeding
+from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
