@@ -30,6 +30,8 @@ logger.setLevel(logging.INFO)
 
 dataset_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/dataset')
 
+model_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/PN_test1/')
+
 
 
 class CustomWaveformDataset(WaveformDataset):
@@ -163,4 +165,5 @@ if __name__ == "__main__":
             train_loop(train_loader)
             test_loop(valid_loader)
 
+    model.save(model_root)
     print("Cross-validation completed!")
