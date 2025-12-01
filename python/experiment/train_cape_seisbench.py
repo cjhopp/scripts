@@ -1,4 +1,5 @@
 import seisbench
+import logging
 
 import seisbench.data as sbd
 import seisbench.generate as sbg
