@@ -204,7 +204,7 @@ if __name__ == "__main__":
             axs[2].set_xlabel("Samples")
             axs[2].legend(model.labels)
 
-            fig.suptitle(f"Fold {fold + 1}, Epoch {epoch + 1} - Trace: {sample['trace_name']}", y=0.92)
+            fig.suptitle(f"Fold {fold + 1}, Epoch {epoch + 1} - Trace: {sample_idx}", y=0.92)
             plt.savefig(os.path.join(output_dir, f'fold_{fold + 1}_epoch_{epoch + 1}_example.png'))
             plt.close(fig)
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":
         axs[2].set_xlabel("Samples")
         axs[2].legend(final_model.labels)
 
-        fig.suptitle(f"Trace: {sample['trace_name']}", y=0.92)
+        fig.suptitle(f"Trace: {sample_idx}", y=0.92)
         plt.savefig(os.path.join(output_dir, f'waveform_example_{i + 1}.png'))
         plt.close(fig)
 
