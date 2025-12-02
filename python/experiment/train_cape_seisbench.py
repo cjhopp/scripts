@@ -135,6 +135,10 @@ if __name__ == "__main__":
     for fold in range(total_folds):
         print(f"Starting Fold {fold + 1}")
 
+        # Initialize the PhaseNet model
+        model = sbm.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
+        model.to_preferred_device(verbose=True)
+
         # Get training and validation datasets for the current fold
         train_data, valid_data = custom_dataset.cross_fold(fold, total_folds)
 
@@ -146,7 +150,7 @@ if __name__ == "__main__":
             sbg.WindowAroundSample(list(phase_dict.keys()), samples_before=3000, windowlen=6000, selection="random", strategy="variable"),
             sbg.RandomWindow(windowlen=3001, strategy="pad"),
             sbg.ChangeDtype(np.float32),
-            sbg.ProbabilisticLabeller(label_columns=phase_dict, model_labels=sbm.PhaseNet.DETERMINISTIC_LABELS, sigma=30, dim=0),
+            sbg.ProbabilisticLabeller(label_columns=phase_dict, model_labels=model.labels, sigma=30, dim=0),
         ]
 
         train_generator.add_augmentations(augmentations)
@@ -155,10 +159,6 @@ if __name__ == "__main__":
         # Create DataLoaders
         train_loader = DataLoader(train_generator, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=worker_seeding)
         valid_loader = DataLoader(valid_generator, batch_size=batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=worker_seeding)
-
-        # Initialize the PhaseNet model
-        model = sbm.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
-        model.to_preferred_device(verbose=True)
 
         # Define optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
