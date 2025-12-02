@@ -179,8 +179,8 @@ if __name__ == "__main__":
             # Plot a random sample from the validation set for this epoch
             model.eval() # Set model to evaluation mode for prediction
 
-            sample_idx = np.random.randint(len(valid_loader.dataset))
-            sample = valid_loader.dataset[sample_idx]
+            sample_idx = np.random.randint(len(valid_generator))
+            sample = valid_generator[sample_idx]
 
             with torch.no_grad():
                 x = torch.from_numpy(sample["X"]).to(model.device).unsqueeze(0)
