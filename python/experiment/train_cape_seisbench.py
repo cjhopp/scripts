@@ -107,10 +107,10 @@ if __name__ == "__main__":
 
     # Specify parameters
     total_folds = 5
-    epochs = 5
+    epochs = 25
     batch_size = 256
-    learning_rate = 1e-2
-    num_workers = 4
+    learning_rate = 1e-3
+    num_workers = 8
 
     # Variables to keep track of validation losses for each fold
     validation_losses = []
