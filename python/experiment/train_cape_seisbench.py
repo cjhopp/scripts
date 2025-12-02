@@ -93,6 +93,7 @@ def test_loop(dataloader, model):
             all_true.append(batch["y"].to(model.device).cpu().numpy())
 
     avg_loss = total_loss / num_batches
+    model.train()
     print(f"Validation loss: {avg_loss:.4f}")
 
     return np.concatenate(all_preds), np.concatenate(all_true), avg_loss
@@ -175,16 +176,36 @@ if __name__ == "__main__":
             preds, true, val_loss = test_loop(valid_loader, model)
             fold_val_losses.append(val_loss)
 
-            # Plotting the validation results for this fold
-            plt.figure(figsize=(15, 5))
-            plt.plot(true.flatten(), label='True Values', alpha=0.5)
-            plt.plot(preds.flatten(), label='Predictions', alpha=0.5)
-            plt.title(f'Fold {fold + 1} - Epoch {epoch + 1}')
-            plt.xlabel('Samples')
-            plt.ylabel('Amplitude')
-            plt.legend()
-            plt.savefig(os.path.join(output_dir, f'fold_{fold + 1}_epoch_{epoch + 1}.png'))
-            plt.close()
+            # Plot a random sample from the validation set for this epoch
+            model.eval() # Set model to evaluation mode for prediction
+
+            sample_idx = np.random.randint(len(valid_loader.dataset))
+            sample = valid_loader.dataset[sample_idx]
+
+            with torch.no_grad():
+                x = torch.from_numpy(sample["X"]).to(model.device).unsqueeze(0)
+                pred = model(x)[0].cpu().numpy()
+
+            fig, axs = plt.subplots(3, 1, figsize=(15, 10), sharex=True, gridspec_kw={"hspace": 0, "height_ratios": [3, 1, 1]})
+            
+            axs[0].plot(sample["X"].T)
+            axs[0].set_ylabel("Waveform")
+            axs[0].legend(["E", "N", "Z"])
+
+            axs[1].plot(sample["y"].T)
+            axs[1].set_ylabel("True Labels")
+            axs[1].legend(model.labels)
+
+            axs[2].plot(pred.T)
+            axs[2].set_ylabel("Predicted Labels")
+            axs[2].set_xlabel("Samples")
+            axs[2].legend(model.labels)
+
+            fig.suptitle(f"Fold {fold + 1}, Epoch {epoch + 1} - Trace: {sample['trace_name']}", y=0.92)
+            plt.savefig(os.path.join(output_dir, f'fold_{fold + 1}_epoch_{epoch + 1}_example.png'))
+            plt.close(fig)
+
+            model.train() # Set model back to training mode
         
         validation_losses.append(np.mean(fold_val_losses))
 
@@ -211,52 +232,39 @@ if __name__ == "__main__":
     # Save the final model using the model's native save method
     final_model.save(str(model_root / 'final_phase_net_model'))
 
-    # Plot predictions on the entire dataset using the final model
-    all_preds = []
-    all_true = []
-
     final_model.eval()
-    with torch.no_grad():
-        for batch in full_loader:
-            x = batch["X"].to(final_model.device)
-            pred = final_model(x)
-            all_preds.append(pred.cpu().numpy())
-            all_true.append(batch["y"].to(final_model.device).cpu().numpy())
-
-    # Concatenate all predictions and true labels
-    all_preds = np.concatenate(all_preds)
-    all_true = np.concatenate(all_true)
-
-    # Plotting results for the final model
-    plt.figure(figsize=(15, 5))
-    plt.plot(all_true.flatten(), label='True Values', alpha=0.5)
-    plt.plot(all_preds.flatten(), label='Final Model Predictions', alpha=0.5)
-    plt.title('Final Model Predictions vs True Values')
-    plt.xlabel('Samples')
-    plt.ylabel('Amplitude')
-    plt.legend()
-    plt.savefig(os.path.join(output_dir, 'final_model_performance.png'))
-    plt.close()
-
+    
     # Generate waveform plots for a few examples
-    num_examples = 5  # Number of waveform examples to plot
-    sample_indices = np.random.choice(len(custom_dataset), size=num_examples, replace=False)
+    num_examples = 5
 
-    for i in sample_indices:
-        sample_waveform = custom_dataset[i]  # Fetch the waveform sample
-        true_label = sample_waveform['y']
-        input_waveform = sample_waveform['X'].flatten()  # Flatten to plot 1D
-        final_model_prediction = final_model(torch.tensor(sample_waveform['X']).unsqueeze(0).to(final_model.device)).cpu().detach().numpy().flatten()
+    eval_generator = sbg.GenericGenerator(custom_dataset)
+    eval_generator.add_augmentations(augmentations)
 
-        plt.figure(figsize=(15, 5))
-        plt.plot(input_waveform, label='Input Waveform', alpha=0.5)
-        plt.plot(true_label.flatten(), label='True Label', alpha=0.5)
-        plt.plot(final_model_prediction, label='Final Model Prediction', alpha=0.75)
-        plt.title(f'Waveform {i + 1} - True vs Predicted')
-        plt.xlabel('Samples')
-        plt.ylabel('Amplitude')
-        plt.legend()
+    for i in range(num_examples):
+        sample_idx = np.random.randint(len(eval_generator.dataset))
+        sample = eval_generator[sample_idx]
+
+        fig, axs = plt.subplots(3, 1, figsize=(15, 10), sharex=True, gridspec_kw={"hspace": 0, "height_ratios": [3, 1, 1]})
+        
+        axs[0].plot(sample["X"].T)
+        axs[0].set_ylabel("Waveform")
+        axs[0].legend(["E", "N", "Z"])
+
+        axs[1].plot(sample["y"].T)
+        axs[1].set_ylabel("True Labels")
+        axs[1].legend(final_model.labels)
+
+        with torch.no_grad():
+            x = torch.from_numpy(sample["X"]).to(final_model.device).unsqueeze(0)
+            pred = final_model(x)[0].cpu().numpy()
+
+        axs[2].plot(pred.T)
+        axs[2].set_ylabel("Predicted Labels")
+        axs[2].set_xlabel("Samples")
+        axs[2].legend(final_model.labels)
+
+        fig.suptitle(f"Trace: {sample['trace_name']}", y=0.92)
         plt.savefig(os.path.join(output_dir, f'waveform_example_{i + 1}.png'))
-        plt.close()
+        plt.close(fig)
 
     print("Training, evaluation, and waveform plots generation completed!")
