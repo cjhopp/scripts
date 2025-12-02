@@ -222,7 +222,7 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
                     no_data_catches += 1
                     continue
 
-                # rotate_stream_to_zne(waveforms, inv)
+                rotate_stream_to_zne(waveforms, inv)
 
                 if len(waveforms) == 0:
                     seisbench.logger.debug(
@@ -335,6 +335,6 @@ if __name__ == "__main__":
     from obspy import read_events, read_inventory
 
     catalog = read_events('/media/chopp/HDD1/chet-meq/cape_modern/catalogs/seiscomp/manually_reviewed/Cape_manually-reviewed_11-25-25.xml')
-    inventory = read_inventory("/media/chopp/HDD1/chet-meq/cape_modern/instruments/Cape_modern_all_inventories_11-25-2025.xml")
+    inventory = read_inventory("/media/chopp/HDD1/chet-meq/cape_modern/instruments/Cape_modern_all_inventories_w-orientations_12-2-2025.xml")
 
     download_dataset(catalog, inventory, num_splits=5) # Assuming num_splits is an argument

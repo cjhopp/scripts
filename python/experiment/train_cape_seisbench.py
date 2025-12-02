@@ -69,8 +69,9 @@ def loss_fn(y_pred, y_true, eps=1e-5):
 def train_loop(dataloader, model, optimizer):
     for batch in dataloader:
         x = batch["X"].to(model.device)
+        x_preproc = model.annotate_batch_pre(x, {})
         optimizer.zero_grad()
-        pred = model(x)
+        pred = model(x_preproc)
         loss = loss_fn(pred, batch["y"].to(model.device))
         loss.backward()
         optimizer.step()
@@ -86,7 +87,8 @@ def test_loop(dataloader, model):
     with torch.no_grad():
         for batch in dataloader:
             x = batch["X"].to(model.device)
-            pred = model(x)
+            x_preproc = model.annotate_batch_pre(x, {})
+            pred = model(x_preproc)
             total_loss += loss_fn(pred, batch["y"].to(model.device)).item()
 
             all_preds.append(pred.cpu().numpy())
@@ -184,7 +186,8 @@ if __name__ == "__main__":
 
             with torch.no_grad():
                 x = torch.from_numpy(sample["X"]).to(model.device).unsqueeze(0)
-                pred = model(x)[0].cpu().numpy()
+                x_preproc = model.annotate_batch_pre(x, {})
+                pred = model(x_preproc)[0].cpu().numpy()
 
             fig, axs = plt.subplots(3, 1, figsize=(15, 10), sharex=True, gridspec_kw={"hspace": 0, "height_ratios": [3, 1, 1]})
             
@@ -201,7 +204,7 @@ if __name__ == "__main__":
             axs[2].set_xlabel("Samples")
             axs[2].legend(model.labels)
 
-            fig.suptitle(f"Fold {fold + 1}, Epoch {epoch + 1} - Trace: {sample_idx}", y=0.92)
+            fig.suptitle(f"Fold {fold + 1}, Epoch {epoch + 1} - Trace: {sample['trace_name']}", y=0.92)
             plt.savefig(os.path.join(output_dir, f'fold_{fold + 1}_epoch_{epoch + 1}_example.png'))
             plt.close(fig)
 
@@ -241,7 +244,7 @@ if __name__ == "__main__":
     eval_generator.add_augmentations(augmentations)
 
     for i in range(num_examples):
-        sample_idx = np.random.randint(len(eval_generator.dataset))
+        sample_idx = np.random.randint(len(eval_generator))
         sample = eval_generator[sample_idx]
 
         fig, axs = plt.subplots(3, 1, figsize=(15, 10), sharex=True, gridspec_kw={"hspace": 0, "height_ratios": [3, 1, 1]})
@@ -255,15 +258,16 @@ if __name__ == "__main__":
         axs[1].legend(final_model.labels)
 
         with torch.no_grad():
-            x = torch.from_numpy(sample["X"]).to(final_model.device).unsqueeze(0)
-            pred = final_model(x)[0].cpu().numpy()
+            x = torch.from_numpy(sample["X"].to(final_model.device).unsqueeze(0)
+            x_preproc = final_model.annotate_batch_pre(x, {})
+            pred = final_model(x_preproc)[0].cpu().numpy()
 
         axs[2].plot(pred.T)
         axs[2].set_ylabel("Predicted Labels")
         axs[2].set_xlabel("Samples")
         axs[2].legend(final_model.labels)
 
-        fig.suptitle(f"Trace: {sample_idx}", y=0.92)
+        fig.suptitle(f"Trace: {sample['trace_name']}", y=0.92)
         plt.savefig(os.path.join(output_dir, f'waveform_example_{i + 1}.png'))
         plt.close(fig)
 
