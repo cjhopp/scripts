@@ -258,7 +258,7 @@ if __name__ == "__main__":
         axs[1].legend(final_model.labels)
 
         with torch.no_grad():
-            x = torch.from_numpy(sample["X"].to(final_model.device).unsqueeze(0)
+            x = torch.from_numpy(sample["X"]).to(final_model.device).unsqueeze(0)
             x_preproc = final_model.annotate_batch_pre(x, {})
             pred = final_model(x_preproc)[0].cpu().numpy()
 
