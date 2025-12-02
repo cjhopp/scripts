@@ -222,7 +222,7 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
                     no_data_catches += 1
                     continue
 
-                rotate_stream_to_zne(waveforms, inv)
+                rotate_stream_to_zne(waveforms, inventory)
 
                 if len(waveforms) == 0:
                     seisbench.logger.debug(
