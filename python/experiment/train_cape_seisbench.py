@@ -1,4 +1,7 @@
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, message="pkg_resources is deprecated as an API")
+
 import seisbench
 import logging
 import pandas as pd
