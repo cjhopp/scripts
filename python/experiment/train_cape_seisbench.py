@@ -213,7 +213,7 @@ if __name__ == "__main__":
     
     # Generate waveform plots for a few examples from the final model
     print("Generating final evaluation plots...")
-    num_examples = 5
+    num_examples = 50
 
     eval_generator = sbg.GenericGenerator(custom_dataset)
     eval_generator.add_augmentations(augmentations)
