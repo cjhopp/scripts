@@ -242,7 +242,7 @@ if __name__ == "__main__":
         axs[2].set_xlabel("Samples")
         axs[2].legend(final_model.labels)
 
-        fig.suptitle(f"Final Model - Trace: {sample['trace_name']}", y=0.92)
+        fig.suptitle(f"Final Model - Trace: {sample_idx}", y=0.92)
         plt.savefig(os.path.join(output_dir, f'final_model_example_{i + 1}.png'))
         plt.close(fig)
 
