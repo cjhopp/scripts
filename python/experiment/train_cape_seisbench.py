@@ -13,6 +13,8 @@ from seisbench.util import worker_seeding
 from pathlib import Path
 
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
