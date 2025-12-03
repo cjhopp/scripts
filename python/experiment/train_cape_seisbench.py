@@ -109,13 +109,13 @@ if __name__ == "__main__":
 
     # Specify parameters
     total_folds = 5
-    epochs = 25
+    epochs = 100
     batch_size = 256
     learning_rate = 1e-3
     num_workers = 8
 
-    # Variables to keep track of validation losses for each fold
-    validation_losses = []
+    # Variables to keep track of the best epoch for each fold
+    best_epochs = []
 
     # Create a directory to save figures
     output_dir = "/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/output_figures"
@@ -138,10 +138,17 @@ if __name__ == "__main__":
         "trace_SmS_arrival_sample": "S",
         "trace_Sn_arrival_sample": "S",
     }
+    
+    augmentations = [
+        sbg.WindowAroundSample(list(phase_dict.keys()), samples_before=3000, windowlen=6000, selection="random", strategy="variable"),
+        sbg.RandomWindow(windowlen=3001, strategy="pad"),
+        sbg.ChangeDtype(np.float32),
+        sbg.ProbabilisticLabeller(label_columns=phase_dict, model_labels=("P", "S", "N"), sigma=30, dim=0),
+    ]
 
     # Iterate through each fold for cross-validation
     for fold in range(total_folds):
-        print(f"Starting Fold {fold + 1}")
+        print(f"\nStarting Fold {fold + 1}/{total_folds}")
 
         # Initialize the PhaseNet model
         model = sbm.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
@@ -153,13 +160,6 @@ if __name__ == "__main__":
         # Setup data generators
         train_generator = sbg.GenericGenerator(train_data)
         valid_generator = sbg.GenericGenerator(valid_data)
-
-        augmentations = [
-            sbg.WindowAroundSample(list(phase_dict.keys()), samples_before=3000, windowlen=6000, selection="random", strategy="variable"),
-            sbg.RandomWindow(windowlen=3001, strategy="pad"),
-            sbg.ChangeDtype(np.float32),
-            sbg.ProbabilisticLabeller(label_columns=phase_dict, model_labels=model.labels, sigma=30, dim=0),
-        ]
 
         train_generator.add_augmentations(augmentations)
         valid_generator.add_augmentations(augmentations)
@@ -180,46 +180,17 @@ if __name__ == "__main__":
             preds, true, val_loss = test_loop(valid_loader, model)
             fold_val_losses.append(val_loss)
 
-            # Plot a random sample from the validation set for this epoch
-            model.eval() # Set model to evaluation mode for prediction
+        # Find and store the best epoch for this fold
+        best_epoch_for_fold = np.argmin(fold_val_losses) + 1
+        print(f"Fold {fold + 1}: Best epoch found at {best_epoch_for_fold} with loss {np.min(fold_val_losses):.4f}")
+        best_epochs.append(best_epoch_for_fold)
 
-            sample_idx = np.random.randint(len(valid_generator))
-            sample = valid_generator[sample_idx]
+    # After k-fold cross-validation, determine the optimal number of epochs
+    optimal_epochs = int(np.mean(best_epochs))
+    print(f"\nOptimal number of epochs determined from cross-validation: {optimal_epochs}")
+    print("Starting final training on the full dataset...")
 
-            with torch.no_grad():
-                x = torch.from_numpy(sample["X"]).to(model.device).unsqueeze(0)
-                x_preproc = model.annotate_batch_pre(x, {})
-                pred = model(x_preproc)[0].cpu().numpy()
-
-            fig, axs = plt.subplots(3, 1, figsize=(15, 10), sharex=True, gridspec_kw={"hspace": 0, "height_ratios": [3, 1, 1]})
-            
-            axs[0].plot(sample["X"].T)
-            axs[0].set_ylabel("Waveform")
-            axs[0].legend(["E", "N", "Z"])
-
-            axs[1].plot(sample["y"].T)
-            axs[1].set_ylabel("True Labels")
-            axs[1].legend(model.labels)
-
-            axs[2].plot(pred.T)
-            axs[2].set_ylabel("Predicted Labels")
-            axs[2].set_xlabel("Samples")
-            axs[2].legend(model.labels)
-
-            fig.suptitle(f"Fold {fold + 1}, Epoch {epoch + 1} - Trace: {sample_idx}", y=0.92)
-            plt.savefig(os.path.join(output_dir, f'fold_{fold + 1}_epoch_{epoch + 1}_example.png'))
-            plt.close(fig)
-
-            model.train() # Set model back to training mode
-        
-        validation_losses.append(np.mean(fold_val_losses))
-
-
-    # After k-fold cross-validation, select the best hyperparameters based on validation losses
-    best_fold_index = np.argmin(validation_losses)
-    print(f"Best fold based on validation losses: {best_fold_index + 1}")
-
-    # Train a final model on the entire dataset using the best hyperparameters
+    # Train a final model on the entire dataset using the optimal number of epochs
     final_model = sbm.PhaseNet(phases="PSN", norm="std", default_args={"blinding": (200, 200)})
     final_model.to_preferred_device(verbose=True)
     optimizer = torch.optim.Adam(final_model.parameters(), lr=learning_rate)
@@ -230,16 +201,18 @@ if __name__ == "__main__":
     full_loader = DataLoader(full_generator, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=worker_seeding)
 
     # Final training loop on the entire dataset
-    for epoch in range(epochs):
-        print(f"Final Training Epoch {epoch + 1}")
+    for epoch in range(optimal_epochs):
+        print(f"Final Training Epoch {epoch + 1}/{optimal_epochs}")
         train_loop(full_loader, final_model, optimizer)
 
     # Save the final model using the model's native save method
     final_model.save(str(model_root / 'final_phase_net_model'))
+    print(f"\nFinal model saved to {model_root / 'final_phase_net_model'}")
 
     final_model.eval()
     
-    # Generate waveform plots for a few examples
+    # Generate waveform plots for a few examples from the final model
+    print("Generating final evaluation plots...")
     num_examples = 5
 
     eval_generator = sbg.GenericGenerator(custom_dataset)
@@ -269,8 +242,8 @@ if __name__ == "__main__":
         axs[2].set_xlabel("Samples")
         axs[2].legend(final_model.labels)
 
-        fig.suptitle(f"Trace: {sample_idx}", y=0.92)
-        plt.savefig(os.path.join(output_dir, f'waveform_example_{i + 1}.png'))
+        fig.suptitle(f"Final Model - Trace: {sample['trace_name']}", y=0.92)
+        plt.savefig(os.path.join(output_dir, f'final_model_example_{i + 1}.png'))
         plt.close(fig)
 
-    print("Training, evaluation, and waveform plots generation completed!")
+    print("\nTraining, evaluation, and waveform plots generation completed!")
