@@ -1665,20 +1665,20 @@ def detection_multiplot(stream, template=None, times=None, party=None,
                         **kwargs):
     """
     Plot a stream with one-or-more templates overlaid at detection times.
-
     Usage:
       - Old (single template): detection_multiplot(stream, template=Stream, times=[UTCDateTime,...], ...)
       - Multi-template: detection_multiplot(stream, template=[Stream1,Stream2], times=[[t1...],[t2...]], ...)
       - Party (eqcorrscan Party): detection_multiplot(stream, party=party_object, ...)
         For a Party, each Family in the Party is used: Family.template.st is the template Stream,
         Family.detections yields Detection objects with detect_time attribute.
-
     template / times are ignored if party is provided.
     """
     import matplotlib.pyplot as plt
     import matplotlib.cm as cm
+    import matplotlib.dates as mdates
     from itertools import cycle
     from matplotlib.lines import Line2D
+    from matplotlib.collections import LineCollection
 
     # --- Build templates and times_list from party if provided ---
     if party is not None:
@@ -1689,32 +1689,25 @@ def detection_multiplot(stream, template=None, times=None, party=None,
             fam_tpl = getattr(fam, 'template', None)
             if fam_tpl is None:
                 continue
-            # Template stream is either fam.template.st or fam.template (already a Stream)
             tpl_st = fam_tpl.st if hasattr(fam_tpl, 'st') else fam_tpl
             templates.append(tpl_st)
             dets = getattr(fam, 'detections', []) or getattr(fam, 'dets', [])
-            # extract detect_time (support different attribute names)
             det_times = []
             for d in dets:
                 t = getattr(d, 'detect_time', None) or getattr(d, 'detect_time_utc', None) or getattr(d, 'time', None)
                 if t is not None:
                     det_times.append(t)
             times_list.append(det_times)
-            # label fallback
             lbl = getattr(fam_tpl, 'name', None) or getattr(fam, 'name', None) or f"Template_{len(templates)}"
             template_labels.append(lbl)
     else:
         # --- Normalize template(s) and times argument ---
         if template is None:
             raise ValueError("Either template+times or party must be provided.")
-        if isinstance(template, (list, tuple)):
-            templates = list(template)
-        else:
-            templates = [template]
-        # times can be list-of-lists or single list to broadcast
+        templates = [template] if not isinstance(template, (list, tuple)) else list(template)
         if times is None:
             times_list = [[] for _ in templates]
-        elif isinstance(times, (list, tuple)) and len(templates) > 1 and all(isinstance(t, (list, tuple)) for t in times):
+        elif len(templates) > 1 and all(isinstance(t, (list, tuple)) for t in times):
             times_list = [list(t) for t in times]
         else:
             times_list = [list(times) for _ in templates]
@@ -1722,115 +1715,95 @@ def detection_multiplot(stream, template=None, times=None, party=None,
             template_labels = [f"Template {i+1}" for i in range(len(templates))]
 
     # collect unique station+channel traces across all templates preserving order
-    template_stachans = []
-    for tpl in templates:
-        template_stachans.extend([(tr.stats.station, tr.stats.channel) for tr in tpl])
-    seen = set()
-    unique_stachans = []
-    for stachan in template_stachans:
-        if stachan not in seen:
-            seen.add(stachan)
-            unique_stachans.append(stachan)
+    template_stachans = [sc for tpl in templates for tr in tpl for sc in [(tr.stats.station, tr.stats.channel)]]
+    unique_stachans = sorted(list(set(template_stachans)))
 
-    if len(unique_stachans) == 0:
+    if not unique_stachans:
         raise ValueError("No traces present in template(s).")
 
     # --- Prepare figure/axes ---
     ntraces = len(unique_stachans)
-    fig, axes = plt.subplots(ntraces, 1, sharex=True)
-    if ntraces == 1:
-        axes = [axes]
+    fig, axes = plt.subplots(ntraces, 1, sharex=True, squeeze=False)
+    axes = axes.flatten()
 
-    # determine global mintime across all template traces for alignment
     all_template_traces = [tr for tpl in templates for tr in tpl]
-    mintime = min([tr.stats.starttime for tr in all_template_traces])
+    mintime = min([tr.stats.starttime for tr in all_template_traces]) if all_template_traces else UTCDateTime()
 
-    # color list for templates
     try:
         cmap_obj = cm.get_cmap(cmap)
-        tpl_colors = [cmap_obj(i) for i in range(cmap_obj.N)]
+        tpl_colors = [cmap_obj(i) for i in range(len(templates))]
     except Exception:
-        tpl_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    # make deterministic per-template color list (wrap if necessary)
-    tpl_color_list = [tpl_colors[i % len(tpl_colors)] for i in range(len(templates))]
+        prop_cycle = plt.rcParams['axes.prop_cycle']
+        tpl_colors = [c['color'] for i, c in zip(range(len(templates)), cycle(prop_cycle))]
+    tpl_color_list = tpl_colors
 
     # --- Loop axes / stachans and plot background + overlays ---
     for i, (station, channel) in enumerate(unique_stachans):
         axis = axes[i]
-        image = stream.select(station=station, channel='*' + channel[-1])
-        if not image:
+        image_tr = stream.select(station=station, channel='*' + channel[-1]).merge()
+        if not image_tr:
             print(f'No data for {station} {channel}')
+            axis.set_ylabel(f"{station}.{channel}\n(No data)", rotation=0, ha='right', va='center')
             continue
-        image = image.merge()[0]
+        image_tr = image_tr[0]
 
-        # datetime vector for samples
-        image_times = [image.stats.starttime.datetime +
-                       timedelta((j * image.stats.delta) / 86400)
-                       for j in range(len(image.data))]
-
-        # normalize background safely
-        denom = max(np.abs(image.data)) if max(np.abs(image.data)) != 0 else 1.0
-        image_norm = image.data / denom
-        axis.plot(image_times, image_norm, streamcolour, linewidth=1.2)
+        image_times_mpl = mdates.date2num([image_tr.stats.starttime.datetime + timedelta(seconds=j * image_tr.stats.delta) for j in range(len(image_tr.data))])
+        denom = np.max(np.abs(image_tr.data)) or 1.0
+        axis.plot(image_times_mpl, image_tr.data / denom, streamcolour, linewidth=1.2, zorder=1)
 
         handles = []
-        # For each template, find matching trace and plot each detection overlay
         for tpl_idx, tpl in enumerate(templates):
-            color = tpl_color_list[tpl_idx]
-            tpl_tr = None
-            for tr in tpl:
-                if (tr.stats.station, tr.stats.channel) == (station, channel):
-                    tpl_tr = tr
-                    break
-            if tpl_tr is None:
+            color = tpl_color_list[tpl_idx % len(tpl_color_list)]
+            tpl_tr = tpl.select(station=station, channel=channel)
+            if not tpl_tr:
                 continue
-            any_plotted = False
+            tpl_tr = tpl_tr[0]
+
+            segments = []
             for det_time in times_list[tpl_idx]:
-                # compute lag to align template with detection time
                 lagged_time = (UTCDateTime(det_time) + (tpl_tr.stats.starttime - mintime))
-                lagged_dt = lagged_time.datetime
-                template_times = [lagged_dt + timedelta((j * tpl_tr.stats.delta) / 86400)
-                                  for j in range(len(tpl_tr.data))]
-                # normalize template against local image segment (safe)
+                template_times_mpl = mdates.date2num([lagged_time.datetime + timedelta(seconds=j * tpl_tr.stats.delta) for j in range(len(tpl_tr.data))])
+                
                 try:
-                    start_idx = int((template_times[0] - image_times[0]).total_seconds() / image.stats.delta)
-                    end_idx = int((template_times[-1] - image_times[0]).total_seconds() / image.stats.delta)
-                    if start_idx < 0 or end_idx <= start_idx:
-                        raise ValueError
-                    segment = image.data[max(0, start_idx):min(len(image.data), end_idx)]
-                    normalizer = max(np.abs(segment)) if len(segment) > 0 and max(np.abs(segment)) != 0 else denom
+                    start_idx = np.searchsorted(image_times_mpl, template_times_mpl[0])
+                    end_idx = np.searchsorted(image_times_mpl, template_times_mpl[-1])
+                    if start_idx >= end_idx: raise ValueError
+                    segment_data = image_tr.data[start_idx:end_idx]
+                    normalizer = np.max(np.abs(segment_data)) or denom
                 except Exception:
                     normalizer = denom
-                tpl_denom = max(np.abs(tpl_tr.data)) if max(np.abs(tpl_tr.data)) != 0 else 1.0
+                
+                tpl_denom = np.max(np.abs(tpl_tr.data)) or 1.0
                 scale = normalizer / tpl_denom
-                axis.plot(template_times, tpl_tr.data * scale, color=color, linewidth=1.2, alpha=0.9)
-                any_plotted = True
+                
+                segment = np.column_stack((template_times_mpl, tpl_tr.data * scale))
+                segments.append(segment)
 
-            if any_plotted:
+            if segments:
+                lines = LineCollection(segments, color=color, linewidth=1.2, alpha=0.9, zorder=2)
+                axis.add_collection(lines)
                 label = template_labels[tpl_idx] if tpl_idx < len(template_labels) else f"Template {tpl_idx+1}"
                 handles.append(Line2D([0], [0], color=color, linewidth=1.5, label=label))
 
-        # axis label and legend (include stream handle)
         ylab = f"{station}.{channel}"
-        axis.set_ylabel(ylab, rotation=0, horizontalalignment='right')
+        axis.set_ylabel(ylab, rotation=0, horizontalalignment='right', va='center')
+        
+        # De-duplicate legend handles
         if handles:
             bg_handle = Line2D([0], [0], color=streamcolour, linewidth=1.2, label='Stream')
-            unique_handles = [bg_handle]
-            seen_lbls = set()
-            for h in handles:
-                if h.get_label() not in seen_lbls:
-                    unique_handles.append(h)
-                    seen_lbls.add(h.get_label())
+            unique_handles_map = {h.get_label(): h for h in handles}
+            unique_handles = [bg_handle] + list(unique_handles_map.values())
             axis.legend(handles=unique_handles, loc='upper right', fontsize=8)
 
-    # final formatting
-    if ntraces > 1:
-        axes[-1].set_xlabel('Time')
-    else:
-        axes[0].set_xlabel('Time')
-    plt.subplots_adjust(hspace=0, left=0.175, right=0.95, bottom=0.07)
-    plt.xticks(rotation=10)
-    fig = _finalise_figure(fig=fig, **kwargs)  # pragma: no cover
+    # --- Final formatting ---
+    axes[-1].set_xlabel('Time')
+    for ax in axes:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        ax.tick_params(axis='x', rotation=30)
+        ax.margins(x=0.01)
+
+    plt.subplots_adjust(hspace=0, left=0.175, right=0.95, bottom=0.1, top=0.95)
+    fig = _finalise_figure(fig=fig, **kwargs)
     return fig
 
 
