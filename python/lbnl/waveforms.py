@@ -1786,6 +1786,7 @@ def detection_multiplot(stream, template=None, times=None, party=None,
                 continue
             any_plotted = False
             for det_time in times_list[tpl_idx]:
+                det_time = pd.to_datetime(det_time)
                 # compute lag to align template with detection time
                 lagged_time = (UTCDateTime(det_time) + (tpl_tr.stats.starttime - mintime))
                 print(det_time, lagged_time)
