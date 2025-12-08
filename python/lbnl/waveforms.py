@@ -1803,8 +1803,8 @@ def detection_multiplot(stream, template=None, times=None, party=None,
                 except Exception as e:
                     print(e)
                     normalizer = denom
-                print(denom)
                 tpl_denom = max(np.abs(tpl_tr.data)) if max(np.abs(tpl_tr.data)) != 0 else 1.0
+                print(normalizer, tpl_denom)
                 scale = normalizer / tpl_denom
                 axis.plot(template_times, tpl_tr.data * scale, color=color, linewidth=1.2, alpha=0.9)
                 any_plotted = True
