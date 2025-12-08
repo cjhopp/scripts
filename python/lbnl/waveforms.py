@@ -1789,7 +1789,6 @@ def detection_multiplot(stream, template=None, times=None, party=None,
                 # compute lag to align template with detection time
                 lagged_time = (UTCDateTime(det_time) + (tpl_tr.stats.starttime - tpl[0].stats.starttime))
                 # lagged_time = (UTCDateTime(det_time) + (tpl_tr.stats.starttime - mintime))
-                print(det_time, lagged_time)
                 lagged_dt = lagged_time.datetime
                 template_times = [lagged_dt + timedelta((j * tpl_tr.stats.delta) / 86400)
                                   for j in range(len(tpl_tr.data))]
@@ -1801,8 +1800,10 @@ def detection_multiplot(stream, template=None, times=None, party=None,
                         raise ValueError
                     segment = image.data[max(0, start_idx):min(len(image.data), end_idx)]
                     normalizer = max(np.abs(segment)) if len(segment) > 0 and max(np.abs(segment)) != 0 else denom
-                except Exception:
+                except Exception as e:
+                    print(e)
                     normalizer = denom
+                print(denom)
                 tpl_denom = max(np.abs(tpl_tr.data)) if max(np.abs(tpl_tr.data)) != 0 else 1.0
                 scale = normalizer / tpl_denom
                 axis.plot(template_times, tpl_tr.data * scale, color=color, linewidth=1.2, alpha=0.9)
