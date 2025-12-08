@@ -1735,6 +1735,8 @@ def detection_multiplot(stream, template=None, times=None, party=None,
     if len(unique_stachans) == 0:
         raise ValueError("No traces present in template(s).")
 
+    # Ensure mean is removed from stream
+    stream = stream.detrend('demean')
     # --- Prepare figure/axes ---
     ntraces = len(unique_stachans)
     fig, axes = plt.subplots(ntraces, 1, sharex=True)
