@@ -1744,7 +1744,7 @@ def detection_multiplot(stream, template=None, times=None, party=None,
     # determine global mintime across all template traces for alignment
     all_template_traces = [tr for tpl in templates for tr in tpl]
     mintime = min([tr.stats.starttime for tr in all_template_traces])
-
+    print(f'Mintime: {mintime}')
     # color list for templates
     try:
         cmap_obj = cm.get_cmap(cmap)
@@ -1767,7 +1767,7 @@ def detection_multiplot(stream, template=None, times=None, party=None,
         image_times = [image.stats.starttime.datetime +
                        timedelta((j * image.stats.delta) / 86400)
                        for j in range(len(image.data))]
-
+        print(f'Image time start: {image_times[0]}')
         # normalize background safely
         denom = max(np.abs(image.data)) if max(np.abs(image.data)) != 0 else 1.0
         image_norm = image.data / denom
@@ -1788,6 +1788,7 @@ def detection_multiplot(stream, template=None, times=None, party=None,
             for det_time in times_list[tpl_idx]:
                 # compute lag to align template with detection time
                 lagged_time = (UTCDateTime(det_time) + (tpl_tr.stats.starttime - mintime))
+                print(det_time, lagged_time)
                 lagged_dt = lagged_time.datetime
                 template_times = [lagged_dt + timedelta((j * tpl_tr.stats.delta) / 86400)
                                   for j in range(len(tpl_tr.data))]
