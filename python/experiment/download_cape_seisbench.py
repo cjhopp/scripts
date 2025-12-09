@@ -32,7 +32,7 @@ from obspy.clients.fdsn import Client
 logger = seisbench.logger
 logger.setLevel(logging.INFO)
 
-dataset_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/dataset')
+dataset_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v2_preprocessed/dataset')
 metadata_path = dataset_root / "metadata.csv"
 waveforms_path = dataset_root / "waveforms.hdf5"
 
@@ -223,6 +223,11 @@ def download_dataset(catalog, inventory, time_before=10, time_after=10, **kwargs
                     continue
 
                 rotate_stream_to_zne(waveforms, inventory)
+
+                # Filtering, if asked for
+                waveforms.detrend("demean")
+                waveforms.taper(0.05)
+                waveforms.filter("bandpass", freqmin=3., freqmax=50.)
 
                 if len(waveforms) == 0:
                     seisbench.logger.debug(
