@@ -26,8 +26,8 @@ import os
 logger = seisbench.logger
 logger.setLevel(logging.INFO)
 
-dataset_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/dataset')
-model_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/models')
+dataset_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v2_preprocessed/dataset')
+model_root = Path('/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v2_preprocessed/models')
 
 class CustomWaveformDataset(sbd.WaveformDataset):
     def __init__(self, metadata, **kwargs):
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     # Specify parameters
     total_folds = 5
-    epochs = 100
+    epochs = 150
     batch_size = 256
     learning_rate = 1e-3
     num_workers = 8
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     best_epochs = []
 
     # Create a directory to save figures
-    output_dir = "/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v1/output_figures"
+    output_dir = "/media/chopp/HDD1/chet-meq/cape_modern/seisbench/cape_v2_preprocessed/output_figures"
     os.makedirs(output_dir, exist_ok=True)
     
     phase_dict = {
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     
     # Generate waveform plots for a few examples from the final model
     print("Generating final evaluation plots...")
-    num_examples = 50
+    num_examples = 150
 
     eval_generator = sbg.GenericGenerator(custom_dataset)
     eval_generator.add_augmentations(augmentations)
