@@ -21,8 +21,8 @@ def main():
     END_DATE = UTCDateTime(2025, 10, 8)
     
     # MODIFIED: Added output directories
-    PARTY_OUTPUT_DIR = "daily_parties"
-    PLOT_OUTPUT_DIR = "denoiser_plots"
+    PARTY_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data/daily_parties"
+    PLOT_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data/denoiser_plots"
 
     # Matched-filter parameters
     CCTHRESH = 8.  # Detection threshold
