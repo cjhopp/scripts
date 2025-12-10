@@ -127,11 +127,12 @@ def main():
     fft_ref_full = np.fft.rfft(ref_trace_full.data)
     full_freqs = np.fft.rfftfreq(ref_trace_full.stats.npts, d=ref_trace_full.stats.delta)
 
-    for ch in geophone_chans:
+    for tr in st_denoised:
+        ch = tr.stats.channel
         tf_interpolated = np.interp(full_freqs, freq, transfer_functions[ch], left=0, right=0)
         fft_predicted_noise = fft_ref_full * tf_interpolated
         predicted_noise_time = np.fft.irfft(fft_predicted_noise, n=ref_trace_full.stats.npts)
-        st_denoised.select(channel=ch)[0].data -= predicted_noise_time
+        tr.data -= predicted_noise_time.astype(np.float64)
 
     savename_denoised = f"denoised_data_{params['station']}.mseed"
     st_denoised.write(savename_denoised, format="MSEED")
