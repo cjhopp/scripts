@@ -36,7 +36,7 @@ def main():
     all_chans = [ref_chan] + geophone_chans
 
     # 1. DATA AND TEMPLATE LOADING
-    client = Client('IRIS')
+    client = Client('131.243.224.19:8085')
     print(f"Downloading waveform data for channels: {all_chans}...")
     st = Stream()
     try:
