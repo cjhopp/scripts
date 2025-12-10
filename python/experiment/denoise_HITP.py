@@ -1,0 +1,178 @@
+
+import numpy as np
+from obspy.clients.fdsn import Client
+from obspy.core import UTCDateTime, Stream, Trace
+import matplotlib.pyplot as plt
+from scipy.signal import detrend
+from eqcorrscan.core.template_gen import Template
+from eqcorrscan.core.match_filter import match_filter
+import warnings
+
+def main():
+    """
+    Main function to detect spikes, calculate transfer functions, and denoise geophone data.
+    """
+    params = {
+        'network': '6K',
+        'station': 'HITP',
+        'starttime': UTCDateTime("2021-06-01"),
+        'endtime': UTCDateTime("2021-06-01T01:00:00"), # Use one hour of data
+        'ccth': 0.97,
+        'spike_template_filename': '/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt',
+    }
+
+    # Time windows in seconds, as suggested
+    snippet_before_sec = 0.3
+    snippet_after_sec = 0.5
+    fft_window_sec = 0.5
+    fft_starttime_offset_sec = 0.2
+
+    # Define reference and target channels
+    ref_chan = 'GK1'
+    geophone_chans = ['GPZ', 'GP1', 'GP2']
+    all_chans = [ref_chan] + geophone_chans
+
+    # 1. DATA AND TEMPLATE LOADING
+    client = Client('IRIS')
+    print(f"Downloading waveform data for channels: {all_chans}...")
+    st = Stream()
+    try:
+        st = client.get_waveforms(
+            params['network'], params['station'], '*', f"G?{",".join(['K1','PZ','P1','P2'])}",
+            params['starttime'], params['endtime']
+        )
+    except Exception as e:
+        print(f"Could not download all waveform data: {e}")
+        # Create placeholders if download fails to prevent crashes
+        sampling_rate = 100 # Assume 100Hz if no data is available
+        npts = int((params['endtime'] - params['starttime']) * sampling_rate)
+        for chan_code in all_chans:
+            if not st.select(channel=chan_code):
+                warnings.warn(f"Could not download data for {chan_code}, using zeros.")
+                st += Trace(data=np.zeros(npts), header={'channel': chan_code, 'sampling_rate': sampling_rate, 'starttime': params['starttime']})
+
+    st.merge(fill_value='interpolate')
+    st.detrend('demean')
+    st.filter('bandpass', freqmin=1.0, freqmax=10.0, zerophase=True)
+    st_original_full = st.copy()
+
+    print("Loading and processing template...")
+    try:
+        template_data = np.loadtxt(params['spike_template_filename']).flatten()
+        template_st = Stream(Trace(data=template_data, header={'channel': ref_chan, 'sampling_rate': st[0].stats.sampling_rate}))
+    except Exception as e:
+        print(f"Error reading template file: {e}. Please update the path in `params`.")
+        return
+
+    template_st.detrend('demean')
+    template_st.filter('bandpass', freqmin=1.0, freqmax=10.0, zerophase=True)
+
+    # 2. SPIKE DETECTION USING EQCORRSCAN
+    template = Template(name='spike_template', stream=template_st, lowcut=1.0, highcut=10.0,
+                        samp_rate=template_st[0].stats.sampling_rate, filt_order=4)
+
+    print(f"Running matched-filter detection on reference channel {ref_chan}...")
+    detections = match_filter(templates=[template], st=st.select(channel=ref_chan),
+                              threshold=params['ccth'], threshold_type='absolute', trig_int=2.0)
+    print(f"Found {len(detections)} initial detections.")
+
+    # 3. EXTRACT AND PROCESS SPIKE SNIPPETS
+    good_snippets = []
+    for det in detections:
+        snippet = st.copy().trim(det.detect_time - snippet_before_sec, det.detect_time + snippet_after_sec)
+        
+        # Check if snippet has all channels and correct length
+        expected_npts = int((snippet_before_sec + snippet_after_sec) * snippet[0].stats.sampling_rate)
+        if len(snippet) < len(all_chans) or any(abs(tr.stats.npts - expected_npts) > 1 for tr in snippet):
+            continue
+        
+        n1_before_samples = int(snippet_before_sec * snippet[0].stats.sampling_rate)
+        for tr in snippet:
+            tr.data = detrend(tr.data)
+            tr.data -= np.mean(tr.data[:n1_before_samples - 10])
+        good_snippets.append(snippet)
+
+    print(f"Found {len(good_snippets)} 'good' spikes after QC.")
+    if not good_snippets:
+        print("No good spikes found, cannot proceed with analysis.")
+        return
+
+    # 4. CALCULATE AVERAGE SPECTRA FOR THE SPIKES
+    fs1 = good_snippets[0][0].stats.sampling_rate
+    winlen_samples = int(fft_window_sec * fs1)
+    freq = np.fft.rfftfreq(winlen_samples, d=1/fs1)
+
+    avg_ffts = {}
+    for ch in all_chans:
+        all_ffts_for_chan = []
+        for snip in good_snippets:
+            starttime_cut = snip[0].stats.starttime + fft_starttime_offset_sec
+            trace_cut = snip.select(channel=ch)[0].copy().trim(starttime_cut, npts=winlen_samples)
+            trace_cut.taper(0.04)
+            all_ffts_for_chan.append(np.fft.rfft(trace_cut.data))
+        avg_ffts[ch] = np.mean(all_ffts_for_chan, axis=0)
+
+    # 5. CALCULATE AND PLOT TRANSFER FUNCTIONS
+    print("Calculating and plotting transfer functions...")
+    transfer_functions = {}
+    plt.figure(figsize=(10, 8))
+    for ch in geophone_chans:
+        transfer_functions[ch] = avg_ffts[ch] / avg_ffts[ref_chan]
+        plt.subplot(2,1,1)
+        plt.plot(freq, np.real(transfer_functions[ch]), label=f"Real({ch}/{ref_chan})")
+        plt.title('Transfer Functions (Real Part)')
+        plt.grid(True); plt.legend()
+        plt.subplot(2,1,2)
+        plt.plot(freq, np.imag(transfer_functions[ch]), label=f"Imag({ch}/{ref_chan})")
+        plt.title('Transfer Functions (Imaginary Part)')
+        plt.xlabel("Frequency (Hz)"); plt.grid(True); plt.legend()
+
+    savename_tf = f"fig_transfer_functions_{params['station']}.jpg"
+    plt.savefig(savename_tf, dpi=160)
+    print(f"Saved transfer function plot to {savename_tf}")
+    plt.close()
+
+    # 6. DENOISE THE FULL HOURLY DATA
+    print("Denoising the full time series...")
+    st_denoised = st_original_full.copy()
+    
+    ref_trace_full = st_original_full.select(channel=ref_chan)[0]
+    fft_ref_full = np.fft.rfft(ref_trace_full.data)
+    full_freqs = np.fft.rfftfreq(ref_trace_full.stats.npts, d=ref_trace_full.stats.delta)
+
+    for ch in geophone_chans:
+        tf_interpolated = np.interp(full_freqs, freq, transfer_functions[ch], left=0, right=0)
+        fft_predicted_noise = fft_ref_full * tf_interpolated
+        predicted_noise_time = np.fft.irfft(fft_predicted_noise, n=ref_trace_full.stats.npts)
+        st_denoised.select(channel=ch)[0].data -= predicted_noise_time
+
+    savename_denoised = f"denoised_data_{params['station']}.mseed"
+    st_denoised.write(savename_denoised, format="MSEED")
+    print(f"Saved denoised data to {savename_denoised}")
+    
+    # Plot a before-and-after comparison
+    print("Plotting before-and-after comparison...")
+    plot_start = st_original_full[0].stats.starttime + 100
+    plot_end = plot_start + 30
+    
+    fig, axes = plt.subplots(len(geophone_chans), 1, figsize=(15, 10), sharex=True)
+    fig.suptitle('Denoising Comparison', fontsize=16)
+
+    for i, ch in enumerate(geophone_chans):
+        ax = axes[i]
+        original_tr = st_original_full.select(channel=ch)[0].copy().trim(plot_start, plot_end)
+        denoised_tr = st_denoised.select(channel=ch)[0].copy().trim(plot_start, plot_end)
+        time_axis = original_tr.times("matplotlib")
+        ax.plot(time_axis, original_tr.data, 'k-', label='Original')
+        ax.plot(time_axis, denoised_tr.data, 'r-', label='Denoised')
+        ax.set_ylabel(ch); ax.legend(); ax.grid(True)
+        
+    axes[-1].xaxis_date()
+    fig.autofmt_xdate()
+    savename_comp = f"fig_denoising_comparison_{params['station']}.jpg"
+    plt.savefig(savename_comp, dpi=160)
+    print(f"Saved comparison plot to {savename_comp}")
+    plt.close()
+
+if __name__ == '__main__':
+    main()
