@@ -147,23 +147,19 @@ def main():
 
         # Interpolate transfer function
         tf_interpolated = np.interp(full_freqs, freq, transfer_functions[ch], left=0, right=0)
-        
         # Predict noise in the frequency domain
         fft_predicted_noise = fft_ref_full * tf_interpolated
-        
         # Convert predicted noise back to the time domain
         predicted_noise_time = np.fft.irfft(fft_predicted_noise, n=ref_trace_full.stats.npts)
-
         # --- FIX THE DTYPE AND SUBTRACTION ---
         # 1. Ensure the original data is float64 to preserve precision.
         trace_to_denoise.data = trace_to_denoise.data.astype(np.float64)
-        
         # 2. Subtract the float64 predicted noise. THIS MODIFIES THE TRACE IN-PLACE.
         trace_to_denoise.data -= predicted_noise_time
 
     # Save the now-modified stream, ensuring to save as float to keep precision
     savename_denoised = f"denoised_data_{params['station']}.mseed"
-    st_denoised.write(savename_denoised, format="MSEED", encoding="FLOAT64")
+    st_denoised.write(savename_denoised, format="MSEED")
     print(f"Saved denoised data to {savename_denoised}")
     
     # Plot a before-and-after comparison
