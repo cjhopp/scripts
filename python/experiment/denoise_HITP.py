@@ -122,6 +122,29 @@ def main():
         print("No good spikes found, cannot proceed.")
         return
 
+    # 3.5 PLOT THE GOOD SPIKES
+    print("Plotting spike stack for quality control...")
+    fig_spikes, axes_spikes = plt.subplots(len(all_chans), 1, figsize=(10, 8), sharex=True, sharey=True)
+    fig_spikes.suptitle(f'Stacked Spikes for Station {params["station"]}', fontsize=16)
+    
+    # Take up to the first 50 snippets for plotting
+    snippets_to_plot = good_snippets[:50]
+
+    for i, ch in enumerate(all_chans):
+        ax = axes_spikes[i]
+        for snip in snippets_to_plot:
+            trace = snip.select(channel=ch)[0]
+            time_axis = trace.times() - snippet_before_sec # Center on spike time
+            ax.plot(time_axis, trace.data, 'k-', alpha=0.1)
+        ax.set_ylabel(ch)
+        ax.grid(True)
+
+    axes_spikes[-1].set_xlabel("Time relative to detection (s)")
+    savename_spikes = f"fig_spike_stack_{params['station']}.jpg"
+    plt.savefig(savename_spikes, dpi=160)
+    print(f"Saved spike stack plot to {savename_spikes}")
+    plt.close()
+
     # 4. CALCULATE AVERAGE SPECTRA
     print("Calculating average spectra...")
     fs1 = good_snippets[0][0].stats.sampling_rate
