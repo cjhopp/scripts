@@ -5,7 +5,7 @@ from obspy.clients.fdsn import Client
 from obspy import UTCDateTime
 from eqcorrscan.core.match_filter import match_filter
 from eqcorrscan import Tribe, Party, Family
-from eqcorrscan.utils.pre_processing import multi_processing
+from eqcorrscan.utils.pre_processing import multi_process
 
 # Import our custom denoising function
 from lbnl.denoiser import remove_HITP_spikes
