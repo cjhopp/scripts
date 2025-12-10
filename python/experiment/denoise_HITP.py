@@ -68,7 +68,6 @@ def main():
     for det in detections:
         snippet = st.copy().trim(det.detect_time - snippet_before_sec, det.detect_time + snippet_after_sec)
         
-        # Check if snippet has all channels and correct length
         expected_npts = int((snippet_before_sec + snippet_after_sec) * snippet[0].stats.sampling_rate)
         if len(snippet) < len(all_chans) or any(abs(tr.stats.npts - expected_npts) > 1 for tr in snippet):
             continue
@@ -108,12 +107,10 @@ def main():
         transfer_functions[ch] = avg_ffts[ch] / avg_ffts[ref_chan]
         plt.subplot(2,1,1)
         plt.plot(freq, np.real(transfer_functions[ch]), label=f"Real({ch}/{ref_chan})")
-        plt.title('Transfer Functions (Real Part)')
-        plt.grid(True); plt.legend()
+        plt.title('Transfer Functions (Real Part)'); plt.grid(True); plt.legend()
         plt.subplot(2,1,2)
         plt.plot(freq, np.imag(transfer_functions[ch]), label=f"Imag({ch}/{ref_chan})")
-        plt.title('Transfer Functions (Imaginary Part)')
-        plt.xlabel("Frequency (Hz)"); plt.grid(True); plt.legend()
+        plt.title('Transfer Functions (Imaginary Part)'); plt.xlabel("Frequency (Hz)"); plt.grid(True); plt.legend()
 
     savename_tf = f"fig_transfer_functions_{params['station']}.jpg"
     plt.savefig(savename_tf, dpi=160)
@@ -128,62 +125,97 @@ def main():
     fft_ref_full = np.fft.rfft(ref_trace_full.data)
     full_freqs = np.fft.rfftfreq(ref_trace_full.stats.npts, d=ref_trace_full.stats.delta)
 
-    # Correctly loop through geophone channels and modify traces in-place
     for ch in geophone_chans:
         try:
-            # Find the index of the trace we want to modify in the stream
             trace_index = [tr.stats.channel for tr in st_denoised].index(ch)
         except ValueError:
-            warnings.warn(f"Channel {ch} not found in the stream to be denoised. Skipping.")
+            warnings.warn(f"Channel {ch} not found to be denoised. Skipping.")
             continue
 
-        # Get a direct reference to the trace object, not a copy
         trace_to_denoise = st_denoised[trace_index]
         
-        # Check for length mismatch to prevent broadcasting errors
         if trace_to_denoise.stats.npts != ref_trace_full.stats.npts:
-            warnings.warn(f"Channel {ch} has a different length than the reference. Skipping.")
+            warnings.warn(f"Channel {ch} has a different length than reference. Skipping.")
             continue
 
-        # Interpolate transfer function
         tf_interpolated = np.interp(full_freqs, freq, transfer_functions[ch], left=0, right=0)
-        # Predict noise in the frequency domain
         fft_predicted_noise = fft_ref_full * tf_interpolated
-        # Convert predicted noise back to the time domain
         predicted_noise_time = np.fft.irfft(fft_predicted_noise, n=ref_trace_full.stats.npts)
-        # --- FIX THE DTYPE AND SUBTRACTION ---
-        # 1. Ensure the original data is float64 to preserve precision.
+
         trace_to_denoise.data = trace_to_denoise.data.astype(np.float64)
-        # 2. Subtract the float64 predicted noise. THIS MODIFIES THE TRACE IN-PLACE.
         trace_to_denoise.data -= predicted_noise_time
 
-    # Save the now-modified stream, ensuring to save as float to keep precision
     savename_denoised = f"denoised_data_{params['station']}.mseed"
-    st_denoised.write(savename_denoised, format="MSEED")
+    st_denoised.write(savename_denoised, format="MSEED", encoding='FLOAT64')
     print(f"Saved denoised data to {savename_denoised}")
     
-    # Plot a before-and-after comparison
-    print("Plotting before-and-after comparison...")
-    plot_start = st_original_full[0].stats.starttime + 100
-    plot_end = plot_start + 30
-    
-    fig, axes = plt.subplots(len(geophone_chans), 1, figsize=(15, 10), sharex=True)
-    fig.suptitle('Denoising Comparison', fontsize=16)
+    # 7. PLOT DETAILED BEFORE-AND-AFTER COMPARISON
+    print("Plotting detailed before-and-after comparison...")
+
+    # --- Plotting Parameters ---
+    wide_plot_start_offset_sec = 500
+    wide_plot_duration_sec = 300  # 5 minutes
+    zoom_plot_start_offset_sec = 120 # Start zoom 120s into the wide plot
+    zoom_plot_duration_sec = 60   # 1 minute
+
+    # --- Define Time Windows ---
+    base_time = st_original_full[0].stats.starttime
+    wide_start_time = base_time + wide_plot_start_offset_sec
+    wide_end_time = wide_start_time + wide_plot_duration_sec
+    zoom_start_time = wide_start_time + zoom_plot_start_offset_sec
+    zoom_end_time = zoom_start_time + zoom_plot_duration_sec
+
+    # --- Create Figure ---
+    fig, axes = plt.subplots(len(geophone_chans), 2, figsize=(20, 12), sharey='row')
+    fig.suptitle('Denoising Comparison: Wide and Zoomed Views', fontsize=16)
 
     for i, ch in enumerate(geophone_chans):
-        ax = axes[i]
-        original_tr = st_original_full.select(channel=ch)[0].copy().trim(plot_start, plot_end)
-        denoised_tr = st_denoised.select(channel=ch)[0].copy().trim(plot_start, plot_end)
-        time_axis = original_tr.times("matplotlib")
-        ax.plot(time_axis, original_tr.data, 'k-', label='Original')
-        ax.plot(time_axis, denoised_tr.data, 'r-', label='Denoised')
-        ax.set_ylabel(ch); ax.legend(); ax.grid(True)
+        ax_wide = axes[i, 0]
+        ax_zoom = axes[i, 1]
         
-    axes[-1].xaxis_date()
+        # --- Data for Plots ---
+        original_tr_wide = st_original_full.select(channel=ch)[0].copy().trim(wide_start_time, wide_end_time)
+        denoised_tr_wide = st_denoised.select(channel=ch)[0].copy().trim(wide_start_time, wide_end_time)
+        
+        original_tr_zoom = original_tr_wide.copy().trim(zoom_start_time, zoom_end_time)
+        denoised_tr_zoom = denoised_tr_wide.copy().trim(zoom_start_time, zoom_end_time)
+
+        # --- Plot Wide View ---
+        time_axis_wide = original_tr_wide.times("matplotlib")
+        ax_wide.plot(time_axis_wide, original_tr_wide.data, 'k-', label='Original')
+        ax_wide.plot(time_axis_wide, denoised_tr_wide.data, 'r-', label='Denoised')
+        ax_wide.set_title(f'Channel {ch} - Wide View (5 mins)')
+        ax_wide.set_ylabel('Amplitude')
+        ax_wide.grid(True)
+
+        # Add zoom box to the wide plot
+        zoom_start_mpl = original_tr_zoom.times("matplotlib")[0]
+        zoom_end_mpl = original_tr_zoom.times("matplotlib")[-1]
+        ax_wide.axvspan(zoom_start_mpl, zoom_end_mpl, color='blue', alpha=0.2, label='Zoom Area')
+        ax_wide.legend()
+
+        # --- Plot Zoomed View ---
+        time_axis_zoom = original_tr_zoom.times("matplotlib")
+        ax_zoom.plot(time_axis_zoom, original_tr_zoom.data, 'k-', label='Original')
+        ax_zoom.plot(time_axis_zoom, denoised_tr_zoom.data, 'r-', label='Denoised')
+        ax_zoom.set_title(f'Zoomed View (60s)')
+        ax_zoom.grid(True)
+        ax_zoom.legend()
+        
+        # Format x-axis for both
+        ax_wide.xaxis_date()
+        ax_zoom.xaxis_date()
+
+    # Set shared x-label and finalize
+    axes[-1, 0].set_xlabel('Time')
+    axes[-1, 1].set_xlabel('Time')
     fig.autofmt_xdate()
-    savename_comp = f"fig_denoising_comparison_{params['station']}.jpg"
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust for suptitle
+
+    # --- Save Figure ---
+    savename_comp = f"fig_denoising_comparison_detailed_{params['station']}.jpg"
     plt.savefig(savename_comp, dpi=160)
-    print(f"Saved comparison plot to {savename_comp}")
+    print(f"Saved detailed comparison plot to {savename_comp}")
     plt.close()
 
 if __name__ == '__main__':
