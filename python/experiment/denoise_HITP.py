@@ -1,4 +1,4 @@
-#/usr/bin/python
+#!/usr/bin/python
 
 import warnings
 
@@ -127,16 +127,42 @@ def main():
     fft_ref_full = np.fft.rfft(ref_trace_full.data)
     full_freqs = np.fft.rfftfreq(ref_trace_full.stats.npts, d=ref_trace_full.stats.delta)
 
-    for tr in st_denoised:
-        ch = tr.stats.channel
-        tf_interpolated = np.interp(full_freqs, freq, transfer_functions[ch], left=0, right=0)
-        fft_predicted_noise = fft_ref_full * tf_interpolated
-        predicted_noise_time = np.fft.irfft(fft_predicted_noise, n=ref_trace_full.stats.npts)
-        print(tr.data.dtype, predicted_noise_time.dtype)
-        tr.data -= predicted_noise_time.astype(np.int32)
+    # Correctly loop through geophone channels and modify traces in-place
+    for ch in geophone_chans:
+        try:
+            # Find the index of the trace we want to modify in the stream
+            trace_index = [tr.stats.channel for tr in st_denoised].index(ch)
+        except ValueError:
+            warnings.warn(f"Channel {ch} not found in the stream to be denoised. Skipping.")
+            continue
 
+        # Get a direct reference to the trace object, not a copy
+        trace_to_denoise = st_denoised[trace_index]
+        
+        # Check for length mismatch to prevent broadcasting errors
+        if trace_to_denoise.stats.npts != ref_trace_full.stats.npts:
+            warnings.warn(f"Channel {ch} has a different length than the reference. Skipping.")
+            continue
+
+        # Interpolate transfer function
+        tf_interpolated = np.interp(full_freqs, freq, transfer_functions[ch], left=0, right=0)
+        
+        # Predict noise in the frequency domain
+        fft_predicted_noise = fft_ref_full * tf_interpolated
+        
+        # Convert predicted noise back to the time domain
+        predicted_noise_time = np.fft.irfft(fft_predicted_noise, n=ref_trace_full.stats.npts)
+
+        # --- FIX THE DTYPE AND SUBTRACTION ---
+        # 1. Ensure the original data is float64 to preserve precision.
+        trace_to_denoise.data = trace_to_denoise.data.astype(np.float64)
+        
+        # 2. Subtract the float64 predicted noise. THIS MODIFIES THE TRACE IN-PLACE.
+        trace_to_denoise.data -= predicted_noise_time
+
+    # Save the now-modified stream, ensuring to save as float to keep precision
     savename_denoised = f"denoised_data_{params['station']}.mseed"
-    st_denoised.write(savename_denoised, format="MSEED")
+    st_denoised.write(savename_denoised, format="MSEED", encoding="FLOAT64")
     print(f"Saved denoised data to {savename_denoised}")
     
     # Plot a before-and-after comparison
