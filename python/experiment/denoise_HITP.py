@@ -38,7 +38,7 @@ def main():
     st = Stream()
     try:
         st = client.get_waveforms(
-            params['network'], params['station'], '*', f"G?{",".join(['K1','PZ','P1','P2'])}",
+            params['network'], params['station'], '*', "GPZ,GP1,GP2,GK1",
             params['starttime'], params['endtime']
         )
     except Exception as e:
