@@ -48,7 +48,7 @@ def main():
     print("Loading and processing template...")
     try:
         template_data = np.loadtxt(params['spike_template_filename']).flatten()
-        template_st = Stream(Trace(data=template_data, header={'channel': ref_chan, 'sampling_rate': st[0].stats.sampling_rate}))
+        template_st = Stream(Trace(data=template_data, header={network='6K', station='HITP', 'channel': ref_chan, 'sampling_rate': st[0].stats.sampling_rate}))
     except Exception as e:
         print(f"Error reading template file: {e}. Please update the path in `params`.")
         return
