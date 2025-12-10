@@ -58,7 +58,7 @@ def main():
                         samp_rate=template_st[0].stats.sampling_rate)
 
     print(f"Running matched-filter detection on reference channel {ref_chan}...")
-    detections = match_filter(templates=[template], st=st.select(channel=ref_chan),
+    detections = match_filter(template_list=[template], template_names=['spike'], st=st.select(channel=ref_chan),
                               threshold=params['ccth'], threshold_type='absolute', trig_int=2.0)
     print(f"Found {len(detections)} initial detections.")
 
