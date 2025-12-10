@@ -166,7 +166,7 @@ def main():
     zoom_end_time = zoom_start_time + zoom_plot_duration_sec
 
     # --- Create Figure ---
-    fig, axes = plt.subplots(len(geophone_chans), 2, figsize=(20, 12), sharey='row')
+    fig, axes = plt.subplots(len(geophone_chans), 2, figsize=(20, 12))
     fig.suptitle('Denoising Comparison: Wide and Zoomed Views', fontsize=16)
 
     for i, ch in enumerate(geophone_chans):
@@ -184,7 +184,7 @@ def main():
         time_axis_wide = original_tr_wide.times("matplotlib")
         ax_wide.plot(time_axis_wide, original_tr_wide.data, 'k-', label='Original')
         ax_wide.plot(time_axis_wide, denoised_tr_wide.data, 'r-', label='Denoised')
-        ax_wide.set_title(f'Channel {ch} - Wide View (5 mins)')
+        ax_wide.set_title(f'Channel {ch} - Wide View ({wide_plot_duration_sec} s)')
         ax_wide.set_ylabel('Amplitude')
         ax_wide.grid(True)
 
@@ -198,7 +198,7 @@ def main():
         time_axis_zoom = original_tr_zoom.times("matplotlib")
         ax_zoom.plot(time_axis_zoom, original_tr_zoom.data, 'k-', label='Original')
         ax_zoom.plot(time_axis_zoom, denoised_tr_zoom.data, 'r-', label='Denoised')
-        ax_zoom.set_title(f'Zoomed View (60s)')
+        ax_zoom.set_title(f'Zoomed View ({zoom_plot_duration_sec} s)')
         ax_zoom.grid(True)
         ax_zoom.legend()
         
