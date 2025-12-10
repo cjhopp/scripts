@@ -1,12 +1,15 @@
+#/usr/bin/python
+
+import warnings
 
 import numpy as np
-from obspy.clients.fdsn import Client
-from obspy.core import UTCDateTime, Stream, Trace
 import matplotlib.pyplot as plt
+
+from obspy.clients.fdsn import Client
+from obspy import UTCDateTime, Stream, Trace
 from scipy.signal import detrend
-from eqcorrscan.core.template_gen import Template
+from eqcorrscan import Template
 from eqcorrscan.core.match_filter import match_filter
-import warnings
 
 def main():
     """
