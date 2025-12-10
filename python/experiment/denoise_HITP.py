@@ -146,7 +146,7 @@ def main():
         trace_to_denoise.data -= predicted_noise_time
 
     savename_denoised = f"denoised_data_{params['station']}.mseed"
-    st_denoised.write(savename_denoised, format="MSEED", encoding='FLOAT64')
+    st_denoised.write(savename_denoised, format="MSEED")
     print(f"Saved denoised data to {savename_denoised}")
     
     # 7. PLOT DETAILED BEFORE-AND-AFTER COMPARISON
