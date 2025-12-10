@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 import os
+os.path.insert(0, '/home/chopp/scripts/')
+
 from obspy.clients.fdsn import Client
 from obspy import UTCDateTime
 from eqcorrscan.core.match_filter import match_filter
