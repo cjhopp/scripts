@@ -19,7 +19,7 @@ def main():
         'network': '6K',
         'station': 'HITP',
         'starttime': UTCDateTime("2025-09-01"),
-        'endtime': UTCDateTime("2025-09-01T01:00:00"), # Use one hour of data
+        'endtime': UTCDateTime("2025-09-02T00:00:00"), # Use one hour of data
         'ccth': 0.97,
         'spike_template_filename': '/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt',
     }
