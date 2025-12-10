@@ -3,6 +3,8 @@
 import warnings
 import multiprocessing
 import functools
+import os
+import random
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,29 +15,37 @@ from scipy.signal import detrend
 from eqcorrscan import Template
 from eqcorrscan.core.match_filter import match_filter
 
+# --- Multiprocessing Worker and Initializer ---
 
-def process_detection(det, st, snippet_before_sec, snippet_after_sec, all_chans):
-    """
-    Worker function to process a single detection. This function is designed to be
-    called by a multiprocessing pool.
-    """
-    # Slice creates a view, so we copy it to a new object. This is much faster
-    # than copying the whole stream and then trimming.
-    snippet = st.slice(det.detect_time - snippet_before_sec, det.detect_time + snippet_after_sec).copy()
+shared_st = None
 
-    # Perform quality control checks on the snippet
+def init_worker(stream_data):
+    """
+    Initializer for each worker process.
+    This sets the global 'shared_st' variable for the worker process,
+    allowing for efficient memory sharing.
+    """
+    global shared_st
+    shared_st = stream_data
+
+def process_detection(det, snippet_before_sec, snippet_after_sec, all_chans):
+    """
+    Worker function to process a single detection.
+    It accesses the 'shared_st' global variable.
+    """
+    global shared_st
+    snippet = shared_st.slice(det.detect_time - snippet_before_sec, det.detect_time + snippet_after_sec).copy()
+
     expected_npts = int((snippet_before_sec + snippet_after_sec) * snippet[0].stats.sampling_rate)
     if len(snippet) < len(all_chans) or any(abs(tr.stats.npts - expected_npts) > 1 for tr in snippet):
-        return None  # Return None for invalid snippets that will be filtered out later
+        return None
 
-    # Detrend and demean the snippet
     n1_before_samples = int(snippet_before_sec * snippet[0].stats.sampling_rate)
     for tr in snippet:
         tr.data = detrend(tr.data)
         tr.data -= np.mean(tr.data[:n1_before_samples - 10])
 
     return snippet
-
 
 def main():
     """
@@ -48,20 +58,21 @@ def main():
         'endtime': UTCDateTime("2025-09-02T00:00:00"),
         'ccth': 0.97,
         'spike_template_filename': '/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt',
+        'max_spikes_to_process': 1000
     }
 
-    # Time windows in seconds
+    # Time windows
     snippet_before_sec = 0.3
     snippet_after_sec = 0.5
     fft_window_sec = 0.5
     fft_starttime_offset_sec = 0.2
 
-    # Define channels
+    # Channels
     ref_chan = 'GK1'
     geophone_chans = ['GPZ', 'GP1', 'GP2']
     all_chans = [ref_chan] + geophone_chans
 
-    # 1. DATA AND TEMPLATE LOADING
+    # 1. DATA LOADING
     client = Client('http://131.243.224.19:8085')
     print(f"Downloading waveform data for channels: {all_chans}...")
     st = client.get_waveforms(
@@ -87,28 +98,32 @@ def main():
                               threshold=params['ccth'], threshold_type='absolute', trig_int=2.0)
     print(f"Found {len(detections)} initial detections.")
 
-    # 3. EXTRACT AND PROCESS SPIKE SNIPPETS (PARALLELIZED)
-    print("Extracting and processing snippets in parallel...")
+    # Limit the number of detections to process by random sampling
+    if len(detections) > params['max_spikes_to_process']:
+        print(f"--- Randomly sampling {params['max_spikes_to_process']} detections from the full list of {len(detections)}. ---")
+        detections = random.sample(detections, params['max_spikes_to_process'])
+
+    # 3. EXTRACT AND PROCESS SNIPPETS (PARALLELIZED & MEMORY-EFFICIENT)
+    cpu_cores = os.cpu_count()
+    print(f"Extracting snippets in parallel using {cpu_cores} cores...")
     
-    # Use functools.partial to create a worker function with fixed arguments
-    worker = functools.partial(process_detection, st=st, 
+    worker = functools.partial(process_detection, 
                                snippet_before_sec=snippet_before_sec,
                                snippet_after_sec=snippet_after_sec,
                                all_chans=all_chans)
     
-    # Use a multiprocessing Pool to map the worker to the detections
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(initializer=init_worker, initargs=(st,)) as pool:
         processed_snippets = pool.map(worker, detections)
     
-    # Filter out None results from invalid snippets
     good_snippets = [snip for snip in processed_snippets if snip is not None]
 
     print(f"Found {len(good_snippets)} 'good' spikes after QC.")
     if not good_snippets:
-        print("No good spikes found, cannot proceed with analysis.")
+        print("No good spikes found, cannot proceed.")
         return
 
-    # 4. CALCULATE AVERAGE SPECTRA FOR THE SPIKES
+    # 4. CALCULATE AVERAGE SPECTRA
+    print("Calculating average spectra...")
     fs1 = good_snippets[0][0].stats.sampling_rate
     winlen_samples = int(fft_window_sec * fs1)
     freq = np.fft.rfftfreq(winlen_samples, d=1/fs1)
@@ -124,8 +139,8 @@ def main():
             all_ffts_for_chan.append(np.fft.rfft(trace_cut.data))
         avg_ffts[ch] = np.mean(all_ffts_for_chan, axis=0)
 
-    # 5. CALCULATE AND PLOT TRANSFER FUNCTIONS
-    print("Calculating and plotting transfer functions...")
+    # 5. CALCULATE TRANSFER FUNCTIONS
+    print("Calculating transfer functions...")
     transfer_functions = {}
     plt.figure(figsize=(10, 8))
     for ch in geophone_chans:
@@ -142,7 +157,7 @@ def main():
     print(f"Saved transfer function plot to {savename_tf}")
     plt.close()
 
-    # 6. DENOISE THE FULL HOURLY DATA
+    # 6. DENOISE FULL DATA
     print("Denoising the full time series...")
     st_denoised = st_original_full.copy()
     
@@ -174,8 +189,8 @@ def main():
     st_denoised.write(savename_denoised, format="MSEED")
     print(f"Saved denoised data to {savename_denoised}")
     
-    # 7. PLOT DETAILED BEFORE-AND-AFTER COMPARISON
-    print("Plotting detailed before-and-after comparison...")
+    # 7. PLOT DETAILED COMPARISON
+    print("Plotting detailed comparison...")
 
     wide_plot_start_offset_sec = 500
     wide_plot_duration_sec = 60
