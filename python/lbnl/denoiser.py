@@ -41,6 +41,7 @@ def remove_HITP_spikes(
     geophone_chans=['GPZ', 'GP1', 'GP2'],
     ccth=0.97,
     num_quiet_spikes=36,
+    min_quiet_spikes=10, # MODIFIED: Added minimum threshold
     low_freq_cutoff=2.0,
     plot=False,
     plot_output_dir='.'):
@@ -49,8 +50,7 @@ def remove_HITP_spikes(
 
     Args:
         stream (obspy.Stream): 
-            The Stream object to be modified. It must contain the 'GK1' 
-            reference channel and at least one of the specified geophone channels.
+            The Stream object to be modified.
         spike_template_path (str): 
             Path to the spike template file.
         geophone_chans (list, optional): 
@@ -60,6 +60,8 @@ def remove_HITP_spikes(
             Cross-correlation threshold for spike detection. Defaults to 0.97.
         num_quiet_spikes (int, optional): 
             Number of quietest spikes for the median transfer function. Defaults to 36.
+        min_quiet_spikes (int, optional):
+            Minimum number of quiet spikes required to proceed with denoising. Defaults to 10.
         low_freq_cutoff (float, optional): 
             Frequency (Hz) to set the transfer function to zero below. Defaults to 2.0.
         plot (bool, optional): 
@@ -118,8 +120,10 @@ def remove_HITP_spikes(
     sorted_detections = sorted(valid_detections, key=lambda x: x[1])
 
     num_to_select = min(num_quiet_spikes, len(sorted_detections))
-    if num_to_select == 0:
-        warnings.warn("No valid spikes found after QC. Stream will not be modified.")
+
+    # MODIFIED: Add check for minimum number of spikes
+    if num_to_select < min_quiet_spikes:
+        warnings.warn(f"Found only {num_to_select} quiet spikes, which is fewer than the minimum of {min_quiet_spikes} required. Aborting denoising for this segment.")
         return
 
     print(f"Selected {num_to_select} quietest spikes for TF calculation.")
@@ -141,7 +145,8 @@ def remove_HITP_spikes(
         fig_spikes, axes_spikes = plt.subplots(len(all_chans), 1, figsize=(10, 8), sharex=True, sharey=True)
         fig_spikes.suptitle(f'Stacked Quiet Spikes for Station {station}', fontsize=16)
         for i, ch in enumerate(all_chans):
-            ax = axes_spikes[i]
+            # Ensure axes_spikes is always indexable
+            ax = axes_spikes if len(all_chans) == 1 else axes_spikes[i]
             for snip in quiet_snippets:
                 if ch not in [tr.stats.channel for tr in snip]: continue
                 trace = snip.select(channel=ch)[0]
@@ -149,7 +154,7 @@ def remove_HITP_spikes(
                 ax.plot(time_axis, trace.data, 'k-', alpha=0.2)
             ax.set_ylabel(ch)
             ax.grid(True)
-        axes_spikes[-1].set_xlabel("Time relative to detection (s)")
+        (axes_spikes if len(all_chans) == 1 else axes_spikes[-1]).set_xlabel("Time relative to detection (s)")
         savename_spikes = os.path.join(plot_output_dir, f"fig_spike_stack_{station}_{timestring}.jpg")
         plt.savefig(savename_spikes, dpi=160)
         print(f"Saved spike stack plot to {savename_spikes}")
@@ -231,15 +236,15 @@ def remove_HITP_spikes(
         zoom_plot_start_offset_sec = 20
         zoom_plot_duration_sec = 5
 
-        if original_stream_for_plotting[0].stats.npts / original_stream_for_plotting[0].stats.sampling_rate > wide_plot_start_offset_sec + wide_plot_duration_sec:
+        if original_stream_for_plotting and original_stream_for_plotting[0].stats.npts / original_stream_for_plotting[0].stats.sampling_rate > wide_plot_start_offset_sec + wide_plot_duration_sec:
             base_time = original_stream_for_plotting[0].stats.starttime
             wide_start_time = base_time + wide_plot_start_offset_sec
             wide_end_time = wide_start_time + wide_plot_duration_sec
             zoom_start_time = wide_start_time + zoom_plot_start_offset_sec
             zoom_end_time = zoom_start_time + zoom_plot_duration_sec
 
-            fig, axes = plt.subplots(len(geophone_chans), 2, figsize=(20, 12))
-            if len(geophone_chans) == 1: axes = np.array([axes]).T # Handle single channel case
+            fig, axes = plt.subplots(len(geophone_chans), 2, figsize=(20, 12), squeeze=False) # MODIFIED: squeeze=False
+
             fig.suptitle(f'Denoising Comparison for {station}: Wide and Zoomed Views', fontsize=16)
 
             for i, ch in enumerate(geophone_chans):
