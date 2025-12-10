@@ -43,6 +43,7 @@ def main():
         params['network'], params['station'], '*', "GPZ,GP1,GP2,GK1",
         params['starttime'], params['endtime']
     )
+    st.merge()
     st_original_full = st.copy()
 
     print("Loading and processing template...")
