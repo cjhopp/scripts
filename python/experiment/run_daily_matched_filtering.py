@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import sys
+sys.path.insert(0, '/home/chopp/scripts/python')
 
 import os
 from obspy.clients.fdsn import Client
