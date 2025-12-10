@@ -5,7 +5,7 @@ from obspy.clients.fdsn import Client
 from obspy import UTCDateTime
 from eqcorrscan.core.match_filter import match_filter
 from eqcorrscan import Tribe, Party, Family
-from eqcorrscan.utils.pre_processing import multi_processing
+from eqcorrscan.utils.pre_processing import multi_process
 
 # Import our custom denoising function
 from lbnl.denoiser import remove_HITP_spikes
@@ -75,7 +75,7 @@ def main():
 
             # 3. Pre-process the denoised data for matched-filtering
             print("Running standard dayproc pre-processing...")
-            st_processed = multi_processing(st, lowcut=tribe[0].lowcut, highcut=tribe[0].highcut, filt_order=tribe[0].filt_order, samp_rate=tribe[0].samp_rate, parallel=True)
+            st_processed = multi_process(st, lowcut=tribe[0].lowcut, highcut=tribe[0].highcut, filt_order=tribe[0].filt_order, samp_rate=tribe[0].samp_rate, parallel=True)
             
             # 4. Run matched-filtering
             print("Running matched-filter...")
