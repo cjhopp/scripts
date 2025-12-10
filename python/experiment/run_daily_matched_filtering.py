@@ -1,14 +1,11 @@
 #!/usr/bin/python
 
-import sys
-sys.path.insert(0, '/home/chopp/scripts/python')
-
 import os
 from obspy.clients.fdsn import Client
 from obspy import UTCDateTime
 from eqcorrscan.core.match_filter import match_filter
 from eqcorrscan import Tribe, Party, Family
-from eqcorrscan.utils.pre_processing import multi_process
+from eqcorrscan.utils.pre_processing import multi_processing
 
 # Import our custom denoising function
 from lbnl.denoiser import remove_HITP_spikes
@@ -23,7 +20,6 @@ def main():
     START_DATE = UTCDateTime(2025, 7, 27)
     END_DATE = UTCDateTime(2025, 10, 8)
     
-    # MODIFIED: Added output directories
     PARTY_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data/daily_parties"
     PLOT_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data/denoiser_plots"
 
@@ -39,7 +35,6 @@ def main():
 
     # --- SCRIPT LOGIC ---
 
-    # MODIFIED: Create output directories if they don't exist
     os.makedirs(PARTY_OUTPUT_DIR, exist_ok=True)
     os.makedirs(PLOT_OUTPUT_DIR, exist_ok=True)
     print(f"Party files will be saved to: {PARTY_OUTPUT_DIR}")
@@ -72,15 +67,15 @@ def main():
 
             # 2. Denoise the stream in-place
             print("Applying spike removal...")
-            # MODIFIED: Pass the plot output directory to the denoiser
             remove_HITP_spikes(stream=st, 
-                               spike_template_path=SPIKE_TEMPLATE_PATH, 
+                               spike_template_path=SPIKE_TEMPLATE_PATH,
+                               geophone_chans=['GPZ'], 
                                plot=True, 
                                plot_output_dir=PLOT_OUTPUT_DIR)
 
             # 3. Pre-process the denoised data for matched-filtering
             print("Running standard dayproc pre-processing...")
-            st_processed = multi_process(st, lowcut=tribe[0].lowcut, highcut=tribe[0].highcut, filt_order=tribe[0].filt_order, samp_rate=tribe[0].samp_rate, parallel=True)
+            st_processed = multi_processing(st, lowcut=tribe[0].lowcut, highcut=tribe[0].highcut, filt_order=tribe[0].filt_order, samp_rate=tribe[0].samp_rate, parallel=True)
             
             # 4. Run matched-filtering
             print("Running matched-filter...")
@@ -95,7 +90,7 @@ def main():
 
             print(f"Found {len(detections)} detections for this day.")
 
-            # MODIFIED: Create and save a Party for the current day
+            # Create and save a Party for the current day
             if detections:
                 fam_dict = {t.name: Family(template=t) for t in tribe}
                 for d in detections:
@@ -103,7 +98,6 @@ def main():
                 
                 daily_party = Party(families=[fam for fam in fam_dict.values() if len(fam.detections) > 0])
                 
-                # MODIFIED: Define an output path within the specified directory
                 daily_output_path = os.path.join(PARTY_OUTPUT_DIR, f"detections_{current_date.strftime('%Y%m%d')}.tgz")
                 
                 if len(daily_party) > 0:
