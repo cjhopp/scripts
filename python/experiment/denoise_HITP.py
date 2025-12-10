@@ -39,24 +39,10 @@ def main():
     client = Client('http://131.243.224.19:8085')
     print(f"Downloading waveform data for channels: {all_chans}...")
     st = Stream()
-    try:
-        st = client.get_waveforms(
-            params['network'], params['station'], '*', "GPZ,GP1,GP2,GK1",
-            params['starttime'], params['endtime']
-        )
-    except Exception as e:
-        print(f"Could not download all waveform data: {e}")
-        # Create placeholders if download fails to prevent crashes
-        sampling_rate = 100 # Assume 100Hz if no data is available
-        npts = int((params['endtime'] - params['starttime']) * sampling_rate)
-        for chan_code in all_chans:
-            if not st.select(channel=chan_code):
-                warnings.warn(f"Could not download data for {chan_code}, using zeros.")
-                st += Trace(data=np.zeros(npts), header={'channel': chan_code, 'sampling_rate': sampling_rate, 'starttime': params['starttime']})
-
-    st.merge(fill_value='interpolate')
-    st.detrend('demean')
-    st.filter('bandpass', freqmin=1.0, freqmax=10.0, zerophase=True)
+    st = client.get_waveforms(
+        params['network'], params['station'], '*', "GPZ,GP1,GP2,GK1",
+        params['starttime'], params['endtime']
+    )
     st_original_full = st.copy()
 
     print("Loading and processing template...")
@@ -67,12 +53,9 @@ def main():
         print(f"Error reading template file: {e}. Please update the path in `params`.")
         return
 
-    template_st.detrend('demean')
-    template_st.filter('bandpass', freqmin=1.0, freqmax=10.0, zerophase=True)
-
     # 2. SPIKE DETECTION USING EQCORRSCAN
-    template = Template(name='spike_template', stream=template_st, lowcut=1.0, highcut=10.0,
-                        samp_rate=template_st[0].stats.sampling_rate, filt_order=4)
+    template = Template(name='spike_template', st=template_st,
+                        samp_rate=template_st[0].stats.sampling_rate)
 
     print(f"Running matched-filter detection on reference channel {ref_chan}...")
     detections = match_filter(templates=[template], st=st.select(channel=ref_chan),
