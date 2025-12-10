@@ -156,7 +156,7 @@ def main():
     # --- Plotting Parameters ---
     wide_plot_start_offset_sec = 500
     wide_plot_duration_sec = 60  # 5 minutes
-    zoom_plot_start_offset_sec = 10 # Start zoom 120s into the wide plot
+    zoom_plot_start_offset_sec = 20 # Start zoom 120s into the wide plot
     zoom_plot_duration_sec = 5   # 1 minute
 
     # --- Define Time Windows ---
