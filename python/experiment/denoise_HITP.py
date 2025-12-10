@@ -93,7 +93,8 @@ def main():
         all_ffts_for_chan = []
         for snip in good_snippets:
             starttime_cut = snip[0].stats.starttime + fft_starttime_offset_sec
-            trace_cut = snip.select(channel=ch)[0].copy().trim(starttime_cut, npts=winlen_samples)
+            endtime_cut = starttime_cut + winlen_samples / fs1
+            trace_cut = snip.select(channel=ch)[0].copy().trim(starttime_cut, endtime=endtime_cut)
             trace_cut.taper(0.04)
             all_ffts_for_chan.append(np.fft.rfft(trace_cut.data))
         avg_ffts[ch] = np.mean(all_ffts_for_chan, axis=0)
