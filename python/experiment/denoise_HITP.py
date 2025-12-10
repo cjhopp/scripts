@@ -44,6 +44,7 @@ def main():
         params['starttime'], params['endtime']
     )
     st.merge(fill_value='interpolate')
+    st.detrend('demean')
     st_original_full = st.copy()
 
     print("Loading and processing template...")
@@ -182,8 +183,8 @@ def main():
 
         # --- Plot Wide View ---
         time_axis_wide = original_tr_wide.times("matplotlib")
-        ax_wide.plot(time_axis_wide, original_tr_wide.data, 'k-', label='Original')
-        ax_wide.plot(time_axis_wide, denoised_tr_wide.data, 'r-', label='Denoised')
+        ax_wide.plot(time_axis_wide, original_tr_wide.data, 'k-', linewidth=0.5, alpha=0.5, label='Original')
+        ax_wide.plot(time_axis_wide, denoised_tr_wide.data, 'r-', linewidth=0.5, alpha=0.5, label='Denoised')
         ax_wide.set_title(f'Channel {ch} - Wide View ({wide_plot_duration_sec} s)')
         ax_wide.set_ylabel('Amplitude')
         ax_wide.grid(True)
@@ -196,8 +197,8 @@ def main():
 
         # --- Plot Zoomed View ---
         time_axis_zoom = original_tr_zoom.times("matplotlib")
-        ax_zoom.plot(time_axis_zoom, original_tr_zoom.data, 'k-', label='Original')
-        ax_zoom.plot(time_axis_zoom, denoised_tr_zoom.data, 'r-', label='Denoised')
+        ax_zoom.plot(time_axis_zoom, original_tr_zoom.data, 'k-', linewidth=0.5, alpha=0.5, label='Original')
+        ax_zoom.plot(time_axis_zoom, denoised_tr_zoom.data, 'r-', linewidth=0.5, alpha=0.5, label='Denoised')
         ax_zoom.set_title(f'Zoomed View ({zoom_plot_duration_sec} s)')
         ax_zoom.grid(True)
         ax_zoom.legend()
