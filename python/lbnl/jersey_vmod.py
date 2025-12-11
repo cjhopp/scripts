@@ -209,7 +209,6 @@ def surfaces_to_velocity_volume(
 
 def build_velocity_model(
     surfaces_directory: Union[str, Path],
-    velocity_map: Dict[str, float],
     grid_spacing: Tuple[float, float, float] = (100.0, 100.0, 50.0),
     extent_buffer: float = 500.0,
     manual_extent: Optional[Dict[str, float]] = None
