@@ -97,7 +97,7 @@ def read_ppmod_newberry(path):
     return ds
 
 
-def ts_files_to_xarray(directory):
+def combine_ts_files_into_xarray(directory):
     datasets = []
     for root, dirs, files in os.walk(directory):
         for file in files:
@@ -106,23 +106,57 @@ def ts_files_to_xarray(directory):
                 print(f"Processing: {file_path}")
                 vertices, faces = gemgis.raster.read_ts(file_path)
                 
-                # Assuming vertices is a list of DataFrames and faces is a list of arrays
-                # We'll create a DataArray for each file and then combine them
-                for i, (vertex, face) in enumerate(zip(vertices, faces)):
-                    # Create a DataArray for this file
-                    da = xr.DataArray(
-                        vertex.values,
-                        dims=['x', 'y', 'z'],
-                        coords={'x': vertex['x'], 'y': vertex['y'], 'z': vertex['z']}
-                    )
-                    datasets.append(da)
+                # Create a DataArray for this file
+                da = xr.DataArray(
+                    np.column_stack([vertices['x'], vertices['y'], vertices['z']]),
+                    dims=['points', 'coordinate'],
+                    coords={'points': range(len(vertices)), 
+                            'coordinate': ['x', 'y', 'z']}
+                )
+                datasets.append(da)
     
     if datasets:
         # Combine into a single Dataset
-        combined_da = xr.concat(datasets, dim='time')  # Adjust dim as necessary
+        combined_da = xr.concat(datasets, dim='points')
         return combined_da
     else:
         return None
+
+
+def create_3d_grid(x_spacing, y_spacing, z_spacing, extent):
+    x = np.arange(extent['xmin'], extent['xmax'], x_spacing)
+    y = np.arange(extent['ymin'], extent['ymax'], y_spacing)
+    z = np.arange(extent['zmin'], extent['zmax'], z_spacing)
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+    return xr.DataArray(X, dims=['z', 'y', 'x']), xr.DataArray(Y, dims=['z', 'y', 'x']), xr.DataArray(Z, dims=['z', 'y', 'x'])
+
+
+def interpolate_surfaces_to_grid(da, X, Y, Z):
+    points = da.sel(coordinate=['x', 'y']).values.T
+    values = da.sel(coordinate='z').values
+    
+    # Interpolate the surfaces onto the grid
+    interpolated_values = griddata(points, values, (X.ravel(), Y.ravel(), Z.ravel()), method='linear')
+    interpolated_values = interpolated_values.reshape(X.shape)
+    
+    # Create an xarray Dataset
+    ds = xr.Dataset()
+    ds['interpolated_values'] = xr.DataArray(interpolated_values, dims=['z', 'y', 'x'], 
+                                               coords={'x': X[0, 0, :], 'y': Y[:, 0, 0], 'z': Z[:, :, 0]})
+    return ds
+
+
+def ts_to_xarray_grid(directory_path, xyspacing=100, zspacing=50):
+    da = combine_ts_files_into_xarray(directory_path)
+    if da is not None:
+        extent = {'xmin': 0, 'xmax': 100, 'ymin': 0, 'ymax': 100, 'zmin': 0, 'zmax': 1000}
+        x_spacing = 10
+        y_spacing = 10
+        z_spacing = 50
+        
+        X, Y, Z = create_3d_grid(x_spacing, y_spacing, z_spacing, extent)
+        ds = interpolate_surfaces_to_grid(da, X, Y, Z)
+        return ds
 
 
 def create_newberry_1d(topo_path):
