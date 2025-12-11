@@ -13,16 +13,8 @@ import pandas as pd
 import xarray as xr
 from scipy.interpolate import griddata
 import datetime
-
-
-vmap = {
-    'M': 1500.0,
-    'Qa': 500.0,
-    'Mq': 1000.0,
-    'Stock_East': 3000.0,
-    'Stock_West': 4000.0,
-    'TR3': 5000.
-}
+import rioxarray
+from pyproj import Proj, Transformer
 
 
 def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.ndarray]]]:
@@ -141,7 +133,7 @@ def surfaces_to_velocity_volume(
     sorted_surfaces: List[Tuple[str, pd.DataFrame]],
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
-    fill_velocity_top: float = 1500.0,
+    fill_velocity_top: float = 10.0,
     fill_velocity_bottom: float = 5000.0
 ) -> xr.DataArray:
     """
@@ -207,26 +199,34 @@ def surfaces_to_velocity_volume(
     )
     return da
 
+
 def build_velocity_model(
     surfaces_directory: Union[str, Path],
+    velocity_map: Dict[str, float],
     grid_spacing: Tuple[float, float, float] = (100.0, 100.0, 50.0),
     extent_buffer: float = 500.0,
-    manual_extent: Optional[Dict[str, float]] = None
+    manual_extent: Optional[Dict[str, float]] = None,
+    input_crs: str = "EPSG:26911",
+    output_crs: Optional[str] = "EPSG:4326"
 ) -> xr.Dataset:
     """
     Main function to build a 3D velocity model from a directory of .ts surface files.
 
     Args:
         surfaces_directory (Union[str, Path]): Path to the directory with .ts files.
+        velocity_map (Dict[str, float]): Maps surface names to the velocity of the unit below.
         grid_spacing (Tuple[float, float, float]): Spacing for the grid (dx, dy, dz).
         extent_buffer (float): Buffer to add to the automatically calculated model extent.
         manual_extent (Optional[Dict[str, float]]): Manually define the model's bounding box.
+        input_crs (str): The EPSG code for the source coordinate system (default: "EPSG:26911").
+        output_crs (Optional[str]): The EPSG code for the target coordinate system. If provided,
+                                     the model will be reprojected (default: "EPSG:4326").
 
     Returns:
         xr.Dataset: A dataset containing the 3D velocity model and metadata.
     """
     print("1. Loading and sorting surfaces...")
-    sorted_surfaces, auto_extent = load_surfaces_from_directory(surfaces_directory, vmap)
+    sorted_surfaces, auto_extent = load_surfaces_from_directory(surfaces_directory, velocity_map)
 
     if manual_extent:
         extent = manual_extent
@@ -253,7 +253,7 @@ def build_velocity_model(
     print("3. Interpolating surfaces and building velocity volume...")
     velocity_da = surfaces_to_velocity_volume(
         sorted_surfaces,
-        vmap,
+        velocity_map,
         (X, Y, Z)
     )
 
@@ -265,7 +265,18 @@ def build_velocity_model(
     ds.attrs['source_directory'] = str(Path(surfaces_directory).resolve())
     ds.attrs['grid_spacing_xyz'] = str(grid_spacing)
     ds.attrs['stratigraphic_order'] = [name for name, _ in sorted_surfaces]
-    ds.attrs['velocity_map'] = str(vmap)
+    ds.attrs['velocity_map'] = str(velocity_map)
+
+    print("5. Reprojecting coordinates (if specified)...")
+    ds.rio.write_crs(input_crs, inplace=True)
+
+    if output_crs and input_crs.lower() != output_crs.lower():
+        ds = ds.rio.reproject(output_crs)
+        print(f"Dataset reprojected to {output_crs}")
+        ds.attrs['crs'] = output_crs
+    else:
+        ds.attrs['crs'] = input_crs
+        print("No reprojection needed.")
 
     print("Done.")
     return ds
