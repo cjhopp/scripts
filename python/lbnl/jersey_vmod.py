@@ -190,7 +190,6 @@ def surfaces_to_velocity_volume(
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
         
-        # Use the triangulation from the file for stable interpolation
         tri = Triangulation(points[:, 0], points[:, 1], triangles=faces)
         interpolator = LinearTriInterpolator(tri, values)
         
@@ -217,9 +216,9 @@ def surfaces_to_velocity_volume(
             if not local_surfs:
                 continue
 
-            # Stable sort as a defense-in-depth
+            # Correctly implement a stable sort for tie-breaking
             local_surfs.sort(
-                key=lambda item: (round(item[0], precision_decimals), name_to_global_rank[item[1]]),
+                key=lambda item: (round(item[0], precision_decimals), -name_to_global_rank[item[1]]),
                 reverse=True
             )
 
