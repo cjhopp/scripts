@@ -22,6 +22,9 @@ import matplotlib.pyplot as plt
 
 from pyproj import Proj
 from scipy.ndimage import shift
+from pathlib import Path
+from typing import Union, List, Sequence, Optional, Iterable, Dict, Tuple
+
 
 
 # Gillian Foulger final 1D model at Newberry; 2100 m elevation as surface
@@ -95,6 +98,88 @@ def read_ppmod_newberry(path):
                           name=variables[i])
         ds[variables[i]] = da
     return ds
+
+
+def read_ts(path: Union[str, Path]) -> Tuple[list, list]:
+    """Function to read GoCAD .ts files (hacked for slb Petrel export 12-11-2025 cjh)
+
+    Parameters
+    __________
+
+        path : Union[str, Path]
+            Path to ts file, e.g. ``path='mesh.ts'``
+
+    Returns
+    _______
+
+        vertices : list
+            Pandas DataFrames containing the vertex data
+
+        faces : list
+            NumPy arrays containing the faces data
+
+    .. versionadded:: 1.0.x
+
+    """
+
+
+    # Checking that the path is of type string or a path
+    if not isinstance(path, (str, Path)):
+        raise TypeError("Path must be of type string")
+
+    # Getting the absolute path
+    path = os.path.abspath(path=path)
+
+    # Checking that the file has the correct file ending
+    if not path.endswith(".ts"):
+        raise TypeError("The mesh must be saved as .ts file")
+
+    # Creating empty lists to store data
+    vertices, faces = [], []
+
+    # Creating empty lists to store data
+    vertices_list, faces_list = [], []
+
+    # Creating column names
+    columns = ["id", "X", "Y", "Z"]
+
+    # Opening file
+    with open(path) as f:
+        # Extracting data from every line
+        for line in f:
+            if not line.strip():
+                continue
+            line_type, *values = line.split()
+
+            if line_type == "PROPERTIES":
+                columns += values
+
+                # Deleting duplicate column names
+                columns = list(dict.fromkeys(columns))
+
+            elif line_type == "END":
+                # Creating array for faces
+                faces = np.array(faces, dtype=np.int32)
+
+                # Creating DataFrame for vertices
+                vertices = pd.DataFrame(vertices, columns=columns).apply(pd.to_numeric)
+
+                vertices_list.append(vertices)
+                faces_list.append(faces)
+
+                del vertices
+                del faces
+
+                vertices = []
+                faces = []
+
+            elif line_type == "VRTX" or line_type == "PVRTX":
+                vertices.append(values)
+            elif line_type == "TRGL":
+                faces.append(values)
+
+
+    return vertices_list, faces_list
 
 
 def combine_ts_files_into_xarray(directory):
