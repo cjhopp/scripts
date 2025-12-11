@@ -82,7 +82,7 @@ def load_surfaces_from_directory(
     velocity_map: Dict[str, float]
 ) -> Tuple[List[Tuple[str, pd.DataFrame]], Dict[str, float]]:
     """
-    Loads all .ts surfaces from a directory, sorts them by depth, and determines the model extent.
+    Loads all .ts surfaces from a directory, sorts them by elevation, and determines the model extent.
 
     Args:
         directory (Union[str, Path]): Directory containing .ts files.
@@ -92,7 +92,7 @@ def load_surfaces_from_directory(
     Returns:
         Tuple containing:
         - List[Tuple[str, pd.DataFrame]]: A list of (name, vertices_df) tuples, sorted from
-                                          shallowest to deepest surface.
+                                          highest to lowest elevation.
         - Dict[str, float]: The calculated spatial extent of the model (xmin, xmax, etc.).
     """
     directory = Path(directory)
@@ -105,16 +105,20 @@ def load_surfaces_from_directory(
             # We assume one object per file for this workflow
             ts_object = read_ts(file_path)[0] 
             vertices_df = ts_object['vertices']
-            mean_depth = vertices_df['Z'].mean()
-            surfaces.append((mean_depth, surface_name, vertices_df))
+            
+            # Convert Z from depth to elevation
+            vertices_df['Z'] = -vertices_df['Z']
+            
+            mean_elevation = vertices_df['Z'].mean()
+            surfaces.append((mean_elevation, surface_name, vertices_df))
         else:
             print(f"Warning: No velocity found for '{surface_name}' in velocity_map. Skipping.")
 
     if not surfaces:
         raise ValueError("No valid surfaces found in the directory that match the velocity_map.")
 
-    # Sort surfaces by mean depth (shallowest first)
-    surfaces.sort(key=lambda x: x[0])
+    # Sort surfaces by mean elevation (highest first)
+    surfaces.sort(key=lambda x: x[0], reverse=True)
     
     sorted_surfaces = [(name, df) for _, name, df in surfaces]
 
@@ -133,18 +137,16 @@ def surfaces_to_velocity_volume(
     sorted_surfaces: List[Tuple[str, pd.DataFrame]],
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
-    fill_velocity_top: float = 10.0,
-    fill_velocity_bottom: float = 5000.0
+    fill_velocity_top: float = 10.0
 ) -> xr.DataArray:
     """
     Creates a 3D velocity volume by filling the space between interpolated surfaces.
 
     Args:
-        sorted_surfaces (List[Tuple[str, pd.DataFrame]]): Surfaces sorted by depth.
+        sorted_surfaces (List[Tuple[str, pd.DataFrame]]): Surfaces sorted by elevation (highest to lowest).
         velocity_map (Dict[str, float]): Map of surface name to the velocity below it.
         grid_coords (Tuple): Tuple of 3D NumPy arrays (X, Y, Z) representing the grid.
         fill_velocity_top (float): Velocity for the volume above the top surface.
-        fill_velocity_bottom (float): Velocity for the volume below the bottom surface.
 
     Returns:
         xr.DataArray: A 3D DataArray containing the velocity model.
@@ -167,7 +169,7 @@ def surfaces_to_velocity_volume(
         grid_z[np.isnan(grid_z)] = grid_z_nearest[np.isnan(grid_z)]
         interpolated_surfs[name] = grid_z
         
-    # Fill velocity layers from top to bottom
+    # Fill velocity layers from top (highest elevation) to bottom (lowest elevation)
     for i, (name, _) in enumerate(sorted_surfaces):
         top_surf_z = interpolated_surfs[name]
         velocity = velocity_map[name]
@@ -176,19 +178,13 @@ def surfaces_to_velocity_volume(
             # It's a layer bounded by two surfaces
             bottom_surf_name, _ = sorted_surfaces[i+1]
             bottom_surf_z = interpolated_surfs[bottom_surf_name]
-            # Find where the grid Z is between the top and bottom surfaces
-            mask = (Z >= top_surf_z) & (Z < bottom_surf_z)
+            # Find where the grid Z is below the top surface and above the bottom surface
+            mask = (Z <= top_surf_z) & (Z > bottom_surf_z)
         else:
             # It's the last layer, extending downwards
-            mask = Z >= top_surf_z
+            mask = Z <= top_surf_z
             
         velocity_grid[mask] = velocity
-
-    # Assign velocity for the very bottom layer if it was not handled
-    if len(sorted_surfaces) > 0:
-        last_surf_name = sorted_surfaces[-1][0]
-        last_surf_z = interpolated_surfs[last_surf_name]
-        velocity_grid[Z >= last_surf_z] = velocity_map.get(last_surf_name, fill_velocity_bottom)
 
     # Create xarray DataArray
     da = xr.DataArray(
@@ -244,7 +240,7 @@ def build_velocity_model(
     dx, dy, dz = grid_spacing
     x_coords = np.arange(extent['xmin'], extent['xmax'], dx)
     y_coords = np.arange(extent['ymin'], extent['ymax'], dy)
-    z_coords = np.arange(extent['zmin'], extent['zmax'], dz)
+    z_coords = np.arange(extent['zmax'], extent['zmin'], -dz) # Grid from top to bottom
     X, Y, Z = np.meshgrid(x_coords, y_coords, z_coords, indexing='ij')
     
     # Transpose to get z, y, x order
