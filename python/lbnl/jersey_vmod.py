@@ -21,14 +21,7 @@ from pyproj import Proj, Transformer
 def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.ndarray]]]:
     """
     Reads a GoCAD .ts file and extracts vertex and face data for each object.
-
-    Args:
-        path (Union[str, Path]): Path to the .ts file.
-
-    Returns:
-        List[Dict[str, Union[pd.DataFrame, np.ndarray]]]: A list of dictionaries,
-        where each dictionary represents a distinct object in the file and
-        contains 'vertices' (a DataFrame) and 'faces' (a NumPy array).
+    Handles non-sequential and non-numeric vertex IDs.
     """
     path = Path(path)
     if not path.is_file() or path.suffix != ".ts":
@@ -36,8 +29,11 @@ def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.nda
 
     objects = []
     vertices, faces = [], []
-    columns = ["id", "X", "Y", "Z"]
-    
+    vrtx_map = {} # Map from file vertex ID to 0-based index
+    vrtx_idx = 0
+    columns = ["X", "Y", "Z"] # Base columns
+    prop_columns = []
+
     with open(path, 'r') as f:
         for line in f:
             parts = line.strip().split()
@@ -47,61 +43,71 @@ def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.nda
             line_type = parts[0]
 
             if line_type == "PROPERTIES":
-                # Add any additional properties to the columns
-                columns.extend(p for p in parts[1:] if p not in columns)
+                prop_columns = parts[1:]
 
             elif line_type in ("VRTX", "PVRTX"):
-                if len(parts) - 1 != len(columns):
-                    # Handle cases where properties might be missing for some vertices
-                    # Pad with NaNs
-                    padded_parts = parts + [np.nan] * (len(columns) - (len(parts) -1))
-                    vertices.append(padded_parts[1:])
-                else:
-                    vertices.append(parts[1:])
+                v_id = parts[1]
+                v_coords = parts[2:5]
+                v_props = parts[5:]
+                
+                if v_id not in vrtx_map:
+                    vrtx_map[v_id] = vrtx_idx
+                    full_vertex_data = v_coords + v_props
+                    vertices.append(full_vertex_data)
+                    vrtx_idx += 1
 
             elif line_type == "TRGL":
-                faces.append(parts[1:])
+                try:
+                    face_indices = [vrtx_map[p] for p in parts[1:4]]
+                    faces.append(face_indices)
+                except KeyError as e:
+                    print(f"Warning: Vertex ID {e} in TRGL not found in VRTX block. Skipping face.")
 
             elif line_type == "END":
                 if vertices:
-                    # Create DataFrame for the collected vertices
-                    vert_df = pd.DataFrame(vertices, columns=columns).apply(pd.to_numeric)
+                    all_columns = columns + prop_columns
+                    vert_df = pd.DataFrame(vertices).apply(pd.to_numeric, errors='coerce')
+                    # Assign columns, handling potential mismatch if props are missing
+                    vert_df.columns = all_columns[:len(vert_df.columns)]
                     
-                    # Create array for the collected faces
-                    face_arr = np.array(faces, dtype=np.int32) - 1 # Adjust for 0-based indexing
-
+                    face_arr = np.array(faces, dtype=np.int32)
                     objects.append({"vertices": vert_df, "faces": face_arr})
 
-                    # Reset for the next object in the file
-                    vertices, faces = [], []
-                    columns = ["id", "X", "Y", "Z"]
+                    # Reset for the next object
+                    vertices, faces, vrtx_map, prop_columns = [], [], {}, []
+                    vrtx_idx = 0
     return objects
 
-def plot_surfaces_3d(surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]], title: str = "Geologic Surfaces"):
+def plot_gridded_surfaces_3d(
+    surfaces: Dict[str, np.ndarray],
+    X: np.ndarray,
+    Y: np.ndarray,
+    title: str = "Gridded Geologic Surfaces"
+):
     """
-    Creates a 3D plot of geologic surfaces and saves it as an HTML file.
+    Creates a 3D plot of gridded geologic surfaces and saves it as an HTML file.
 
     Args:
-        surfaces (List[Tuple[str, pd.DataFrame, np.ndarray]]): A list containing tuples of
-            (surface_name, vertices_dataframe, faces_numpy_array).
+        surfaces (Dict[str, np.ndarray]): A dictionary mapping surface names to the 2D numpy
+                                           array of interpolated Z values (elevation).
+        X (np.ndarray): 2D numpy array of X coordinates for the grid.
+        Y (np.ndarray): 2D numpy array of Y coordinates for the grid.
         title (str): The title for the plot.
     """
     fig = go.Figure()
-    # Colorblind-friendly palette
     colors = ['#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd']
-
-    for i, (name, verts, faces) in enumerate(surfaces):
-        fig.add_trace(go.Mesh3d(
-            x=verts['X'],
-            y=verts['Y'],
-            z=verts['Z'],
-            i=faces[:, 0],
-            j=faces[:, 1],
-            k=faces[:, 2],
+    
+    # Items are plotted in insertion order for modern Python versions
+    for i, (name, z_grid) in enumerate(surfaces.items()):
+        fig.add_trace(go.Surface(
+            x=X,
+            y=Y,
+            z=z_grid,
             name=name,
-            color=colors[i % len(colors)],
-            opacity=0.7,
-            hoverinfo='name'
+            colorscale=[[0, colors[i % len(colors)]], [1, colors[i % len(colors)]]],
+            showscale=False,
+            opacity=0.8,
+            hoverinfo='name+z'
         ))
 
     fig.update_layout(
@@ -110,33 +116,30 @@ def plot_surfaces_3d(surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]], title
             xaxis_title='X (Easting)',
             yaxis_title='Y (Northing)',
             zaxis_title='Z (Elevation)',
-            aspectratio=dict(x=1, y=1, z=0.5) # Exaggerate Z for clarity
-        )
+            aspectratio=dict(x=1.5, y=1.5, z=0.5) # Exaggerate Z for clarity
+        ),
+        margin=dict(l=0, r=0, b=0, t=40)
     )
     
-    filename = f"debug_plot_{title.replace(' ', '_')}.html"
+    filename = "debug_plot_gridded_surfaces.html"
     fig.write_html(filename)
-    print(f"\n---> Debug plot saved to: {os.path.abspath(filename)}\n")
-
+    print(f"\n---> Debug plot of interpolated surfaces saved to: {os.path.abspath(filename)}\n")
 
 def load_surfaces_from_directory(
     directory: Union[str, Path], 
-    velocity_map: Dict[str, float],
-    plot_debug: bool = False
-) -> Tuple[List[Tuple[str, pd.DataFrame, np.ndarray]], Dict[str, float]]:
+    velocity_map: Dict[str, float]
+) -> Tuple[List[Tuple[str, pd.DataFrame]], Dict[str, float]]:
     """
     Loads all .ts surfaces from a directory, sorts them by elevation, and determines the model extent.
 
     Args:
         directory (Union[str, Path]): Directory containing .ts files.
-        velocity_map (Dict[str, float]): A dictionary mapping surface names (file basenames)
-                                         to the seismic velocity of the layer *below* that surface.
-        plot_debug (bool): If True, display an interactive 3D plot of the surfaces.
+        velocity_map (Dict[str, float]): Maps surface names to the velocity of the layer below it.
 
     Returns:
         Tuple containing:
-        - List[Tuple[str, pd.DataFrame, np.ndarray]]: A list of (name, vertices_df, faces_arr) tuples,
-                                                       sorted from highest to lowest elevation.
+        - List[Tuple[str, pd.DataFrame]]: A list of (name, vertices_df) tuples, sorted from
+                                          highest to lowest elevation.
         - Dict[str, float]: The calculated spatial extent of the model (xmin, xmax, etc.).
     """
     directory = Path(directory)
@@ -148,29 +151,23 @@ def load_surfaces_from_directory(
             print(f"Processing: {file_path.name}")
             ts_object = read_ts(file_path)[0]
             vertices_df = ts_object['vertices']
-            faces_arr = ts_object['faces']
             
             # Convert Z from depth to elevation
-            vertices_df['Z'] = -vertices_df['Z']
+            if 'Z' in vertices_df.columns:
+                vertices_df['Z'] = -vertices_df['Z']
             
             mean_elevation = vertices_df['Z'].mean()
-            surfaces.append((mean_elevation, surface_name, vertices_df, faces_arr))
+            surfaces.append((mean_elevation, surface_name, vertices_df))
         else:
             print(f"Warning: No velocity found for '{surface_name}' in velocity_map. Skipping.")
 
     if not surfaces:
         raise ValueError("No valid surfaces found in the directory that match the velocity_map.")
 
-    # Sort surfaces by mean elevation (highest first)
     surfaces.sort(key=lambda x: x[0], reverse=True)
-    
-    sorted_surfaces = [(name, df, faces) for _, name, df, faces in surfaces]
+    sorted_surfaces = [(name, df) for _, name, df in surfaces]
 
-    if plot_debug:
-        plot_surfaces_3d(sorted_surfaces, title="Surfaces After Loading and Sorting")
-
-    # Determine overall extent from all surfaces
-    all_verts = pd.concat([df for _, df, _ in sorted_surfaces])
+    all_verts = pd.concat([df for _, df in sorted_surfaces])
     extent = {
         'xmin': all_verts['X'].min(), 'xmax': all_verts['X'].max(),
         'ymin': all_verts['Y'].min(), 'ymax': all_verts['Y'].max(),
@@ -179,61 +176,44 @@ def load_surfaces_from_directory(
 
     return sorted_surfaces, extent
 
-
 def surfaces_to_velocity_volume(
-    sorted_surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]],
+    sorted_surfaces: List[Tuple[str, pd.DataFrame]],
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
-    fill_velocity_top: float = 1500.0
+    fill_velocity_top: float = 1500.0,
+    plot_debug: bool = False
 ) -> xr.DataArray:
     """
     Creates a 3D velocity volume by filling the space between interpolated surfaces.
-
-    Args:
-        sorted_surfaces (List[Tuple[str, pd.DataFrame, np.ndarray]]): Surfaces sorted by elevation.
-        velocity_map (Dict[str, float]): Map of surface name to the velocity below it.
-        grid_coords (Tuple): Tuple of 3D NumPy arrays (X, Y, Z) representing the grid.
-        fill_velocity_top (float): Velocity for the volume above the top surface.
-
-    Returns:
-        xr.DataArray: A 3D DataArray containing the velocity model.
     """
     X, Y, Z = grid_coords
-    # Initialize velocity grid with the value for material above the top layer
     velocity_grid = np.full(X.shape, fill_value=fill_velocity_top, dtype=np.float32)
-
-    # Grid points for interpolation
     grid_points_2d = (X[0, :, :], Y[0, :, :])
 
-    # Interpolate each surface onto the grid
     interpolated_surfs = {}
-    for name, verts, _ in sorted_surfaces:
+    for name, verts in sorted_surfaces:
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
-        # Use nearest neighbor to fill gaps at the edges of the convex hull
         grid_z = griddata(points, values, grid_points_2d, method='cubic', fill_value=np.nan)
         grid_z_nearest = griddata(points, values, grid_points_2d, method='nearest')
         grid_z[np.isnan(grid_z)] = grid_z_nearest[np.isnan(grid_z)]
         interpolated_surfs[name] = grid_z
         
-    # Fill velocity layers from top (highest elevation) to bottom (lowest elevation)
-    for i, (name, _, _) in enumerate(sorted_surfaces):
+    if plot_debug:
+        plot_gridded_surfaces_3d(interpolated_surfs, X[0, :, :], Y[0, :, :])
+
+    for i, (name, _) in enumerate(sorted_surfaces):
         top_surf_z = interpolated_surfs[name]
         velocity = velocity_map[name]
         
         if i + 1 < len(sorted_surfaces):
-            # It's a layer bounded by two surfaces
-            bottom_surf_name, _, _ = sorted_surfaces[i+1]
+            bottom_surf_name, _ = sorted_surfaces[i+1]
             bottom_surf_z = interpolated_surfs[bottom_surf_name]
-            # Find where the grid Z is below the top surface and above the bottom surface
             mask = (Z <= top_surf_z) & (Z > bottom_surf_z)
         else:
-            # It's the last layer, extending downwards
             mask = Z <= top_surf_z
-            
         velocity_grid[mask] = velocity
 
-    # Create xarray DataArray
     da = xr.DataArray(
         velocity_grid,
         dims=['z', 'y', 'x'],
@@ -241,7 +221,6 @@ def surfaces_to_velocity_volume(
         name='velocity'
     )
     return da
-
 
 def build_velocity_model(
     surfaces_directory: Union[str, Path],
@@ -255,23 +234,9 @@ def build_velocity_model(
 ) -> xr.Dataset:
     """
     Main function to build a 3D velocity model from a directory of .ts surface files.
-
-    Args:
-        surfaces_directory (Union[str, Path]): Path to the directory with .ts files.
-        velocity_map (Dict[str, float]): Maps surface names to the velocity of the unit below.
-        grid_spacing (Tuple[float, float, float]): Spacing for the grid (dx, dy, dz).
-        extent_buffer (float): Buffer to add to the automatically calculated model extent.
-        manual_extent (Optional[Dict[str, float]]): Manually define the model's bounding box.
-        input_crs (str): The EPSG code for the source coordinate system (default: "EPSG:26911").
-        output_crs (Optional[str]): The EPSG code for the target coordinate system. If provided,
-                                     the model will be reprojected (default: "EPSG:4326").
-        plot_debug (bool): If True, display an interactive 3D plot of the loaded surfaces.
-
-    Returns:
-        xr.Dataset: A dataset containing the 3D velocity model and metadata.
     """
     print("1. Loading and sorting surfaces...")
-    sorted_surfaces, auto_extent = load_surfaces_from_directory(surfaces_directory, velocity_map, plot_debug=plot_debug)
+    sorted_surfaces, auto_extent = load_surfaces_from_directory(surfaces_directory, velocity_map)
 
     if manual_extent:
         extent = manual_extent
@@ -289,27 +254,24 @@ def build_velocity_model(
     dx, dy, dz = grid_spacing
     x_coords = np.arange(extent['xmin'], extent['xmax'], dx)
     y_coords = np.arange(extent['ymin'], extent['ymax'], dy)
-    z_coords = np.arange(extent['zmax'], extent['zmin'], -dz) # Grid from top to bottom
+    z_coords = np.arange(extent['zmax'], extent['zmin'], -dz)
     X, Y, Z = np.meshgrid(x_coords, y_coords, z_coords, indexing='ij')
-    
-    # Transpose to get z, y, x order
     X, Y, Z = X.transpose(2,1,0), Y.transpose(2,1,0), Z.transpose(2,1,0)
 
     print("3. Interpolating surfaces and building velocity volume...")
     velocity_da = surfaces_to_velocity_volume(
         sorted_surfaces,
         velocity_map,
-        (X, Y, Z)
+        (X, Y, Z),
+        plot_debug=plot_debug
     )
 
     print("4. Finalizing dataset...")
     ds = velocity_da.to_dataset()
-    
-    # Add metadata
     ds.attrs['created_at'] = datetime.datetime.utcnow().isoformat()
     ds.attrs['source_directory'] = str(Path(surfaces_directory).resolve())
     ds.attrs['grid_spacing_xyz'] = str(grid_spacing)
-    ds.attrs['stratigraphic_order'] = [name for name, _, _ in sorted_surfaces]
+    ds.attrs['stratigraphic_order'] = [name for name, _ in sorted_surfaces]
     ds.attrs['velocity_map'] = str(velocity_map)
 
     print("5. Reprojecting coordinates (if specified)...")
