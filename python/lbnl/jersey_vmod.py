@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.interpolate import griddata
+from matplotlib.tri import Triangulation, LinearTriInterpolator
 import datetime
 import rioxarray
 import plotly.graph_objects as go
@@ -67,13 +68,11 @@ def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.nda
                 if vertices:
                     all_columns = columns + prop_columns
                     vert_df = pd.DataFrame(vertices).apply(pd.to_numeric, errors='coerce')
-                    # Assign columns, handling potential mismatch if props are missing
                     vert_df.columns = all_columns[:len(vert_df.columns)]
                     
                     face_arr = np.array(faces, dtype=np.int32)
                     objects.append({"vertices": vert_df, "faces": face_arr})
 
-                    # Reset for the next object
                     vertices, faces, vrtx_map, prop_columns = [], [], {}, []
                     vrtx_idx = 0
     return objects
@@ -97,16 +96,15 @@ def plot_gridded_surfaces_3d(
             x=X,
             y=Y,
             z=z_grid,
-            name=name, # Keep for hover
+            name=name,
             colorscale=[[0, color], [1, color]],
             showscale=False,
             opacity=0.8,
             hoverinfo='name+z',
-            showlegend=False # This trace type doesn't work well with legends
+            showlegend=False
         ))
-        # Add a dummy scatter trace to create a proper legend entry
         fig.add_trace(go.Scatter3d(
-            x=[None], y=[None], z=[None], # No data points
+            x=[None], y=[None], z=[None], 
             mode='markers',
             marker=dict(size=10, color=color),
             name=name,
@@ -134,9 +132,9 @@ def plot_gridded_surfaces_3d(
 def load_surfaces_from_directory(
     directory: Union[str, Path], 
     velocity_map: Dict[str, float]
-) -> Tuple[List[Tuple[str, pd.DataFrame]], Dict[str, float]]:
+) -> Tuple[List[Tuple[str, pd.DataFrame, np.ndarray]], Dict[str, float]]:
     """
-    Loads all .ts surfaces from a directory, sorts them by elevation, and determines the model extent.
+    Loads all .ts surfaces from a directory, including their triangulation (faces).
     """
     directory = Path(directory)
     surfaces = []
@@ -147,9 +145,10 @@ def load_surfaces_from_directory(
             print(f"Processing: {file_path.name}")
             ts_object = read_ts(file_path)[0]
             vertices_df = ts_object['vertices']
+            faces_arr = ts_object['faces']
             
             mean_elevation = vertices_df['Z'].mean()
-            surfaces.append((mean_elevation, surface_name, vertices_df))
+            surfaces.append((mean_elevation, surface_name, vertices_df, faces_arr))
         else:
             print(f"Warning: No velocity found for '{surface_name}' in velocity_map. Skipping.")
 
@@ -157,9 +156,9 @@ def load_surfaces_from_directory(
         raise ValueError("No valid surfaces found in the directory that match the velocity_map.")
 
     surfaces.sort(key=lambda x: x[0], reverse=True)
-    sorted_surfaces = [(name, df) for _, name, df in surfaces]
+    sorted_surfaces = [(name, df, faces) for _, name, df, faces in surfaces]
 
-    all_verts = pd.concat([df for _, df in sorted_surfaces])
+    all_verts = pd.concat([df for _, df, _ in sorted_surfaces])
     extent = {
         'xmin': all_verts['X'].min(), 'xmax': all_verts['X'].max(),
         'ymin': all_verts['Y'].min(), 'ymax': all_verts['Y'].max(),
@@ -170,7 +169,7 @@ def load_surfaces_from_directory(
 
 
 def surfaces_to_velocity_volume(
-    sorted_surfaces: List[Tuple[str, pd.DataFrame]],
+    sorted_surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]],
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
     fill_velocity_top: float = 500.0,
@@ -178,27 +177,32 @@ def surfaces_to_velocity_volume(
     precision_decimals: int = 4
 ) -> xr.DataArray:
     """
-    Creates a 3D velocity volume. It handles crossing surfaces by determining
-    the stacking order on a column-by-column basis, using a tolerance to prevent
-    sorting instability from floating-point noise.
+    Creates a 3D velocity volume by using a stable triangulation-based interpolation.
     """
     X, Y, Z = grid_coords
     nz, ny, nx = Z.shape
     
     velocity_grid = np.full(Z.shape, np.nan, dtype=np.float32)
-    grid_points_2d = (X[0, :, :], Y[0, :, :])
+    grid_points_2d_flat = (X[0, :, :].flatten(), Y[0, :, :].flatten())
 
     interpolated_surfs = {}
-    for name, verts in sorted_surfaces:
+    for name, verts, faces in sorted_surfaces:
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
-        grid_z = griddata(points, values, grid_points_2d, method='linear', fill_value=np.nan)
+        
+        # Use the triangulation from the file for stable interpolation
+        tri = Triangulation(points[:, 0], points[:, 1], triangles=faces)
+        interpolator = LinearTriInterpolator(tri, values)
+        
+        grid_z_flat = interpolator(grid_points_2d_flat[0], grid_points_2d_flat[1])
+        grid_z = grid_z_flat.filled(np.nan).reshape((ny, nx))
+        
         interpolated_surfs[name] = grid_z
         
     if plot_debug:
         plot_gridded_surfaces_3d(interpolated_surfs, X[0, :, :], Y[0, :, :])
 
-    surf_names = [name for name, _ in sorted_surfaces]
+    surf_names = [name for name, _, _ in sorted_surfaces]
     name_to_global_rank = {name: i for i, name in enumerate(surf_names)}
     all_surfs_z = np.array([interpolated_surfs[name] for name in surf_names])
 
@@ -213,7 +217,7 @@ def surfaces_to_velocity_volume(
             if not local_surfs:
                 continue
 
-            # Sort using rounded Z-value and global rank as a stable tie-breaker
+            # Stable sort as a defense-in-depth
             local_surfs.sort(
                 key=lambda item: (round(item[0], precision_decimals), name_to_global_rank[item[1]]),
                 reverse=True
@@ -293,7 +297,7 @@ def build_velocity_model(
     ds.attrs['created_at'] = datetime.datetime.utcnow().isoformat()
     ds.attrs['source_directory'] = str(Path(surfaces_directory).resolve())
     ds.attrs['grid_spacing_xyz'] = str(grid_spacing)
-    ds.attrs['stratigraphic_order'] = [name for name, _ in sorted_surfaces]
+    ds.attrs['stratigraphic_order'] = [name for name, _, _ in sorted_surfaces]
     ds.attrs['velocity_map'] = str(velocity_map)
 
     print("5. Reprojecting coordinates (if specified)...")
