@@ -197,7 +197,7 @@ def surfaces_to_velocity_volume(
     for name, verts in sorted_surfaces:
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
-        grid_z = griddata(points, values, grid_points_2d, method='cubic', fill_value=np.nan)
+        grid_z = griddata(points, values, grid_points_2d, method='linear', fill_value=np.nan)
         interpolated_surfs[name] = grid_z
         
     if plot_debug:
