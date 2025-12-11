@@ -14,6 +14,7 @@ import xarray as xr
 from scipy.interpolate import griddata
 import datetime
 import rioxarray
+import plotly.graph_objects as go
 from pyproj import Proj, Transformer
 
 
@@ -76,11 +77,50 @@ def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.nda
                     columns = ["id", "X", "Y", "Z"]
     return objects
 
+def plot_surfaces_3d(surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]], title: str = "Geologic Surfaces"):
+    """
+    Creates a 3D plot of geologic surfaces for debugging.
+
+    Args:
+        surfaces (List[Tuple[str, pd.DataFrame, np.ndarray]]): A list containing tuples of
+            (surface_name, vertices_dataframe, faces_numpy_array).
+        title (str): The title for the plot.
+    """
+    fig = go.Figure()
+    # Colorblind-friendly palette
+    colors = ['#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd']
+
+    for i, (name, verts, faces) in enumerate(surfaces):
+        fig.add_trace(go.Mesh3d(
+            x=verts['X'],
+            y=verts['Y'],
+            z=verts['Z'],
+            i=faces[:, 0],
+            j=faces[:, 1],
+            k=faces[:, 2],
+            name=name,
+            color=colors[i % len(colors)],
+            opacity=0.7,
+            hoverinfo='name'
+        ))
+
+    fig.update_layout(
+        title_text=title,
+        scene=dict(
+            xaxis_title='X (Easting)',
+            yaxis_title='Y (Northing)',
+            zaxis_title='Z (Elevation)',
+            aspectratio=dict(x=1, y=1, z=0.5) # Exaggerate Z for clarity
+        )
+    )
+    fig.show()
+
 
 def load_surfaces_from_directory(
     directory: Union[str, Path], 
-    velocity_map: Dict[str, float]
-) -> Tuple[List[Tuple[str, pd.DataFrame]], Dict[str, float]]:
+    velocity_map: Dict[str, float],
+    plot_debug: bool = False
+) -> Tuple[List[Tuple[str, pd.DataFrame, np.ndarray]], Dict[str, float]]:
     """
     Loads all .ts surfaces from a directory, sorts them by elevation, and determines the model extent.
 
@@ -88,11 +128,12 @@ def load_surfaces_from_directory(
         directory (Union[str, Path]): Directory containing .ts files.
         velocity_map (Dict[str, float]): A dictionary mapping surface names (file basenames)
                                          to the seismic velocity of the layer *below* that surface.
+        plot_debug (bool): If True, display an interactive 3D plot of the surfaces.
 
     Returns:
         Tuple containing:
-        - List[Tuple[str, pd.DataFrame]]: A list of (name, vertices_df) tuples, sorted from
-                                          highest to lowest elevation.
+        - List[Tuple[str, pd.DataFrame, np.ndarray]]: A list of (name, vertices_df, faces_arr) tuples,
+                                                       sorted from highest to lowest elevation.
         - Dict[str, float]: The calculated spatial extent of the model (xmin, xmax, etc.).
     """
     directory = Path(directory)
@@ -102,15 +143,15 @@ def load_surfaces_from_directory(
         surface_name = file_path.stem
         if surface_name in velocity_map:
             print(f"Processing: {file_path.name}")
-            # We assume one object per file for this workflow
-            ts_object = read_ts(file_path)[0] 
+            ts_object = read_ts(file_path)[0]
             vertices_df = ts_object['vertices']
+            faces_arr = ts_object['faces']
             
             # Convert Z from depth to elevation
             vertices_df['Z'] = -vertices_df['Z']
             
             mean_elevation = vertices_df['Z'].mean()
-            surfaces.append((mean_elevation, surface_name, vertices_df))
+            surfaces.append((mean_elevation, surface_name, vertices_df, faces_arr))
         else:
             print(f"Warning: No velocity found for '{surface_name}' in velocity_map. Skipping.")
 
@@ -120,10 +161,13 @@ def load_surfaces_from_directory(
     # Sort surfaces by mean elevation (highest first)
     surfaces.sort(key=lambda x: x[0], reverse=True)
     
-    sorted_surfaces = [(name, df) for _, name, df in surfaces]
+    sorted_surfaces = [(name, df, faces) for _, name, df, faces in surfaces]
+
+    if plot_debug:
+        plot_surfaces_3d(sorted_surfaces, title="Surfaces After Loading and Sorting")
 
     # Determine overall extent from all surfaces
-    all_verts = pd.concat([df for _, df in sorted_surfaces])
+    all_verts = pd.concat([df for _, df, _ in sorted_surfaces])
     extent = {
         'xmin': all_verts['X'].min(), 'xmax': all_verts['X'].max(),
         'ymin': all_verts['Y'].min(), 'ymax': all_verts['Y'].max(),
@@ -134,16 +178,16 @@ def load_surfaces_from_directory(
 
 
 def surfaces_to_velocity_volume(
-    sorted_surfaces: List[Tuple[str, pd.DataFrame]],
+    sorted_surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]],
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
-    fill_velocity_top: float = 10.0
+    fill_velocity_top: float = 1500.0
 ) -> xr.DataArray:
     """
     Creates a 3D velocity volume by filling the space between interpolated surfaces.
 
     Args:
-        sorted_surfaces (List[Tuple[str, pd.DataFrame]]): Surfaces sorted by elevation (highest to lowest).
+        sorted_surfaces (List[Tuple[str, pd.DataFrame, np.ndarray]]): Surfaces sorted by elevation.
         velocity_map (Dict[str, float]): Map of surface name to the velocity below it.
         grid_coords (Tuple): Tuple of 3D NumPy arrays (X, Y, Z) representing the grid.
         fill_velocity_top (float): Velocity for the volume above the top surface.
@@ -160,7 +204,7 @@ def surfaces_to_velocity_volume(
 
     # Interpolate each surface onto the grid
     interpolated_surfs = {}
-    for name, verts in sorted_surfaces:
+    for name, verts, _ in sorted_surfaces:
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
         # Use nearest neighbor to fill gaps at the edges of the convex hull
@@ -170,13 +214,13 @@ def surfaces_to_velocity_volume(
         interpolated_surfs[name] = grid_z
         
     # Fill velocity layers from top (highest elevation) to bottom (lowest elevation)
-    for i, (name, _) in enumerate(sorted_surfaces):
+    for i, (name, _, _) in enumerate(sorted_surfaces):
         top_surf_z = interpolated_surfs[name]
         velocity = velocity_map[name]
         
         if i + 1 < len(sorted_surfaces):
             # It's a layer bounded by two surfaces
-            bottom_surf_name, _ = sorted_surfaces[i+1]
+            bottom_surf_name, _, _ = sorted_surfaces[i+1]
             bottom_surf_z = interpolated_surfs[bottom_surf_name]
             # Find where the grid Z is below the top surface and above the bottom surface
             mask = (Z <= top_surf_z) & (Z > bottom_surf_z)
@@ -203,7 +247,8 @@ def build_velocity_model(
     extent_buffer: float = 500.0,
     manual_extent: Optional[Dict[str, float]] = None,
     input_crs: str = "EPSG:26911",
-    output_crs: Optional[str] = "EPSG:4326"
+    output_crs: Optional[str] = "EPSG:4326",
+    plot_debug: bool = False
 ) -> xr.Dataset:
     """
     Main function to build a 3D velocity model from a directory of .ts surface files.
@@ -217,12 +262,13 @@ def build_velocity_model(
         input_crs (str): The EPSG code for the source coordinate system (default: "EPSG:26911").
         output_crs (Optional[str]): The EPSG code for the target coordinate system. If provided,
                                      the model will be reprojected (default: "EPSG:4326").
+        plot_debug (bool): If True, display an interactive 3D plot of the loaded surfaces.
 
     Returns:
         xr.Dataset: A dataset containing the 3D velocity model and metadata.
     """
     print("1. Loading and sorting surfaces...")
-    sorted_surfaces, auto_extent = load_surfaces_from_directory(surfaces_directory, velocity_map)
+    sorted_surfaces, auto_extent = load_surfaces_from_directory(surfaces_directory, velocity_map, plot_debug=plot_debug)
 
     if manual_extent:
         extent = manual_extent
@@ -260,7 +306,7 @@ def build_velocity_model(
     ds.attrs['created_at'] = datetime.datetime.utcnow().isoformat()
     ds.attrs['source_directory'] = str(Path(surfaces_directory).resolve())
     ds.attrs['grid_spacing_xyz'] = str(grid_spacing)
-    ds.attrs['stratigraphic_order'] = [name for name, _ in sorted_surfaces]
+    ds.attrs['stratigraphic_order'] = [name for name, _, _ in sorted_surfaces]
     ds.attrs['velocity_map'] = str(velocity_map)
 
     print("5. Reprojecting coordinates (if specified)...")
