@@ -193,10 +193,10 @@ def combine_ts_files_into_xarray(directory):
                 
                 # Create a DataArray for this file
                 da = xr.DataArray(
-                    np.column_stack([vertices[0]['x'], vertices[0]['y'], vertices[0]['z']]),
+                    np.column_stack([vertices[0]['X'], vertices[0]['Y'], vertices[0]['Z']]),
                     dims=['points', 'coordinate'],
                     coords={'points': range(len(vertices[0])), 
-                            'coordinate': ['x', 'y', 'z']}
+                            'coordinate': ['X', 'Y', 'Z']}
                 )
                 datasets.append(da)
     
