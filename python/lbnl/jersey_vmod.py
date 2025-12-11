@@ -86,13 +86,6 @@ def plot_gridded_surfaces_3d(
 ):
     """
     Creates a 3D plot of gridded geologic surfaces and saves it as an HTML file.
-
-    Args:
-        surfaces (Dict[str, np.ndarray]): A dictionary mapping surface names to the 2D numpy
-                                           array of interpolated Z values (elevation).
-        X (np.ndarray): 2D numpy array of X coordinates for the grid.
-        Y (np.ndarray): 2D numpy array of Y coordinates for the grid.
-        title (str): The title for the plot.
     """
     fig = go.Figure()
     colors = ['#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd']
@@ -195,9 +188,8 @@ def surfaces_to_velocity_volume(
     for name, verts in sorted_surfaces:
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
+        # Interpolate, but do not extrapolate. Areas outside the convex hull will be NaN.
         grid_z = griddata(points, values, grid_points_2d, method='cubic', fill_value=np.nan)
-        grid_z_nearest = griddata(points, values, grid_points_2d, method='nearest')
-        grid_z[np.isnan(grid_z)] = grid_z_nearest[np.isnan(grid_z)]
         interpolated_surfs[name] = grid_z
         
     if plot_debug:
@@ -207,12 +199,15 @@ def surfaces_to_velocity_volume(
         top_surf_z = interpolated_surfs[name]
         velocity = velocity_map[name]
         
+        # Comparisons with NaN yield False, so mask will only be True where surfaces are defined.
         if i + 1 < len(sorted_surfaces):
             bottom_surf_name, _ = sorted_surfaces[i+1]
             bottom_surf_z = interpolated_surfs[bottom_surf_name]
             mask = (Z <= top_surf_z) & (Z > bottom_surf_z)
         else:
+            # For the last layer, the mask is true for everything below the surface.
             mask = Z <= top_surf_z
+            
         velocity_grid[mask] = velocity
 
     da = xr.DataArray(
