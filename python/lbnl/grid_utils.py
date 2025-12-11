@@ -189,7 +189,7 @@ def combine_ts_files_into_xarray(directory):
             if file.endswith(".ts"):
                 file_path = os.path.join(root, file)
                 print(f"Processing: {file_path}")
-                vertices, faces = gemgis.raster.read_ts(file_path)
+                vertices, faces = read_ts(file_path)
                 
                 # Create a DataArray for this file
                 da = xr.DataArray(
