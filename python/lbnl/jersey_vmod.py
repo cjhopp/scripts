@@ -148,10 +148,6 @@ def load_surfaces_from_directory(
             ts_object = read_ts(file_path)[0]
             vertices_df = ts_object['vertices']
             
-            # User reports Z is already elevation, so no inversion needed.
-            # if 'Z' in vertices_df.columns:
-            #     vertices_df['Z'] = -vertices_df['Z']
-            
             mean_elevation = vertices_df['Z'].mean()
             surfaces.append((mean_elevation, surface_name, vertices_df))
         else:
@@ -178,12 +174,13 @@ def surfaces_to_velocity_volume(
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
     fill_velocity_top: float = 500.0,
-    plot_debug: bool = False
+    plot_debug: bool = False,
+    precision_decimals: int = 4
 ) -> xr.DataArray:
     """
-    Creates a 3D velocity volume by filling the space between interpolated surfaces.
-    This version handles complex cases where surfaces cross each other by determining
-    the stacking order on a column-by-column basis.
+    Creates a 3D velocity volume. It handles crossing surfaces by determining
+    the stacking order on a column-by-column basis, using a tolerance to prevent
+    sorting instability from floating-point noise.
     """
     X, Y, Z = grid_coords
     nz, ny, nx = Z.shape
@@ -216,8 +213,11 @@ def surfaces_to_velocity_volume(
             if not local_surfs:
                 continue
 
-            # Sort by Z-value (primary key) and global rank (secondary key for tie-breaking)
-            local_surfs.sort(key=lambda item: (item[0], -name_to_global_rank[item[1]]), reverse=True)
+            # Sort using rounded Z-value and global rank as a stable tie-breaker
+            local_surfs.sort(
+                key=lambda item: (round(item[0], precision_decimals), name_to_global_rank[item[1]]),
+                reverse=True
+            )
 
             Z_col = Z[:, y_idx, x_idx]
             top_z, _ = local_surfs[0]
