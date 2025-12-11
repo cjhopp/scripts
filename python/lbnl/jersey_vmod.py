@@ -174,7 +174,7 @@ def surfaces_to_velocity_volume(
     sorted_surfaces: List[Tuple[str, pd.DataFrame]],
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
-    fill_velocity_top: float = 1500.0,
+    fill_velocity_top: float = 500.0,
     plot_debug: bool = False
 ) -> xr.DataArray:
     """
@@ -221,8 +221,8 @@ def surfaces_to_velocity_volume(
 def build_velocity_model(
     surfaces_directory: Union[str, Path],
     velocity_map: Dict[str, float],
-    grid_spacing: Tuple[float, float, float] = (100.0, 100.0, 50.0),
-    extent_buffer: float = 500.0,
+    grid_spacing: Tuple[float, float, float] = (50.0, 50.0, 25.0),
+    extent_buffer: float = 0.0,
     manual_extent: Optional[Dict[str, float]] = None,
     input_crs: str = "EPSG:26911",
     output_crs: Optional[str] = "EPSG:4326",
