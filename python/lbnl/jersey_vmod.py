@@ -97,27 +97,37 @@ def plot_gridded_surfaces_3d(
     fig = go.Figure()
     colors = ['#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd']
     
-    # Items are plotted in insertion order for modern Python versions
     for i, (name, z_grid) in enumerate(surfaces.items()):
+        color = colors[i % len(colors)]
         fig.add_trace(go.Surface(
             x=X,
             y=Y,
             z=z_grid,
-            name=name,
-            colorscale=[[0, colors[i % len(colors)]], [1, colors[i % len(colors)]]],
+            name=name, # Keep for hover
+            colorscale=[[0, color], [1, color]],
             showscale=False,
             opacity=0.8,
-            hoverinfo='name+z'
+            hoverinfo='name+z',
+            showlegend=False # This trace type doesn't work well with legends
+        ))
+        # Add a dummy scatter trace to create a proper legend entry
+        fig.add_trace(go.Scatter3d(
+            x=[None], y=[None], z=[None], # No data points
+            mode='markers',
+            marker=dict(size=10, color=color),
+            name=name,
+            showlegend=True
         ))
 
     fig.update_layout(
         title_text=title,
         showlegend=True,
+        legend=dict(title='Layers'),
         scene=dict(
             xaxis_title='X (Easting)',
             yaxis_title='Y (Northing)',
             zaxis_title='Z (Elevation)',
-            aspectratio=dict(x=1.5, y=1.5, z=0.5) # Exaggerate Z for clarity
+            aspectratio=dict(x=1.5, y=1.5, z=0.5)
         ),
         margin=dict(l=0, r=0, b=0, t=40)
     )
@@ -132,16 +142,6 @@ def load_surfaces_from_directory(
 ) -> Tuple[List[Tuple[str, pd.DataFrame]], Dict[str, float]]:
     """
     Loads all .ts surfaces from a directory, sorts them by elevation, and determines the model extent.
-
-    Args:
-        directory (Union[str, Path]): Directory containing .ts files.
-        velocity_map (Dict[str, float]): Maps surface names to the velocity of the layer below it.
-
-    Returns:
-        Tuple containing:
-        - List[Tuple[str, pd.DataFrame]]: A list of (name, vertices_df) tuples, sorted from
-                                          highest to lowest elevation.
-        - Dict[str, float]: The calculated spatial extent of the model (xmin, xmax, etc.).
     """
     directory = Path(directory)
     surfaces = []
@@ -153,9 +153,9 @@ def load_surfaces_from_directory(
             ts_object = read_ts(file_path)[0]
             vertices_df = ts_object['vertices']
             
-            # Convert Z from depth to elevation
-            if 'Z' in vertices_df.columns:
-                vertices_df['Z'] = -vertices_df['Z']
+            # User reports Z is already elevation, so no inversion needed.
+            # if 'Z' in vertices_df.columns:
+            #     vertices_df['Z'] = -vertices_df['Z']
             
             mean_elevation = vertices_df['Z'].mean()
             surfaces.append((mean_elevation, surface_name, vertices_df))
