@@ -14,6 +14,17 @@ import xarray as xr
 from scipy.interpolate import griddata
 import datetime
 
+
+vmap = {
+    'M': 1500.0,
+    'Qa': 500.0,
+    'Mq': 1000.0,
+    'Stock_East': 3000.0,
+    'Stock_West': 4000.0,
+    'TR3': 5000.
+}
+
+
 def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.ndarray]]]:
     """
     Reads a GoCAD .ts file and extracts vertex and face data for each object.
@@ -217,7 +228,7 @@ def build_velocity_model(
         xr.Dataset: A dataset containing the 3D velocity model and metadata.
     """
     print("1. Loading and sorting surfaces...")
-    sorted_surfaces, auto_extent = load_surfaces_from_directory(surfaces_directory, velocity_map)
+    sorted_surfaces, auto_extent = load_surfaces_from_directory(surfaces_directory, vmap)
 
     if manual_extent:
         extent = manual_extent
@@ -244,7 +255,7 @@ def build_velocity_model(
     print("3. Interpolating surfaces and building velocity volume...")
     velocity_da = surfaces_to_velocity_volume(
         sorted_surfaces,
-        velocity_map,
+        vmap,
         (X, Y, Z)
     )
 
