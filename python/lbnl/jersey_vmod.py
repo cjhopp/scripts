@@ -174,7 +174,7 @@ def surfaces_to_velocity_volume(
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
     fill_velocity_top: float = 500.0,
     plot_debug: bool = False,
-    precision_decimals: int = 4
+    precision_decimals: int = 2
 ) -> xr.DataArray:
     """
     Creates a 3D velocity volume by using a stable triangulation-based interpolation.
