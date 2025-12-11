@@ -4,7 +4,10 @@
 Grid read/write utilities for NLLoc, hypoDD, etc... using xarray
 """
 
+import os
+import gemgis
 import pyproj
+
 from nllgrid import NLLGrid
 
 try:
@@ -92,6 +95,34 @@ def read_ppmod_newberry(path):
                           name=variables[i])
         ds[variables[i]] = da
     return ds
+
+
+def ts_files_to_xarray(directory):
+    datasets = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".ts"):
+                file_path = os.path.join(root, file)
+                print(f"Processing: {file_path}")
+                vertices, faces = gemgis.raster.read_ts(file_path)
+                
+                # Assuming vertices is a list of DataFrames and faces is a list of arrays
+                # We'll create a DataArray for each file and then combine them
+                for i, (vertex, face) in enumerate(zip(vertices, faces)):
+                    # Create a DataArray for this file
+                    da = xr.DataArray(
+                        vertex.values,
+                        dims=['x', 'y', 'z'],
+                        coords={'x': vertex['x'], 'y': vertex['y'], 'z': vertex['z']}
+                    )
+                    datasets.append(da)
+    
+    if datasets:
+        # Combine into a single Dataset
+        combined_da = xr.concat(datasets, dim='time')  # Adjust dim as necessary
+        return combined_da
+    else:
+        return None
 
 
 def create_newberry_1d(topo_path):
