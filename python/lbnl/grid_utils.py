@@ -241,7 +241,7 @@ def ts_to_xarray_grid(directory_path, xyspacing=100, zspacing=50):
         
         X, Y, Z = create_3d_grid(x_spacing, y_spacing, z_spacing, extent)
         ds = interpolate_surfaces_to_grid(da, X, Y, Z)
-        return ds
+    return ds
 
 
 def create_newberry_1d(topo_path):
