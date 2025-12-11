@@ -218,7 +218,6 @@ def build_velocity_model(
 
     Args:
         surfaces_directory (Union[str, Path]): Path to the directory with .ts files.
-        velocity_map (Dict[str, float]): Maps surface names to the velocity of the unit below.
         grid_spacing (Tuple[float, float, float]): Spacing for the grid (dx, dy, dz).
         extent_buffer (float): Buffer to add to the automatically calculated model extent.
         manual_extent (Optional[Dict[str, float]]): Manually define the model's bounding box.
@@ -266,7 +265,7 @@ def build_velocity_model(
     ds.attrs['source_directory'] = str(Path(surfaces_directory).resolve())
     ds.attrs['grid_spacing_xyz'] = str(grid_spacing)
     ds.attrs['stratigraphic_order'] = [name for name, _ in sorted_surfaces]
-    ds.attrs['velocity_map'] = str(velocity_map)
+    ds.attrs['velocity_map'] = str(vmap)
 
     print("Done.")
     return ds
