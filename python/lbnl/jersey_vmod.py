@@ -78,6 +78,7 @@ def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.nda
                     vrtx_idx = 0
     return objects
 
+
 def plot_gridded_surfaces_3d(
     surfaces: Dict[str, np.ndarray],
     X: np.ndarray,
@@ -129,6 +130,7 @@ def plot_gridded_surfaces_3d(
     fig.write_html(filename)
     print(f"\n---> Debug plot of interpolated surfaces saved to: {os.path.abspath(filename)}\n")
 
+
 def load_surfaces_from_directory(
     directory: Union[str, Path], 
     velocity_map: Dict[str, float]
@@ -170,6 +172,7 @@ def load_surfaces_from_directory(
 
     return sorted_surfaces, extent
 
+
 def surfaces_to_velocity_volume(
     sorted_surfaces: List[Tuple[str, pd.DataFrame]],
     velocity_map: Dict[str, float],
@@ -179,44 +182,85 @@ def surfaces_to_velocity_volume(
 ) -> xr.DataArray:
     """
     Creates a 3D velocity volume by filling the space between interpolated surfaces.
+    This version handles complex cases where surfaces cross each other by determining
+    the stacking order on a column-by-column basis.
     """
     X, Y, Z = grid_coords
-    velocity_grid = np.full(X.shape, fill_value=fill_velocity_top, dtype=np.float32)
+    nz, ny, nx = Z.shape
+    
+    # Initialize the final grid with NaN
+    velocity_grid = np.full(Z.shape, np.nan, dtype=np.float32)
     grid_points_2d = (X[0, :, :], Y[0, :, :])
 
+    # 1. Interpolate all surfaces onto the 2D grid
     interpolated_surfs = {}
     for name, verts in sorted_surfaces:
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
-        # Interpolate, but do not extrapolate. Areas outside the convex hull will be NaN.
         grid_z = griddata(points, values, grid_points_2d, method='cubic', fill_value=np.nan)
         interpolated_surfs[name] = grid_z
         
     if plot_debug:
         plot_gridded_surfaces_3d(interpolated_surfs, X[0, :, :], Y[0, :, :])
 
-    for i, (name, _) in enumerate(sorted_surfaces):
-        top_surf_z = interpolated_surfs[name]
-        velocity = velocity_map[name]
-        
-        # Comparisons with NaN yield False, so mask will only be True where surfaces are defined.
-        if i + 1 < len(sorted_surfaces):
-            bottom_surf_name, _ = sorted_surfaces[i+1]
-            bottom_surf_z = interpolated_surfs[bottom_surf_name]
-            mask = (Z <= top_surf_z) & (Z > bottom_surf_z)
-        else:
-            # For the last layer, the mask is true for everything below the surface.
-            mask = Z <= top_surf_z
-            
-        velocity_grid[mask] = velocity
+    # 2. Re-organize interpolated data for efficient column-wise access
+    surf_names = [name for name, _ in sorted_surfaces]
+    # Shape: (num_surfaces, ny, nx)
+    all_surfs_z = np.array([interpolated_surfs[name] for name in surf_names])
 
+    # 3. Iterate over each (x, y) column in the grid
+    for y_idx in range(ny):
+        for x_idx in range(nx):
+            # Get the Z-values of all surfaces for this specific column
+            column_z_values = all_surfs_z[:, y_idx, x_idx]
+
+            # Pair surface names with their Z-values and filter out NaN values
+            # (NaN indicates the surface is not defined at this XY point)
+            local_surfs = [
+                (z_val, name) for z_val, name in zip(column_z_values, surf_names)
+                if not np.isnan(z_val)
+            ]
+
+            # If no surfaces are defined here, leave the column as NaN and continue
+            if not local_surfs:
+                continue
+
+            # Sort the defined surfaces by elevation (Z-value) in descending order
+            local_surfs.sort(key=lambda item: item[0], reverse=True)
+
+            # Get the Z-coordinates of the grid for this column
+            Z_col = Z[:, y_idx, x_idx]
+            
+            # Fill above the highest surface with the top fill velocity
+            top_z, _ = local_surfs[0]
+            velocity_grid[:, y_idx, x_idx][Z_col > top_z] = fill_velocity_top
+
+            # Iterate through the locally sorted surfaces to fill between them
+            for i, (top_surf_z, name) in enumerate(local_surfs):
+                velocity = velocity_map[name]
+                
+                # Determine the bottom of the current layer
+                if i + 1 < len(local_surfs):
+                    bottom_surf_z, _ = local_surfs[i+1]
+                else:
+                    # For the lowest surface, it extends downwards indefinitely
+                    bottom_surf_z = -np.inf
+                
+                # Create a mask for the grid cells within this layer
+                mask = (Z_col <= top_surf_z) & (Z_col > bottom_surf_z)
+                velocity_grid[:, y_idx, x_idx][mask] = velocity
+
+    # 4. Create the final xarray.DataArray
     da = xr.DataArray(
         velocity_grid,
         dims=['z', 'y', 'x'],
         coords={'z': Z[:, 0, 0], 'y': Y[0, :, 0], 'x': X[0, 0, :]},
         name='velocity'
     )
+    da.attrs['units'] = 'm/s'
+    
     return da
+
 
 def build_velocity_model(
     surfaces_directory: Union[str, Path],
