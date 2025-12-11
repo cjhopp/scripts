@@ -79,7 +79,7 @@ def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.nda
 
 def plot_surfaces_3d(surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]], title: str = "Geologic Surfaces"):
     """
-    Creates a 3D plot of geologic surfaces for debugging.
+    Creates a 3D plot of geologic surfaces and saves it as an HTML file.
 
     Args:
         surfaces (List[Tuple[str, pd.DataFrame, np.ndarray]]): A list containing tuples of
@@ -113,7 +113,10 @@ def plot_surfaces_3d(surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]], title
             aspectratio=dict(x=1, y=1, z=0.5) # Exaggerate Z for clarity
         )
     )
-    fig.show()
+    
+    filename = f"debug_plot_{title.replace(' ', '_')}.html"
+    fig.write_html(filename)
+    print(f"\n---> Debug plot saved to: {os.path.abspath(filename)}\n")
 
 
 def load_surfaces_from_directory(
