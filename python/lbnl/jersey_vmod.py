@@ -112,6 +112,7 @@ def plot_gridded_surfaces_3d(
 
     fig.update_layout(
         title_text=title,
+        showlegend=True,
         scene=dict(
             xaxis_title='X (Easting)',
             yaxis_title='Y (Northing)',
