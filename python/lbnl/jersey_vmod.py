@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.interpolate import griddata
+from scipy.ndimage import binary_dilation, generate_binary_structure
 from matplotlib.tri import Triangulation, LinearTriInterpolator
 import datetime
 import rioxarray
@@ -168,35 +169,104 @@ def load_surfaces_from_directory(
     return sorted_surfaces, extent
 
 
+def _stitch_gaps(
+    grid_z: np.ndarray,
+    grid_points_2d: Tuple[np.ndarray, np.ndarray],
+    original_points: np.ndarray,
+    original_values: np.ndarray,
+    iterations: int = 5
+) -> np.ndarray:
+    """
+    Stitch small gaps between surfaces by iteratively filling NaNs near valid data.
+    This is a controlled operation to prevent large-scale extrapolation.
+    """
+    if iterations == 0:
+        return grid_z
+
+    ny, nx = grid_z.shape
+    
+    # Identify NaN locations
+    nan_mask = np.isnan(grid_z)
+    if not np.any(nan_mask):
+        return grid_z # No NaNs to fill
+
+    # Define the structural element for dilation (connectivity)
+    struct = generate_binary_structure(2, 1)
+
+    # Iteratively fill NaNs that are adjacent to data
+    filled_grid = np.copy(grid_z)
+    for i in range(iterations):
+        # Find NaNs that are adjacent to current data points
+        dilated_nan_mask = binary_dilation(nan_mask, structure=struct)
+        fill_candidates = dilated_nan_mask & (~nan_mask) # These are data points bordering NaNs
+        
+        # Invert the mask: we want to find the NaNs to fill, not the data bordering them
+        border_nans = binary_dilation(~nan_mask, structure=struct) & nan_mask
+        
+        if not np.any(border_nans):
+            # No more border NaNs to fill, we are done.
+            break
+
+        # Get the coordinates of the NaNs we need to fill
+        fill_coords_y, fill_coords_x = np.where(border_nans)
+        fill_grid_points = (grid_points_2d[0][fill_coords_y, fill_coords_x], grid_points_2d[1][fill_coords_y, fill_coords_x])
+
+        # Use griddata with 'nearest' to fill only these specific border NaNs
+        # This finds the nearest point in the *original* data, which is more robust.
+        filled_values = griddata(
+            original_points, original_values,
+            (fill_grid_points[0], fill_grid_points[1]),
+            method='nearest'
+        )
+
+        # Update the grid and the nan_mask for the next iteration
+        filled_grid[fill_coords_y, fill_coords_x] = filled_values
+        nan_mask[fill_coords_y, fill_coords_x] = False
+
+    return filled_grid
+
+
 def surfaces_to_velocity_volume(
     sorted_surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]],
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
     fill_velocity_top: float = 500.0,
     plot_debug: bool = False,
-    precision_decimals: int = 1
+    precision_decimals: int = 1,
+    stitching_iterations: int = 3
 ) -> xr.DataArray:
     """
-    Creates a 3D velocity volume by using a stable triangulation-based interpolation.
+    Creates a 3D velocity volume using triangulation and controlled gap stitching.
     """
     X, Y, Z = grid_coords
     nz, ny, nx = Z.shape
     
     velocity_grid = np.full(Z.shape, np.nan, dtype=np.float32)
-    grid_points_2d_flat = (X[0, :, :].flatten(), Y[0, :, :].flatten())
+    grid_points_2d_tuple = (X[0, :, :], Y[0, :, :])
 
     interpolated_surfs = {}
     for name, verts, faces in sorted_surfaces:
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
         
+        # Step 1: Initial interpolation using triangulation. This is fast and accurate
+        # but will leave NaNs outside the data's convex hull.
         tri = Triangulation(points[:, 0], points[:, 1], triangles=faces)
         interpolator = LinearTriInterpolator(tri, values)
-        
-        grid_z_flat = interpolator(grid_points_2d_flat[0], grid_points_2d_flat[1])
+        grid_z_flat = interpolator(grid_points_2d_tuple[0].flatten(), grid_points_2d_tuple[1].flatten())
         grid_z = grid_z_flat.filled(np.nan).reshape((ny, nx))
         
-        interpolated_surfs[name] = grid_z
+        # Step 2: **Stitch Gaps.** Iteratively fill NaNs at the edges of the valid data area.
+        # This closes small gaps between adjacent surfaces without extrapolating wildly.
+        grid_z_stitched = _stitch_gaps(
+            grid_z=grid_z,
+            grid_points_2d=grid_points_2d_tuple,
+            original_points=points,
+            original_values=values,
+            iterations=stitching_iterations
+        )
+        
+        interpolated_surfs[name] = grid_z_stitched
         
     if plot_debug:
         plot_gridded_surfaces_3d(interpolated_surfs, X[0, :, :], Y[0, :, :])
@@ -255,7 +325,8 @@ def build_velocity_model(
     manual_extent: Optional[Dict[str, float]] = None,
     input_crs: str = "EPSG:26911",
     output_crs: Optional[str] = "EPSG:4326",
-    plot_debug: bool = False
+    plot_debug: bool = False,
+    stitching_iterations: int = 3
 ) -> xr.Dataset:
     """
     Main function to build a 3D velocity model from a directory of .ts surface files.
@@ -288,7 +359,8 @@ def build_velocity_model(
         sorted_surfaces,
         velocity_map,
         (X, Y, Z),
-        plot_debug=plot_debug
+        plot_debug=plot_debug,
+        stitching_iterations=stitching_iterations
     )
 
     print("4. Finalizing dataset...")
@@ -312,3 +384,4 @@ def build_velocity_model(
 
     print("Done.")
     return ds
+
