@@ -17,8 +17,7 @@ import datetime
 import rioxarray
 import plotly.graph_objects as go
 from pyproj import Proj, Transformer
-from mayavi import mlab
-from tvtk.api import tvtk
+import pyvista as pv
 
 
 def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.ndarray]]]:
@@ -383,15 +382,15 @@ def plot_velocity_model_3d(
     downsample_factor: Optional[int] = None
 ):
     """
-    Interactive 3D plotter for velocity model using Mayavi.
+    Interactive 3D plotter for velocity model using PyVista (volume rendering the whole cube).
     
     Parameters:
     - velocity_da: xarray DataArray with velocity data (dims: ['z', 'y', 'x']).
     - colormap: Matplotlib colormap name (e.g., 'viridis', 'plasma').
     - opacity: Opacity for volume rendering (0-1).
-    - isosurface_levels: List of velocity values for isosurface contours (e.g., [2000, 3000]).
-    - slice_plane: Add a slice plane ('x', 'y', or 'z') for cross-section viewing.
-    - downsample_factor: Factor to downsample the grid for performance. If None, auto-set based on size.
+    - isosurface_levels: List of velocity values for isosurface contours (optional).
+    - slice_plane: Add a slice plane ('x', 'y', or 'z') for cross-section viewing (optional).
+    - downsample_factor: Factor to downsample the grid for performance. If None, auto-set.
     
     Usage: Call after building the model, e.g., plot_velocity_model_3d(velocity_da).
     """
@@ -405,96 +404,69 @@ def plot_velocity_model_3d(
     if downsample_factor is None:
         total_points = len(x) * len(y) * len(z)
         if total_points > 1e6:
-            downsample_factor = int(np.ceil(total_points / 1e6) ** (1/3))  # Cube root for balanced downsampling
+            downsample_factor = int(np.ceil(total_points / 1e6) ** (1/3))
             print(f"Auto-downsampling grid by factor {downsample_factor} to reduce size for plotting.")
         else:
             downsample_factor = 1
     
-    # Downsample 1D coords and 3D velocity
+    # Downsample
     x = x[::downsample_factor]
     y = y[::downsample_factor]
     z = z[::downsample_factor]
     velocity = velocity[::downsample_factor, ::downsample_factor, ::downsample_factor]
     
-    # Create 3D coordinate arrays (required for Mayavi to match velocity.shape)
-    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
-    X = X.transpose(2, 1, 0)  # Match dims ['z', 'y', 'x']
-    Y = Y.transpose(2, 1, 0)
-    Z = Z.transpose(2, 1, 0)
-    
-    # Center coordinates to avoid large-number issues in VTK
-    x_offset, y_offset, z_offset = X.min(), Y.min(), Z.min()
-    X -= x_offset
-    Y -= y_offset
-    Z -= z_offset
+    # Center coordinates
+    x_offset, y_offset, z_offset = x.min(), y.min(), z.min()
+    x -= x_offset
+    y -= y_offset
+    z -= z_offset
     print(f"Coordinates centered by offsets: X-{x_offset:.0f}, Y-{y_offset:.0f}, Z-{z_offset:.0f}")
     
-    # Scale coordinates to smaller units (e.g., meters to km) for VTK stability
-    scale_factor = 1.0  # No scaling since centered
-    X /= scale_factor
-    Y /= scale_factor
-    Z /= scale_factor
-    print(f"Coordinates scaled by factor {scale_factor}")
-    
-    # Cast to float32 for Mayavi compatibility
-    X = X.astype(np.float32)
-    Y = Y.astype(np.float32)
-    Z = Z.astype(np.float32)
+    # Cast and clean data
+    x = x.astype(np.float32)
+    y = y.astype(np.float32)
+    z = z.astype(np.float32)
     velocity = velocity.astype(np.float32)
-    
-    # Handle NaNs/infs and ensure valid range
     print(f"Velocity shape: {velocity.shape}, min: {velocity.min()}, max: {velocity.max()}, mean: {np.nanmean(velocity)}")
-    mean_vel = np.nanmean(velocity)
-    if np.isnan(mean_vel) or np.isinf(mean_vel) or mean_vel <= 0 or velocity.min() == velocity.max():
-        print("Warning: Velocity data invalid—using fallback synthetic data.")
-        # Create a simple gradient for testing
-        velocity = np.linspace(1000, 5000, velocity.size).reshape(velocity.shape).astype(np.float32)
-    else:
-        velocity = np.nan_to_num(velocity, nan=mean_vel)
-        velocity = np.clip(velocity, 100, 10000)
+    velocity = np.nan_to_num(velocity, nan=np.nanmean(velocity))
+    velocity = np.clip(velocity, 100, 10000)
     
-    # Create Mayavi figure
-    fig = mlab.figure(bgcolor=(1, 1, 1), size=(800, 600))
-    mlab.title("3D Velocity Model", size=0.5)
+    # Create PyVista StructuredGrid for uniform grid (correct way)
+    grid = pv.StructuredGrid()
+    grid.dimensions = np.array([len(x), len(y), len(z)])
+    grid.origin = (x.min(), y.min(), z.min())
+    grid.spacing = (x[1] - x[0], y[1] - y[0], z[1] - z[0])
+    grid['velocity'] = velocity.flatten(order='F')  # Match dims ['z', 'y', 'x']
     
-    # Create a single scalar field source for all elements
-    src = mlab.pipeline.scalar_field(X, Y, Z, velocity)
+    # Plot the whole cube with volume rendering, colored by velocity
+    plotter = pv.Plotter()
+    plotter.add_volume(grid, scalars='velocity', cmap=colormap, opacity=opacity)
+    plotter.add_scalar_bar(title="Velocity (m/s)", vertical=True)
     
-    # Volume rendering
-    vol = mlab.pipeline.volume(src, vmin=velocity.min(), vmax=velocity.max())
-    vol.volume_property.scalar_opacity_unit_distance = 1.0 / opacity
-    mlab.colorbar(vol, title="Velocity (m/s)", orientation='vertical')
+    # Add isosurfaces if requested
+    if isosurface_levels:
+        for level in isosurface_levels:
+            if velocity.min() <= level <= velocity.max():
+                isosurface = grid.contour([level], scalars='velocity')
+                plotter.add_mesh(isosurface, color='black', opacity=0.7)
     
-    # # Apply colormap (removed to use default and avoid lut errors)
-    # import matplotlib.cm as cm
-    # vol.module_manager.scalar_lut_manager.lut.table = (cm.get_cmap(colormap)(np.linspace(0, 1, 256)) * 255).astype(np.uint8)
-    # vol.module_manager.scalar_lut_manager.lut.build()
+    # Add slice plane if requested
+    if slice_plane:
+        if slice_plane == 'x':
+            slice = grid.slice(normal='x')
+        elif slice_plane == 'y':
+            slice = grid.slice(normal='y')
+        elif slice_plane == 'z':
+            slice = grid.slice(normal='z')
+        plotter.add_mesh(slice, scalars='velocity', cmap=colormap, show_scalar_bar=False)
     
-    # # Add isosurfaces (commented out for testing)
-    # if isosurface_levels and velocity.min() < velocity.max():
-    #     for level in isosurface_levels:
-    #         if velocity.min() <= level <= velocity.max():
-    #             iso = mlab.contour3d(src, contours=[level], opacity=0.7)
-    #             iso.actor.property.color = (0, 0, 0)
-    
-    # # Add slice plane (commented out for testing)
-    # if slice_plane:
-    #     if slice_plane == 'x':
-    #         mlab.pipeline.scalar_cut_plane(src, plane_orientation='x_axes')
-    #     elif slice_plane == 'y':
-    #         mlab.pipeline.scalar_cut_plane(src, plane_orientation='y_axes')
-    #     elif slice_plane == 'z':
-    #         mlab.pipeline.scalar_cut_plane(src, plane_orientation='z_axes')
-    
-    # Add axes (note scaling)
-    mlab.axes(
+    # Add axes
+    plotter.add_axes(
         xlabel=f'X (scaled, offset {x_offset:.0f})',
         ylabel=f'Y (scaled, offset {y_offset:.0f})',
-        zlabel=f'Z (scaled, offset {z_offset:.0f})',
-        nb_labels=5
+        zlabel=f'Z (scaled, offset {z_offset:.0f})'
     )
-    mlab.orientation_axes()
     
-    mlab.show()
-    return fig
+    plotter.show()
+    return plotter
 
