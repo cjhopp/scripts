@@ -12,8 +12,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.interpolate import griddata
-from scipy.ndimage import binary_dilation, generate_binary_structure
-from scipy.ndimage.filters import correlate
 from matplotlib.tri import Triangulation, LinearTriInterpolator
 import datetime
 import rioxarray
@@ -169,92 +167,44 @@ def load_surfaces_from_directory(
 
     return sorted_surfaces, extent
 
-
-def _stitch_gaps(grid_z: np.ndarray, iterations: int = 3) -> np.ndarray:
-    """
-    Stitch small gaps by filling NaNs with the average of their valid grid neighbors.
-    This is an efficient, controlled operation using correlation to prevent extrapolation.
-    """
-    if iterations == 0:
-        return grid_z
-
-    filled_grid = np.copy(grid_z)
-    nan_mask = np.isnan(filled_grid)
-    if not np.any(nan_mask):
-        return grid_z
-
-    # Define a kernel for averaging direct neighbors (4-connectivity)
-    kernel = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
-    
-    for i in range(iterations):
-        # Find NaNs that are adjacent to valid data points
-        border_nans = binary_dilation(~nan_mask, structure=kernel, border_value=1) & nan_mask
-        if not np.any(border_nans):
-            break # Exit if no more gaps can be filled
-
-        # Create a grid with zeros at NaN locations to use for the sum
-        grid_for_sum = np.nan_to_num(filled_grid)
-        
-        # Count the number of valid (non-NaN) neighbors
-        neighbor_count = correlate(~nan_mask, kernel, mode='constant', cval=0)
-        # Calculate the sum of values of valid neighbors
-        neighbor_sum = correlate(grid_for_sum, kernel, mode='constant', cval=0.0)
-
-        # Avoid division by zero where a NaN has no valid neighbors
-        # (shouldn't happen with border_nans, but safe to have)
-        neighbor_count[neighbor_count == 0] = 1
-        
-        # Calculate the average using the sum and count of valid neighbors
-        avg_values = neighbor_sum / neighbor_count
-        
-        # Fill only the identified border NaNs with the calculated average
-        filled_grid[border_nans] = avg_values[border_nans]
-        
-        # Update the mask of NaN values for the next iteration
-        nan_mask = np.isnan(filled_grid)
-        
-    return filled_grid
-
-
 def surfaces_to_velocity_volume(
     sorted_surfaces: List[Tuple[str, pd.DataFrame, np.ndarray]],
     velocity_map: Dict[str, float],
     grid_coords: Tuple[np.ndarray, np.ndarray, np.ndarray],
     fill_velocity_top: float = 500.0,
     plot_debug: bool = False,
-    precision_decimals: int = 1,
-    stitching_iterations: int = 3
+    precision_decimals: int = 1
 ) -> xr.DataArray:
     """
-    Creates a 3D velocity volume using triangulation and controlled gap stitching.
+    Creates a 3D velocity volume using a robust two-step griddata process
+    to prevent interpolation artifacts and correctly fill gaps.
     """
     X, Y, Z = grid_coords
     nz, ny, nx = Z.shape
     
     velocity_grid = np.full(Z.shape, np.nan, dtype=np.float32)
-    grid_points_2d_tuple = (X[0, :, :], Y[0, :, :])
+    X_grid_2d, Y_grid_2d = X[0, :, :], Y[0, :, :]
+    grid_points_2d = (X_grid_2d, Y_grid_2d)
 
     interpolated_surfs = {}
     for name, verts, faces in sorted_surfaces:
         points = verts[['X', 'Y']].values
         values = verts['Z'].values
-        
-        # Step 1: Initial interpolation using triangulation
-        tri = Triangulation(points[:, 0], points[:, 1], triangles=faces)
-        interpolator = LinearTriInterpolator(tri, values)
-        grid_z_flat = interpolator(grid_points_2d_tuple[0].flatten(), grid_points_2d_tuple[1].flatten())
-        grid_z = grid_z_flat.filled(np.nan).reshape((ny, nx))
-        
-        # Step 2: Stitch Gaps using the new, robust neighborhood averaging method
-        grid_z_stitched = _stitch_gaps(
-            grid_z=grid_z,
-            iterations=stitching_iterations
-        )
-        
-        interpolated_surfs[name] = grid_z_stitched
+
+        # Step 1: Perform linear interpolation. This is high-quality but creates NaNs
+        # outside the convex hull of the data, avoiding triangulation artifacts.
+        grid_z = griddata(points, values, grid_points_2d, method='linear')
+
+        # Step 2: Fill the NaN gaps using nearest neighbor interpolation. This propagates
+        # the edge values of the surface into the gaps without creating artificial spikes.
+        nan_mask = np.isnan(grid_z)
+        if np.any(nan_mask):
+            grid_z[nan_mask] = griddata(points, values, (X_grid_2d[nan_mask], Y_grid_2d[nan_mask]), method='nearest')
+
+        interpolated_surfs[name] = grid_z
         
     if plot_debug:
-        plot_gridded_surfaces_3d(interpolated_surfs, X[0, :, :], Y[0, :, :])
+        plot_gridded_surfaces_3d(interpolated_surfs, X_grid_2d, Y_grid_2d)
 
     surf_names = [name for name, _, _ in sorted_surfaces]
     name_to_global_rank = {name: i for i, name in enumerate(surf_names)}
@@ -310,8 +260,7 @@ def build_velocity_model(
     manual_extent: Optional[Dict[str, float]] = None,
     input_crs: str = "EPSG:26911",
     output_crs: Optional[str] = "EPSG:4326",
-    plot_debug: bool = False,
-    stitching_iterations: int = 3
+    plot_debug: bool = False
 ) -> xr.Dataset:
     """
     Main function to build a 3D velocity model from a directory of .ts surface files.
@@ -344,8 +293,7 @@ def build_velocity_model(
         sorted_surfaces,
         velocity_map,
         (X, Y, Z),
-        plot_debug=plot_debug,
-        stitching_iterations=stitching_iterations
+        plot_debug=plot_debug
     )
 
     print("4. Finalizing dataset...")
