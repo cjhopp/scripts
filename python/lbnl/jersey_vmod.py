@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.interpolate import griddata
-from scipy.ndimage import binary_dilation, generate_binary_structure, correlate
+from scipy.ndimage import binary_dilation, generate_binary_structure
+from scipy.ndimage.filters import correlate
 from matplotlib.tri import Triangulation, LinearTriInterpolator
 import datetime
 import rioxarray
