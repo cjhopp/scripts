@@ -19,11 +19,11 @@ def main():
     # --- USER-DEFINED PARAMETERS ---
     TRIBE_PATH = "/media/chopp/HDD1/chet-meq/cape_modern/templates/eqcorrscan/HITP_templates_1dayproc_clustered_10-1-25.tgz" 
     SPIKE_TEMPLATE_PATH = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt"
-    START_DATE = UTCDateTime(2025, 7, 27)
+    START_DATE = UTCDateTime(2025, 7, 28)
     END_DATE = UTCDateTime(2025, 10, 8)
     
-    PARTY_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data/daily_parties"
-    PLOT_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data/denoiser_plots"
+    PARTY_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_6hr/daily_parties"
+    PLOT_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_6hr/denoiser_plots"
 
     # Matched-filter parameters
     CCTHRESH = 8.  # Detection threshold
