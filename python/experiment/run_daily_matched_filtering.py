@@ -69,11 +69,32 @@ def main():
 
             # 2. Denoise the stream in-place
             print("Applying spike removal...")
-            remove_HITP_spikes(stream=st, 
-                               spike_template_path=SPIKE_TEMPLATE_PATH,
-                               geophone_chans=['GPZ'], 
-                               plot=True, 
-                               plot_output_dir=PLOT_OUTPUT_DIR)
+            # Define the chunk length for denoising (6 hours)
+            chunk_length = 6 * 3600  # 6 hours in seconds
+
+            # Split the stream into 6-hour chunks
+            chunk_start = day_start
+            while chunk_start < day_end:
+                chunk_end = min(chunk_start + chunk_length, day_end)
+                print(f"Denoising chunk: {chunk_start} to {chunk_end}")
+                
+                # Slice the chunk
+                chunk = st.slice(chunk_start, chunk_end)
+                
+                # Pass the chunk to the denoiser
+                remove_HITP_spikes(
+                    stream=chunk,
+                    spike_template_path=SPIKE_TEMPLATE_PATH,
+                    geophone_chans=['GPZ'],
+                    plot=True,
+                    plot_output_dir=PLOT_OUTPUT_DIR,
+                    chunk_start=chunk_start,  # Pass the chunk start time for unique plot names
+                )
+                
+                chunk_start = chunk_end
+
+            # Merge the denoised chunks back into a daylong stream
+            st.merge(fill_value='interpolate')
 
             # 3. Pre-process the denoised data for matched-filtering
             print("Running standard dayproc pre-processing...")
@@ -100,10 +121,13 @@ def main():
                 
                 daily_party = Party(families=[fam for fam in fam_dict.values() if len(fam.detections) > 0])
                 
+                # Decluster the party
+                daily_party.decluster(TRIG_INT)
+                
                 daily_output_path = os.path.join(PARTY_OUTPUT_DIR, f"detections_{current_date.strftime('%Y%m%d')}.tgz")
                 
                 if len(daily_party) > 0:
-                    print(f"Saving {len(daily_party)} families to {daily_output_path}...")
+                    print(f"Saving {len(daily_party)} detections by {len(daily_party.families)} families to {daily_output_path}...")
                     daily_party.write(daily_output_path)
                     print("Save complete.")
                 else:

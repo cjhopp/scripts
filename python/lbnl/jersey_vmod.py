@@ -17,7 +17,11 @@ import datetime
 import rioxarray
 import plotly.graph_objects as go
 from pyproj import Proj, Transformer
-import pyvista as pv
+
+try:
+    from nllgrid import NLLGrid
+except ImportError:
+    raise RuntimeError("The `nllgrid` package is not installed. Please install it to use this function.")
 
 
 def read_ts(path: Union[str, Path]) -> List[Dict[str, Union[pd.DataFrame, np.ndarray]]]:
@@ -801,7 +805,8 @@ def build_velocity_model(
     smoothing_sigma_m: float = 0.0,
     snap_tol_m: float = 0.0,
     min_thickness_multiplier: float = 2.0,
-    vol_thresh_fraction: float = 0.001
+    vol_thresh_fraction: float = 0.001,
+    vp_vs_ratio: float = 1.66
 ) -> xr.Dataset:
     """
     Main function to build a 3D velocity model from a directory of .ts surface files.
@@ -840,6 +845,17 @@ def build_velocity_model(
 
     print("4. Finalizing dataset...")
     ds = velocity_da.to_dataset()
+    # Add Vp as explicit variable (alias for 'velocity') and compute Vs with constant Vp/Vs ratio
+    ds['Vp'] = ds['velocity'].copy()
+    ds['Vp'].attrs['units'] = 'm/s'
+    ds['Vp'].attrs['description'] = 'P-wave velocity (alias of velocity)'
+    ds.attrs['vp_vs_ratio'] = float(vp_vs_ratio)
+    # compute Vs (avoid division by zero)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        ds['Vs'] = ds['Vp'] / float(vp_vs_ratio)
+    ds['Vs'].attrs['units'] = 'm/s'
+    ds['Vs'].attrs['description'] = f"S-wave velocity computed from Vp using constant Vp/Vs ratio = {vp_vs_ratio}"
+
     ds.attrs['created_at'] = datetime.datetime.utcnow().isoformat()
     ds.attrs['source_directory'] = str(Path(surfaces_directory).resolve())
     ds.attrs['grid_spacing_xyz'] = str(grid_spacing)
@@ -1273,3 +1289,129 @@ def compare_prepost_for_location(
         "pre_src_idx_col": src_col_idx.tolist(),
         "final_col": final_col.tolist()
     }
+
+
+def write_nlloc_grid(
+    ds: xr.Dataset,
+    path: Union[str, Path],
+    var: str = "Vp",
+    *,
+    grid_type: str = "SLOW_LEN",
+    proj_name: str = "SIMPLE",
+    float_type: str = "FLOAT",
+    overwrite: bool = True
+):
+    """
+    Write dataset to an NLLoc grid file using the `nllgrid` package.
+
+    Parameters:
+    - ds: xarray Dataset containing coordinate dims ['x', 'y', 'z'] and variable `var`.
+    - path: output basename for the NLLoc grid files (e.g., 'mygrid' for 'mygrid.hdr' and 'mygrid.buf').
+    - var: variable name in the dataset to write (default 'Vp').
+    - grid_type: type of the grid (default 'SLOW_LEN').
+    - proj_name: projection name (default 'SIMPLE').
+    - float_type: precision of the grid ('FLOAT' or 'DOUBLE', default 'FLOAT').
+    - overwrite: if False, raises an error if the files already exist.
+
+    Raises:
+    - ValueError: if grid spacing (dx, dy, dz) is not uniform.
+    - RuntimeError: if the `nllgrid` package is not installed or its API is unavailable.
+    - KeyError: if the specified variable or required coordinates are missing in the dataset.
+    """
+    path = Path(path)
+    hdr_path = path.with_suffix(".hdr")
+    buf_path = path.with_suffix(".buf")
+
+    if not overwrite and (hdr_path.exists() or buf_path.exists()):
+        raise FileExistsError(f"Files already exist and overwrite=False: {hdr_path}, {buf_path}")
+
+    if var not in ds:
+        raise KeyError(f"Variable '{var}' not found in dataset")
+
+    # Extract coordinates and data
+    x = np.asarray(ds.coords["x"].values, dtype=float)
+    y = np.asarray(ds.coords["y"].values, dtype=float)
+    z = np.asarray(ds.coords["z"].values, dtype=float) * -1
+    values = ds[var].values
+
+    # Ensure uniform grid spacing
+    dx = np.unique(np.diff(x))
+    dy = np.unique(np.diff(y))
+    dz = np.abs(np.unique(np.diff(z)))
+
+    # if len(dx) != 1 or len(dy) != 1 or len(dz) != 1 or not np.isclose(dx[0], dy[0], atol=1e-3) or not np.isclose(dx[0], dz[0], atol=1e-3):
+    #     raise ValueError(f"Grid spacing must be uniform and equal in all dimensions (dx={dx}, dy={dy}, dz={dz}).")
+
+    dx, dy, dz = dx[0], dy[0], dz[0]  # Extract the single spacing value
+
+    # Ensure data ordering matches NLLoc expectations (x, y, z)
+    values = ds[var].transpose("x", "y", "z").values
+
+    # Convert velocity to slowness*length (SLOW_LEN)
+    if grid_type == "SLOW_LEN":
+        values = dz / values  # Convert to slowness*length (dz is in km)
+
+    # Reproject origin into Lat/Lon
+    transformer = Transformer.from_crs("EPSG:26911", "EPSG:4326", always_xy=True)  # Example: UTM Zone 11N to WGS84
+    origin_x, origin_y = x[0], y[0]
+    origin_lon, origin_lat = transformer.transform(origin_x, origin_y)
+
+    # Create an NLLoc grid object
+    grid = NLLGrid()
+    grid.array = values  # No flipping, as the order is already x, y, z
+    grid.dx = round(dx, 0) * 1e-3
+    grid.dy = round(dy, 0) * 1e-3
+    grid.dz = round(dz, 0) * 1e-3
+    grid.x_orig = 0.0  # Origin in grid coordinates
+    grid.y_orig = 0.0
+    grid.z_orig = z.min() / 1000.0  # Convert to kilometers
+    grid.type = grid_type
+    grid.float_type = float_type
+    grid.orig_lat = origin_lat
+    grid.orig_lon = origin_lon
+    grid.proj_name = proj_name
+    grid.basename = str(path)
+
+    # Write the grid files
+    try:
+        grid.write_hdr_file()
+        grid.write_buf_file()
+        print(f"Successfully wrote NLLoc grid to: {hdr_path} and {buf_path}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to write NLLoc grid files: {e}")
+
+def smooth_dataset(
+    ds: xr.Dataset,
+    var: str = "Vp",
+    sigma: Tuple[float, float, float] = (1.0, 1.0, 1.0),
+    inplace: bool = False
+) -> xr.Dataset:
+    """
+    Apply Gaussian smoothing to a variable in the dataset.
+
+    Parameters:
+    - ds: xarray Dataset containing the variable to smooth.
+    - var: Name of the variable to smooth (default 'Vp').
+    - sigma: Standard deviation for Gaussian kernel in grid units (z, y, x).
+    - inplace: If True, modify the dataset in place. Otherwise, return a new dataset.
+
+    Returns:
+    - Smoothed xarray Dataset.
+    """
+    if var not in ds:
+        raise KeyError(f"Variable '{var}' not found in the dataset.")
+
+    # Extract the variable to smooth
+    data = ds[var].values
+
+    # Apply Gaussian smoothing
+    smoothed_data = gaussian_filter(data, sigma=sigma, mode="nearest")
+
+    # Update the dataset
+    if inplace:
+        ds[var].values = smoothed_data
+        return ds
+    else:
+        smoothed_ds = ds.copy()
+        smoothed_ds[var].values = smoothed_data
+        return smoothed_ds
