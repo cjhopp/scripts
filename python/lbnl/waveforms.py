@@ -1685,6 +1685,9 @@ def detection_multiplot(stream, template=None, times=None, party=None,
         templates = []
         times_list = []
         template_labels = template_labels or []
+        stream_start = stream[0].stats.starttime
+        stream_end = stream[0].stats.endtime
+
         for fam in party:
             fam_tpl = getattr(fam, 'template', None)
             if fam_tpl is None:
@@ -1693,11 +1696,11 @@ def detection_multiplot(stream, template=None, times=None, party=None,
             tpl_st = fam_tpl.st if hasattr(fam_tpl, 'st') else fam_tpl
             templates.append(tpl_st)
             dets = getattr(fam, 'detections', []) or getattr(fam, 'dets', [])
-            # extract detect_time (support different attribute names)
+            # Filter detections to match the stream timeframe
             det_times = []
             for d in dets:
                 t = getattr(d, 'detect_time', None) or getattr(d, 'detect_time_utc', None) or getattr(d, 'time', None)
-                if t is not None:
+                if t is not None and stream_start <= t <= stream_end:
                     det_times.append(t)
             times_list.append(det_times)
             # label fallback
@@ -1799,12 +1802,11 @@ def detection_multiplot(stream, template=None, times=None, party=None,
                     start_idx = int((template_times[0] - image_times[0]).total_seconds() / image.stats.delta)
                     end_idx = int((template_times[-1] - image_times[0]).total_seconds() / image.stats.delta)
                     if start_idx < 0 or end_idx <= start_idx:
-                        raise ValueError
+                        raise ValueError("Detection time is outside the stream range.")
                     segment = image.data[max(0, start_idx):min(len(image.data), end_idx)]
                     normalizer = max(np.abs(segment)) if len(segment) > 0 and max(np.abs(segment)) != 0 else denom
                 except Exception as e:
-                    print(e)
-                    normalizer = denom
+                    continue  # Skip this detection and move to the next one
                 tpl_denom = max(np.abs(tpl_tr.data)) if max(np.abs(tpl_tr.data)) != 0 else 1.0
                 scale = normalizer / tpl_denom
                 axis.plot(template_times, (tpl_tr.data * scale) / denom, color=color, linewidth=1.2, alpha=0.9)

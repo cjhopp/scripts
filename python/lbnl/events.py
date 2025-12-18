@@ -20,11 +20,13 @@ import pandas as pd
 import seaborn as sns
 import networkx as nx
 import matplotlib.pyplot as plt
+import dask.dataframe as dd
 
 from glob import glob
 from itertools import cycle
 from subprocess import call
 from scipy.linalg import lstsq
+from dask import delayed
 from sklearn.cluster import DBSCAN
 try:
     from mplstereonet import StereonetAxes
@@ -695,6 +697,59 @@ def obspyck_from_local(config_file, inv_paths, location, wav_dir=None,
     return
 
 
+def get_dataframe_parties(base_dir):
+    """
+    Read the detection csv files from an arbitrary number of eqcorrscan Parties to a dataframe.
+    
+    :param base_dir: Path to a directory of extracted party subdirs.
+    :return: A Dask DataFrame with proper column types and additional threshold columns.
+    """
+    # Find all `*detections.csv` files in the directory structure
+    detection_files = glob(os.path.join(base_dir, "**", "*detections.csv"), recursive=True)
+    if not detection_files:
+        raise FileNotFoundError(f"No `*detections.csv` files found in {base_dir}")
+
+    # Function to parse a single file into a Pandas DataFrame
+    def parse_file(file_path):
+        with open(file_path, "r") as f:
+            lines = f.readlines()
+        
+        # Extract column names from the first line
+        columns = [field.split(":")[0].strip() for field in lines[0].split(";") if ":" in field]
+        
+        # Extract data rows
+        data = []
+        for line in lines:
+            row = [field.split(":", 1)[1].strip() for field in line.split(";") if ":" in field]
+            data.append(row)
+        
+        # Create a Pandas DataFrame
+        df = pd.DataFrame(data, columns=columns)
+
+        # Convert column types
+        if 'detect_time' in df.columns:
+            df['detect_time'] = pd.to_datetime(df['detect_time'], errors='coerce')
+        if 'no_chans' in df.columns:
+            df['no_chans'] = pd.to_numeric(df['no_chans'], errors='coerce', downcast='integer')
+        for col in ['detect_val', 'threshold', 'threshold_input']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce', downcast='float')
+        
+        # Add columns for different threshold values
+        if 'threshold' in df.columns:
+            df['MAD'] = df['threshold'] / 8  # Calculate MAD from threshold (threshold = 8 * MAD)
+            df['MAD*10'] = df['MAD'] * 10
+            df['MAD*15'] = df['MAD'] * 15
+            df['MAD*20'] = df['MAD'] * 20
+        
+        return df
+
+    # Use Dask to read and concatenate all files
+    delayed_dfs = [delayed(parse_file)(file) for file in detection_files]
+    dask_df = dd.from_delayed(delayed_dfs)
+    return dask_df
+
+
 def get_events_seiscomp(status, location_methods, url=None, **kwargs):
     """
     Get events from seiscomp database using obspy.client.fdsn.Client
@@ -1003,3 +1058,51 @@ def plot_template_event_bipartite(cat, max_labels=50):
     plt.title("Template-Event Detection Matrix")
     plt.show()
 
+
+def plot_cumulative_detections(df, group_by_template=False, exclude_templates=None, title=None):
+    """
+    Plot the cumulative number of detections over time.
+
+    :param df: A Pandas or Dask DataFrame containing the detection data. 
+               Must include 'detect_time' and 'template_name' columns.
+    :param group_by_template: If True, plot one line for each template. 
+                              If False, plot all detections together.
+    :param exclude_templates: A list of template names to exclude from the plot.
+    :param title: Title for the plot (optional).
+    """
+
+    # Ensure the DataFrame is computed if it's a Dask DataFrame
+    if isinstance(df, dd.DataFrame):
+        df = df.compute()
+
+    # Ensure 'detect_time' is sorted and converted to datetime
+    df['detect_time'] = pd.to_datetime(df['detect_time'], errors='coerce')
+    df = df.sort_values(by='detect_time')
+
+    # Exclude specified templates
+    if exclude_templates:
+        df = df[~df['template_name'].isin(exclude_templates)]
+
+    # Initialize the plot
+    plt.figure(figsize=(12, 6))
+
+    if group_by_template:
+        # Group by template and calculate cumulative counts
+        grouped = df.groupby('template_name')
+        for template, group in grouped:
+            group = group.sort_values(by='detect_time')
+            cumulative_counts = group['detect_time'].value_counts().sort_index().cumsum()
+            plt.plot(cumulative_counts.index, cumulative_counts.values, label=template)
+    else:
+        # Plot all detections together
+        cumulative_counts = df['detect_time'].value_counts().sort_index().cumsum()
+        plt.plot(cumulative_counts.index, cumulative_counts.values, label='All Templates')
+
+    # Formatting
+    plt.xlabel('Time', fontsize=12)
+    plt.ylabel('Cumulative Detections', fontsize=12)
+    plt.title(title or 'Cumulative Detections Over Time', fontsize=14)
+    plt.legend(loc='upper left', fontsize=10)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()

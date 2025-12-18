@@ -70,7 +70,7 @@ def main():
             # 2. Denoise the stream in-place
             print("Applying spike removal...")
             # Define the chunk length for denoising (6 hours)
-            chunk_length = 6 * 3600  # 6 hours in seconds
+            chunk_length = 24 * 3600  # 6 hours in seconds
 
             # Split the stream into 6-hour chunks
             chunk_start = day_start

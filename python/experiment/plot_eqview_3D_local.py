@@ -35,8 +35,8 @@ site_polygons = {
 datasets = {
     'Newberry': ['{}/newberry/boreholes/Deviation_corrected.csv'.format(data_directory),
                  '{}/newberry/DEMs/USGS_13_merged_epsg-26910_just_edifice_very-coarse.tif'.format(data_directory)],
-    'JV': ['{}/JV/Offset_Wells_Surveys_JV.csv'.format(data_directory),],
-    'DAC': ['{}/DAC/Offset_Wells_Surveys_DAC.csv'.format(data_directory)],
+    'JV': {'wells': '/media/chopp/HDD1/chet-amplify/spatial_data/wells/Offset_Wells_Surveys_JV.csv'},
+    'DAC': {'wells': '/media/chopp/HDD1/chet-amplify/spatial_data/wells/DAC/Offset_Wells_Surveys_DAC.csv'},
     'TM': [],
     'Cape': {'Topography': '{}/DEM/Cape-modern_Lidar_downsample.tif'.format(data_directory),
              'Frisco-1': '{}/Cape_share/Frisco-1_trajectory.csv'.format(data_directory),
@@ -149,7 +149,7 @@ def get_pixel_coords(dataset):
     return (np.arange(cols) * pixw) + xo, (np.arange(rows) * pixh) + yo, band
 
 
-def plot_3D(datasets, catalog):
+def plot_3D(datasets, catalogs):
     """
     Make plotly html of selected earthquakes
 
@@ -160,28 +160,48 @@ def plot_3D(datasets, catalog):
     """
     objects = []
     # What field is this?
-    # field = datasets[0].split('/')[-3]
-    field = 'cape'
+    field = 'JV'
     try:
         utm = projections[field]
     except KeyError:
         return
     for label, data in datasets.items():
         if not data.endswith(('tif', 'nc')):
-            print(data)
-            # Add objects
-            wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
-            east = wellpath[:, 0]
-            north = wellpath[:, 1]
-            dep_m = wellpath[:, 2]
-            objects.append(go.Scatter3d(x=east,
-                                        y=north,
-                                        z=dep_m,
-                                        name=label,
-                                        mode='lines',
-                                        line=dict(color='black', width=6),
-                                        hoverinfo='skip'),
-                                        )
+            if data.endswith('JV.csv'):
+                wells = pd.read_csv(data)
+                # Get unique well IDs and iterate over them
+                for well_id in wells['Well_ID'].unique():
+                    well_data = wells[wells['Well_ID'] == well_id]
+                    # Process each well's data here
+                    east = well_data['X'].values
+                    north = well_data['Y'].values
+                    dep_m = well_data['Z'].values
+                    try:
+                        col = [col for tup, col in color_dict['JV'].items() if well_id in tup][0]
+                    except IndexError:
+                        col = 'gray'  # Default color if no match found
+                    objects.append(go.Scatter3d(x=east,
+                                                y=north,
+                                                z=dep_m,
+                                                name='Well {}'.format(well_id),
+                                                mode='lines',
+                                                line=dict(color=col, width=6),
+                                                hoverinfo='skip'),
+                                    )
+            else:
+                # Add objects
+                wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
+                east = wellpath[:, 0]
+                north = wellpath[:, 1]
+                dep_m = wellpath[:, 2]
+                objects.append(go.Scatter3d(x=east,
+                                            y=north,
+                                            z=dep_m,
+                                            name=label,
+                                            mode='lines',
+                                            line=dict(color='black', width=6),
+                                            hoverinfo='skip'),
+                                            )
         elif data.endswith('tif'):
             topo = gdal.Open(data, gdal.GA_ReadOnly)
             x, y, band = get_pixel_coords(topo)
@@ -215,7 +235,7 @@ def plot_3D(datasets, catalog):
                 try:
                     m = ev.preferred_magnitude().mag
                 except AttributeError:
-                    m = 0.5
+                    m = 1.
                 params.append([ev.resource_id.id, o.time.timestamp, o.latitude, o.longitude, o.depth, m])
             params = np.array(params)
             id, t, lat, lon, depth, m = np.split(params, 6, axis=1)
