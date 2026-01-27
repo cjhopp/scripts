@@ -15,6 +15,7 @@ import fiona
 import pickle
 import trimesh
 import pyproj
+import requests
 
 import numpy as np
 import colorlover as cl
@@ -30,6 +31,8 @@ import shapely.geometry as geometry
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.dates as mdates
+import matplotlib.image as mpimg
+
 import earthpy.spatial as es
 
 from holoviews import opts
@@ -3701,49 +3704,138 @@ def plot_interactive_section_linked(inv: Inventory, cat: Catalog,
     return layout
 
 
+from pyproj import Proj, Transformer
+from skimage.color import rgb2gray
+
+def calculate_webmercator_bbox(center_lat, center_lon, buffer_km):
+    # Define projections
+    wgs84 = Proj("EPSG:4326")  # Geographic coordinates
+    webmercator = Proj("EPSG:3857")  # Web Mercator coordinates
+    enu_proj = Proj(proj="aeqd", lat_0=center_lat, lon_0=center_lon, units="km")  # ENU projection
+
+    # Transformers for coordinate conversion
+    transformer_to_webmercator = Transformer.from_proj(wgs84, webmercator)
+    transformer_to_wgs84 = Transformer.from_proj(webmercator, wgs84)
+    transformer_to_enu = Transformer.from_proj(wgs84, enu_proj)
+
+    # Convert center point to Web Mercator
+    center_x, center_y = transformer_to_webmercator.transform(center_lat, center_lon)
+
+    # Calculate buffer in meters
+    buffer_m = buffer_km * 1000
+
+    # Calculate bounding box in Web Mercator
+    min_x = center_x - buffer_m
+    max_x = center_x + buffer_m
+    min_y = center_y - buffer_m
+    max_y = center_y + buffer_m
+
+    # Convert bounding box back to WGS84 (latitude/longitude)
+    min_lat, min_lon = transformer_to_wgs84.transform(min_x, min_y)
+    max_lat, max_lon = transformer_to_wgs84.transform(max_x, max_y)
+
+    # Convert bounding box to ENU
+    min_e, min_n = transformer_to_enu.transform(min_lat, min_lon)
+    max_e, max_n = transformer_to_enu.transform(max_lat, max_lon)
+
+    return (min_lat, min_lon, max_lat, max_lon), (min_e, min_n, max_e, max_n)
+
+
+def get_5529():
+    well_path = '/media/chopp/HDD1/chet-meq/newberry/boreholes/55-29/GDR_submission/Deviation_corrected_with-depth.csv'
+    wellpath = np.loadtxt(well_path, delimiter=',', skiprows=1)
+    east = wellpath[:, 0]
+    north = wellpath[:, 1]
+    elev_m = wellpath[:, 2]
+    return east, north, elev_m
+
+
+from matplotlib.patches import Polygon
+# Function to create and rotate triangular markers
+def create_triangle_marker(ax, x, y, rotation):
+    # Define points of an equilateral triangle based on the scale factor
+    size = 0.1 * 1.  # Base length of the triangle
+    height = (np.sqrt(3) / 2) * size  # Height of the triangle
+    triangle = np.array([[0, height], [-size / 2, 0], [size / 2, 0]])  # Vertices of the triangle
+    
+    # Rotate triangle points
+    rotation_matrix = np.array([[np.cos(rotation), -np.sin(rotation)],
+                                [np.sin(rotation), np.cos(rotation)]])
+    rotated_triangle = triangle @ rotation_matrix.T  # Apply rotation
+    
+    # Create a polygon patch for the triangle
+    marker = Polygon(rotated_triangle + [x, y], closed=True, facecolor='crimson', edgecolor='black', alpha=0.4)
+    ax.add_patch(marker)
+
+
 def plot_cartesian_cross_sections(inv: Inventory, cat: Catalog,
-                                  ns_width_km=1.5, ew_width_km=1.5,
-                                  map_buffer_km=2.0):
+                                  map_buffer_km=3.0, title=None,
+                                  max_depth=4.0,
+                                  depth_datum="elevation",  # "depth" or "elevation"
+                                  plot_elevation=False,
+                                  mapbox_token="pk.eyJ1IjoiY2hvcHAiLCJhIjoiY2t0ZDI1cXljMmJ2bDJ1cGc4bWxyc3k4biJ9.tba6vLjVeYN9G-0w13dmLg"):
     """
-    Plots: 
+    Plots:
       1. Station/event map in local km (E, N), events colored by time.
-      2. E-W (Easting-depth) cross section.
-      3. N-S (Northing-depth) cross section.
-      4. Info box/stats.
-    ns/ew_width_km: half-width of slab in km for cross sections.
+      2. E-W (Easting-depth or Easting-elevation) cross section.
+      3. N-S (Northing-depth or Northing-elevation) cross section.
+      4. Horizontal colorbar in the bottom-right corner.
+      5. Satellite imagery in the map panel (via Mapbox API).
+      6. Topography profiles along the cross-sections (via USGS API).
+
+    Parameters:
+    - depth_datum: "depth" (default) or "elevation".
+    - mapbox_token: Your Mapbox API token for fetching satellite imagery.
     """
     # Collect and convert stations
     sta_lats = []
     sta_lons = []
+    sta_elevations = []  # Store station elevations
     for net in inv:
         for sta in net.stations:
             sta_lats.append(sta.latitude)
             sta_lons.append(sta.longitude)
+            sta_elevations.append((sta.elevation - sta[0].depth) / 1000.)  # Convert to km
     sta_lats = np.array(sta_lats)
     sta_lons = np.array(sta_lons)
+    sta_elevations = np.array(sta_elevations)
 
     # Events lat/lon/depth/time
-    ev_lats, ev_lons, ev_deps, ev_times = [], [], [], []
+    ev_lats, ev_lons, ev_deps, ev_times, ev_mags = [], [], [], [], []
     for ev in cat:
         orig = ev.preferred_origin() or ev.origins[0]
         time = orig.time.datetime if isinstance(orig.time, UTCDateTime) else orig.time
         ev_lats.append(orig.latitude)
         ev_lons.append(orig.longitude)
-        ev_deps.append(orig.depth / 1000) # km
+        if depth_datum == "depth":
+            ev_deps.append(orig.depth / 1000.)  # Convert to depth in km
+        else:  # elevation
+            ev_deps.append(orig.depth / -1000.)  # Convert to elevation in km
         ev_times.append(time)
+        ev_mags.append(ev.preferred_magnitude().mag if ev.preferred_magnitude() else np.nan)
     ev_lats = np.array(ev_lats)
     ev_lons = np.array(ev_lons)
     ev_deps = np.array(ev_deps)
-    ev_times = np.array(ev_times) # array of datetime
+    ev_times = np.array(ev_times)  # array of datetime
+    ev_mags = np.array(ev_mags)
 
     # Center: median station position (safer for regional settings)
     center_lat = np.median(np.concatenate([ev_lats, sta_lats]))
     center_lon = np.median(np.concatenate([ev_lons, sta_lons]))
 
     # Use local ENU kinematics
+    def latlon_to_enu(lat, lon, center_lat, center_lon):
+        """Convert lat/lon to local ENU x/y (in km) relative to given center point."""
+        deg2km_lat = 111.32
+        mid_lat = np.deg2rad(center_lat)
+        deg2km_lon = 111.32 * np.cos(mid_lat)
+        x = (lon - center_lon) * deg2km_lon    # Easting in km
+        y = (lat - center_lat) * deg2km_lat    # Northing in km
+        return x, y
+
     sta_e, sta_n = latlon_to_enu(sta_lats, sta_lons, center_lat, center_lon)
     ev_e, ev_n = latlon_to_enu(ev_lats, ev_lons, center_lat, center_lon)
-
+    sta_markers = np.array(['v' if sta[0].depth > 10.0 else '^' for net in inv for sta in net.stations])
     # Map buffer
     min_e = min(ev_e.min(), sta_e.min()) - map_buffer_km
     max_e = max(ev_e.max(), sta_e.max()) + map_buffer_km
@@ -3751,11 +3843,10 @@ def plot_cartesian_cross_sections(inv: Inventory, cat: Catalog,
     max_n = max(ev_n.max(), sta_n.max()) + map_buffer_km
 
     # Cross-section selection:
-    ew_mask = np.abs(ev_n) < ns_width_km # E-W: events near N=0
-    ns_mask = np.abs(ev_e) < ew_width_km # N-S: events near E=0
+    ew_mask = np.abs(ev_n) < map_buffer_km  # E-W: events near N=0
+    ns_mask = np.abs(ev_e) < map_buffer_km  # N-S: events near E=0
 
     # ---- Color mapping on times ----
-    # Avoid warnings with matplotlib and handle single-event catalogs
     if len(ev_times) > 1:
         t_start = min(ev_times)
         t_end = max(ev_times)
@@ -3770,61 +3861,127 @@ def plot_cartesian_cross_sections(inv: Inventory, cat: Catalog,
     datetimes_nums = mdates.date2num(ev_times)
     colors = cmap(norm(datetimes_nums))
 
+    if title == 'Newberry':
+        utm = pyproj.Proj("EPSG:32610")
+        center_east, center_north = utm(center_lon, center_lat, inverse=False)
+        well_east, well_north, well_elev_m = get_5529()
+        well_east_km = (well_east - center_east) / 1000.
+        well_north_km = (well_north - center_north) / 1000.
+        well_elev_km = well_elev_m / 1000.
     # ---------- PLOTTING ----------
-    fig = plt.figure(figsize=(15, 10))
-    # Panel 1: EN map
-    ax_map = plt.subplot2grid((2, 2), (0, 0))
-    sc = ax_map.scatter(ev_e, ev_n, c=datetimes_nums, cmap=cmap, norm=norm, s=30, marker='.', lw=0, label='Events')
-    ax_map.scatter(sta_e, sta_n, marker='^', color='crimson', edgecolor='k', s=70, label='Stations')
+    fig = plt.figure(figsize=(16, 16))
+
+    scatter_alpha = 1.0
+    if len(ev_times) > 5000:
+        scatter_alpha = 0.5
+    elif len(ev_times) > 10000:
+        scatter_alpha = 0.05
+    # Panel 1: EN map with Mapbox satellite imagery
+    ax_map = plt.subplot2grid((12, 12), (0, 0), colspan=6, rowspan=6)
+    if mapbox_token:
+        # Get both Web Mercator and ENU bounding boxes
+        (minlat, minlon, maxlat, maxlon), (min_e, min_n, max_e, max_n) = calculate_webmercator_bbox(center_lat, center_lon, map_buffer_km)
+        
+        # Fetch satellite imagery from Mapbox
+        bbox = f"[{minlon},{minlat},{maxlon},{maxlat}]"
+        mapbox_url = f"https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/{bbox}/1000x1000?access_token={mapbox_token}"
+        response = requests.get(mapbox_url)
+        if response.status_code == 200:
+            with open("mapbox_image.jpg", "wb") as f:
+                f.write(response.content)
+            img = mpimg.imread("mapbox_image.jpg")
+            grayimg = rgb2gray(img)
+            ax_map.imshow(grayimg, extent=[min_e, max_e, min_n, max_n], cmap='gray', alpha=0.5)  # Use ENU bounding box for extent
+        else:
+            print("Failed to fetch Mapbox imagery. Falling back to scatter plot.")
+    if title == 'Newberry':
+        ax_map.plot(well_east_km, well_north_km, color='purple', lw=2, label='55-29 Well')
+        ax_map.scatter(well_east_km[0], well_north_km[0], color='purple', s=50)
+    sc = ax_map.scatter(ev_e, ev_n, c=datetimes_nums, cmap=cmap, norm=norm, s=25, marker='.', lw=0.2, ec='k', label='Events', alpha=scatter_alpha)
+    for se, sn, sm in zip(sta_e, sta_n, sta_markers):
+        ax_map.scatter(se, sn, marker=sm, color='crimson', edgecolor='k', s=70)
     ax_map.axhline(0, color='gray', ls='--', lw=1, alpha=0.7)
     ax_map.axvline(0, color='gray', ls='--', lw=1, alpha=0.7)
     ax_map.set_aspect('equal', adjustable='box')
     ax_map.legend(loc='upper right')
-    ax_map.set_xlabel("Easting (km)")
-    ax_map.set_ylabel("Northing (km)")
+    ax_map.set_xlabel("Easting (km)", fontsize=14)
+    ax_map.set_ylabel("Northing (km)", fontsize=14)
     ax_map.set_xlim(min_e, max_e)
     ax_map.set_ylim(min_n, max_n)
-    ax_map.set_title("Stations (red) and Events (colored by time)\nDashed lines: section centers")
-    cbar = plt.colorbar(sc, ax=ax_map, orientation='vertical', pad=0.01)
-    cbar.set_label("Event Time")
-    cbar.ax.yaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
+    ax_map.tick_params(labelsize=12)
+    ax_map.set_title(title or "Stations (red) and Events (colored by time)\nDashed lines: section centers", fontsize=18)
 
-    # Panel 2: E-W cross section (Easting-depth, for |N| < ns_width_km)
-    ax_ew = plt.subplot2grid((2, 2), (1, 0))
-    ax_ew.scatter(ev_e[ew_mask], ev_deps[ew_mask], c=datetimes_nums[ew_mask], cmap=cmap, norm=norm, s=25, lw=0)
-    for e, n in zip(sta_e, sta_n):
-        if np.abs(n) < ns_width_km:
-            ax_ew.plot(e, 0, marker='v', color='crimson', markersize=10, alpha=0.4)
-    ax_ew.invert_yaxis()
-    ax_ew.set_xlabel('Easting (km)')
-    ax_ew.set_ylabel('Depth (km)')
+    # Panel 2: E-W cross section (Easting-depth or Easting-elevation)
+    ax_ew = plt.subplot2grid((12, 12), (6, 0), colspan=6, rowspan=6)
+    if title == 'Newberry':
+        ax_ew.plot(well_east_km, well_elev_km, color='purple', lw=2)
+    ax_ew.scatter(ev_e[ew_mask], ev_deps[ew_mask], c=datetimes_nums[ew_mask], cmap=cmap, norm=norm, s=25, lw=0.2, ec='k', alpha=scatter_alpha)
+    for e, n, elev, sm in zip(sta_e, sta_n, sta_elevations, sta_markers):
+        if np.abs(n) < map_buffer_km:
+            ax_ew.plot(e, elev if depth_datum == "elevation" else 0, marker=sm, color='crimson', markersize=10, alpha=0.4)
+    # Fetch elevation profile for E-W cross-section if depth_datum is "elevation"
+    if depth_datum == "elevation" and plot_elevation == True:
+        ew_elevations = []
+        ew_coords = np.linspace(min_e, max_e, 20)
+        for e in ew_coords:
+            lat, lon = center_lat, center_lon + e / 111.32
+            url = f"https://epqs.nationalmap.gov/v1/json?x={lon}&y={lat}&wkid=4326&units=Meters&includeDate=false"
+            response = requests.get(url).json()
+            ew_elevations.append(float(response['value']) / 1000.)  # Convert to km
+        ax_ew.plot(ew_coords, ew_elevations, color='k', label='Topography', alpha=0.5)
+    ax_ew.set_xlabel('Easting (km)', fontsize=14)
+    ax_ew.set_ylabel('Elevation (km)' if depth_datum == "elevation" else 'Depth (km)', fontsize=14)
     ax_ew.set_xlim(min_e, max_e)
-    ax_ew.set_title(f"E-W Cross Section (|N| < {ns_width_km:.1f} km)")
-    
-    # Panel 3: N-S cross section (Northing-depth, for |E| < ew_width_km)
-    ax_ns = plt.subplot2grid((2, 2), (0, 1))
-    ax_ns.scatter(ev_n[ns_mask], ev_deps[ns_mask], c=datetimes_nums[ns_mask], cmap=cmap, norm=norm, s=25, lw=0)
-    for e, n in zip(sta_e, sta_n):
-        if np.abs(e) < ew_width_km:
-            ax_ns.plot(n, 0, marker='v', color='crimson', markersize=10, alpha=0.4)
-    ax_ns.invert_yaxis()
-    ax_ns.set_xlabel('Northing (km)')
-    ax_ns.set_ylabel('Depth (km)')
-    ax_ns.set_xlim(min_n, max_n)
-    ax_ns.set_title(f"N-S Cross Section (|E| < {ew_width_km:.1f} km)")
+    ax_ew.set_ylim((min(ev_deps) - 1., max(sta_elevations) + 0.5) if depth_datum == "elevation" else (-0.1, max_depth))
+    ax_ew.set_aspect('equal')
+    ax_ew.tick_params(labelsize=12)
+    if depth_datum != "elevation":
+        ax_ew.invert_yaxis()
 
-    # Panel 4: info
-    ax_info = plt.subplot2grid((2, 2), (1, 1))
-    ax_info.axis('off')
-    info = f'''
-    Stations: {len(sta_e)}
-    Events: {len(ev_e)}
-    Map center: {center_lat:.4f}N {center_lon:.4f}E
-    E-W cross section slab: ±{ns_width_km:.1f} km (N)
-    N-S cross section slab: ±{ew_width_km:.1f} km (E)
-    Timespan: {t_start} to {t_end}
-    '''
-    ax_info.text(0.05, 0.6, info, fontsize=13, va='top')
+    # Panel 3: N-S cross section (Northing-depth or Northing-elevation)
+    ax_ns = plt.subplot2grid((12, 12), (0, 6), colspan=6, rowspan=6)
+    if title == 'Newberry':
+        ax_ns.plot(well_elev_km, well_north_km, color='purple', lw=2)
+    ax_ns.scatter(ev_deps[ns_mask], ev_n[ns_mask], c=datetimes_nums[ns_mask], cmap=cmap, norm=norm, s=25, lw=0.2, ec='k', alpha=scatter_alpha)
+    for e, n, elev, sm in zip(sta_e, sta_n, sta_elevations, sta_markers):
+        if np.abs(e) < map_buffer_km:
+            if sm == '^':
+                create_triangle_marker(ax_ns, elev if depth_datum == "elevation" else 0, n, rotation=-np.pi / 2)
+            else:
+                create_triangle_marker(ax_ns, elev if depth_datum == "elevation" else 0, n, rotation=np.pi / 2)
+            # ax_ns.plot(elev if depth_datum == "elevation" else 0, n, marker=sm, color='crimson', markersize=10, alpha=0.4)
+    # Fetch elevation profile for N-S cross-section if depth_datum is "elevation"
+    if depth_datum == "elevation" and plot_elevation == True:
+        ns_elevations = []
+        ns_coords = np.linspace(min_n, max_n, 20)
+        for n in ns_coords:
+            lat, lon = center_lat + n / 111.32, center_lon
+            url = f"https://epqs.nationalmap.gov/v1/json?x={lon}&y={lat}&wkid=4326&units=Meters&includeDate=false"
+            response = requests.get(url).json()
+            ns_elevations.append(float(response['value']) / 1000.)  # Convert to km
+        ax_ns.plot(ns_elevations, ns_coords, color='k', label='Topography', alpha=0.5)
+    ax_ns.set_ylabel('Northing (km)', fontsize=14)
+    ax_ns.set_xlabel('Elevation (km)' if depth_datum == "elevation" else 'Depth (km)', fontsize=14)
+    ax_ns.set_ylim(min_n, max_n)
+    ax_ns.set_xlim((max(sta_elevations) + 0.5, min(ev_deps) - 1.) if depth_datum == "elevation" else (-0.1, max_depth))
+    ax_ns.set_aspect('equal')
+    ax_ns.tick_params(labelsize=12)
+
+    # Magnitude time plot
+    ax_mag = plt.subplot2grid((12, 12), (8, 6), colspan=6, rowspan=4)
+    mkrline, stemline, baseline = ax_mag.stem(ev_times, ev_mags, bottom=np.nanmin(ev_mags) - 0.1, markerfmt='ko', linefmt='k-', basefmt='k-')
+    mkrline.set_markerfacecolor('none')
+    stemline.set_alpha(0.2)
+    ax_mag.set_xlabel("Date", fontsize=14)
+    ax_mag.set_ylabel("Magnitude", fontsize=14)
+    ax_mag.set_title("Magnitude vs Time", fontsize=16)
+    ax_mag.tick_params(rotation=30, labelsize=12)
+    # Panel 4: Horizontal colorbar in the bottom-right corner
+    cax = plt.subplot2grid((12, 12), (6, 6), colspan=6, rowspan=1)
+    cbar = plt.colorbar(sc, cax=cax, orientation='horizontal', aspect=10)
+    cbar.set_label("Event Time", fontsize=14)
+    cbar.ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    cbar.ax.tick_params(rotation=30, labelsize=12)
 
     plt.tight_layout()
     plt.show()

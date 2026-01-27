@@ -1023,22 +1023,23 @@ def write_event_mseeds(wav_root, catalog, outdir, pre_pick=60.,
     return
 
 
-def tribe_from_client(catalog, client, parameters, seeds=None):
+def tribe_from_client(cat, client, parameters, seeds=None):
     """
     Efficiently create a Tribe by pulling each day's data once and looping over events in that day.
     Pulls exactly 86400s for each UTC day.
     Calls template_gen once on the entire catalog after filtering picks.
     """
     tribe = Tribe()
+    catalog = cat.copy()
     catalog.events.sort(key=lambda x: x.preferred_origin().time)
     # Remove picks not in seeds list
     if seeds is not None:
         for ev in catalog:
-            arr_picks = [arr.pick_id.get_referred_object() for arr in ev.preferred_origin().arrivals]
-            arr_picks = [p for p in arr_picks if p.waveform_id.get_seed_string() in seeds]
-            ev.picks = arr_picks
+            # arr_picks = [arr.pick_id.get_referred_object() for arr in ev.preferred_origin().arrivals]
+            filt_picks = [p for p in ev.picks if p.waveform_id.get_seed_string() in seeds]
+            ev.picks = filt_picks
         # Remove events with no picks left
-        catalog.events = [ev for ev in catalog if len(ev.picks) > 0]
+    catalog.events = [ev for ev in catalog if len(ev.picks) > 0]
     if len(catalog) == 0:
         print("No events left after filtering picks with seeds.")
         return tribe
@@ -1061,12 +1062,12 @@ def tribe_from_client(catalog, client, parameters, seeds=None):
     )
     for i, temp in enumerate(temp_list):
         ev = catalog[i]
-        eid = ev.resource_id.id.split('/')[-1]
+        eid = ev.resource_id.id.split('=')[-2].split('&')[0]
         temp_new = Template(
             name=eid, event=ev, st=temp,
             lowcut=parameters['lowcut'], highcut=parameters['highcut'],
             samp_rate=parameters['samp_rate'], filt_order=parameters['filt_order'],
-            prepick=parameters['prepick'], process_length=parameters['process_length']
+            prepick=parameters['prepick'], process_length=parameters['process_len']
         )
         tribe.templates.append(temp_new)
     return tribe
@@ -1261,57 +1262,67 @@ def extract_raw_tribe_waveforms(tribe, wav_dir, outdir, prepick, length):
 
 
 def detect_tribe_client(tribe, client, start, end, param_dict,
-                        daylong_dir, party_dir):
+                        daylong_dir, party_dir, log_file):
     """
-    Run detect for tribe on specified wav client
+    Run detect for tribe on specified wav client.
 
     :param tribe: eqcorrscan Tribe
     :param client: obspy Client object
     :param start: Starttime for detections
     :param end: Endtime for detections
     :param param_dict: Params necessary for running detect from client
+    :param daylong_dir: Directory to save daylong streams
+    :param party_dir: Directory to save daily parties
     :return:
     """
     import logging
+    import os
 
     logging.basicConfig(
-        filename='tribe-detect_run.txt',
+        filename=log_file,
         level=logging.INFO,
         format="%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s")
 
-    for date in date_generator(start.datetime, end.datetime):
-        print('Running detect: {}'.format(date))
-        # try:
-        if 'return_stream' in param_dict:
-            if param_dict['return_stream'] == True and not daylong_dir:
-                print('Specify daylong dir if you want to save streams')
-                return
-            elif param_dict['return_stream'] == True and daylong_dir:
-                day_party, day_st = tribe.client_detect(
-                    client=client, starttime=UTCDateTime(date),
-                    endtime=UTCDateTime(date) + 86400,
-                    **param_dict)
-                if not os.path.exists(daylong_dir):
-                    os.makedirs(daylong_dir)
-                # Ensure there are no masked arrays
-                for tr in day_st:
-                    if isinstance(tr.data, np.ma.masked_array):
-                        tr.data = tr.data.filled()
-                day_st.write('{}/{}.mseed'.format(daylong_dir, str(date).replace(' ', '_').replace(':', '.')),
-                             format='MSEED')
-                del day_st
+    # Validate param_dict keys
+    required_keys = ['return_stream', 'trig_int', 'threshold']
+    for key in required_keys:
+        if key not in param_dict:
+            raise KeyError(f"Missing required key '{key}' in param_dict.")
+
+    # Validate client
+    if client is None:
+        raise ValueError("The 'client' parameter cannot be None.")
+
+    # Validate daylong_dir
+    if param_dict['return_stream'] and daylong_dir:
+        if not os.path.exists(daylong_dir):
+            os.makedirs(daylong_dir)
+        elif not os.access(daylong_dir, os.W_OK):
+            raise PermissionError(f"Directory {daylong_dir} is not writable.")
+
+    # Validate party_dir
+    if not os.path.exists(party_dir):
+        os.makedirs(party_dir)
+
+    try:
+        logging.info(f"Running detect for range: {start} to {end}")
+        if param_dict['return_stream']:
+            # Process the entire range and return the stream and party
+            full_party, full_stream = tribe.client_detect(
+                client=client, starttime=start, endtime=end, **param_dict)
+            # Save the full stream
+            full_stream.write(
+                f"{daylong_dir}/full_stream_{start}_{end}.mseed", format='MSEED')
         else:
-            day_party = tribe.client_detect(
-                client=client, starttime=UTCDateTime(date),
-                endtime=UTCDateTime(date) + 86400,
-                **param_dict)
+            # Process the entire range and return only the party
+            full_party = tribe.client_detect(
+                client=client, starttime=start, endtime=end, **param_dict)
+
         # Decluster the party to the trig_int before writing
-        day_party.decluster(trig_int=param_dict['trig_int'])
-        # Just save the party for each day
-        # Gets around RAM overruns for enormous daylong parties getting appended to each other over many days
-        day_party.write('{}/party_{}'.format(party_dir, str(date).replace(' ', '_').replace(':', '.')))
-        del day_party
-    return
+        full_party.decluster(trig_int=param_dict['trig_int'])
+        full_party.write(f"{party_dir}/party_{start}_{end}")
+    except Exception as e:
+        logging.error(f"Error during detection for range {start} to {end}: {e}")
 
 
 def detect_tribe(tribe, wav_dir, start, end, param_dict):
@@ -1685,9 +1696,6 @@ def detection_multiplot(stream, template=None, times=None, party=None,
         templates = []
         times_list = []
         template_labels = template_labels or []
-        stream_start = stream[0].stats.starttime
-        stream_end = stream[0].stats.endtime
-
         for fam in party:
             fam_tpl = getattr(fam, 'template', None)
             if fam_tpl is None:
@@ -1696,11 +1704,11 @@ def detection_multiplot(stream, template=None, times=None, party=None,
             tpl_st = fam_tpl.st if hasattr(fam_tpl, 'st') else fam_tpl
             templates.append(tpl_st)
             dets = getattr(fam, 'detections', []) or getattr(fam, 'dets', [])
-            # Filter detections to match the stream timeframe
+            # extract detect_time (support different attribute names)
             det_times = []
             for d in dets:
                 t = getattr(d, 'detect_time', None) or getattr(d, 'detect_time_utc', None) or getattr(d, 'time', None)
-                if t is not None and stream_start <= t <= stream_end:
+                if t is not None:
                     det_times.append(t)
             times_list.append(det_times)
             # label fallback
@@ -1802,11 +1810,12 @@ def detection_multiplot(stream, template=None, times=None, party=None,
                     start_idx = int((template_times[0] - image_times[0]).total_seconds() / image.stats.delta)
                     end_idx = int((template_times[-1] - image_times[0]).total_seconds() / image.stats.delta)
                     if start_idx < 0 or end_idx <= start_idx:
-                        raise ValueError("Detection time is outside the stream range.")
+                        raise ValueError
                     segment = image.data[max(0, start_idx):min(len(image.data), end_idx)]
                     normalizer = max(np.abs(segment)) if len(segment) > 0 and max(np.abs(segment)) != 0 else denom
                 except Exception as e:
-                    continue  # Skip this detection and move to the next one
+                    print(e)
+                    normalizer = denom
                 tpl_denom = max(np.abs(tpl_tr.data)) if max(np.abs(tpl_tr.data)) != 0 else 1.0
                 scale = normalizer / tpl_denom
                 axis.plot(template_times, (tpl_tr.data * scale) / denom, color=color, linewidth=1.2, alpha=0.9)
