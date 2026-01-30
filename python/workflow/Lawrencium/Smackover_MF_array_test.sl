@@ -13,6 +13,7 @@
 #SBATCH --mail-user=chopp@lbl.gov
 
 module load miniforge3/25.9.1
+source $(conda info --base)/etc/profile.d/conda.sh  # Initialize Conda
 conda activate eqcorrscan
 
 # Define start and end dates
