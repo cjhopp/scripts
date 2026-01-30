@@ -106,10 +106,10 @@ if __name__ == "__main__":
     # --- USER-DEFINED PARAMETERS ---
     TRIBE_PATH = "/global/home/users/chopp/chet-meq/smackover/templates/Smackover_north_tribe_snr5.tgz"
     CLIENT_URL = "IRIS"
-    PARTY_DIR = "/global/home/users/chopp/chet-meq/smackover/detections/parties/smackover_north_full_tribe/MAD12_2hr"
-    PLOT_DIR = "/global/home/users/chopp/chet-meq/smackover/detections/plots/smackover_north_full_tribe/MAD12_2hr"
-    WAVEFORM_DIR = "/global/home/users/chopp/chet-meq/smackover/detections/waveforms/smackover_north_full_tribe/MAD12_2hr"
-    LOG_PATH = f"/global/home/users/chopp/chet-meq/smackover/detections/logs/smackover_north_full_tribe/MAD12_2hr/detection_log_{args.instance}.txt"
+    PARTY_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/parties/smackover_north_full_tribe/MAD12_2hr"
+    PLOT_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/plots/smackover_north_full_tribe/MAD12_2hr"
+    WAVEFORM_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/waveforms/smackover_north_full_tribe/MAD12_2hr"
+    LOG_PATH = f"/global/scratch/users/chopp/chet-meq/smackover/detections/logs/smackover_north_full_tribe/MAD12_2hr/detection_log_{args.instance}.txt"
 
     # Detection parameters
     PARAM_DICT = {

@@ -121,8 +121,8 @@ if __name__ == '__main__':
         'cc_thresh': 10.0,
         'trig_int': 0.75,
         'spike_template_path': "/global/home/users/chopp/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt",
-        'party_output_dir': "/global/home/users/chopp/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_6hr/daily_parties",
-        'plot_output_dir': "/global/home/users/chopp/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_6hr/denoiser_plots",
+        'party_output_dir': "/global/scratch/users/chopp/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_6hr/daily_parties",
+        'plot_output_dir': "/global/scratch/users/chopp/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_6hr/denoiser_plots",
     }
 
     # Ensure output directories exist

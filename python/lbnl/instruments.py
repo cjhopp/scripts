@@ -508,8 +508,8 @@ def create_paz_inventory(
         poles=poles,
         normalization_factor=normalization_factor,
         normalization_frequency=reference_frequency,
-        input_units=input_units,
-        output_units=output_units,
+        input_units=input_units.lower(),
+        output_units=output_units.lower(),
         pz_transfer_function_type="LAPLACE (RADIANS/SECOND)"
     )
 
@@ -517,8 +517,8 @@ def create_paz_inventory(
     instrument_sensitivity = InstrumentSensitivity(
         value=sensitivity,
         frequency=reference_frequency,
-        input_units=input_units,
-        output_units=output_units
+        input_units=input_units.lower(),
+        output_units=output_units.lower()
     )
 
     # Response object
