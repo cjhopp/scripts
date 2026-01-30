@@ -2,7 +2,7 @@
 #SBATCH -J CJH_HITP_MF_Array
 #SBATCH --partition=lr4
 #SBATCH --account=lr_geop
-#SBATCH --qos=lr_normal
+#SBATCH --qos=lr_lowprio
 #SBATCH --time=4:00:00
 #SBATCH --mem=64000
 #SBATCH --nodes=1

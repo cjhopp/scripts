@@ -3,6 +3,7 @@
 import os
 import logging
 import argparse
+import time  # Import time module for measuring elapsed time
 from obspy import UTCDateTime
 from obspy.clients.fdsn import Client
 from eqcorrscan import Tribe
@@ -34,11 +35,15 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
     os.makedirs(waveform_dir, exist_ok=True)
 
     logger.info(f"Processing time range: {start} to {end}")
+    total_start_time = time.time()  # Start measuring total elapsed time
+
     current_date = start
     while current_date < end:
         logger.info(f"Processing {current_date.strftime('%Y-%m-%d')}...")
         day_start = current_date
         day_end = min(current_date + 86400, end)  # Process one day at a time
+
+        day_start_time = time.time()  # Start measuring time for this day
 
         try:
             # Step 1: Run detection for the day
@@ -79,9 +84,16 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
         except Exception as e:
             logger.error(f"Error processing day {current_date.strftime('%Y-%m-%d')}: {e}")
 
+        # Log the time taken for this day
+        day_elapsed_time = time.time() - day_start_time
+        logger.info(f"Time taken to process {current_date.strftime('%Y-%m-%d')}: {day_elapsed_time:.2f} seconds")
+
         # Move to the next day
         current_date = day_end
 
+    # Log the total elapsed time
+    total_elapsed_time = time.time() - total_start_time
+    logger.info(f"Total elapsed wall time: {total_elapsed_time:.2f} seconds")
     logger.info("Processing complete.")
 
 
