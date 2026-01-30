@@ -14,7 +14,11 @@
 
 module load miniforge3/25.9.1
 source $(conda info --base)/etc/profile.d/conda.sh  # Initialize Conda
-conda activate eqcorrscan
+conda activate eqcorrscan_miniforge
+
+# Debugging: Check if ObsPy is available
+echo "Checking if ObsPy is available:"
+python -c "import obspy; print('ObsPy is available')"
 
 # Define start and end dates
 START_DATE="1992-09-23"

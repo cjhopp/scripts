@@ -15,14 +15,7 @@
 # Load Conda and initialize it
 module load miniforge3/25.9.1
 source $(conda info --base)/etc/profile.d/conda.sh  # Initialize Conda
-conda activate eqcorrscan
-
-# Debugging: Check Conda environment and Python
-echo "Available Conda environments:"
-conda env list
-echo "Using Python:"
-which python
-python --version
+conda activate eqcorrscan_miniforge
 
 # Debugging: Check if ObsPy is available
 echo "Checking if ObsPy is available:"

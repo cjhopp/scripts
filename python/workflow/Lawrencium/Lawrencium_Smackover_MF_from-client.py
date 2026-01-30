@@ -18,6 +18,7 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
     Run detect for tribe on specified wav client, with lag_calc, detection_multiplot,
     and saving detection waveforms.
     """
+    os.makedirs(log_path.rsplit('/', 1)[0], exist_ok=True)
     # Set up logging
     logging.basicConfig(
         level=logging.INFO,
