@@ -12,9 +12,21 @@
 #SBATCH --array=0-2
 #SBATCH --mail-user=chopp@lbl.gov
 
+# Load Conda and initialize it
 module load miniforge3/25.9.1
 source $(conda info --base)/etc/profile.d/conda.sh  # Initialize Conda
 conda activate eqcorrscan
+
+# Debugging: Check Conda environment and Python
+echo "Available Conda environments:"
+conda env list
+echo "Using Python:"
+which python
+python --version
+
+# Debugging: Check if ObsPy is available
+echo "Checking if ObsPy is available:"
+python -c "import obspy; print('ObsPy is available')"
 
 # Define start and end dates
 START_DATE="2025-12-31"
