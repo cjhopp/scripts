@@ -82,19 +82,62 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
             refined_catalog.write(catalog_output_path, format="QUAKEML")
             logger.info(f"Refined picks catalog saved to {catalog_output_path}")
 
+            # Step 3: Generate multiplots for detections
+            logger.info("Generating multiplots...")
+            for family in day_party.families:
+                for detection in family.detections:
+                    template_start = min(trace.stats.starttime for trace in family.template.st)
+                    template_end = max(trace.stats.endtime for trace in family.template.st)
+                    template_duration = template_end - template_start
+                    padding = 0.1 * template_duration
+                    plot_start = detection.detect_time - padding
+                    plot_end = detection.detect_time + template_duration + padding
+                    plot_stream = day_stream.slice(starttime=plot_start, endtime=plot_end).copy()
+                    plot_stream.detrend('linear')  # Simple detrend for viz (should be proceessed already)
+                    plot_stream.taper(0.05)
+                    plot_stream.filter('bandpass', freqmin=family.template.lowcut, freqmax=family.template.highcut, corners=4)
+                    plot_stream.detrend('linear')
+                    detection_multiplot(
+                        stream=plot_stream,
+                        template=family.template.st,
+                        times=[detection.detect_time],
+                        streamcolour='k',
+                        templatecolour='r',
+                        show=False,
+                        save=True,
+                        savefile=os.path.join(
+                            plot_dir,
+                            f"{detection.id}.png"
+                        )
+                    )
+
+            # Step 4: Save waveforms for each detection
+            logger.info("Saving waveforms for each detection...")
+            for family in day_party.families:
+                for detection in family.detections:
+                    detection_waveform = day_stream.slice(
+                        starttime=detection.detect_time - param_dict['waveform_padding'][0],
+                        endtime=detection.detect_time + param_dict['waveform_padding'][1]
+                    )
+                    waveform_output_path = os.path.join(
+                        waveform_dir,
+                        f"{detection.id}.mseed"
+                    )
+                    detection_waveform.write(waveform_output_path, format="MSEED")
+                    logger.info(f"Saved waveform to {waveform_output_path}")
+
+            # Step 5: Save the Party for the day
+            party_output_path = os.path.join(party_dir, f"party_{current_date.strftime('%Y%m%d')}.tgz")
+            logger.info(f"Saving Party to {party_output_path}...")
+            day_party.write(party_output_path)
+            logger.info("Party saved.")
+
         except Exception as e:
             logger.error(f"Error processing day {current_date.strftime('%Y-%m-%d')}: {e}")
-
-        # Log the time taken for this day
-        day_elapsed_time = time.time() - day_start_time
-        logger.info(f"Time taken to process {current_date.strftime('%Y-%m-%d')}: {day_elapsed_time:.2f} seconds")
 
         # Move to the next day
         current_date = day_end
 
-    # Log the total elapsed time
-    total_elapsed_time = time.time() - total_start_time
-    logger.info(f"Total elapsed wall time: {total_elapsed_time:.2f} seconds")
     logger.info("Processing complete.")
 
 

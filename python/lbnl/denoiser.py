@@ -52,8 +52,8 @@ def remove_HITP_spikes(
     Args:
         stream (obspy.Stream): 
             The Stream object to be modified.
-        spike_template_path (str): 
-            Path to the spike template file.
+        spike_template_path (str or list of str): 
+            Path(s) to spike template file(s). If list, templates are applied sequentially.
         geophone_chans (list, optional): 
             A list of the geophone channel names to denoise. 
             Defaults to ['GPZ', 'GP1', 'GP2'].
@@ -85,156 +85,189 @@ def remove_HITP_spikes(
     if ref_chan not in [tr.stats.channel for tr in stream]:
         raise ValueError(f"Required reference channel '{ref_chan}' not found in stream.")
 
+    # Normalize templates input to list
+    if isinstance(spike_template_path, str):
+        spike_template_paths = [spike_template_path]
+    else:
+        spike_template_paths = list(spike_template_path)
+
     original_stream_for_plotting = stream.copy() if plot else None
+    denoised_snapshots = []  # snapshots after each template (for comparison plot)
 
     if plot:
         if not os.path.exists(plot_output_dir):
             os.makedirs(plot_output_dir)
         timestring = stream[0].stats.starttime.strftime("%Y%m%dT%H%M%S")
-
-    # 2. LOAD TEMPLATE
-    try:
-        template_data = np.loadtxt(spike_template_path).flatten()
-        template_st = Stream(Trace(data=template_data, header={'network': stream[0].stats.network, 'station': station, 'channel': ref_chan, 'sampling_rate': stream[0].stats.sampling_rate}))
-    except Exception as e:
-        raise IOError(f"Error reading template file: {e}")
-
-    # 3. DETECT SPIKES
-    print(f"Running matched-filter detection on {ref_chan}...")
-    detections = match_filter(template_list=[template_st], template_names=['spike'], st=stream.select(channel=ref_chan), threshold=ccth, threshold_type='absolute', trig_int=2.0)
-    print(f"Found {len(detections)} initial detections.")
-    if not detections:
-        warnings.warn("No detections found. Stream will not be modified.")
-        return
-
-    # 4. QC: FIND QUIETEST SPIKES (PARALLELIZED)
-    snippet_before_sec=0.3
-    snippet_after_sec=0.5
-    cpu_cores = os.cpu_count()
-    print(f"Finding quietest spikes in parallel using {cpu_cores} cores...")
-    worker = functools.partial(_get_geophone_amplitude, snippet_before_sec=snippet_before_sec, snippet_after_sec=snippet_after_sec, geophone_chans=geophone_chans)
-
-    with multiprocessing.Pool(initializer=_init_worker, initargs=(stream,)) as pool:
-        detection_amplitudes = pool.map(worker, detections)
-
-    valid_detections = [item for item in detection_amplitudes if np.isfinite(item[1])]
-    sorted_detections = sorted(valid_detections, key=lambda x: x[1])
-
-    num_to_select = min(num_quiet_spikes, len(sorted_detections))
-
-    # MODIFIED: Add check for minimum number of spikes
-    if num_to_select < min_quiet_spikes:
-        warnings.warn(f"Found only {num_to_select} quiet spikes, which is fewer than the minimum of {min_quiet_spikes} required. Aborting denoising for this segment.")
-        return
-
-    print(f"Selected {num_to_select} quietest spikes for TF calculation.")
-    quiet_detections = [item[0] for item in sorted_detections[:num_to_select]]
-
-    # 5. GATHER SNIPPETS AND CALCULATE MEDIAN TRANSFER FUNCTION
-    quiet_snippets = []
-    for det in quiet_detections:
-        snippet = stream.slice(det.detect_time - snippet_before_sec, det.detect_time + snippet_after_sec).copy()
-        n1_before_samples = int(snippet_before_sec * snippet[0].stats.sampling_rate)
-        for tr in snippet:
-            tr.data = detrend(tr.data)
-            tr.data -= np.mean(tr.data[:n1_before_samples - 10])
-        quiet_snippets.append(snippet)
-    
-    # --- PLOTTING BLOCK 1: QUIET SPIKES ---
-    if plot:
-                # Generate a unique timestring for the chunk
         chunk_timestring = chunk_start.strftime("%Y%m%dT%H%M%S") if chunk_start else "unknown_chunk"
 
-        print("Plotting spike stack for quality control...")
-        fig_spikes, axes_spikes = plt.subplots(len(all_chans), 1, figsize=(10, 8), sharex=True, sharey=True)
-        fig_spikes.suptitle(f'Stacked Quiet Spikes for Station {station}', fontsize=16)
-        for i, ch in enumerate(all_chans):
-            # Ensure axes_spikes is always indexable
-            ax = axes_spikes if len(all_chans) == 1 else axes_spikes[i]
-            for snip in quiet_snippets:
+    # Process each template sequentially (steps 3-6 per template)
+    for template_idx, tpl_path in enumerate(spike_template_paths, start=1):
+        # 2. LOAD TEMPLATE
+        try:
+            template_data = np.loadtxt(tpl_path).flatten()
+            template_st = Stream(Trace(
+                data=template_data,
+                header={
+                    'network': stream[0].stats.network,
+                    'station': station,
+                    'channel': ref_chan,
+                    'sampling_rate': stream[0].stats.sampling_rate
+                }
+            ))
+        except Exception as e:
+            raise IOError(f"Error reading template file: {e}")
+
+        # 3. DETECT SPIKES
+        print(f"Running matched-filter detection on {ref_chan} (template {template_idx})...")
+        detections = match_filter(
+            template_list=[template_st],
+            template_names=['spike'],
+            st=stream.select(channel=ref_chan),
+            threshold=ccth,
+            threshold_type='absolute',
+            trig_int=2.0
+        )
+        print(f"Found {len(detections)} initial detections for template {template_idx}.")
+        if not detections:
+            warnings.warn(f"No detections found for template {template_idx}. Stream will not be modified for this template.")
+            continue
+
+        # 4. QC: FIND QUIETEST SPIKES (PARALLELIZED)
+        snippet_before_sec=0.3
+        snippet_after_sec=0.5
+        cpu_cores = os.cpu_count()
+        print(f"Finding quietest spikes in parallel using {cpu_cores} cores (template {template_idx})...")
+        worker = functools.partial(_get_geophone_amplitude, snippet_before_sec=snippet_before_sec, snippet_after_sec=snippet_after_sec, geophone_chans=geophone_chans)
+
+        with multiprocessing.Pool(initializer=_init_worker, initargs=(stream,)) as pool:
+            detection_amplitudes = pool.map(worker, detections)
+
+        valid_detections = [item for item in detection_amplitudes if np.isfinite(item[1])]
+        sorted_detections = sorted(valid_detections, key=lambda x: x[1])
+
+        num_to_select = min(num_quiet_spikes, len(sorted_detections))
+
+        # MODIFIED: Add check for minimum number of spikes
+        if num_to_select < min_quiet_spikes:
+            warnings.warn(
+                f"Found only {num_to_select} quiet spikes, which is fewer than the minimum "
+                f"of {min_quiet_spikes} required. Aborting denoising for this segment (template {template_idx})."
+            )
+            continue
+
+        print(f"Selected {num_to_select} quietest spikes for TF calculation (template {template_idx}).")
+        quiet_detections = [item[0] for item in sorted_detections[:num_to_select]]
+
+        # 5. GATHER SNIPPETS AND CALCULATE MEDIAN TRANSFER FUNCTION
+        quiet_snippets = []
+        for det in quiet_detections:
+            snippet = stream.slice(det.detect_time - snippet_before_sec, det.detect_time + snippet_after_sec).copy()
+            n1_before_samples = int(snippet_before_sec * snippet[0].stats.sampling_rate)
+            for tr in snippet:
+                tr.data = detrend(tr.data)
+                tr.data -= np.mean(tr.data[:n1_before_samples - 10])
+            quiet_snippets.append(snippet)
+    
+        # --- PLOTTING BLOCK 1: QUIET SPIKES (per template) ---
+        if plot:
+            print(f"Plotting spike stack for quality control (template {template_idx})...")
+            fig_spikes, axes_spikes = plt.subplots(len(all_chans), 1, figsize=(10, 8), sharex=True, sharey=True)
+            fig_spikes.suptitle(f'Stacked Quiet Spikes for Station {station} (Template {template_idx})', fontsize=16)
+            for i, ch in enumerate(all_chans):
+                ax = axes_spikes if len(all_chans) == 1 else axes_spikes[i]
+                for snip in quiet_snippets:
+                    if ch not in [tr.stats.channel for tr in snip]: continue
+                    trace = snip.select(channel=ch)[0]
+                    time_axis = trace.times() - snippet_before_sec
+                    ax.plot(time_axis, trace.data, 'k-', alpha=0.2)
+                ax.set_ylabel(ch)
+                ax.grid(True)
+            (axes_spikes if len(all_chans) == 1 else axes_spikes[-1]).set_xlabel("Time relative to detection (s)")
+            savename_spikes = os.path.join(
+                plot_output_dir,
+                f"fig_spike_stack_{station}_{chunk_timestring}_template{template_idx}.jpg"
+            )
+            plt.savefig(savename_spikes, dpi=160)
+            print(f"Saved spike stack plot to {savename_spikes}")
+            plt.close()
+
+        fft_window_sec=0.5
+        fft_starttime_offset_sec=0.2
+        fs1 = quiet_snippets[0][0].stats.sampling_rate
+        winlen_samples = int(fft_window_sec * fs1)
+        freq = np.fft.rfftfreq(winlen_samples, d=1 / fs1)
+
+        individual_tfs = {ch: [] for ch in geophone_chans}
+        for snip in quiet_snippets:
+            starttime_cut = snip[0].stats.starttime + fft_starttime_offset_sec
+            endtime_cut = starttime_cut + winlen_samples / fs1
+            ref_trace_cut = snip.select(channel=ref_chan)[0].copy().trim(starttime_cut, endtime_cut)
+            ref_trace_cut.taper(0.04)
+            fft_ref = np.fft.rfft(ref_trace_cut.data)
+            for ch in geophone_chans:
                 if ch not in [tr.stats.channel for tr in snip]: continue
-                trace = snip.select(channel=ch)[0]
-                time_axis = trace.times() - snippet_before_sec
-                ax.plot(time_axis, trace.data, 'k-', alpha=0.2)
-            ax.set_ylabel(ch)
-            ax.grid(True)
-        (axes_spikes if len(all_chans) == 1 else axes_spikes[-1]).set_xlabel("Time relative to detection (s)")
-        savename_spikes = os.path.join(plot_output_dir, f"fig_spike_stack_{station}_{chunk_timestring}.jpg")
-        plt.savefig(savename_spikes, dpi=160)
-        print(f"Saved spike stack plot to {savename_spikes}")
-        plt.close()
+                geo_trace_cut = snip.select(channel=ch)[0].copy().trim(starttime_cut, endtime_cut)
+                geo_trace_cut.taper(0.04)
+                fft_geo = np.fft.rfft(geo_trace_cut.data)
+                tf = np.divide(fft_geo, fft_ref, out=np.zeros_like(fft_geo), where=fft_ref!=0)
+                individual_tfs[ch].append(tf)
 
-    fft_window_sec=0.5
-    fft_starttime_offset_sec=0.2
-    fs1 = quiet_snippets[0][0].stats.sampling_rate
-    winlen_samples = int(fft_window_sec * fs1)
-    freq = np.fft.rfftfreq(winlen_samples, d=1 / fs1)
-
-    individual_tfs = {ch: [] for ch in geophone_chans}
-    for snip in quiet_snippets:
-        starttime_cut = snip[0].stats.starttime + fft_starttime_offset_sec
-        endtime_cut = starttime_cut + winlen_samples / fs1
-        ref_trace_cut = snip.select(channel=ref_chan)[0].copy().trim(starttime_cut, endtime_cut)
-        ref_trace_cut.taper(0.04)
-        fft_ref = np.fft.rfft(ref_trace_cut.data)
+        transfer_functions = {}
         for ch in geophone_chans:
-            if ch not in [tr.stats.channel for tr in snip]: continue
-            geo_trace_cut = snip.select(channel=ch)[0].copy().trim(starttime_cut, endtime_cut)
-            geo_trace_cut.taper(0.04)
-            fft_geo = np.fft.rfft(geo_trace_cut.data)
-            tf = np.divide(fft_geo, fft_ref, out=np.zeros_like(fft_geo), where=fft_ref!=0)
-            individual_tfs[ch].append(tf)
+            if not individual_tfs[ch]: continue
+            tfs_stack = np.array(individual_tfs[ch])
+            median_real = np.median(np.real(tfs_stack), axis=0)
+            median_imag = np.median(np.imag(tfs_stack), axis=0)
+            median_tf = median_real + 1j * median_imag
+            median_tf[freq <= low_freq_cutoff] = 0 + 0j
+            transfer_functions[ch] = median_tf
 
-    transfer_functions = {}
-    for ch in geophone_chans:
-        if not individual_tfs[ch]: continue
-        tfs_stack = np.array(individual_tfs[ch])
-        median_real = np.median(np.real(tfs_stack), axis=0)
-        median_imag = np.median(np.imag(tfs_stack), axis=0)
-        median_tf = median_real + 1j * median_imag
-        median_tf[freq <= low_freq_cutoff] = 0 + 0j
-        transfer_functions[ch] = median_tf
+        # --- PLOTTING BLOCK 2: TRANSFER FUNCTIONS (per template) ---
+        if plot:
+            print(f"Plotting final median transfer functions (template {template_idx})...")
+            plt.figure(figsize=(10, 8))
+            for ch in geophone_chans:
+                if ch not in transfer_functions: continue
+                plt.subplot(2, 1, 1)
+                plt.plot(freq, np.real(transfer_functions[ch]), label=f"Real({ch}/{ref_chan})")
+                plt.title('Median Transfer Functions (Real Part)'); plt.grid(True); plt.legend()
+                plt.subplot(2, 1, 2)
+                plt.plot(freq, np.imag(transfer_functions[ch]), label=f"Imag({ch}/{ref_chan})")
+                plt.title('Median Transfer Functions (Imaginary Part)'); plt.xlabel("Frequency (Hz)"); plt.grid(True); plt.legend()
+            savename_tf = os.path.join(
+                plot_output_dir,
+                f"fig_transfer_functions_{station}_{chunk_timestring}_template{template_idx}.jpg"
+            )
+            plt.savefig(savename_tf, dpi=160)
+            print(f"Saved transfer function plot to {savename_tf}")
+            plt.close()
 
-    # --- PLOTTING BLOCK 2: TRANSFER FUNCTIONS ---
-    if plot:
-        print("Plotting final median transfer functions...")
-        plt.figure(figsize=(10, 8))
+        # 6. DENOISE THE FULL STREAM (IN-PLACE)
+        print(f"Denoising the full time series in-place (template {template_idx})...")
+        ref_trace_full = stream.select(channel=ref_chan)[0]
+        fft_ref_full = np.fft.rfft(ref_trace_full.data)
+        full_freqs = np.fft.rfftfreq(ref_trace_full.stats.npts, d=ref_trace_full.stats.delta)
+
         for ch in geophone_chans:
             if ch not in transfer_functions: continue
-            plt.subplot(2, 1, 1)
-            plt.plot(freq, np.real(transfer_functions[ch]), label=f"Real({ch}/{ref_chan})")
-            plt.title('Median Transfer Functions (Real Part)'); plt.grid(True); plt.legend()
-            plt.subplot(2, 1, 2)
-            plt.plot(freq, np.imag(transfer_functions[ch]), label=f"Imag({ch}/{ref_chan})")
-            plt.title('Median Transfer Functions (Imaginary Part)'); plt.xlabel("Frequency (Hz)"); plt.grid(True); plt.legend()
-        savename_tf = os.path.join(plot_output_dir, f"fig_transfer_functions_{station}_{chunk_timestring}.jpg")
-        plt.savefig(savename_tf, dpi=160)
-        print(f"Saved transfer function plot to {savename_tf}")
-        plt.close()
-
-    # 6. DENOISE THE FULL STREAM (IN-PLACE)
-    print("Denoising the full time series in-place...")
-    ref_trace_full = stream.select(channel=ref_chan)[0]
-    fft_ref_full = np.fft.rfft(ref_trace_full.data)
-    full_freqs = np.fft.rfftfreq(ref_trace_full.stats.npts, d=ref_trace_full.stats.delta)
-
-    for ch in geophone_chans:
-        if ch not in transfer_functions: continue
-        trace_to_denoise = stream.select(channel=ch)[0]
-        if trace_to_denoise.stats.npts != ref_trace_full.stats.npts:
-            warnings.warn(f"Channel {ch} has a different length than reference. Skipping.")
-            continue
+            trace_to_denoise = stream.select(channel=ch)[0]
+            if trace_to_denoise.stats.npts != ref_trace_full.stats.npts:
+                warnings.warn(f"Channel {ch} has a different length than reference. Skipping.")
+                continue
         
-        tf_interpolated = np.interp(full_freqs, freq, transfer_functions[ch], left=0, right=0)
-        fft_predicted_noise = fft_ref_full * tf_interpolated
-        predicted_noise_time = np.fft.irfft(fft_predicted_noise, n=ref_trace_full.stats.npts)
+            tf_interpolated = np.interp(full_freqs, freq, transfer_functions[ch], left=0, right=0)
+            fft_predicted_noise = fft_ref_full * tf_interpolated
+            predicted_noise_time = np.fft.irfft(fft_predicted_noise, n=ref_trace_full.stats.npts)
         
-        trace_to_denoise.data = trace_to_denoise.data.astype(np.float64)
-        trace_to_denoise.data -= predicted_noise_time
+            trace_to_denoise.data = trace_to_denoise.data.astype(np.float64)
+            trace_to_denoise.data -= predicted_noise_time
 
-    # --- PLOTTING BLOCK 3: COMPARISON PLOT ---
+        if plot:
+            denoised_snapshots.append(stream.copy())
+
+    # --- PLOTTING BLOCK 3: COMPARISON PLOT (once after all templates) ---
     if plot:
-        print("Plotting detailed before-and-after comparison...")
+        print("Plotting detailed before-and-after comparison (final)...")
         wide_plot_start_offset_sec = 500
         wide_plot_duration_sec = 60
         zoom_plot_start_offset_sec = 20
@@ -247,8 +280,7 @@ def remove_HITP_spikes(
             zoom_start_time = wide_start_time + zoom_plot_start_offset_sec
             zoom_end_time = zoom_start_time + zoom_plot_duration_sec
 
-            fig, axes = plt.subplots(len(geophone_chans), 2, figsize=(20, 12), squeeze=False) # MODIFIED: squeeze=False
-
+            fig, axes = plt.subplots(len(geophone_chans), 2, figsize=(20, 12), squeeze=False)
             fig.suptitle(f'Denoising Comparison for {station}: Wide and Zoomed Views', fontsize=16)
 
             for i, ch in enumerate(geophone_chans):
@@ -256,13 +288,21 @@ def remove_HITP_spikes(
                 ax_zoom = axes[i, 1]
                 
                 original_tr_wide = original_stream_for_plotting.select(channel=ch)[0].copy().trim(wide_start_time, wide_end_time)
-                denoised_tr_wide = stream.select(channel=ch)[0].copy().trim(wide_start_time, wide_end_time)
                 original_tr_zoom = original_tr_wide.copy().trim(zoom_start_time, zoom_end_time)
-                denoised_tr_zoom = denoised_tr_wide.copy().trim(zoom_start_time, zoom_end_time)
 
                 time_axis_wide = original_tr_wide.times("matplotlib")
-                ax_wide.plot(time_axis_wide, original_tr_wide.data, 'k-', linewidth=0.5, alpha=0.7, label='Original')
-                ax_wide.plot(time_axis_wide, denoised_tr_wide.data, 'r-', linewidth=0.8, alpha=0.8, label='Denoised')
+                time_axis_zoom = original_tr_zoom.times("matplotlib")
+
+                ax_wide.plot(time_axis_wide, original_tr_wide.data, 'k-', linewidth=0.5, alpha=0.7, label='Raw')
+
+                if len(denoised_snapshots) >= 1:
+                    t1_tr_wide = denoised_snapshots[0].select(channel=ch)[0].copy().trim(wide_start_time, wide_end_time)
+                    ax_wide.plot(time_axis_wide, t1_tr_wide.data, 'r-', linewidth=0.8, alpha=0.8, label='Denoised (Template 1)')
+
+                if len(denoised_snapshots) >= 2:
+                    tn_tr_wide = denoised_snapshots[-1].select(channel=ch)[0].copy().trim(wide_start_time, wide_end_time)
+                    ax_wide.plot(time_axis_wide, tn_tr_wide.data, 'b-', linewidth=0.8, alpha=0.8, label=f'Denoised (Templates 1-{len(denoised_snapshots)})')
+
                 ax_wide.set_title(f'Channel {ch} - Wide View')
                 ax_wide.set_ylabel('Amplitude')
                 ax_wide.grid(True)
@@ -272,10 +312,17 @@ def remove_HITP_spikes(
                 ax_wide.axvspan(zoom_start_mpl, zoom_end_mpl, color='blue', alpha=0.2, label='Zoom Area')
                 ax_wide.legend()
 
-                time_axis_zoom = original_tr_zoom.times("matplotlib")
-                ax_zoom.plot(time_axis_zoom, original_tr_zoom.data, 'k-', linewidth=0.5, alpha=0.7, label='Original')
-                ax_zoom.plot(time_axis_zoom, denoised_tr_zoom.data, 'r-', linewidth=0.8, alpha=0.8, label='Denoised')
-                ax_zoom.set_title(f'Zoomed View')
+                ax_zoom.plot(time_axis_zoom, original_tr_zoom.data, 'k-', linewidth=0.5, alpha=0.7, label='Raw')
+
+                if len(denoised_snapshots) >= 1:
+                    t1_tr_zoom = denoised_snapshots[0].select(channel=ch)[0].copy().trim(zoom_start_time, zoom_end_time)
+                    ax_zoom.plot(time_axis_zoom, t1_tr_zoom.data, 'r-', linewidth=0.8, alpha=0.8, label='Denoised (Template 1)')
+
+                if len(denoised_snapshots) >= 2:
+                    tn_tr_zoom = denoised_snapshots[-1].select(channel=ch)[0].copy().trim(zoom_start_time, zoom_end_time)
+                    ax_zoom.plot(time_axis_zoom, tn_tr_zoom.data, 'b-', linewidth=0.8, alpha=0.8, label=f'Denoised (Templates 1-{len(denoised_snapshots)})')
+
+                ax_zoom.set_title('Zoomed View')
                 ax_zoom.grid(True)
                 ax_zoom.legend()
                 
