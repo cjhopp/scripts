@@ -3,13 +3,13 @@
 #SBATCH --partition=lr4
 #SBATCH --account=lr_geop
 #SBATCH --qos=lr_lowprio
-#SBATCH --time=4:00:00
+#SBATCH --time=4:30:00
 #SBATCH --mem=64000
 #SBATCH --nodes=1
 #SBATCH --output=Smackover-MF_out_%a.txt
 #SBATCH --error=Smackover-MF_err_%a.txt
 #SBATCH --cpus-per-task=24
-#SBATCH --array=0-392
+#SBATCH --array=0-238
 #SBATCH --mail-user=chopp@lbl.gov
 
 module load miniforge3/25.9.1
@@ -21,12 +21,12 @@ echo "Checking if ObsPy is available:"
 python -c "import obspy; print('ObsPy is available')"
 
 # Define start and end dates
-START_DATE="1992-09-23"
-END_DATE="2026-1-31"
+START_DATE="2001-03-22"
+END_DATE="2026-2-1"
 
 # Run the Python script with SLURM task-specific arguments
 srun python /global/home/users/chopp/scripts/python/workflow/Lawrencium/Lawrencium_Smackover_MF_from-client.py \
-    --splits 393 \
+    --splits 239 \
     --instance $SLURM_ARRAY_TASK_ID \
     --start $START_DATE \
     --end $END_DATE
