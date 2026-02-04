@@ -129,7 +129,7 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
             # Step 5: Save the Party for the day
             party_output_path = os.path.join(party_dir, f"party_{current_date.strftime('%Y%m%d')}.tgz")
             logger.info(f"Saving Party to {party_output_path}...")
-            day_party.write(party_output_path)
+            day_party.write(party_output_path, overwrite=True)
             logger.info("Party saved.")
 
         except Exception as e:
@@ -178,7 +178,8 @@ if __name__ == "__main__":
         "shift_len": 0.5,
         "min_cc": 0.7,
         "interpolate": True,
-        "waveform_padding": [30, 200]  # Pre- and post-detection padding in seconds
+        "waveform_padding": [30, 200],  # Pre- and post-detection padding in seconds
+        "retries": 20,
     }
 
     # Load the Tribe

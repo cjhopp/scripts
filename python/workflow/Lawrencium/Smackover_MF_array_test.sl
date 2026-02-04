@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -J CJH_Smackover_MF_1-30-26
-#SBATCH --partition=lr4
+#SBATCH --partition=lr7
 #SBATCH --account=lr_geop
-#SBATCH --qos=lr_lowprio
+#SBATCH --qos=condo_geop_lr7
 #SBATCH --time=4:00:00
 #SBATCH --mem=64000
 #SBATCH --nodes=1

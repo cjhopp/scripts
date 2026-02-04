@@ -4,10 +4,15 @@ import warnings
 import multiprocessing
 import functools
 import os
+import matplotlib
+matplotlib.use("Agg")  # Use a non-interactive backend
+
 import numpy as np
 import matplotlib.pyplot as plt
+
 from obspy import Stream, Trace
 from scipy.signal import detrend
+from scipy.ndimage import median_filter
 from eqcorrscan import Template
 from eqcorrscan.core.match_filter import match_filter
 
@@ -35,17 +40,32 @@ def _get_geophone_amplitude(det, snippet_before_sec, snippet_after_sec, geophone
     
     return (det, max_amp)
 
+def remove_offsets_rolling_median(tr, window_sec=60.0):
+    """
+    Fast rolling-median baseline removal using SciPy.
+    """
+
+    fs = tr.stats.sampling_rate
+    win = max(3, int(window_sec * fs))
+    if win % 2 == 0:
+        win += 1  # median_filter prefers odd window sizes
+
+    data = tr.data.astype(np.float64, copy=False)
+    baseline = median_filter(data, size=win, mode='nearest')
+    tr.data = data - baseline
+    
 def remove_HITP_spikes(
     stream,
     spike_template_path,
     geophone_chans=['GPZ', 'GP1', 'GP2'],
-    ccth=0.97,
+    ccth=0.90,
     num_quiet_spikes=36,
     min_quiet_spikes=10, # MODIFIED: Added minimum threshold
     low_freq_cutoff=2.0,
-    plot=False,
+    plot=True,
     plot_output_dir='.',
-    chunk_start=None):
+    chunk_start=None,
+    apply_offset_removal=True,):
     """
     Removes electronic spike noise from an ObsPy Stream from station HITP in-place.
 
@@ -58,7 +78,7 @@ def remove_HITP_spikes(
             A list of the geophone channel names to denoise. 
             Defaults to ['GPZ', 'GP1', 'GP2'].
         ccth (float, optional): 
-            Cross-correlation threshold for spike detection. Defaults to 0.97.
+            Cross-correlation threshold for spike detection. Defaults to 0.90.
         num_quiet_spikes (int, optional): 
             Number of quietest spikes for the median transfer function. Defaults to 36.
         min_quiet_spikes (int, optional):
@@ -100,11 +120,19 @@ def remove_HITP_spikes(
         timestring = stream[0].stats.starttime.strftime("%Y%m%dT%H%M%S")
         chunk_timestring = chunk_start.strftime("%Y%m%dT%H%M%S") if chunk_start else "unknown_chunk"
 
+    if apply_offset_removal:
+        print("Removing slow offsets using rolling median...")
+        for tr in stream:
+            if tr.stats.channel == ref_chan:
+                remove_offsets_rolling_median(tr, window_sec=60.0)
+
     # Process each template sequentially (steps 3-6 per template)
     for template_idx, tpl_path in enumerate(spike_template_paths, start=1):
         # 2. LOAD TEMPLATE
         try:
             template_data = np.loadtxt(tpl_path).flatten()
+            if template_idx == 2:
+                template_data *= -1.
             template_st = Stream(Trace(
                 data=template_data,
                 header={
@@ -125,16 +153,21 @@ def remove_HITP_spikes(
             st=stream.select(channel=ref_chan),
             threshold=ccth,
             threshold_type='absolute',
-            trig_int=2.0
+            trig_int=0.5,
+            plot=False,
+            plotdir=plot_output_dir,
         )
+        # Filter for only positive detections (why are negative detections present?)
+        detections = [det for det in detections if det.detect_val > 0]
+
         print(f"Found {len(detections)} initial detections for template {template_idx}.")
         if not detections:
             warnings.warn(f"No detections found for template {template_idx}. Stream will not be modified for this template.")
             continue
 
         # 4. QC: FIND QUIETEST SPIKES (PARALLELIZED)
-        snippet_before_sec=0.3
-        snippet_after_sec=0.5
+        snippet_before_sec=0.1
+        snippet_after_sec=0.4
         cpu_cores = os.cpu_count()
         print(f"Finding quietest spikes in parallel using {cpu_cores} cores (template {template_idx})...")
         worker = functools.partial(_get_geophone_amplitude, snippet_before_sec=snippet_before_sec, snippet_after_sec=snippet_after_sec, geophone_chans=geophone_chans)
@@ -167,7 +200,8 @@ def remove_HITP_spikes(
                 tr.data = detrend(tr.data)
                 tr.data -= np.mean(tr.data[:n1_before_samples - 10])
             quiet_snippets.append(snippet)
-    
+        
+        
         # --- PLOTTING BLOCK 1: QUIET SPIKES (per template) ---
         if plot:
             print(f"Plotting spike stack for quality control (template {template_idx})...")
@@ -191,8 +225,13 @@ def remove_HITP_spikes(
             print(f"Saved spike stack plot to {savename_spikes}")
             plt.close()
 
-        fft_window_sec=0.5
-        fft_starttime_offset_sec=0.2
+        fft_starttime_offset_sec = 0.2
+        total_snip_sec = snippet_before_sec + snippet_after_sec
+        max_fft_window = total_snip_sec - fft_starttime_offset_sec
+        if max_fft_window <= 0:
+            warnings.warn("Snippet too short for FFT window; skipping template.")
+            continue
+        fft_window_sec = min(0.5, max_fft_window)  # cap at 0.5 s, but fit within snippet
         fs1 = quiet_snippets[0][0].stats.sampling_rate
         winlen_samples = int(fft_window_sec * fs1)
         freq = np.fft.rfftfreq(winlen_samples, d=1 / fs1)
@@ -202,26 +241,46 @@ def remove_HITP_spikes(
             starttime_cut = snip[0].stats.starttime + fft_starttime_offset_sec
             endtime_cut = starttime_cut + winlen_samples / fs1
             ref_trace_cut = snip.select(channel=ref_chan)[0].copy().trim(starttime_cut, endtime_cut)
+
+            # Skip snippets that are too short for the fft window
+            if ref_trace_cut.stats.npts < winlen_samples:
+                continue
+
             ref_trace_cut.taper(0.04)
             fft_ref = np.fft.rfft(ref_trace_cut.data)
+
             for ch in geophone_chans:
-                if ch not in [tr.stats.channel for tr in snip]: continue
+                if ch not in [tr.stats.channel for tr in snip]:
+                    continue
                 geo_trace_cut = snip.select(channel=ch)[0].copy().trim(starttime_cut, endtime_cut)
+
+                if geo_trace_cut.stats.npts < winlen_samples:
+                    continue
+
                 geo_trace_cut.taper(0.04)
                 fft_geo = np.fft.rfft(geo_trace_cut.data)
+
+                # Enforce consistent TF length
+                if fft_geo.shape != fft_ref.shape:
+                    continue
+
                 tf = np.divide(fft_geo, fft_ref, out=np.zeros_like(fft_geo), where=fft_ref!=0)
                 individual_tfs[ch].append(tf)
 
+
         transfer_functions = {}
         for ch in geophone_chans:
-            if not individual_tfs[ch]: continue
+            if not individual_tfs[ch]:
+                continue
             tfs_stack = np.array(individual_tfs[ch])
             median_real = np.median(np.real(tfs_stack), axis=0)
             median_imag = np.median(np.imag(tfs_stack), axis=0)
             median_tf = median_real + 1j * median_imag
+
+            # Use fixed freq derived from winlen_samples
             median_tf[freq <= low_freq_cutoff] = 0 + 0j
             transfer_functions[ch] = median_tf
-
+            
         # --- PLOTTING BLOCK 2: TRANSFER FUNCTIONS (per template) ---
         if plot:
             print(f"Plotting final median transfer functions (template {template_idx})...")
@@ -269,9 +328,9 @@ def remove_HITP_spikes(
     if plot:
         print("Plotting detailed before-and-after comparison (final)...")
         wide_plot_start_offset_sec = 500
-        wide_plot_duration_sec = 60
+        wide_plot_duration_sec = 30
         zoom_plot_start_offset_sec = 20
-        zoom_plot_duration_sec = 5
+        zoom_plot_duration_sec = 3
 
         if original_stream_for_plotting and original_stream_for_plotting[0].stats.npts / original_stream_for_plotting[0].stats.sampling_rate > wide_plot_start_offset_sec + wide_plot_duration_sec:
             base_time = original_stream_for_plotting[0].stats.starttime

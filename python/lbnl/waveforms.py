@@ -1655,7 +1655,7 @@ def _finalise_figure(fig, **kwargs):  # pragma: no cover
         fig.suptitle(title)
     if save:
         fig.savefig(savefile, bbox_inches="tight")
-        Logger.info("Saved figure to {0}".format(savefile))
+        # Logger.info("Saved figure to {0}".format(savefile))
     if show:
         plt.show(block=True)
     if return_figure:

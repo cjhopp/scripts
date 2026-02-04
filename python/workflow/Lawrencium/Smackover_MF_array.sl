@@ -1,11 +1,12 @@
 #!/bin/bash
 #SBATCH -J CJH_Smackover_MF_1-27-26
-#SBATCH --partition=lr4
+#SBATCH --partition=lr7
 #SBATCH --account=lr_geop
-#SBATCH --qos=lr_lowprio
+#SBATCH --qos=condo_geop_lr7
 #SBATCH --time=4:30:00
 #SBATCH --mem=64000
 #SBATCH --nodes=1
+#SBATCH --requeue
 #SBATCH --output=Smackover-MF_out_%a.txt
 #SBATCH --error=Smackover-MF_err_%a.txt
 #SBATCH --cpus-per-task=24
