@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -J CJH_HITP_MF_Array
-#SBATCH --partition=lr7
+#SBATCH --partition=lr6
 #SBATCH --account=lr_geop
-#SBATCH --qos=condo_geop_lr7
+#SBATCH --qos=lr_normal
 #SBATCH --time=2:00:00
 #SBATCH --mem=256000
 #SBATCH --nodes=1

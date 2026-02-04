@@ -1,15 +1,15 @@
 #!/bin/bash
 #SBATCH -J CJH_Smackover_MF_1-27-26
-#SBATCH --partition=lr7
+#SBATCH --partition=lr6
 #SBATCH --account=lr_geop
-#SBATCH --qos=condo_geop_lr7
+#SBATCH --qos=lr_normal
 #SBATCH --time=4:30:00
 #SBATCH --mem=256000
 #SBATCH --nodes=1
 #SBATCH --output=Smackover-MF_out_%a.txt
 #SBATCH --error=Smackover-MF_err_%a.txt
 #SBATCH --cpus-per-task=56
-#SBATCH --array=0-392
+#SBATCH --array=55-392
 #SBATCH --mail-user=chopp@lbl.gov
 
 module load miniforge3/25.9.1
