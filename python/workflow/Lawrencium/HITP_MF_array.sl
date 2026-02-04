@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J CJH_HITP_MF_Array
-#SBATCH --partition=lr6
+#SBATCH --partition=lr7
 #SBATCH --account=lr_geop
 #SBATCH --qos=lr_normal
 #SBATCH --time=2:00:00

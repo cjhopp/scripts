@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J CJH_Smackover_MF_1-27-26
-#SBATCH --partition=lr6
+#SBATCH --partition=lr7
 #SBATCH --account=lr_geop
 #SBATCH --qos=lr_normal
 #SBATCH --time=4:30:00
