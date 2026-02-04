@@ -4,11 +4,11 @@
 #SBATCH --account=pc_mqb
 #SBATCH --qos=lr_normal
 #SBATCH --time=2:00:00
-#SBATCH --mem=256000
+#SBATCH --mem=96000
 #SBATCH --nodes=1
 #SBATCH --output=HITP-MF_out_%a.txt
 #SBATCH --error=HITP-MF_err_%a.txt
-#SBATCH --cpus-per-task=56
+#SBATCH --cpus-per-task=32
 #SBATCH --array=0-28
 #SBATCH --mail-user=chopp@lbl.gov
 

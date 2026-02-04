@@ -4,11 +4,11 @@
 #SBATCH --account=pc_mqb
 #SBATCH --qos=lr_normal
 #SBATCH --time=4:30:00
-#SBATCH --mem=256000
+#SBATCH --mem=96000
 #SBATCH --nodes=1
 #SBATCH --output=Smackover-MF_out_%a.txt
 #SBATCH --error=Smackover-MF_err_%a.txt
-#SBATCH --cpus-per-task=56
+#SBATCH --cpus-per-task=32
 #SBATCH --array=55-392
 #SBATCH --mail-user=chopp@lbl.gov
 
