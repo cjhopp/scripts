@@ -2,26 +2,31 @@
 #SBATCH -J CJH_HITP_MF_Array
 #SBATCH --partition=lr4
 #SBATCH --account=lr_geop
-#SBATCH --qos=lr_lowprio
-#SBATCH --time=4:00:00
-#SBATCH --mem=64000
+#SBATCH --qos=condo_geop_lr7
+#SBATCH --time=2:00:00
+#SBATCH --mem=256000
 #SBATCH --nodes=1
 #SBATCH --output=HITP-MF_out_%a.txt
 #SBATCH --error=HITP-MF_err_%a.txt
-#SBATCH --cpus-per-task=24
-#SBATCH --array=0-107
+#SBATCH --cpus-per-task=56
+#SBATCH --array=0-28
 #SBATCH --mail-user=chopp@lbl.gov
 
 module load miniforge3/25.9.1
-conda activate eqcorrscan
+source $(conda info --base)/etc/profile.d/conda.sh  # Initialize Conda
+conda activate eqcorrscan_miniforge
+
+# Debugging: Check if ObsPy is available
+echo "Checking if ObsPy is available:"
+python -c "import obspy; print('ObsPy is available')"
 
 # Define the global start and end dates
-START_DATE="2010-01-01"
-END_DATE="2026-01-27"
+START_DATE="2025-07-28"
+END_DATE="2025-10-23"
 
 # Run the Python script with SLURM task-specific arguments
-srun python /global/home/users/chopp/scripts/python/workflow/Lawrencium/run_HITP_matched_filtering.py \
-    --splits 108 \
+srun python /global/home/users/chopp/scripts/python/workflow/Lawrencium/Lawrencium_HITP_MF_from-client.py \
+    --splits 29 \
     --instance $SLURM_ARRAY_TASK_ID \
     --start $START_DATE \
     --end $END_DATE

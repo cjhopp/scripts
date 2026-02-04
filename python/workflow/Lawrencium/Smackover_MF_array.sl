@@ -6,7 +6,6 @@
 #SBATCH --time=4:30:00
 #SBATCH --mem=256000
 #SBATCH --nodes=1
-#SBATCH --requeue
 #SBATCH --output=Smackover-MF_out_%a.txt
 #SBATCH --error=Smackover-MF_err_%a.txt
 #SBATCH --cpus-per-task=56
