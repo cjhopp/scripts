@@ -86,30 +86,34 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
             logger.info("Generating multiplots...")
             for family in day_party.families:
                 for detection in family.detections:
-                    template_start = min(trace.stats.starttime for trace in family.template.st)
-                    template_end = max(trace.stats.endtime for trace in family.template.st)
-                    template_duration = template_end - template_start
-                    padding = 0.1 * template_duration
-                    plot_start = detection.detect_time - padding
-                    plot_end = detection.detect_time + template_duration + padding
-                    plot_stream = day_stream.slice(starttime=plot_start, endtime=plot_end).copy()
-                    plot_stream.detrend('linear')  # Simple detrend for viz (should be proceessed already)
-                    plot_stream.taper(0.05)
-                    plot_stream.filter('bandpass', freqmin=family.template.lowcut, freqmax=family.template.highcut, corners=4)
-                    plot_stream.detrend('linear')
-                    detection_multiplot(
-                        stream=plot_stream,
-                        template=family.template.st,
-                        times=[detection.detect_time],
-                        streamcolour='k',
-                        templatecolour='r',
-                        show=False,
-                        save=True,
-                        savefile=os.path.join(
-                            plot_dir,
-                            f"{detection.id}.png"
+                    try:
+                        template_start = min(trace.stats.starttime for trace in family.template.st)
+                        template_end = max(trace.stats.endtime for trace in family.template.st)
+                        template_duration = template_end - template_start
+                        padding = 0.1 * template_duration
+                        plot_start = detection.detect_time - padding
+                        plot_end = detection.detect_time + template_duration + padding
+                        plot_stream = day_stream.slice(starttime=plot_start, endtime=plot_end).copy()
+                        plot_stream.detrend('linear')  # Simple detrend for viz (should be proceessed already)
+                        plot_stream.taper(0.05)
+                        plot_stream.filter('bandpass', freqmin=family.template.lowcut, freqmax=family.template.highcut, corners=4)
+                        plot_stream.detrend('linear')
+                        detection_multiplot(
+                            stream=plot_stream,
+                            template=family.template.st,
+                            times=[detection.detect_time],
+                            streamcolour='k',
+                            templatecolour='r',
+                            show=False,
+                            save=True,
+                            savefile=os.path.join(
+                                plot_dir,
+                                f"{detection.id}.png"
+                            )
                         )
-                    )
+                    except Exception as e:
+                        logger.error(f"Error generating multiplot for detection {detection.id}: {e}")
+                        continue
 
             # Step 4: Save waveforms for each detection
             logger.info("Saving waveforms for each detection...")
