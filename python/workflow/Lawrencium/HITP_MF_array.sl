@@ -9,7 +9,7 @@
 #SBATCH --output=HITP-MF_out_%a.txt
 #SBATCH --error=HITP-MF_err_%a.txt
 #SBATCH --cpus-per-task=32
-#SBATCH --array=0-28
+#SBATCH --array=2,11,13,22
 #SBATCH --mail-user=chopp@lbl.gov
 
 module load miniforge3/25.9.1
