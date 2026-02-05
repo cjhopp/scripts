@@ -19,14 +19,15 @@ def main():
     Main script to run daily matched-filtering with a custom denoising step.
     """
     # --- USER-DEFINED PARAMETERS ---
-    TRIBE_PATH = "/media/chopp/HDD1/chet-meq/cape_modern/templates/eqcorrscan/HITP_templates_1dayproc_clustered_10-1-25.tgz" 
+    # TRIBE_PATH = "/media/chopp/HDD1/chet-meq/cape_modern/templates/eqcorrscan/HITP_templates_1dayproc_clustered_10-1-25.tgz"
+    TRIBE_PATH = "/media/chopp/HDD1/chet-meq/cape_modern/templates/eqcorrscan/HITP2_templates_1dayproc_clustered_10-1-25.tgz" 
     SPIKE_TEMPLATE_PATH = [
         "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt",
         "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt",
         # "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_1sec.txt",
     ]
-    START_DATE = UTCDateTime(2025, 8, 27)
-    END_DATE = UTCDateTime(2025, 8, 29)
+    START_DATE = UTCDateTime(2025, 10, 27)
+    END_DATE = UTCDateTime(2025, 10, 29)
     
     PARTY_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_2spikes/daily_parties"
     PLOT_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_2spikes/denoiser_plots"
@@ -47,7 +48,7 @@ def main():
     # Data-source parameters
     CLIENT_URL = 'http://131.243.224.19:8085'
     NETWORK = '6K'
-    STATION = 'HITP'
+    STATION = 'HITP,HITP2'
     CHANNELS = ['GK1', 'GPZ']
 
     # --- SCRIPT LOGIC ---
@@ -93,6 +94,8 @@ def main():
                 print(f"Wrote daily data to cache: {cache_path}")
             st.merge(fill_value='interpolate')
             st.detrend('demean')
+            if 'HITP2' in [tr.stats.station for tr in st]:
+                st.resample(1000.)
 
             # 2. Denoise the stream in-place
             print("Applying spike removal...")

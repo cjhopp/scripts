@@ -105,7 +105,8 @@ def remove_HITP_spikes(
     ref_chan = 'GK1'
     all_chans = [ref_chan] + geophone_chans
     station = "HITP"
-
+    if chunk_start > UTCDateTime("2025-10-23T22:38:19.859000Z"):
+        station == "HITP2"
     if not stream:
         warnings.warn("Input stream is empty. Nothing to do.")
         return
@@ -644,6 +645,9 @@ def process_date_range(start_date, end_date, tribe, client, params):
 
             st.merge(fill_value='interpolate')
             st.detrend('demean')
+            
+            if 'HITP2' in [tr.stats.station for tr in st]:
+                st.resample(1000.)
 
             # 2. Denoise the stream in chunks, build a new stream
             print("Applying spike removal...")
@@ -819,7 +823,7 @@ if __name__ == '__main__':
     # --- USER-DEFINED PARAMETERS ---
     params = {
         'network': '6K',
-        'station': 'HITP',
+        'station': 'HITP,HITP2',
         'channels': ['GK1', 'GPZ'],
         'cc_thresh': 10.0,
         'trig_int': 0.75,
