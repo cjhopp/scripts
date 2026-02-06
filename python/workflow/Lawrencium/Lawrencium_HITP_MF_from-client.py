@@ -712,7 +712,7 @@ def process_date_range(start_date, end_date, tribe, client, params):
                 )
                 if len(daily_party) > 0:
                     print(f"Saving {len(daily_party)} detections to {daily_output_path}...")
-                    daily_party.write(daily_output_path)
+                    daily_party.write(daily_output_path, overwrite=True)
                 else:
                     print("No families with detections, not writing a file.")
             else:
