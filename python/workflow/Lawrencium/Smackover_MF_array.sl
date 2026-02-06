@@ -3,7 +3,7 @@
 #SBATCH --partition=lr6
 #SBATCH --account=pc_mqb
 #SBATCH --qos=lr_normal
-#SBATCH --time=6:30:00
+#SBATCH --time=8:00:00
 #SBATCH --mem=96000
 #SBATCH --nodes=1
 #SBATCH --output=Smackover-MF_out_%a.txt
