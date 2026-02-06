@@ -850,7 +850,7 @@ if __name__ == '__main__':
 
     # Load the Tribe
     print("Loading Tribe...")
-    tribe = Tribe().read("/global/home/users/chopp/chet-meq/cape_modern/templates/eqcorrscan/HITP_templates_1dayproc_clustered_10-1-25.tgz")
+    tribe = Tribe().read("/global/home/users/chopp/chet-meq/cape_modern/templates/eqcorrscan/HITP2_templates_1dayproc_clustered_10-1-25.tgz")
     # Initialize the client
     client = Client("http://131.243.224.19:8085")
 
