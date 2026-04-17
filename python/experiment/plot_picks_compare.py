@@ -7,16 +7,23 @@ from collections import defaultdict
 
 
 def parse_picks_from_xml(pick_xml_path):
-    # Use lxml for namespace support
+    # Use lxml and ignore namespaces to support multiple schema versions
     from lxml import etree
     picks = []
     tree = etree.parse(pick_xml_path)
-    ns = {'sc': 'http://geofon.gfz-potsdam.de/ns/seiscomp3-schema/0.13'}
-    for pick in tree.xpath('//sc:pick', namespaces=ns):
-        time_str = pick.find('sc:time/sc:value', namespaces=ns).text
-        station = pick.find('sc:waveformID', namespaces=ns).get('stationCode')
-        channel = pick.find('sc:waveformID', namespaces=ns).get('channelCode')
-        phase = pick.find('sc:phaseHint', namespaces=ns).text
+    for pick in tree.xpath("//*[local-name()='pick']"):
+        time_nodes = pick.xpath(".//*[local-name()='time']/*[local-name()='value']")
+        wf_nodes = pick.xpath(".//*[local-name()='waveformID']")
+        phase_nodes = pick.xpath(".//*[local-name()='phaseHint']")
+        time_node = time_nodes[0] if time_nodes else None
+        wf_node = wf_nodes[0] if wf_nodes else None
+        phase_node = phase_nodes[0] if phase_nodes else None
+        if time_node is None or wf_node is None or phase_node is None:
+            continue
+        time_str = time_node.text
+        station = wf_node.get('stationCode')
+        channel = wf_node.get('channelCode')
+        phase = phase_node.text
         t = UTCDateTime(time_str)
         picks.append({
             'time': t,
@@ -136,14 +143,14 @@ def plot_event_waveforms_with_picks_singletrace(
 
 if __name__ == "__main__":
     # === SET YOUR ROOT DIRECTORY HERE ===
-    root_dir = "/media/chopp/HDD1/chet-meq/cape_modern/seiscomp_output/dlpick_testing/event-wise_test"
+    root_dir = "/media/chopp/HDD1/chet-meq/cape_modern/seiscomp_output/dlpick_testing/event-wise_test/model-lbnl-cape"
 
     for subdir in sorted(os.listdir(root_dir)):
         subdir_path = os.path.join(root_dir, subdir)
         if not os.path.isdir(subdir_path):
             continue
 
-        event_xml_path = os.path.join(subdir_path, f"{subdir}.xml")
+        event_xml_path = os.path.join(subdir_path, f"{subdir}_qml.xml")
         waveform_path = os.path.join(subdir_path, f"{subdir}.ms")
         picks_ml_path = os.path.join(subdir_path, "tmp/picks-merged.xml")
         picks_auto_path = os.path.join(subdir_path, "auto-picks.xml")

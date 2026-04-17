@@ -1014,6 +1014,102 @@ def plot_cumulative_catalog(catalogs, xlim=None, title=None):
     return
 
 
+def ecdf_transform(data):
+    """Return descending-rank ECDF transform for magnitude series."""
+    return len(data) - data.rank(method="first")
+
+
+def calc_max_curv(magnitudes, bin_size=0.1):
+    """Magnitude of completeness via maximum curvature."""
+    magnitudes = np.asarray(magnitudes, dtype=float)
+    if magnitudes.size == 0:
+        return np.nan
+    min_bin, max_bin = int(np.nanmin(magnitudes)), int(np.nanmax(magnitudes) + 1)
+    bins = np.arange(min_bin, max_bin + bin_size, bin_size)
+    counts, bins = np.histogram(magnitudes, bins)
+    grad = (counts[1:] - counts[0:-1]) / bin_size
+    curvature = (grad[1:] - grad[0:-1]) / bin_size
+    return float(bins[np.argmax(np.abs(curvature))] + bin_size)
+
+
+def calc_bval(df, bin_size=0.1, min_points=5):
+    """Calculate b-value from a dataframe with magnitude and cumulative number."""
+    mc = calc_max_curv(df["magnitude"].values, bin_size=bin_size)
+    points = df.loc[(df["magnitude"] > mc) & (df["cumulative number"] > 0.0)]
+    if len(points) < max(2, min_points):
+        return np.nan, mc, points
+    b, a = np.polyfit(points["magnitude"], np.log10(points["cumulative number"]), 1)
+    return b, mc, points
+
+
+def plot_gutenberg_richter(
+    catalog, bin_size=0.1, min_points=5, save_path=None, ax=None,
+    title=None):
+    """
+    Plot Gutenberg-Richter curve and b-value from an ObsPy Catalog.
+
+    :param catalog: ObsPy Catalog with preferred origin/magnitude
+    :param bin_size: Bin size for maximum curvature Mc calculation
+    :param min_points: Minimum points required to fit b-value
+    :param save_path: Optional path to save the figure (png/pdf)
+    :param ax: Optional matplotlib Axes to plot into
+    :return: (fig, ax)
+    """
+    magnitudes = []
+    for ev in catalog:
+        mag = ev.preferred_magnitude()
+        if mag is not None and mag.mag is not None:
+            magnitudes.append(mag.mag)
+
+    if len(magnitudes) == 0:
+        raise ValueError("No magnitudes found in catalog.")
+
+    df = pd.DataFrame({"magnitude": magnitudes})
+    df["cumulative number"] = ecdf_transform(df["magnitude"])
+    b, mc, points = calc_bval(df, bin_size=bin_size, min_points=min_points)
+
+    df_plot = df[df["cumulative number"] > 0.0]
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+
+    ax.scatter(df_plot["magnitude"], df_plot["cumulative number"],
+               color="darkgray", s=12, alpha=0.7)
+    if np.isfinite(b) and len(points) >= max(2, min_points):
+        points = points.sort_values("magnitude")
+        bfit = 10 ** (np.log10(len(points)) + b * points["magnitude"])
+        ax.plot(points["magnitude"], bfit, color="red", linewidth=2)
+        b_text = "{:.2f}".format(abs(b))
+    else:
+        b_text = "n/a"
+
+    if np.isfinite(mc):
+        mc_text = "{:.2f}".format(mc)
+        ax.axvline(mc, color="black", linestyle=":", linewidth=1)
+    else:
+        mc_text = "n/a"
+
+    annotation = "b value: {}\nMc: {}".format(b_text, mc_text)
+    ax.text(0.02, 0.02, annotation,
+            transform=ax.transAxes,
+            va="bottom", ha="left", fontsize=9, color="black",
+            bbox=dict(facecolor="white", edgecolor="black", linewidth=1))
+
+    ax.set_yscale("log")
+    ax.set_xlabel("Magnitude")
+    ax.set_ylabel("Cumulative number")
+    if title:
+        ax.set_title(title)
+    ax.set_facecolor("whitesmoke")
+    ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.5)
+
+    if save_path:
+        fig.savefig(save_path, dpi=200, bbox_inches="tight")
+
+    return fig, ax
+
+
 def extract_lbnl_template(comment_text):
     """
     Extracts the first occurrence of 'lbnl202' followed by letters/digits from a string.

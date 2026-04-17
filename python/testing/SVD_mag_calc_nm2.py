@@ -337,6 +337,7 @@ def family_calc(template, detections, wavdir, cut=(-0.5, 3.0),\
         print 'No useful channels'
         print all_detection_streams
         # return False
+        
 def local_to_moment(mag, m=0.88, c=0.73):
     """
     Function to convert local magnitude to seismic moment - defaults to use

@@ -24,6 +24,24 @@ try:
 except ImportError:
     print('No TDMS package installed.')
 
+
+cape_injection_times = {
+    'Bearskin Stim 1': (datetime(2024, 11, 28), datetime(2024, 12, 28)),
+    'Bearskin Stim 2': (datetime(2025, 2, 24), datetime(2025, 3, 7)),
+    'Bearskin Stim 3': (datetime(2025, 7, 24), datetime(2025, 8, 20)),
+    'Bearskin Stim 4': (datetime(2025, 11, 10), datetime(2025, 12, 10)),
+    'Bearskin CFT': (datetime(2025, 4, 26), datetime(2025, 5, 17)),
+    'Frisco Stim 1': (datetime(2024, 2, 15), datetime(2024, 3, 6)),
+    'Frisco Stim 2': (datetime(2024, 6, 2), datetime(2024, 6, 11)),
+    'Frisco Stim 3':(datetime(2026, 3, 6), datetime(2026, 4, 3)),
+    'Frisco CFT': (datetime(2024, 7, 25), datetime(2024, 9, 6)),
+    'Gold Stim 1': (datetime(2025, 8, 27), datetime(2025, 9, 10)),
+    'Gold Stim 2': (datetime(2025, 12, 12), datetime(2026, 1, 15)),
+    'Gold Stim 3': (datetime(2026, 4, 13), datetime(2026, 5, 11)),
+    'Gold CFT': (datetime(2026, 6, 1), datetime(2026, 9, 30)),
+}
+
+
 def datenum_to_datetime(datenums):
     # Helper to correctly convert matlab datenum to python datetime
     # SO source:

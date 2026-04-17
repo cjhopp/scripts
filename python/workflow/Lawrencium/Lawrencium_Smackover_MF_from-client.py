@@ -164,12 +164,12 @@ if __name__ == "__main__":
     task_end = min(START_DATE + (args.instance + 1) * total_duration, END_DATE)
 
     # --- USER-DEFINED PARAMETERS ---
-    TRIBE_PATH = "/global/home/users/chopp/chet-meq/smackover/templates/Smackover_north_tribe_snr5.tgz"
+    TRIBE_PATH = "/global/home/users/chopp/chet-meq/smackover/templates/Smackover_north_tribe_analyzed_4-17-2026.tgz"
     CLIENT_URL = "IRIS"
-    PARTY_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/parties/smackover_north_full_tribe/MAD12_2hr"
-    PLOT_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/plots/smackover_north_full_tribe/MAD12_2hr"
-    WAVEFORM_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/waveforms/smackover_north_full_tribe/MAD12_2hr"
-    LOG_PATH = f"/global/scratch/users/chopp/chet-meq/smackover/detections/logs/smackover_north_full_tribe/MAD12_2hr/detection_log_{args.instance}.txt"
+    PARTY_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/parties/smackover_north_analyzed/MAD12_2hr"
+    PLOT_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/plots/smackover_north_analyzed/MAD12_2hr"
+    WAVEFORM_DIR = "/global/scratch/users/chopp/chet-meq/smackover/detections/waveforms/smackover_north_analyzed/MAD12_2hr"
+    LOG_PATH = f"/global/scratch/users/chopp/chet-meq/smackover/detections/logs/smackover_north_analyzed/MAD12_2hr/detection_log_{args.instance}.txt"
 
     # Detection parameters
     PARAM_DICT = {
@@ -179,7 +179,7 @@ if __name__ == "__main__":
         "return_stream": True,
         "concurrent_processing": True,
         "process_cores": 30,
-        "shift_len": 0.5,
+        "shift_len": 1.0,
         "min_cc": 0.7,
         "interpolate": True,
         "waveform_padding": [30, 200],  # Pre- and post-detection padding in seconds

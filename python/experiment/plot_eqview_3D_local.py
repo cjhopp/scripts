@@ -1,6 +1,9 @@
 #!/home/chopp/miniconda3/envs/geo-plotting/bin/python
 
 import sys
+import glob
+import os
+import re
 import plotly
 import pyproj
 import fileinput
@@ -65,17 +68,17 @@ datasets = {
 
 projections = {'cape': pyproj.Proj("EPSG:26912"),
                'newberry': pyproj.Proj("EPSG:32610"),
-               'JV': pyproj.Proj("EPSG:32611"),
-               'DAC': pyproj.Proj("EPSG:26911"),}
+               'jv': pyproj.Proj("EPSG:32611"),
+               'dac': pyproj.Proj("EPSG:26911"),}
 
 
 color_dict = {
-    'JV': {
+    'jv': {
         ('14-34'): 'black',
         ('18A-27', '46-28', '14-27', '81-28', '81A-28'): 'steelblue',
         ('86-28', '87-28', '77A-28'): 'firebrick',
     },
-    'DAC': {
+    'dac': {
         ('68-1RD'): 'black',
         ('24-6', '24A-6', '26-6', '26A-6', '36-6', '24-6', '24A-6'): 'steelblue',
         ('64-11', '64A-11', '64B-11', '64C-11', '65-11', '65A-11', '85-11', '85A-11', '54-11', '54A-11'): 'firebrick',
@@ -83,8 +86,8 @@ color_dict = {
 }
 
 depth_correction = {
-    'JV': 1446.,
-    'DAC': 1286.,
+    'jv': 1446.,
+    'dac': 1286.,
 }
 
 def read_stdin():
@@ -149,7 +152,33 @@ def get_pixel_coords(dataset):
     return (np.arange(cols) * pixw) + xo, (np.arange(rows) * pixh) + yo, band
 
 
-def plot_3D(datasets, catalogs):
+def expand_catalog_paths(catalog_args):
+    paths = []
+    labels = []
+    label_pattern = re.compile(r'(lbnl202.....)')
+    for arg in catalog_args:
+        matches = sorted(glob.glob(arg))
+        if matches:
+            for match in matches:
+                paths.append(match)
+                match_label = label_pattern.search(match)
+                if match_label:
+                    labels.append(match_label.group(1))
+                else:
+                    labels.append(os.path.splitext(os.path.basename(match))[0])
+        elif os.path.exists(arg):
+            paths.append(arg)
+            match_label = label_pattern.search(arg)
+            if match_label:
+                labels.append(match_label.group(1))
+            else:
+                labels.append(os.path.splitext(os.path.basename(arg))[0])
+        else:
+            logging.warning('Catalog path did not match: %s', arg)
+    return paths, labels
+
+
+def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True):
     """
     Make plotly html of selected earthquakes
 
@@ -159,10 +188,9 @@ def plot_3D(datasets, catalogs):
     :return:
     """
     objects = []
-    # What field is this?
-    field = 'JV'
+
     try:
-        utm = projections[field]
+        utm = projections[field.lower()]
     except KeyError:
         return
     for label, data in datasets.items():
@@ -177,7 +205,7 @@ def plot_3D(datasets, catalogs):
                     north = well_data['Y'].values
                     dep_m = well_data['Z'].values
                     try:
-                        col = [col for tup, col in color_dict['JV'].items() if well_id in tup][0]
+                        col = [col for tup, col in color_dict['jv'].items() if well_id in tup][0]
                     except IndexError:
                         col = 'gray'  # Default color if no match found
                     objects.append(go.Scatter3d(x=east,
@@ -223,15 +251,27 @@ def plot_3D(datasets, catalogs):
             objects.append(tob_mesh)
     mfact = 2.5  # Magnitude scaling factor
     # Add arrays to the plotly objects
-    catalog_names = ['NLLoc', 'HypoDD', 'Fervo']  # Here assuming you pass the catalog files in this order...
+    if not catalog_labels:
+        catalog_labels = ['Catalog {}'.format(i + 1) for i in range(len(catalogs))]
+    palette = cl.scales.get('9', {}).get('qual', {}).get('Set1', ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'])
+    color_cycle = cycle(palette)
     for i, catalog in enumerate(catalogs):
+        label = catalog_labels[i] if i < len(catalog_labels) else 'Catalog {}'.format(i + 1)
+        color = next(color_cycle)
         try:
             # id, t, lat, lon, depth, m, agency, status, phases, geo, _, _, _, _, _ = zip(*catalog)
             id, t, lat, lon, depth, m = zip(*catalog)
         except ValueError:  # When passing an obspy Catalog
             params = []
+            if len(catalog.events) == 0:
+                continue
             for ev in catalog:
                 o = ev.preferred_origin()
+                if o is None:
+                    try:
+                        o = ev.origins[0]
+                    except IndexError:
+                        continue
                 try:
                     m = ev.preferred_magnitude().mag
                 except AttributeError:
@@ -244,32 +284,42 @@ def plot_3D(datasets, catalogs):
             lon = lon.astype('f').flatten()
             depth = depth.astype('f').flatten()
             m = m.astype('f').flatten()
-        tickvals = np.linspace(min(t), max(t), 10)
-        ticktext = [datetime.fromtimestamp(int(t)).strftime('%d %b %Y: %H:%M')
-                    for t in tickvals]
+        if use_time_color:
+            tickvals = np.linspace(min(t), max(t), 10)
+            ticktext = [datetime.fromtimestamp(int(t)).strftime('%d %b %Y: %H:%M')
+                        for t in tickvals]
         ev_east, ev_north = utm(lon, lat)
         depth = np.array(depth) * -1#000
+        if use_time_color:
+            marker = dict(color=t,
+                          cmin=min(tickvals),
+                          cmax=max(tickvals),
+                          size=(mfact * np.array(m)) ** 2,
+                          symbol='circle',
+                          line=dict(color=t,
+                                    width=1,
+                                    colorscale='Cividis'),
+                          colorbar=dict(
+                              title=dict(text='Timestamp',
+                                         font=dict(size=18)),
+                              x=-0.2,
+                              ticktext=ticktext,
+                              tickvals=tickvals),
+                          colorscale='Bluered',
+                          opacity=0.5)
+        else:
+            marker = dict(color=color,
+                          size=(mfact * np.array(m)) ** 2,
+                          symbol='circle',
+                          line=dict(color=color,
+                                    width=1),
+                          opacity=0.4)
         scat_obj = go.Scatter3d(x=ev_east, y=ev_north, z=depth,
                                 mode='markers',
-                                name=catalog_names[i],
+                                name=label,
                                 hoverinfo='text',
                                 text=np.array(id),
-                                marker=dict(color=t,
-                                            cmin=min(tickvals),
-                                            cmax=max(tickvals),
-                                            size=(mfact * np.array(m)) ** 2,
-                                            symbol='circle',
-                                            line=dict(color=t,
-                                                    width=1,
-                                                    colorscale='Cividis'),
-                                            colorbar=dict(
-                                                title=dict(text='Timestamp',
-                                                        font=dict(size=18)),
-                                                x=-0.2,
-                                                ticktext=ticktext,
-                                                tickvals=tickvals),
-                                            colorscale='Bluered',
-                                            opacity=0.5))
+                                marker=marker)
         objects.append(scat_obj)
     # Start figure
     fig = go.Figure(data=objects)
@@ -313,9 +363,11 @@ if __name__ in '__main__':
     print(lines)
     # bbox = get_selection_area(lines)
     # catalog = get_events(lines)
-    catalogs = [read_events(l) for l in lines[1:-1]]
+    catalog_paths, catalog_labels = expand_catalog_paths(lines[1:-1])
+    catalogs = [read_events(path) for path in catalog_paths]
     datas = datasets[lines[-1]]
-    fig = plot_3D(datas, catalogs)
+    fig = plot_3D(datas, catalogs, lines[-1], catalog_labels=catalog_labels,
+                  use_time_color=len(catalogs) == 1)
     html = plotly.io.to_html(fig)
     fig.write_html('eqview_3d_compare.html')
     # fig.write_html('output.html')

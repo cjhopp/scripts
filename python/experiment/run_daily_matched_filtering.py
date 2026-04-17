@@ -26,8 +26,8 @@ def main():
         "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt",
         # "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_1sec.txt",
     ]
-    START_DATE = UTCDateTime(2025, 10, 27)
-    END_DATE = UTCDateTime(2025, 10, 29)
+    START_DATE = UTCDateTime(2025, 12, 7)
+    END_DATE = UTCDateTime(2025, 12, 8)
     
     PARTY_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_2spikes/daily_parties"
     PLOT_OUTPUT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_2spikes/denoiser_plots"

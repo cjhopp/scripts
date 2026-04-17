@@ -10,7 +10,7 @@ matplotlib.use("Agg")  # Use a non-interactive backend
 import numpy as np
 import matplotlib.pyplot as plt
 
-from obspy import Stream, Trace
+from obspy import Stream, Trace, UTCDateTime
 from scipy.signal import detrend
 from scipy.ndimage import median_filter
 from eqcorrscan import Template
@@ -97,6 +97,8 @@ def remove_HITP_spikes(
     ref_chan = 'GK1'
     all_chans = [ref_chan] + geophone_chans
     station = "HITP"
+    if chunk_start > UTCDateTime("2025-10-23T22:38:19.859000Z"):
+        station == "HITP2"
 
     if not stream:
         warnings.warn("Input stream is empty. Nothing to do.")
@@ -333,6 +335,7 @@ def remove_HITP_spikes(
         zoom_plot_duration_sec = 3
 
         if original_stream_for_plotting and original_stream_for_plotting[0].stats.npts / original_stream_for_plotting[0].stats.sampling_rate > wide_plot_start_offset_sec + wide_plot_duration_sec:
+            print('Check 1')
             base_time = original_stream_for_plotting[0].stats.starttime
             wide_start_time = base_time + wide_plot_start_offset_sec
             wide_end_time = wide_start_time + wide_plot_duration_sec
@@ -341,11 +344,12 @@ def remove_HITP_spikes(
 
             fig, axes = plt.subplots(len(geophone_chans), 2, figsize=(20, 12), squeeze=False)
             fig.suptitle(f'Denoising Comparison for {station}: Wide and Zoomed Views', fontsize=16)
-
+            print('Check 2')
             for i, ch in enumerate(geophone_chans):
                 ax_wide = axes[i, 0]
                 ax_zoom = axes[i, 1]
-                
+                print(ch)
+                print(original_stream_for_plotting)
                 original_tr_wide = original_stream_for_plotting.select(channel=ch)[0].copy().trim(wide_start_time, wide_end_time)
                 original_tr_zoom = original_tr_wide.copy().trim(zoom_start_time, zoom_end_time)
 
@@ -353,7 +357,7 @@ def remove_HITP_spikes(
                 time_axis_zoom = original_tr_zoom.times("matplotlib")
 
                 ax_wide.plot(time_axis_wide, original_tr_wide.data, 'k-', linewidth=0.5, alpha=0.7, label='Raw')
-
+                print('Check 3')
                 if len(denoised_snapshots) >= 1:
                     t1_tr_wide = denoised_snapshots[0].select(channel=ch)[0].copy().trim(wide_start_time, wide_end_time)
                     ax_wide.plot(time_axis_wide, t1_tr_wide.data, 'r-', linewidth=0.8, alpha=0.8, label='Denoised (Template 1)')
@@ -372,7 +376,7 @@ def remove_HITP_spikes(
                 ax_wide.legend()
 
                 ax_zoom.plot(time_axis_zoom, original_tr_zoom.data, 'k-', linewidth=0.5, alpha=0.7, label='Raw')
-
+                print('Check 4')
                 if len(denoised_snapshots) >= 1:
                     t1_tr_zoom = denoised_snapshots[0].select(channel=ch)[0].copy().trim(zoom_start_time, zoom_end_time)
                     ax_zoom.plot(time_axis_zoom, t1_tr_zoom.data, 'r-', linewidth=0.8, alpha=0.8, label='Denoised (Template 1)')
@@ -387,7 +391,7 @@ def remove_HITP_spikes(
                 
                 ax_wide.xaxis_date()
                 ax_zoom.xaxis_date()
-
+            print('Check 5')
             axes[-1, 0].set_xlabel('Time'); axes[-1, 1].set_xlabel('Time')
             fig.autofmt_xdate()
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
