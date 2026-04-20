@@ -44,6 +44,13 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
         day_start = current_date
         day_end = min(current_date + 86400, end)  # Process one day at a time
 
+        # Skip days whose party file already exists (idempotent re-runs)
+        party_output_path = os.path.join(party_dir, f"party_{current_date.strftime('%Y%m%d')}.tgz")
+        if os.path.exists(party_output_path):
+            logger.info(f"Party file already exists for {current_date.strftime('%Y-%m-%d')}, skipping.")
+            current_date = day_end
+            continue
+
         day_start_time = time.time()  # Start measuring time for this day
 
         try:
@@ -131,7 +138,6 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
                     logger.info(f"Saved waveform to {waveform_output_path}")
 
             # Step 5: Save the Party for the day
-            party_output_path = os.path.join(party_dir, f"party_{current_date.strftime('%Y%m%d')}.tgz")
             logger.info(f"Saving Party to {party_output_path}...")
             day_party.write(party_output_path, overwrite=True)
             logger.info("Party saved.")
