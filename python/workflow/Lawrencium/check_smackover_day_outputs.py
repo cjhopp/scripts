@@ -39,6 +39,41 @@ def parse_date_utc(value: str) -> datetime:
     return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
 
+def read_log_lines(log_file: Path) -> List[str]:
+    if not log_file.exists():
+        return []
+    try:
+        return log_file.read_text(errors="ignore").splitlines()
+    except OSError:
+        return []
+
+
+def select_log_run_lines(lines: List[str], run_scope: str) -> Tuple[List[str], int, int]:
+    """
+    Select lines for one run block from an appended log.
+
+    Returns: (selected_lines, run_count, selected_run_idx)
+    selected_run_idx is 0-based in chronological order.
+    """
+    range_line_idxs: List[int] = [
+        i for i, line in enumerate(lines) if LOG_RANGE_RE.search(line)
+    ]
+    if not range_line_idxs:
+        return lines, 0, -1
+
+    run_count = len(range_line_idxs)
+    if run_scope == "first":
+        run_idx = 0
+    elif run_scope == "all":
+        return lines, run_count, -1
+    else:
+        run_idx = run_count - 1
+
+    start = range_line_idxs[run_idx]
+    end = range_line_idxs[run_idx + 1] if run_idx + 1 < run_count else len(lines)
+    return lines[start:end], run_count, run_idx
+
+
 def days_for_interval(start: datetime, end: datetime) -> List[str]:
     """
     Replicate the workflow's daily stepping logic and emit YYYYMMDD labels.
@@ -51,42 +86,32 @@ def days_for_interval(start: datetime, end: datetime) -> List[str]:
     return days
 
 
-def range_from_log(log_file: Path) -> Optional[Tuple[datetime, datetime]]:
+def range_from_log_lines(lines: List[str]) -> Optional[Tuple[datetime, datetime]]:
     """Extract processing range from an error log file."""
-    if not log_file.exists():
-        return None
-    try:
-        for line in log_file.read_text(errors="ignore").splitlines():
-            match = LOG_RANGE_RE.search(line)
-            if match:
-                return parse_iso_utc(match.group(1)), parse_iso_utc(match.group(2))
-    except OSError:
-        return None
+    for line in lines:
+        match = LOG_RANGE_RE.search(line)
+        if match:
+            return parse_iso_utc(match.group(1)), parse_iso_utc(match.group(2))
     return None
 
 
-def parse_day_errors(log_file: Path) -> Dict[str, List[str]]:
+def parse_day_errors_from_lines(lines: List[str]) -> Dict[str, List[str]]:
     """Parse per-day processing errors from the job log."""
     errors: Dict[str, List[str]] = {}
-    if not log_file.exists():
-        return errors
-    try:
-        for line in log_file.read_text(errors="ignore").splitlines():
-            match = DAY_ERROR_RE.search(line)
-            if not match:
-                continue
-            day = match.group(1).replace("-", "")
-            msg = match.group(2).strip()
-            errors.setdefault(day, []).append(msg)
-    except OSError:
-        return {}
+    for line in lines:
+        match = DAY_ERROR_RE.search(line)
+        if not match:
+            continue
+        day = match.group(1).replace("-", "")
+        msg = match.group(2).strip()
+        errors.setdefault(day, []).append(msg)
     return errors
 
 
-def parse_log_diagnostics(log_file: Path) -> Dict[str, object]:
+def parse_log_diagnostics_from_lines(log_exists: bool, lines: List[str]) -> Dict[str, object]:
     """Extract coarse health diagnostics from a job error log."""
     diagnostics: Dict[str, object] = {
-        "log_exists": log_file.exists(),
+        "log_exists": log_exists,
         "range_found": False,
         "processing_complete": False,
         "cancelled_time_limit": False,
@@ -96,11 +121,6 @@ def parse_log_diagnostics(log_file: Path) -> Dict[str, object]:
         "last_line": "",
     }
     if not diagnostics["log_exists"]:
-        return diagnostics
-
-    try:
-        lines = log_file.read_text(errors="ignore").splitlines()
-    except OSError:
         return diagnostics
 
     for line in lines:
@@ -263,6 +283,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print log health diagnostics (range found, completion, attempted days, etc.)",
     )
+    parser.add_argument(
+        "--run-scope",
+        choices=["latest", "first", "all"],
+        default="latest",
+        help="When logs are appended, analyze latest run, first run, or all combined",
+    )
     return parser
 
 
@@ -308,9 +334,13 @@ def main() -> int:
 
     for idx in indices:
         log_file = resolve_log_file(idx=idx, primary_logs_dir=logs_dir, extra_log_dirs=extra_log_dirs)
-        log_range = range_from_log(log_file)
-        day_errors = parse_day_errors(log_file)
-        log_diag = parse_log_diagnostics(log_file)
+        all_lines = read_log_lines(log_file)
+        selected_lines, run_count, selected_run_idx = select_log_run_lines(
+            lines=all_lines, run_scope=args.run_scope)
+        log_exists = log_file.exists()
+        log_range = range_from_log_lines(selected_lines)
+        day_errors = parse_day_errors_from_lines(selected_lines)
+        log_diag = parse_log_diagnostics_from_lines(log_exists=log_exists, lines=selected_lines)
         if not log_diag["log_exists"]:
             logs_missing_count += 1
         if log_range is not None:
@@ -364,6 +394,9 @@ def main() -> int:
                 print(
                     "  log_diagnostics="
                     f"path:{log_file} "
+                    f"run_scope:{args.run_scope} "
+                    f"run_count:{run_count} "
+                    f"selected_run_idx:{selected_run_idx} "
                     f"exists:{log_diag['log_exists']} "
                     f"range_found:{log_diag['range_found']} "
                     f"processing_complete:{log_diag['processing_complete']} "
