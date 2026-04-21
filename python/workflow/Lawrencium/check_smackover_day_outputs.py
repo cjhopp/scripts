@@ -2,13 +2,15 @@
 
 import argparse
 import re
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 LOG_RANGE_RE = re.compile(
     r"Processing time range:\s+([0-9T:\-.]+)Z\s+to\s+([0-9T:\-.]+)Z"
 )
+DAY_ERROR_RE = re.compile(r"Error processing day\s+([0-9]{4}-[0-9]{2}-[0-9]{2}):\s+(.*)")
 
 
 def parse_iso_utc(value: str) -> datetime:
@@ -53,6 +55,54 @@ def range_from_log(log_file: Path) -> Optional[Tuple[datetime, datetime]]:
     except OSError:
         return None
     return None
+
+
+def parse_day_errors(log_file: Path) -> Dict[str, List[str]]:
+    """Parse per-day processing errors from the job log."""
+    errors: Dict[str, List[str]] = {}
+    if not log_file.exists():
+        return errors
+    try:
+        for line in log_file.read_text(errors="ignore").splitlines():
+            match = DAY_ERROR_RE.search(line)
+            if not match:
+                continue
+            day = match.group(1).replace("-", "")
+            msg = match.group(2).strip()
+            errors.setdefault(day, []).append(msg)
+    except OSError:
+        return {}
+    return errors
+
+
+def classify_error(message: str) -> str:
+    """Map an error message to a coarse cause category."""
+    text = message.lower()
+    bad_data_markers = [
+        "less than 80 percent of the desired length",
+        "will not pad",
+        "ignore_bad_data",
+        "gappy",
+        "mostly zeros",
+        "no appropriate data found",
+    ]
+    fdsn_markers = [
+        "could not download data",
+        "fdsn",
+        "http",
+        "service unavailable",
+        "timed out",
+        "timeout",
+    ]
+    if any(m in text for m in bad_data_markers):
+        return "bad_data_preprocessing"
+    if any(m in text for m in fdsn_markers):
+        return "download_or_client"
+    if "cancelled" in text and "time limit" in text:
+        return "time_limit"
+    if "brokenpipeerror" in text or "srun: error" in text:
+        return "broken_pipe_or_slurm"
+    return "other"
 
 
 def range_from_split(instance: int, start: datetime, end: datetime, splits: int) -> Tuple[datetime, datetime]:
@@ -125,6 +175,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print only the comma-separated indices with no missing days",
     )
+    parser.add_argument(
+        "--max-missing-days-to-print",
+        type=int,
+        default=12,
+        help="Maximum number of missing days to print per index in detailed mode",
+    )
     return parser
 
 
@@ -161,6 +217,7 @@ def main() -> int:
 
     missing_indices: List[int] = []
     complete_indices: List[int] = []
+    overall_error_categories: Counter = Counter()
 
     if args.only_missing_indices and args.only_complete_indices:
         parser.error("--only-missing-indices and --only-complete-indices cannot be used together")
@@ -168,6 +225,7 @@ def main() -> int:
     for idx in indices:
         log_file = logs_dir / f"Smackover-MF_analyzed_err_{idx}.txt"
         log_range = range_from_log(log_file)
+        day_errors = parse_day_errors(log_file)
         if log_range is not None:
             task_start, task_end = log_range
             source = "log"
@@ -186,19 +244,49 @@ def main() -> int:
         else:
             complete_indices.append(idx)
 
+        missing_day_error_info: List[Tuple[str, str, str]] = []
+        for day in missing_days:
+            messages = day_errors.get(day, [])
+            if messages:
+                msg = messages[-1]
+                category = classify_error(msg)
+                overall_error_categories[category] += 1
+                missing_day_error_info.append((day, category, msg))
+            else:
+                overall_error_categories["no_day_error_in_log"] += 1
+                missing_day_error_info.append((day, "no_day_error_in_log", ""))
+
         if not args.only_missing_indices:
             status = "COMPLETE" if not missing_days else "MISSING"
+            index_categories = Counter(category for _, category, _ in missing_day_error_info)
+            category_summary = ",".join(
+                f"{cat}:{count}" for cat, count in sorted(index_categories.items())
+            ) or "none"
             print(
                 f"index={idx} status={status} expected_days={len(expected_days)} "
-                f"missing_days={len(missing_days)} range_source={source}"
+                f"missing_days={len(missing_days)} range_source={source} "
+                f"error_categories={category_summary}"
             )
-            if missing_days:
-                print("  missing: " + ",".join(missing_days))
+            if missing_day_error_info:
+                to_print = missing_day_error_info[: args.max_missing_days_to_print]
+                for day, category, msg in to_print:
+                    if msg:
+                        print(f"  missing_day={day} cause={category} msg={msg}")
+                    else:
+                        print(f"  missing_day={day} cause={category}")
+                if len(missing_day_error_info) > args.max_missing_days_to_print:
+                    skipped = len(missing_day_error_info) - args.max_missing_days_to_print
+                    print(f"  ... {skipped} additional missing days omitted")
 
     if args.only_missing_indices:
         print(",".join(str(i) for i in missing_indices))
     elif args.only_complete_indices:
         print(",".join(str(i) for i in complete_indices))
+    elif overall_error_categories:
+        summary = ",".join(
+            f"{cat}:{count}" for cat, count in sorted(overall_error_categories.items())
+        )
+        print(f"overall_missing_day_error_categories={summary}")
 
     return 0
 
