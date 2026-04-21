@@ -79,6 +79,8 @@ def detect_tribe_client_with_lag_calc(tribe, client, start, end, param_dict,
                 shift_len=param_dict.get('shift_len', 0.2),
                 min_cc=param_dict.get('min_cc', 0.7),
                 interpolate=param_dict.get('interpolate', True),
+                ignore_length=param_dict.get('ignore_length', False),
+                ignore_bad_data=param_dict.get('ignore_bad_data', False),
                 plot=True,
                 plotdir=plot_dir
             )
