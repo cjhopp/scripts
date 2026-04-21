@@ -185,6 +185,8 @@ if __name__ == "__main__":
         "return_stream": True,
         "concurrent_processing": True,
         "process_cores": 30,
+        "ignore_length": True,
+        "ignore_bad_data": True,
         "shift_len": 1.0,
         "min_cc": 0.7,
         "interpolate": True,
