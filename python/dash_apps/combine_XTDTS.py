@@ -202,7 +202,7 @@ class Worker(threading.Thread):
                     dataset.to_zarr(self.zarr_path, mode="w", encoding=TIME_ENCODING)
                     self._store_ready[0] = True
                 else:
-                    dataset.to_zarr(self.zarr_path, append_dim="time", encoding=TIME_ENCODING)
+                    dataset.to_zarr(self.zarr_path, append_dim="time")
                 zarr.consolidate_metadata(str(self.zarr_path))
                 return
             except Exception as exc:
