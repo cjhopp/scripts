@@ -21,6 +21,11 @@ NO_COLS = 6
 QUEUE_TIMEOUT = 1
 RETRY_ATTEMPTS = 3
 
+# Write time as integer seconds since epoch so xarray can decode without cftime.
+# Sub-second precision in the reference timestamp (e.g. 'days since 2024-07-11
+# 20:02:01.165000') causes a ValueError in the standard decoder.
+TIME_ENCODING = {"time": {"units": "seconds since 1970-01-01 00:00:00", "dtype": "int64"}}
+
 
 def normalize_event_path(raw_path):
     """
@@ -193,10 +198,10 @@ class Worker(threading.Thread):
             try:
                 if not self._store_ready[0]:
                     self._nuke_broken_store()
-                    dataset.to_zarr(self.zarr_path, mode="w")
+                    dataset.to_zarr(self.zarr_path, mode="w", encoding=TIME_ENCODING)
                     self._store_ready[0] = True
                 else:
-                    dataset.to_zarr(self.zarr_path, append_dim="time")
+                    dataset.to_zarr(self.zarr_path, append_dim="time", encoding=TIME_ENCODING)
                 zarr.consolidate_metadata(str(self.zarr_path))
                 return
             except Exception as exc:
