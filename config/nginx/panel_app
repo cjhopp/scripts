@@ -49,6 +49,13 @@ server {
         add_header Cache-Control "public";
     }
 
+    # ML result images — served directly from data directory by NGINX
+    location /result-images/ {
+        alias /data/chet-cussp/results/;
+        expires 1h;
+        add_header Cache-Control "public";
+    }
+
     # --- Shared proxy settings (duplicated per block; NGINX doesn't allow
     #     include inside location in all versions, and map{} needs http{} scope) ---
 

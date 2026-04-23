@@ -1,33 +1,26 @@
 import panel as pn
-from pathlib import Path
 
-RESULTS_DIR = Path("/data/chet-cussp/results")
+# Images are served as static files by NGINX at /result-images/<filename>
+# Panel never reads these files — it just renders <img> tags.
 IMAGES = {
-    "ML Tomography": RESULTS_DIR / "ML_tomo.png",
-    "ML Trajectory": RESULTS_DIR / "ML_trajectory.png",
+    "ML Tomography": "/result-images/ML_tomo.png",
+    "ML Trajectory": "/result-images/ML_trajectory.png",
 }
 
 
-def image_column(caption, path):
-    if path.exists():
-        return pn.Column(
-            pn.pane.Markdown(f"### {caption}"),
-            pn.pane.Image(str(path), sizing_mode="scale_width"),
-            sizing_mode="stretch_width",
-        )
+def image_column(caption, url):
     return pn.Column(
         pn.pane.Markdown(f"### {caption}"),
-        pn.pane.Alert(
-            f"Image not yet available: **{path.name}**  \n"
-            f"Place the PNG at `{path}`",
-            alert_type="warning",
+        pn.pane.HTML(
+            f'<img src="{url}" style="width:100%; height:auto;" '
+            f'onerror="this.replaceWith(document.createTextNode(\'Image not yet available: {url}\'))" />'
         ),
         sizing_mode="stretch_width",
     )
 
 
 def build_layout():
-    panels = [image_column(caption, path) for caption, path in IMAGES.items()]
+    panels = [image_column(caption, url) for caption, url in IMAGES.items()]
     return pn.Row(*panels, sizing_mode="stretch_width")
 
 
