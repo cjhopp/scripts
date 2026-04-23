@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 User=chopp
 WorkingDirectory=/home/chopp/scripts/python/dash_apps
-Environment=PATH=/home/chopp/miniconda3/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/chopp/miniconda3/bin/panel serve \
+Environment=PATH=/home/chopp/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 -m panel serve \
     /home/chopp/scripts/python/dash_apps/fiboreglass_cussp.py \
     --port 5006 \
     --prefix /dts \
