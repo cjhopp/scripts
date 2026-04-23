@@ -31,16 +31,18 @@ def get_end(direction, well):
         return chan_map_4100[well] + fiber_depth_4100[well]
 
 
+_DS = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={}, engine='zarr')
+_DS['deltaT'] = _DS['temperature'] - _DS['temperature'].isel(time=0)
+
+
 def get_data(variable, well, direction, length):
-    ds = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={'depth': 1000}, engine='zarr')
-    ds['deltaT'] = ds['temperature'] - ds['temperature'].isel(time=0)
     start = get_start(direction, well)
     end = get_end(direction, well)
     no, unit = length.split()
     timedelta = np.timedelta64(int(no), unit)
-    time_end = ds.time[-1].values
-    da = ds[variable].sel(depth=slice(start, end), time=slice(time_end - timedelta, None))
-    da['depth'] = da['depth'] - da['depth'][0]
+    time_end = _DS.time[-1].values
+    da = _DS[variable].sel(depth=slice(start, end), time=slice(time_end - timedelta, None))
+    da = da.assign_coords(depth=da['depth'] - da['depth'][0])
     return da
 
 
