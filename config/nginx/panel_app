@@ -61,7 +61,7 @@ server {
     #     include inside location in all versions, and map{} needs http{} scope) ---
 
     # DTS temperature viewer — port 5006
-    location /dts/ {
+    location ^~ /dts/ {
         proxy_pass         http://127.0.0.1:5006/dts/;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
@@ -83,7 +83,7 @@ server {
     }
 
     # 3D seismicity dashboard — port 5008
-    location /seismicity/ {
+    location ^~ /seismicity/ {
         proxy_pass         http://127.0.0.1:5008/seismicity/;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
