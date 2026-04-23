@@ -30,9 +30,9 @@ WELLBORE_DIR = Path("/data/chet-cussp/wellbores")
 HULL_FILE = Path("/data/chet-cussp/seismicity/drift_hull.npy")
 
 # HMC axis limits (matches plot_4100)
-HMC_XLIM = [1215, 1265]   # Easting [HMC m]
-HMC_YLIM = [-905, -855]   # Northing [HMC m]
-HMC_ZLIM = [305, 355]     # Elevation [HMC m]
+HMC_XLIM = [1205, 1275]   # Easting [HMC m]
+HMC_YLIM = [-915, -845]   # Northing [HMC m]
+HMC_ZLIM = [295, 365]     # Elevation [HMC m]
 
 # HMC z of the Earth surface above the 4100L volume (metres).
 # Calibrate with: SURF_SURFACE_HMC_Z_M = known_hmc_elev + origin.depth for one event.
