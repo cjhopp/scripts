@@ -1,0 +1,15 @@
+[Unit]
+Description=CUSSP seismicity catalog push to web VM (one-shot)
+After=network.target
+
+[Service]
+Type=oneshot
+User=chopp
+Environment=PATH=/home/chopp/miniconda3/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/chopp/miniconda3/bin/python \
+    /home/chopp/scripts/python/mine/cussp_push_catalog.py \
+    --fdsn-url http://localhost:8080 \
+    --rsync-target chopp@cussp-vm.lbl.gov:/data/chet-cussp/seismicity/catalog.quakeml \
+    --ssh-key /home/chopp/.ssh/id_cussp_vm
+StandardOutput=journal
+StandardError=journal

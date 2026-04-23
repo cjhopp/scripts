@@ -1,0 +1,19 @@
+[Unit]
+Description=CUSSP DTS XML → Zarr ingestor (combine_XTDTS)
+After=network.target
+
+[Service]
+Type=simple
+User=chopp
+WorkingDirectory=/home/chopp/scripts/python/dash_apps
+Environment=PATH=/home/chopp/miniconda3/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/chopp/miniconda3/bin/python \
+    /home/chopp/scripts/python/dash_apps/combine_XTDTS.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

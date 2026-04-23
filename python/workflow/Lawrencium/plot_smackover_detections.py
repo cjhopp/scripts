@@ -15,35 +15,24 @@ Outputs are written to OUTPUT_DIR and labeled by stage:
   04_activity_heatmap.png
   05_interevent_times.png
   06_daily_patterns.png
-  07_template_map.png
-  08_spacetime_migration.png
   stack_{template_name}.png   (one per top-N template)
 
 Usage:
     /home/chopp/miniconda3/envs/py311/bin/python plot_smackover_detections.py
     /home/chopp/miniconda3/envs/py311/bin/python plot_smackover_detections.py --no-stacks
-    /home/chopp/miniconda3/envs/py311/bin/python plot_smackover_detections.py --min-chans 3
 """
 
 import argparse
 import logging
 import os
-import re
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.colors as mcolors
 import matplotlib.cm as cm
-import matplotlib.patheffects as mpe
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MaxNLocator
-try:
-    import cartopy.crs as ccrs
-    import cartopy.feature as cfeature
-    _HAVE_CARTOPY = True
-except ImportError:
-    _HAVE_CARTOPY = False
 import numpy as np
 import pandas as pd
 from obspy import UTCDateTime, read as obspy_read
@@ -58,180 +47,54 @@ log = logging.getLogger(__name__)
 # ── Configuration ──────────────────────────────────────────────────────────────
 PARTY_PATH = (
     "/media/chopp/HDD1/chet-meq/smackover/detections/lawrencium"
-    "/Smackover_all_dets_MAD12_decluster10.tgz"
+    "/Smackover_analyzed_raw.tgz"
 )
 WAVEFORM_DIR = (
     "/media/chopp/HDD1/chet-meq/smackover/detections/lawrencium"
-    "/waveforms/smackover_north_full_tribe/MAD12_2hr"
+    "/waveforms/smackover_north_analyzed/MAD12_2hr"
 )
 TRIBE_PATH = (
     "/media/chopp/HDD1/chet-meq/smackover/templates"
-    "/Smackover_north_tribe_snr5.tgz"
+    "/Smackover_north_tribe_analyzed_4-17-2026.tgz"
 )
 OUTPUT_DIR = (
     "/media/chopp/HDD1/chet-meq/smackover/detections/lawrencium"
-    "/assessment_plots"
+    "/assessment_plots_analyzed"
 )
 
 # Shot-gather parameters
 STACK_PRE = 2.0     # seconds before detect_time
-STACK_POST = 15.0   # seconds after detect_time
+STACK_POST = 15.0   # sanalyzeder detect_time
 STACK_FMIN = 1.0
 STACK_FMAX = 20.0
-TOP_N_TEMPLATES = None    # None = all templates; set to an int to limit
-MAX_DET_PER_PLOT = None    # subsample if a family has more detections
-MAX_ALIGN_S = 1.0         # maximum CC-alignment shift applied to stack traces (seconds)
+TOP_N_TEMPLATES = None    # None = all templates; set to an analyzedto limit
+MAX_DET_PER_PLOT = 500    # subsample if a family has more detections
+MAX_ALIGN_S = 1.0         # max_analyzedimum CC-alignment shift applied to stack traces (seconds)
 ALIGN_WINDOW_S = 2.0      # half-width of the reference window around t=0 used for CC alignment (seconds)
-# Minimum number of channels required to keep a detection (≥ MIN_CHANS channels).
-# Set to None to disable filtering. Uses Party.min_chans(MIN_CHANS - 1) internally
-# (which keeps detections with no_chans > MIN_CHANS - 1, i.e. ≥ MIN_CHANS).
-MIN_CHANS = 2
-# Glitch / spike rejection: a detection is removed if the fraction of channels
-# with excess kurtosis > GLITCH_KURT_THRESHOLD exceeds GLITCH_CHAN_FRAC.
-# Constant / all-zero traces count as glitchy regardless of kurtosis.
-# Gaussian noise kurtosis ≈ 0; transient spikes typically >> 10.
-# With only 2 matched channels a single spikey channel inflates the CC sum
-# enough to produce fictitious detections, so a low fraction threshold is
-# appropriate.  Set GLITCH_KURT_THRESHOLD to None to disable entirely.
-GLITCH_KURT_THRESHOLD = 10.0   # excess kurtosis limit (Fisher; Gaussian ≈ 0)
-GLITCH_CHAN_FRAC = 0.75          # reject if fraction of glitchy channels ≥ this value
-# Station inventory (StationXML) for nearest-station Z-channel selection.
-INVENTORY_PATH = (
-    "/media/chopp/HDD1/chet-meq/smackover/instruments/Smackover_10pick.xml"
-)
-# Minimum |CC| required for the self-detection (the template event run against
-# its own template).  Raise an error if no detection in the family reaches this;
-# that should never happen and indicates a corrupted or mismatched catalog.
-SELF_DETECT_MIN_CC = 0.8
+# Preferred channels to use in shot-gather (tried in order).
+# Also used as the label in the stack plot title.
+PREFERRED_CHANS = [
+    "US.NATX.00.BHZ",
+    "AG.WLAR.00.HHZ",
+    "AG.WLAR.00.HHE",
+    "AG.FCAR.00.HHZ",
+    "AG.WHAR.00.HHZ",
+    "AG.CCAR.00.HHZ",
+    "NM.UALR..BHZ",
+]
 
 
 # ── Catalog builder ────────────────────────────────────────────────────────────
 
-
-def filter_glitch_detections(
-    df: pd.DataFrame,
-    waveform_dir: str,
-    tribe_path: str,
-    kurt_threshold: float = GLITCH_KURT_THRESHOLD,
-    chan_frac: float = GLITCH_CHAN_FRAC,
-) -> pd.DataFrame:
-    """
-    Remove detections whose waveforms are dominated by glitch/spike artifacts.
-
-    For each detection only the channels that belong to its template are
-    evaluated — channels in the saved mseed that are NOT part of the template
-    are ignored.  This prevents the many-channel saved waveform files from
-    diluting the glitch fraction when the template itself only used a few
-    channels (e.g. 2 channels → a single spikey trace is 50 % glitchy).
-
-    A detection is REJECTED when the fraction of glitchy template channels
-    meets or exceeds chan_frac.  Glitchy = constant/all-zero (std < 1e-10) OR
-    excess kurtosis (Fisher; Gaussian ≈ 0) > kurt_threshold.
-
-    Traces shorter than 10 samples are excluded from the count.
-    If the waveform file is missing the detection is kept (cannot verify).
-    """
-    from scipy.stats import kurtosis as sp_kurt
-    from eqcorrscan import Tribe
-
-    if kurt_threshold is None:
-        return df
-
-    # ── Build per-template channel sets from the Tribe ────────────────────────
-    log.info("Glitch filter: loading tribe to resolve template channel sets …")
-    try:
-        tribe = Tribe().read(tribe_path)
-    except Exception as exc:
-        log.warning(f"Glitch filter: could not load tribe ({exc}); skipping filter.")
-        return df
-
-    tmpl_chans: dict[str, set[str]] = {}
-    for t in tribe:
-        if t.st:
-            tmpl_chans[t.name] = {tr.id for tr in t.st}
-
-    keep = np.ones(len(df), dtype=bool)
-    n = len(df)
-    log.info(
-        f"Glitch filter: checking {n:,} detections "
-        f"(kurtosis threshold = {kurt_threshold}, chan_frac = {chan_frac}) …"
-    )
-
-    for i, (_, row) in enumerate(df.iterrows()):
-        if i % 2000 == 0 and i > 0:
-            log.info(f"  … {i}/{n}")
-        fpath = os.path.join(waveform_dir, f"{row['id']}.mseed")
-        if not os.path.exists(fpath):
-            continue  # no file → keep
-        try:
-            st = obspy_read(fpath)
-        except Exception:
-            continue  # unreadable → keep
-        if not st:
-            continue
-
-        # Narrow to template channels; fall back to all channels if unknown
-        allowed = tmpl_chans.get(row["template_name"])
-        traces_to_check = [tr for tr in st if allowed is None or tr.id in allowed]
-        if not traces_to_check:
-            # Template channels absent in file — keep but log once at debug level
-            continue
-
-        n_eval = 0
-        n_glitch = 0
-        for tr in traces_to_check:
-            data = tr.data.astype(float)
-            if len(data) < 10:
-                continue  # too short — exclude from count
-            n_eval += 1
-            if np.std(data) < 1e-10:  # constant / all-zero → glitchy
-                n_glitch += 1
-                continue
-            k = sp_kurt(data, fisher=True)
-            if np.isnan(k) or k > kurt_threshold:
-                n_glitch += 1
-
-        if n_eval > 0 and (n_glitch / n_eval) >= chan_frac:
-            keep[i] = False
-
-    df_out = df[keep].copy()
-    n_bad = (~keep).sum()
-    log.info(
-        f"Glitch filter: removed {n_bad:,}/{n:,} detections ({100*n_bad/n:.1f}%); "
-        f"{len(df_out):,} remain."
-    )
-    if n_bad > 0:
-        by_tmpl = (
-            df[~keep]
-            .groupby("template_name")
-            .size()
-            .sort_values(ascending=False)
-        )
-        for tmpl, cnt in by_tmpl.items():
-            log.info(f"  removed {cnt:4d}  {tmpl}")
-    return df_out
-
-def party_to_dataframe(party_path: str, min_chans: int | None = None) -> pd.DataFrame:
+def party_to_dataframe(party_path: str) -> pd.DataFrame:
     """
     Read a declustered Party .tgz (read_detection_catalog=False skips per-template
     catalog XML, keeping load time short) and return a flat DataFrame.
-
-    If min_chans is given, detections with fewer than min_chans channels are
-    removed via Party.min_chans(min_chans - 1) before building the DataFrame.
     """
     from eqcorrscan import Party
 
     log.info(f"Reading party: {party_path}")
     party = Party().read(party_path, read_detection_catalog=False)
-
-    if min_chans is not None:
-        n_before = sum(len(f.detections) for f in party.families)
-        party = party.min_chans(min_chans - 1)
-        n_after = sum(len(f.detections) for f in party.families)
-        log.info(
-            f"min_chans filter (≥{min_chans}): {n_before:,} → {n_after:,} detections "
-            f"({n_before - n_after:,} removed)"
-        )
 
     records = []
     for fam in party.families:
@@ -329,9 +192,9 @@ def plot_temporal_overview(df: pd.DataFrame, out_dir: str) -> None:
 # ── Figure 2: CC quality ───────────────────────────────────────────────────────
 
 def plot_cc_quality(df: pd.DataFrame, out_dir: str) -> None:
-    """CC ratio histogram + CC ratio vs time scatter + no_chans histogram."""
-    fig, axes = plt.subplots(1, 3, figsize=(20, 5))
-    ax_hist, ax_scat, ax_nch = axes
+    """CC ratio histogram + CC ratio vs time scatter."""
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    ax_hist, ax_scat = axes
 
     bins = np.linspace(1.0, max(df["cc_ratio"].quantile(0.99), 3.0), 60)
     ax_hist.hist(df["cc_ratio"], bins=bins, color="#1f77b4", edgecolor="none", alpha=0.8)
@@ -360,24 +223,6 @@ def plot_cc_quality(df: pd.DataFrame, out_dir: str) -> None:
     ax_scat.set_ylabel("|CC| / threshold", fontsize=11)
     ax_scat.set_title("|CC| / threshold over time (10 k random sample)", fontsize=11)
     fig.colorbar(sc, ax=ax_scat, label="|CC| / threshold")
-
-    # ── no_chans histogram ────────────────────────────────────────────────────
-    max_ch = int(df["no_chans"].max())
-    ch_bins = np.arange(0.5, max_ch + 1.5, 1)
-    ax_nch.hist(df["no_chans"], bins=ch_bins, color="#2ca02c", edgecolor="none", alpha=0.8)
-    ax_nch.set_xlabel("Channels per detection", fontsize=11)
-    ax_nch.set_ylabel("Count", fontsize=11)
-    ax_nch.set_title("Channel count distribution", fontsize=11)
-    ax_nch.xaxis.set_major_locator(MaxNLocator(integer=True))
-    # Annotate cumulative fraction on right y-axis
-    ch_counts = df["no_chans"].value_counts().sort_index()
-    cumfrac = ch_counts.cumsum() / len(df)
-    ax_nch2 = ax_nch.twinx()
-    ax_nch2.step(cumfrac.index, cumfrac.values, where="post",
-                 color="#d62728", linewidth=1.2, label="Cumulative fraction")
-    ax_nch2.set_ylim(0, 1.05)
-    ax_nch2.set_ylabel("Cumulative fraction", fontsize=9, color="#d62728")
-    ax_nch2.tick_params(axis="y", labelcolor="#d62728")
 
     fig.suptitle("Detection Quality — CC ratio", fontsize=12, y=1.01)
     fig.tight_layout()
@@ -540,92 +385,79 @@ def plot_daily_patterns(df: pd.DataFrame, out_dir: str) -> None:
 
 # ── Figure 7+: Waveform shot-gather ───────────────────────────────────────────
 
-def _nearest_z_chan(tmpl_obj, inventory, restrict_to: set | None = None) -> str:
+def _best_chan_from_waveform(
+    det_id: str, waveform_dir: str, detect_time,
+    fmin: float, fmax: float, pre: float, post: float,
+) -> str | None:
     """
-    Return the full SEED ID of the Z channel at the station nearest to the
-    template's hypocenter, considering only Z channels present in tmpl_obj.st
-    AND (if given) in restrict_to.
-
-    Coordinates are looked up in the local inventory first.  Channels absent
-    from it are queried via IRIS FDSNWS (network-level, no waveforms needed).
-    Channels whose coordinates cannot be resolved are skipped with a warning.
-
-    Raises ValueError if origin coordinates are missing, or if no Z channel's
-    coordinates could be resolved at all.
+    Load a detection waveform file and return the full SEED ID of the channel
+    with the highest SNR.  SNR = RMS(0–5 s post detection) / RMS(pre-detection
+    noise window), measured after bandpass filtering.  Falls back to None if the
+    file is missing or no channel has enough data.
     """
-    from obspy.clients.fdsn import Client as FDSNClient
-    from obspy.geodetics import gps2dist_azimuth
+    fpath = os.path.join(waveform_dir, f"{det_id}.mseed")
+    if not os.path.exists(fpath):
+        return None
+    try:
+        st = obspy_read(fpath)
+    except Exception:
+        return None
 
-    org = (
-        tmpl_obj.event.preferred_origin()
-        or (tmpl_obj.event.origins[0] if tmpl_obj.event.origins else None)
-    )
-    if org is None or org.latitude is None:
-        raise ValueError(
-            f"Template {tmpl_obj.name}: no origin coordinates available."
-        )
-
-    _fdsn_client = None  # lazy-initialised only if needed
-
-    best_id = None
-    best_dist = float("inf")
-    for tr in tmpl_obj.st:
-        if not tr.stats.channel.endswith("Z"):
-            continue
-        if restrict_to is not None and tr.id not in restrict_to:
-            continue
-        # 1. Try local inventory
+    detect_utc = UTCDateTime(pd.Timestamp(detect_time).timestamp())
+    t0, t1 = detect_utc - pre, detect_utc + post
+    best_id, best_snr = None, -1.0
+    for tr in st:
         try:
-            coords = inventory.get_coordinates(tr.id, datetime=tr.stats.starttime)
+            tr2 = tr.copy()
+            tr2.data = tr2.data.astype(float)
+            tr2.trim(t0, t1, pad=True, fill_value=0.0)
+            tr2.detrend("demean")
+            tr2.filter("bandpass", freqmin=fmin, freqmax=fmax,
+                       corners=4, zerophase=True)
         except Exception:
-            # 2. Try IRIS FDSNWS
-            try:
-                if _fdsn_client is None:
-                    _fdsn_client = FDSNClient("IRIS")
-                net, sta, loc, cha = tr.id.split(".")
-                remote_inv = _fdsn_client.get_stations(
-                    network=net, station=sta, location=loc, channel=cha,
-                    starttime=tr.stats.starttime, level="channel",
-                )
-                coords = remote_inv.get_coordinates(tr.id, datetime=tr.stats.starttime)
-            except Exception as exc:
-                log.warning(
-                    f"  {tmpl_obj.name}: cannot resolve coordinates for {tr.id} "
-                    f"(local inventory and IRIS both failed: {exc}); skipping channel."
-                )
-                continue
-
-        dist, _, _ = gps2dist_azimuth(
-            org.latitude, org.longitude,
-            coords["latitude"], coords["longitude"],
-        )
-        if dist < best_dist:
-            best_dist = dist
-            best_id = tr.id
-
-    if best_id is None:
-        candidate_z = [tr.id for tr in tmpl_obj.st if tr.stats.channel.endswith("Z")]
-        if restrict_to is not None:
-            candidate_z = [c for c in candidate_z if c in restrict_to]
-        raise ValueError(
-            f"Template {tmpl_obj.name}: could not resolve coordinates for any "
-            f"Z channel common to template and detection stream "
-            f"(candidates: {candidate_z})."
-        )
+            continue
+        sr = tr2.stats.sampling_rate
+        n_pre = int(pre * sr)
+        n_sig = int(min(5.0, post) * sr)
+        data = tr2.data
+        if n_pre < 5 or len(data) < n_pre + n_sig:
+            continue
+        noise_rms  = np.sqrt(np.mean(data[:n_pre] ** 2))
+        signal_rms = np.sqrt(np.mean(data[n_pre:n_pre + n_sig] ** 2))
+        snr = signal_rms / (noise_rms + 1e-12)
+        if snr > best_snr:
+            best_snr = snr
+            best_id = tr2.id
     return best_id
+
+
+def _pick_trace(st, chan_id: str | None = None):
+    """
+    Pick the best trace from a Stream.
+    Priority: chan_id (full SEED ID) > PREFERRED_CHANS list > first trace.
+    """
+    # 1. Try the requested channel by full SEED ID
+    if chan_id:
+        sel = st.select(id=chan_id)
+        if sel:
+            return sel[0]
+    # 2. Try preferred channel list (full SEED IDs)
+    for cid in PREFERRED_CHANS:
+        sel = st.select(id=cid)
+        if sel:
+            return sel[0]
+    # 3. Fall back to first trace
+    return st[0] if len(st) else None
 
 
 def _load_stack_traces(
     det_ids: list, waveform_dir: str, detect_times: list,
     trig_chans: list | None = None,
-    fmin: float = STACK_FMIN, fmax: float = STACK_FMAX,
-    target_samp_rate: float | None = None,
 ) -> tuple:
     """
     Load and trim waveform files for a list of detection IDs.
     Returns (traces_list, times_used, samp_rate, n_samples).
     Each trace is a numpy array of length n_samples.
-    Detections whose mseed file does not contain the requested channel are skipped.
     """
     traces = []
     det_times_out = []
@@ -646,26 +478,19 @@ def _load_stack_traces(
             log.debug(f"  Cannot read {det_id}.mseed: {exc}")
             continue
 
-        if trig_chan is None:
-            continue  # no channel specified — skip rather than guess
-        sel = st.select(id=trig_chan)
-        if not sel:
+        tr = _pick_trace(st, trig_chan)
+        if tr is None:
             continue
-        tr = sel[0]
 
         tr = tr.copy()
         tr.data = tr.data.astype(float)  # avoid int32 padding errors
-        if target_samp_rate is not None and abs(tr.stats.sampling_rate - target_samp_rate) > 0.5:
-            tr.resample(target_samp_rate)
         detect_utc = UTCDateTime(pd.Timestamp(det_time).timestamp())
         t0 = detect_utc - STACK_PRE
         t1 = detect_utc + STACK_POST
         tr = tr.copy().trim(t0, t1, pad=True, fill_value=0.0)
         tr.detrend("demean")
         tr.taper(0.05)
-        nyq = tr.stats.sampling_rate / 2.0
-        safe_fmax = min(fmax, nyq * 0.999)
-        tr.filter("bandpass", freqmin=fmin, freqmax=safe_fmax, corners=4, zerophase=True)
+        tr.filter("bandpass", freqmin=STACK_FMIN, freqmax=STACK_FMAX, corners=4, zerophase=True)
 
         data = tr.data.astype(float)
         norm = np.max(np.abs(data))
@@ -744,12 +569,12 @@ def plot_waveform_stack(
     Template waveform overlaid at top; mean stack shown below.
     """
     log.info(f"Loading tribe for template waveforms: {tribe_path}")
-    tribe = Tribe().read(tribe_path)
-    tribe_dict = {t.name: t for t in tribe.templates}
-
-    log.info(f"Loading station inventory: {INVENTORY_PATH}")
-    from obspy import read_inventory
-    inventory = read_inventory(INVENTORY_PATH)
+    try:
+        tribe = Tribe().read(tribe_path)
+        tribe_dict = {t.name: t for t in tribe.templates}
+    except Exception as exc:
+        log.warning(f"Cannot load tribe: {exc}; template overlays will be skipped.")
+        tribe_dict = {}
 
     top_templates = df["template_name"].value_counts()
     if top_n is not None:
@@ -760,22 +585,53 @@ def plot_waveform_stack(
         sub = df[df["template_name"] == tmpl_name].sort_values("detect_time")
         log.info(f"  Shot gather for {tmpl_name}: {len(sub)} detections")
 
-        # Self-detection: detect_val / no_chans should be ~1.0.
-        # detect_val is the sum of per-channel CCs; dividing by no_chans gives
-        # the average per-channel CC, which equals 1.0 when the template
-        # correlates perfectly with its own stored waveform.
-        sub = sub.copy()
-        sub["cc_per_chan"] = sub["detect_val"] / sub["no_chans"].replace(0, np.nan)
-        sub["cc_per_chan_dist"] = (sub["cc_per_chan"] - 1.0).abs()
-        peak_row = sub.nsmallest(1, "cc_per_chan_dist").iloc[0]
-        if peak_row["cc_per_chan"] < SELF_DETECT_MIN_CC:
-            log.warning(
-                f"Template {tmpl_name}: no self-detection found "
-                f"(best detect_val/no_chans = {peak_row['cc_per_chan']:.3f}, "
-                f"required ≥ {SELF_DETECT_MIN_CC}). "
-                "Skipping — the template event should always detect itself."
-            )
-            continue
+        # Self-detection: match detect_time to the expected detection time of the
+        # template event detecting itself.
+        #
+        # detect_time = pick_time - prepick  (NOT origin_time — travel time offset
+        # means origin_time can be 5–30 s before detect_time).
+        # Use the earliest pick in the template's event minus prepick as the
+        # expected detect_time; tolerance ±2 s covers sampling/timing jitter.
+        # Fall back to highest cc_abs if picks are absent.
+        # Done before subsampling so we always search the full family.
+        tmpl_obj_pre = tribe_dict.get(tmpl_name)
+        _expected_dt = None
+        if tmpl_obj_pre is not None:
+            try:
+                _prepick = tmpl_obj_pre.prepick or 0.0
+                _pick_times = [
+                    p.time for p in tmpl_obj_pre.event.picks if p.time is not None
+                ]
+                if _pick_times:
+                    _earliest_pick = min(_pick_times)
+                    _expected_dt = pd.Timestamp(
+                        (_earliest_pick - _prepick).datetime, tz="UTC"
+                    )
+            except Exception:
+                pass
+
+        if _expected_dt is not None:
+            _dt = (sub["detect_time"] - _expected_dt).dt.total_seconds().abs()
+            _close = sub[_dt <= 2.0]
+            if not _close.empty:
+                _close = _close.copy()
+                _close["_cc_pc"] = _close["cc_abs"] / _close["no_chans"].replace(0, np.nan)
+                peak_row = _close.nlargest(1, "_cc_pc").iloc[0]
+                log.info(
+                    f"    {tmpl_name}: self-detection found "
+                    f"(Δt={_dt[_close.index].min():.2f}s, id={peak_row['id']})"
+                )
+            else:
+                peak_row = sub.nlargest(1, "cc_abs").iloc[0]
+                log.warning(
+                    f"    {tmpl_name}: no detection within 2 s of expected "
+                    f"detect_time {_expected_dt.isoformat()[:19]} "
+                    f"(earliest pick - prepick={_prepick}s); "
+                    f"nearest Δt={_dt.min():.1f}s; using peak cc_abs as reference."
+                )
+        else:
+            peak_row = sub.nlargest(1, "cc_abs").iloc[0]
+            log.debug(f"    {tmpl_name}: no picks in tribe event; using peak cc_abs.")
 
         if max_det is not None and len(sub) > max_det:
             sub = sub.sample(max_det, random_state=42).sort_values("detect_time")
@@ -785,58 +641,19 @@ def plot_waveform_stack(
         det_times = sub["detect_time"].dt.tz_localize(None).to_numpy()
         cc_ratios = sub["cc_ratio"].values
 
-        tmpl_obj = tribe_dict.get(tmpl_name)
-        if tmpl_obj is None:
-            raise ValueError(
-                f"Template {tmpl_name} found in detections but not in tribe."
-            )
-        proc_fmin = tmpl_obj.lowcut or STACK_FMIN
-        proc_fmax = tmpl_obj.highcut or STACK_FMAX
-        proc_samp_rate = tmpl_obj.samp_rate or None
-
-        # ── Load self-detection mseed first to know which channels are available
-        fpath_peak = os.path.join(waveform_dir, f"{peak_row['id']}.mseed")
-        if not os.path.exists(fpath_peak):
-            log.warning(
-                f"    {tmpl_name}: self-detection waveform file missing "
-                f"({peak_row['id']}.mseed); skipping."
-            )
-            continue
-        st_peak = obspy_read(fpath_peak)
-        det_chans = {tr.id for tr in st_peak}
-
-        try:
-            best_chan = _nearest_z_chan(tmpl_obj, inventory, restrict_to=det_chans)
-        except ValueError as exc:
-            log.warning(f"    {tmpl_name}: skipping — {exc}")
-            continue
+        # Choose the channel with highest SNR using the self-detection waveform
+        # (has a proper noise window before detection time; template pre-event is too short)
+        tmpl_obj = tmpl_obj_pre  # already resolved above for origin-time lookup
+        best_chan = _best_chan_from_waveform(
+            peak_row["id"], waveform_dir, peak_row["detect_time"],
+            STACK_FMIN, STACK_FMAX, STACK_PRE, STACK_POST,
+        )
+        if best_chan is None:
+            log.debug(f"    Peak-CC waveform missing for {tmpl_name}; using PREFERRED_CHANS fallback")
         chan_ids = [best_chan] * len(det_ids)
 
-        # ── Template waveform on best_chan ──────────────────────────────────
-        tmpl_tr_sel = tmpl_obj.st.select(id=best_chan)
-        if not tmpl_tr_sel:
-            raise ValueError(
-                f"Template {tmpl_name}: nearest-Z channel {best_chan} not found "
-                f"in template stream ({[tr.id for tr in tmpl_obj.st]})."
-            )
-        tmpl_tr_raw = tmpl_tr_sel[0].copy()
-        # Template.st is already fully processed by EQcorrscan (detrended, filtered,
-        # resampled). Do not re-process; only resample if sample rate mismatches.
-        if proc_samp_rate is not None and abs(tmpl_tr_raw.stats.sampling_rate - proc_samp_rate) > 0.5:
-            tmpl_tr_raw.resample(proc_samp_rate)
-        td = tmpl_tr_raw.data.astype(float)
-        # t=0 on the plot is detect_time. The template's first sample IS at
-        # detect_time (since detect_time = pick_time - prepick). The onset
-        # therefore appears at t=+prepick_s on the detection-relative axis.
-        t_tmpl = np.linspace(
-            0.0,
-            len(td) / tmpl_tr_raw.stats.sampling_rate,
-            len(td),
-        )
-
         traces, times_used, samp_rate, n_samples = _load_stack_traces(
-            det_ids, waveform_dir, det_times, chan_ids,
-            fmin=proc_fmin, fmax=proc_fmax, target_samp_rate=proc_samp_rate,
+            det_ids, waveform_dir, det_times, chan_ids
         )
         if len(traces) < 2:
             log.warning(f"    Not enough waveforms for {tmpl_name}, skipping.")
@@ -857,47 +674,38 @@ def plot_waveform_stack(
 
         t_axis = np.linspace(-STACK_PRE, STACK_POST, n_samples)
 
-        # Self-detection trace: st_peak already loaded above; re-use it.
+        # Self-detection trace: load and process the peak-CC detection waveform
+        # for the reference panel and CC alignment (avoids zero-padding of template).
+        ref_trace = None
         ref_interp = None
-        try:
-            _sel = st_peak.select(id=best_chan)
-            if not _sel:
-                raise ValueError(f"{best_chan} not found in self-detection stream")
-            tr_peak = _sel[0].copy()
-            tr_peak.data = tr_peak.data.astype(float)
-            detect_utc_peak = UTCDateTime(pd.Timestamp(peak_row["detect_time"]).timestamp())
-            tr_peak.trim(detect_utc_peak - STACK_PRE,
-                         detect_utc_peak + STACK_POST,
-                         pad=True, fill_value=0.0)
-            tr_peak.detrend("demean")
-            tr_peak.taper(0.05)
-            if proc_samp_rate is not None and abs(tr_peak.stats.sampling_rate - proc_samp_rate) > 0.5:
-                tr_peak.resample(proc_samp_rate)
-            nyq_peak = tr_peak.stats.sampling_rate / 2.0
-            safe_fmax_peak = min(proc_fmax, nyq_peak * 0.999)
-            tr_peak.filter("bandpass", freqmin=proc_fmin, freqmax=safe_fmax_peak,
-                           corners=4, zerophase=True)
-            rd = tr_peak.data.astype(float)
-            sr_peak = tr_peak.stats.sampling_rate
-            n_peak = len(rd)
-            t_peak = np.linspace(-STACK_PRE, STACK_POST, n_peak)
-            ref_interp = np.interp(t_axis, t_peak, rd)
-            # Normalize template by its own maximum.
-            norm_t = np.max(np.abs(td))
-            if norm_t > 1e-10:
-                td /= norm_t
-            # Normalize self-detection by its maximum within the window that
-            # overlaps the template [0, t_tmpl[-1]].
-            t_overlap_end = t_tmpl[-1]
-            mask_d = (t_axis >= 0.0) & (t_axis <= t_overlap_end)
-            if mask_d.any():
-                norm_d = np.max(np.abs(ref_interp[mask_d]))
-            else:
-                norm_d = np.max(np.abs(ref_interp))
-            if norm_d > 1e-10:
-                ref_interp /= norm_d
-        except Exception as exc:
-            log.warning(f"    Cannot process self-detection trace for {tmpl_name}: {exc}")
+        fpath_peak = os.path.join(waveform_dir, f"{peak_row['id']}.mseed")
+        if os.path.exists(fpath_peak):
+            try:
+                st_peak = obspy_read(fpath_peak)
+                tr_peak = _pick_trace(st_peak, best_chan)
+                if tr_peak is not None:
+                    tr_peak = tr_peak.copy()
+                    tr_peak.data = tr_peak.data.astype(float)
+                    detect_utc_peak = UTCDateTime(pd.Timestamp(peak_row["detect_time"]).timestamp())
+                    tr_peak.trim(detect_utc_peak - STACK_PRE,
+                                 detect_utc_peak + STACK_POST,
+                                 pad=True, fill_value=0.0)
+                    tr_peak.detrend("demean")
+                    tr_peak.taper(0.05)
+                    tr_peak.filter("bandpass", freqmin=STACK_FMIN, freqmax=STACK_FMAX,
+                                   corners=4, zerophase=True)
+                    rd = tr_peak.data.astype(float)
+                    norm = np.max(np.abs(rd))
+                    if norm > 0:
+                        rd /= norm
+                    # Interpolate onto the common t_axis
+                    sr_peak = tr_peak.stats.sampling_rate
+                    n_peak = len(rd)
+                    t_peak = np.linspace(-STACK_PRE, STACK_POST, n_peak)
+                    ref_interp = np.interp(t_axis, t_peak, rd)
+                    ref_trace = tr_peak
+            except Exception as exc:
+                log.debug(f"    Cannot load peak-CC trace for {tmpl_name}: {exc}")
 
         # CC-based alignment: window starts at -prepick (template onset), length = ALIGN_WINDOW_S
         align_prepick = tmpl_obj.prepick if tmpl_obj is not None else 0.0
@@ -926,42 +734,30 @@ def plot_waveform_stack(
         amp_lim = np.percentile(np.abs(traces_arr), 95)
         amp_lim = max(amp_lim, 1e-6)
 
-        # ── Figure: three rows × two columns
-        # Row 0: template/self-detection trace (thin)
-        # Row 1: waveform matrix (tall) ← colorbar spans rows 1-2
-        # Row 2: mean stack panel (short)
-        fig_h = max(6, min(n_det * 0.07 + 5, 32))
+        # ── Figure: two rows × two columns; col 1 = narrow colorbar for mat row only
+        fig_h = max(5, min(n_det * 0.07 + 3, 28))
         mat_h = max(4, n_det * 0.07)
-        fig = plt.figure(figsize=(13, fig_h), layout="constrained")
+        fig = plt.figure(figsize=(13, fig_h))
         gs = gridspec.GridSpec(
-            3, 2,
+            2, 2,
             width_ratios=[30, 1],
-            height_ratios=[1, mat_h, 2],
-            figure=fig,
+            height_ratios=[1, mat_h],
+            hspace=0.05, wspace=0.06,
         )
-        ax_tmpl  = fig.add_subplot(gs[0, 0])
-        ax_mat   = fig.add_subplot(gs[1, 0], sharex=ax_tmpl)
-        ax_stack = fig.add_subplot(gs[2, 0], sharex=ax_tmpl)
-        cax      = fig.add_subplot(gs[1:, 1])  # colorbar spans matrix + stack rows
+        ax_tmpl = fig.add_subplot(gs[0, 0])
+        ax_mat  = fig.add_subplot(gs[1, 0], sharex=ax_tmpl)
+        cax     = fig.add_subplot(gs[1, 1])  # dedicated colorbar column
 
-        # ── Reference panel: self-detection (black) + template.st (red) ───────
-        if ref_interp is None:
-            raise ValueError(
-                f"Template {tmpl_name}: failed to load self-detection waveform "
-                f"from {peak_row['id']}.mseed on channel {best_chan}."
-            )
-        ax_tmpl.plot(t_axis, ref_interp, color="k", linewidth=1.2,
-                     label="Self-detection", zorder=3)
-        valid = (t_tmpl >= t_axis[0]) & (t_tmpl <= t_axis[-1])
-        if valid.any():
-            ax_tmpl.plot(t_tmpl[valid], td[valid], color="#d62728", linewidth=1.2,
-                         alpha=0.5, label="Template", zorder=4)
+        # ── Template panel (self-detection trace) ────────────────────────────
+        if ref_interp is not None:
+            ax_tmpl.fill_between(t_axis, ref_interp, alpha=0.25, color="#d62728")
+            ax_tmpl.plot(t_axis, ref_interp, color="#d62728", linewidth=1.0)
         ax_tmpl.axvline(0.0, color="k", linestyle="--", linewidth=0.8, alpha=0.6)
-        ax_tmpl.set_ylabel("norm.", fontsize=9)
+        ax_tmpl.set_ylabel("Template\n(norm.)", fontsize=9)
         ax_tmpl.set_yticks([])
-        ax_tmpl.legend(fontsize=7, loc="upper right", framealpha=0.6)
+        chan_label = best_chan if best_chan else "?"
         ax_tmpl.set_title(
-            f"Shot gather — {tmpl_name}  (N={n_det}, chan: {best_chan})",
+            f"Shot gather — {tmpl_name}  (N={n_det}, chan: {chan_label})",
             fontsize=11,
         )
 
@@ -979,294 +775,38 @@ def plot_waveform_stack(
             rasterized=True,
         )
         ax_mat.axvline(0.0, color="k", linestyle="--", linewidth=0.8, alpha=0.6)
+        ax_mat.set_xlabel("Time relative to detection (s)", fontsize=11)
         ax_mat.set_ylabel("Detection index (chronological)", fontsize=10)
         ax_mat.yaxis.set_major_locator(MaxNLocator(integer=True, nbins=8))
-        ax_mat.tick_params(labelbottom=False)  # x labels on ax_stack instead
 
-        # Self-detection marker: white line with black stroke, label inside axes
+        # Self-detection marker: horizontal line + right-margin tick label
         if peak_row_idx is not None:
-            _stroke = [mpe.withStroke(linewidth=3.0, foreground="black")]
-            ax_mat.axhline(peak_row_idx + 0.5, color="white", linewidth=1.8,
-                           linestyle="-", zorder=6,
-                           path_effects=_stroke)
-            # axes-fraction y: imshow extent is inverted (0 at top, n_det at bottom)
-            # so fraction = 1 - (data_y / n_det)
-            ann_y_frac = 1.0 - (peak_row_idx + 0.5) / n_det
-            ann = ax_mat.annotate(
-                "self ▶",
-                xy=(0.0, ann_y_frac),
-                xycoords=("axes fraction", "axes fraction"),
-                xytext=(4, 0), textcoords="offset points",
-                va="center", ha="left", fontsize=8, color="white",
-                path_effects=_stroke,
+            ax_mat.axhline(peak_row_idx + 0.5, color="gold", linewidth=1.5,
+                           linestyle="-", alpha=0.9, zorder=5)
+            ax_mat.annotate(
+                "▶ self",
+                xy=(STACK_POST, peak_row_idx + 0.5),
+                xycoords="data",
+                xytext=(3, 0), textcoords="offset points",
+                va="center", ha="left", fontsize=7, color="gold",
                 annotation_clip=False,
-                zorder=7,
             )
 
-        # Colourbar spans matrix + stack rows
+        # Colourbar in dedicated column — does not borrow space from ax_mat
         cb = fig.colorbar(im, cax=cax)
         cb.set_label("Normalised amplitude", fontsize=9)
 
-        # ── Mean stack panel ──────────────────────────────────────────────
-        ax_stack.fill_between(t_axis, mean_stack, alpha=0.35, color="#1f77b4")
-        ax_stack.plot(t_axis, mean_stack, color="#1f77b4", linewidth=1.2)
-        ax_stack.axvline(0.0, color="k", linestyle="--", linewidth=0.8, alpha=0.6)
-        ax_stack.axhline(0.0, color="k", linewidth=0.4, alpha=0.4)
-        ax_stack.set_xlabel("Time relative to detection (s)", fontsize=11)
-        ax_stack.set_ylabel("Mean stack", fontsize=9)
+        # Mean stack overlay on matrix (scaled to row-height units)
+        stack_scaled = mean_stack / amp_lim * (n_det * 0.08)   # ~8% of height
+        ax_mat.plot(t_axis, n_det / 2 + stack_scaled,
+                    color="k", linewidth=0.8, alpha=0.7, label="Mean stack")
+        ax_mat.legend(loc="upper right", fontsize=8, framealpha=0.7)
 
+        fig.tight_layout()
         _savefig(fig, os.path.join(out_dir, f"stack_{tmpl_name}.png"))
 
 
 # ── Summary text report ────────────────────────────────────────────────────────
-
-
-def _load_template_locs(tribe_path: str, df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return a DataFrame with one row per template that appears in df.
-    Columns: template_name, lat, lon, depth_km, net_prefix, n_det, mean_cc_ratio.
-    Templates with no origin are silently dropped.
-    """
-    from eqcorrscan import Tribe
-    tribe = Tribe().read(tribe_path)
-    counts   = df.groupby("template_name").size().rename("n_det")
-    mean_cc  = df.groupby("template_name")["cc_ratio"].mean().rename("mean_cc_ratio")
-    rows = []
-    for t in tribe.templates:
-        try:
-            org = t.event.preferred_origin() or t.event.origins[0]
-            if org is None or org.latitude is None:
-                continue
-        except (IndexError, AttributeError):
-            continue
-        pfx = re.match(r'^([a-zA-Z]+)', t.name)
-        pfx = pfx.group(1).lower() if pfx else "other"
-        rows.append({
-            "template_name": t.name,
-            "lat":           org.latitude,
-            "lon":           org.longitude,
-            "depth_km":      (org.depth or 0) / 1000.0,
-            "net_prefix":    pfx,
-        })
-    loc_df = pd.DataFrame(rows)
-    if loc_df.empty:
-        return loc_df
-    loc_df = loc_df.merge(counts,  on="template_name", how="left")
-    loc_df = loc_df.merge(mean_cc, on="template_name", how="left")
-    loc_df["n_det"] = loc_df["n_det"].fillna(0).astype(int)
-    return loc_df
-
-
-# ── Figure 7: Detection bubble map ────────────────────────────────────────────
-
-def plot_map(df: pd.DataFrame, tribe_path: str, out_dir: str) -> None:
-    """
-    Two-panel figure:
-      Left  – map of template locations; bubble size ∝ √(n_det),
-               colour = network prefix, annotated with template name.
-      Right – depth cross-section (lon vs depth) with the same bubbles.
-    Requires cartopy; falls back to plain scatter if not available.
-    """
-    log.info("Building template location data …")
-    loc_df = _load_template_locs(tribe_path, df)
-    if loc_df.empty:
-        log.warning("No template locations found — skipping map.")
-        return
-
-    # Colour by network prefix
-    prefixes = sorted(loc_df["net_prefix"].unique())
-    cmap_net = plt.get_cmap("tab10")
-    pfx_color = {p: cmap_net(i / max(len(prefixes) - 1, 1)) for i, p in enumerate(prefixes)}
-    colors = loc_df["net_prefix"].map(pfx_color)
-
-    # Bubble size: scale so the largest template gets a 400 pt² marker
-    max_n = loc_df["n_det"].max() or 1
-    sizes = 20 + 380 * (loc_df["n_det"] / max_n)
-
-    lon_pad = max(0.3, (loc_df["lon"].max() - loc_df["lon"].min()) * 0.15)
-    lat_pad = max(0.2, (loc_df["lat"].max() - loc_df["lat"].min()) * 0.15)
-    extent = [
-        loc_df["lon"].min() - lon_pad, loc_df["lon"].max() + lon_pad,
-        loc_df["lat"].min() - lat_pad, loc_df["lat"].max() + lat_pad,
-    ]
-
-    fig = plt.figure(figsize=(16, 8))
-    if _HAVE_CARTOPY:
-        proj = ccrs.PlateCarree()
-        ax_map  = fig.add_subplot(1, 2, 1, projection=proj)
-        ax_xsec = fig.add_subplot(1, 2, 2)
-
-        ax_map.set_extent(extent, crs=proj)
-        ax_map.add_feature(cfeature.LAND,   facecolor="#f5f5f0", zorder=0)
-        ax_map.add_feature(cfeature.OCEAN,  facecolor="#d0e8f5", zorder=0)
-        ax_map.add_feature(cfeature.STATES, linewidth=0.6, edgecolor="#888888", zorder=1)
-        ax_map.add_feature(cfeature.RIVERS, linewidth=0.4, edgecolor="#6699cc",
-                           alpha=0.6, zorder=1)
-        ax_map.add_feature(cfeature.COASTLINE, linewidth=0.8, zorder=2)
-        sc = ax_map.scatter(
-            loc_df["lon"], loc_df["lat"],
-            s=sizes, c=colors,
-            transform=proj, zorder=4,
-            edgecolors="k", linewidths=0.5, alpha=0.85,
-        )
-        gl = ax_map.gridlines(draw_labels=True, linewidth=0.4,
-                              color="gray", alpha=0.6, linestyle="--")
-        gl.top_labels = gl.right_labels = False
-    else:
-        ax_map  = fig.add_subplot(1, 2, 1)
-        ax_xsec = fig.add_subplot(1, 2, 2)
-        sc = ax_map.scatter(
-            loc_df["lon"], loc_df["lat"],
-            s=sizes, c=colors,
-            edgecolors="k", linewidths=0.5, alpha=0.85,
-        )
-        ax_map.set_xlabel("Longitude")
-        ax_map.set_ylabel("Latitude")
-        ax_map.set_aspect("equal")
-
-    # Annotate with template name (small font, offset)
-    for _, row in loc_df.iterrows():
-        kw = dict(fontsize=5.5, color="#333333", clip_on=True)
-        if _HAVE_CARTOPY:
-            ax_map.text(row["lon"] + 0.02, row["lat"] + 0.02,
-                        row["template_name"], transform=proj, **kw)
-        else:
-            ax_map.text(row["lon"] + 0.02, row["lat"] + 0.02,
-                        row["template_name"], **kw)
-
-    ax_map.set_title("Template locations  (bubble ∝ √N detections)", fontsize=11)
-
-    # Network legend — tiny, inside map, just coloured squares
-    for pfx in prefixes:
-        ax_map.scatter([], [], s=30, color=pfx_color[pfx],
-                       edgecolors="k", linewidths=0.4, label=pfx.upper())
-    ax_map.legend(title="Network", fontsize=7, title_fontsize=7,
-                  loc="lower right", framealpha=0.7,
-                  handlelength=0.8, handletextpad=0.4, borderpad=0.4,
-                  markerscale=0.8)
-
-    # Depth cross-section: lon vs depth
-    ax_xsec.scatter(
-        loc_df["lon"], loc_df["depth_km"],
-        s=sizes, c=colors,
-        edgecolors="k", linewidths=0.5, alpha=0.85,
-    )
-    ax_xsec.invert_yaxis()
-    ax_xsec.set_xlabel("Longitude", fontsize=11)
-    ax_xsec.set_ylabel("Depth (km)", fontsize=11)
-    ax_xsec.set_title("Depth cross-section", fontsize=11)
-    ax_xsec.grid(True, linewidth=0.4, alpha=0.5)
-
-    # Size legend — compact, inside cross-section panel
-    for n_ref in [10, 100, 500, 2000]:
-        if n_ref > max_n * 1.5:
-            continue
-        s_ref = 20 + 380 * (n_ref / max_n)
-        ax_xsec.scatter([], [], s=s_ref, color="#aaaaaa",
-                        edgecolors="k", linewidths=0.5,
-                        label=f"{n_ref}")
-    ax_xsec.legend(title="N det", fontsize=7, title_fontsize=7,
-                   loc="lower right", framealpha=0.7,
-                   handlelength=0.8, handletextpad=0.4, borderpad=0.4,
-                   markerscale=0.7)
-
-    fig.suptitle("Smackover North — Template Catalogue Geography", fontsize=13)
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
-    _savefig(fig, os.path.join(out_dir, "07_template_map.png"))
-
-
-# ── Figure 8: Space-time migration ────────────────────────────────────────────
-
-def plot_spacetime(df: pd.DataFrame, tribe_path: str, out_dir: str) -> None:
-    """
-    Space-time migration plot: each DETECTION is a point at
-      x = detect_time,  y = template latitude  (or distance from centroid)
-    coloured by template, sized by CC ratio.
-    A second panel shows longitude vs time for E-W migration.
-    """
-    log.info("Building space-time migration plot …")
-    loc_df = _load_template_locs(tribe_path, df)
-    if loc_df.empty:
-        log.warning("No template locations — skipping space-time plot.")
-        return
-
-    # Merge detection times with template locations
-    # df already has net_prefix; drop it from loc_df to avoid _x/_y suffix collision
-    merged = df.merge(loc_df[["template_name", "lat", "lon", "depth_km"]],
-                      on="template_name", how="inner")
-    if merged.empty:
-        log.warning("No overlapping templates/detections — skipping space-time plot.")
-        return
-
-    # Colour by template (tab20 if ≤20 templates, else cycle)
-    tmpl_list = merged["template_name"].unique().tolist()
-    n_t = len(tmpl_list)
-    cmap_t = plt.get_cmap("tab20" if n_t <= 20 else "nipy_spectral")
-    tmpl_color = {t: cmap_t(i / max(n_t - 1, 1)) for i, t in enumerate(tmpl_list)}
-    t_colors = merged["template_name"].map(tmpl_color)
-
-    # Marker size proportional to CC ratio, capped for readability
-    cc_clipped = merged["cc_ratio"].clip(upper=merged["cc_ratio"].quantile(0.95))
-    cc_norm = (cc_clipped - cc_clipped.min()) / (cc_clipped.max() - cc_clipped.min() + 1e-9)
-    sizes = (4 + 18 * cc_norm).values
-
-    times = merged["detect_time"].dt.tz_localize(None).to_numpy()
-
-    # Compute distance (km) from centroid for N-S and E-W
-    lat0 = merged["lat"].mean()
-    lon0 = merged["lon"].mean()
-    # 1° lat ≈ 111 km;  1° lon ≈ 111 * cos(lat) km
-    cos_lat = np.cos(np.radians(lat0))
-    merged["dist_ns"] = (merged["lat"] - lat0) * 111.0
-    merged["dist_ew"] = (merged["lon"] - lon0) * 111.0 * cos_lat
-
-    fig, axes = plt.subplots(3, 1, figsize=(16, 13), sharex=True)
-    ax_ns, ax_ew, ax_depth = axes
-
-    kw = dict(alpha=0.4, linewidths=0, rasterized=True)
-
-    ax_ns.scatter(times, merged["dist_ns"], s=sizes, c=t_colors, **kw)
-    ax_ns.axhline(0, color="k", linewidth=0.5, alpha=0.4)
-    ax_ns.set_ylabel("N–S distance from\ncentroid (km)", fontsize=10)
-    ax_ns.set_title("Space-time migration  (colour = template, size ∝ |CC|/threshold)",
-                    fontsize=12)
-    ax_ns.grid(True, linewidth=0.4, alpha=0.4)
-
-    ax_ew.scatter(times, merged["dist_ew"], s=sizes, c=t_colors, **kw)
-    ax_ew.axhline(0, color="k", linewidth=0.5, alpha=0.4)
-    ax_ew.set_ylabel("E–W distance from\ncentroid (km)", fontsize=10)
-    ax_ew.grid(True, linewidth=0.4, alpha=0.4)
-
-    ax_depth.scatter(times, merged["depth_km"], s=sizes, c=t_colors, **kw)
-    ax_depth.invert_yaxis()
-    ax_depth.set_ylabel("Template depth (km)", fontsize=10)
-    ax_depth.set_xlabel("Date", fontsize=11)
-    ax_depth.grid(True, linewidth=0.4, alpha=0.4)
-
-    # Network-colour legend patches (one per template would be too many)
-    prefixes = sorted(loc_df["net_prefix"].unique())
-    cmap_net = plt.get_cmap("tab10")
-    pfx_color = {p: cmap_net(i / max(len(prefixes) - 1, 1)) for i, p in enumerate(prefixes)}
-    # Build per-template colour legend grouped by network
-    from matplotlib.lines import Line2D
-    handles, labels_ = [], []
-    for tmpl in tmpl_list:
-        pfx = merged.loc[merged["template_name"] == tmpl, "net_prefix"].iloc[0]
-        # Use the template colour (not network colour) for the legend dot
-        handles.append(Line2D([0], [0], marker="o", color="w",
-                               markerfacecolor=tmpl_color[tmpl],
-                               markersize=5, label=tmpl))
-        labels_.append(tmpl)
-    if len(handles) <= 30:
-        ax_ns.legend(handles=handles, labels=labels_,
-                     fontsize=6, ncol=max(1, n_t // 10 + 1),
-                     loc="upper right", framealpha=0.7, title="Template",
-                     title_fontsize=7)
-
-    fig.tight_layout()
-    _savefig(fig, os.path.join(out_dir, "08_spacetime_migration.png"))
-
-
 
 def write_summary(df: pd.DataFrame, out_dir: str) -> None:
     """Write a plain-text summary of the detection catalog."""
@@ -1295,7 +835,6 @@ def write_summary(df: pd.DataFrame, out_dir: str) -> None:
     log.info(f"Summary written to {path}")
 
 
-
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -1312,28 +851,14 @@ def main():
         "--max-det", type=int, default=MAX_DET_PER_PLOT,
         help=f"Max detections per shot gather (default: {MAX_DET_PER_PLOT})"
     )
-    parser.add_argument(
-        "--min-chans", type=int, default=MIN_CHANS,
-        help=(
-            "Keep only detections with ≥ this many channels "
-            "(uses Party.min_chans internally; default: no filter)"
-        ),
-    )
     args = parser.parse_args()
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     # ──── Load declustered party ──────────────────────────────────────────────
-    df = party_to_dataframe(PARTY_PATH, min_chans=args.min_chans)
+    df = party_to_dataframe(PARTY_PATH)
     if df.empty:
         log.error("Empty catalog — nothing to plot.")
-        return
-    if GLITCH_KURT_THRESHOLD is not None:
-        df = filter_glitch_detections(
-            df, WAVEFORM_DIR, TRIBE_PATH, GLITCH_KURT_THRESHOLD, GLITCH_CHAN_FRAC
-        )
-    if df.empty:
-        log.error("All detections removed by glitch filter — nothing to plot.")
         return
 
     # ──── Statistical plots ───────────────────────────────────────────────────
@@ -1345,8 +870,6 @@ def main():
     plot_interevent_times(df, OUTPUT_DIR)
     plot_daily_patterns(df, OUTPUT_DIR)
     write_summary(df, OUTPUT_DIR)
-    plot_map(df, TRIBE_PATH, OUTPUT_DIR)
-    plot_spacetime(df, TRIBE_PATH, OUTPUT_DIR)
 
     # ──── Waveform stacks ─────────────────────────────────────────────────────
     if not args.no_stacks:

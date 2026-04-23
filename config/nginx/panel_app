@@ -1,0 +1,95 @@
+# CUSSP Panel Apps — NGINX site config
+# Deploy to: /etc/nginx/sites-enabled/panel_app
+#
+# Also edit /etc/nginx/nginx.conf to remove deprecated TLSv1 and TLSv1.1:
+#   ssl_protocols TLSv1.2 TLSv1.3;
+#
+# Start all three Panel apps before reloading NGINX:
+#   systemctl start cussp-dts cussp-results cussp-seismicity
+#
+# Reload NGINX after deploying:
+#   nginx -t && systemctl reload nginx
+
+# HTTP → HTTPS redirect (all traffic)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.cussp.lbl.gov;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl;
+
+    server_name www.cussp.lbl.gov;
+
+    ssl_certificate     /opt/cussp_lbl_gov_cert.cer;
+    ssl_certificate_key /opt/cussp.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options    nosniff always;
+    add_header X-Frame-Options           SAMEORIGIN always;
+    add_header X-XSS-Protection          "1; mode=block" always;
+
+    # Root → DTS app
+    location = / {
+        return 301 /dts/;
+    }
+
+    # --- Shared proxy settings (duplicated per block; NGINX doesn't allow
+    #     include inside location in all versions, and map{} needs http{} scope) ---
+
+    # DTS temperature viewer — port 5006
+    location /dts/ {
+        proxy_pass         http://127.0.0.1:5006/dts/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        proxy_connect_timeout 10;
+        proxy_buffering    off;
+    }
+
+    # Results / ML images page — port 5007
+    location /results/ {
+        proxy_pass         http://127.0.0.1:5007/results/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        proxy_connect_timeout 10;
+        proxy_buffering    off;
+    }
+
+    # 3D seismicity dashboard — port 5008
+    location /seismicity/ {
+        proxy_pass         http://127.0.0.1:5008/seismicity/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        proxy_connect_timeout 10;
+        proxy_buffering    off;
+    }
+}

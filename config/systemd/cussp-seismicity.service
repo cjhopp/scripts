@@ -1,0 +1,23 @@
+[Unit]
+Description=CUSSP 3D Seismicity Panel dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=chopp
+WorkingDirectory=/home/chopp/scripts/python/dash_apps
+Environment=PATH=/home/chopp/miniconda3/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/chopp/miniconda3/bin/panel serve \
+    /home/chopp/scripts/python/dash_apps/cussp_seismicity_3d.py \
+    --port 5008 \
+    --prefix /seismicity \
+    --allow-websocket-origin www.cussp.lbl.gov \
+    --num-procs 1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
