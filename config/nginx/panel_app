@@ -43,16 +43,17 @@ server {
         try_files /index.html =404;
     }
 
-    # Static assets (logo, etc.) served from web root
-    location ~* \.(png|jpg|jpeg|gif|ico|svg|css|js|woff2?)$ {
-        expires 7d;
+    # ML result images — served directly from data directory.
+    # ^~ prefix beats the regex block below so alias takes effect.
+    location ^~ /result-images/ {
+        alias /data/chet-cussp/results/;
+        expires 1h;
         add_header Cache-Control "public";
     }
 
-    # ML result images — served directly from data directory by NGINX
-    location /result-images/ {
-        alias /data/chet-cussp/results/;
-        expires 1h;
+    # Static assets (logo, etc.) served from web root
+    location ~* \.(png|jpg|jpeg|gif|ico|svg|css|js|woff2?)$ {
+        expires 7d;
         add_header Cache-Control "public";
     }
 
