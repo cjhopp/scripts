@@ -26,6 +26,16 @@ from obspy import UTCDateTime
 from obspy.clients.fdsn import Client
 from obspy.clients.fdsn.header import FDSNNoDataException
 
+# SURF_converter lives alongside this script in the lbnl package on the mine server
+try:
+    from lbnl.coordinates import SURF_converter
+    _SURF = SURF_converter()
+except ImportError:
+    _SURF = None
+    logging.getLogger(__name__).warning(
+        "lbnl.coordinates not importable — HMC annotation will be skipped"
+    )
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
@@ -45,10 +55,49 @@ DEFAULT_LAT = 44.3517
 DEFAULT_LON = -103.7508
 DEFAULT_RADIUS_DEG = 0.5    # degrees (~55 km); tighten once site coordinates confirmed
 
+# HMC z of the Earth surface directly above the 4100L experiment volume.
+# Calibrate by comparing a known SeisComP event against the mine's HMC survey:
+#   SURF_SURFACE_HMC_Z_M = hmc_elev_from_survey + origin.depth_for_that_event
+# Rough estimate: borehole tops ~355 m HMC + ~1250 m to surface ≈ 1605 m.
+SURF_SURFACE_HMC_Z_M = 1605.0
+
 
 # ---------------------------------------------------------------------------
 # Core steps
 # ---------------------------------------------------------------------------
+
+def annotate_hmc(catalog):
+    """Add hmc_east / hmc_north / hmc_elev extra attributes to every origin.
+
+    hmc_east  — metres East in the Homestake Mine Coordinate system
+    hmc_north — metres North in HMC
+    hmc_elev  — HMC elevation (metres), computed as::
+
+        hmc_elev = SURF_SURFACE_HMC_Z_M - origin.depth
+
+    where origin.depth is metres positive-downward (standard QuakeML / ObsPy).
+    Skips silently if SURF_converter is unavailable.
+    """
+    if _SURF is None:
+        return catalog
+
+    n = 0
+    for ev in catalog:
+        for orig in ev.origins:
+            try:
+                east, north, _ = _SURF.to_HMC(
+                    (orig.longitude, orig.latitude, 0.0)
+                )
+                elev = SURF_SURFACE_HMC_Z_M - orig.depth  # depth in metres
+                orig.extra["hmc_east"]  = {"value": str(east),  "namespace": "CUSSP"}
+                orig.extra["hmc_north"] = {"value": str(north), "namespace": "CUSSP"}
+                orig.extra["hmc_elev"]  = {"value": str(elev),  "namespace": "CUSSP"}
+                n += 1
+            except Exception as exc:
+                log.debug("HMC annotation failed for origin %s: %s", orig.resource_id, exc)
+    log.info("Annotated %d origin(s) with HMC coordinates", n)
+    return catalog
+
 
 def fetch_catalog(fdsn_url, days, lat, lon, radius_deg):
     log.info("Connecting to FDSN at %s", fdsn_url)
@@ -142,6 +191,7 @@ def main():
     args = parser.parse_args()
 
     catalog = fetch_catalog(args.fdsn_url, args.days, args.lat, args.lon, args.radius)
+    catalog = annotate_hmc(catalog)
     write_catalog(catalog, args.output)
     push_to_vm(args.output, args.rsync_target, args.ssh_key)
 

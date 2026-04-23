@@ -3,8 +3,8 @@ from pathlib import Path
 
 RESULTS_DIR = Path("/data/chet-cussp/results")
 IMAGES = {
-    "Raypath properties projected onto fault plane": RESULTS_DIR / "raypath_fault_plane.png",
-    "ML workflow 3D trajectory": RESULTS_DIR / "ml_trajectory_3d.png",
+    "ML Tomography": RESULTS_DIR / "ML_tomo.png",
+    "ML Trajectory": RESULTS_DIR / "ML_trajectory.png",
 }
 
 
@@ -38,7 +38,7 @@ pn.template.VanillaTemplate(
     logo="/home/chopp/CUSSP.png",
     main=pn.Column(
         pn.pane.Markdown(
-            "Fault characterization and ML workflow outputs from the CUSSP EGS Collab experiment.",
+            "Fault characterization and ML workflow outputs from the CUSSP experiment.",
             sizing_mode="stretch_width",
         ),
         build_layout(),
