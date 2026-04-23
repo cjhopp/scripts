@@ -408,6 +408,6 @@ pn.extension("plotly")
 app = SeismicityDashboard()
 pn.template.VanillaTemplate(
     title="CUSSP Seismicity",
-    logo="/home/chopp/CUSSP.png",
+    logo="/CUSSP.png",
     main=app,
 ).servable()

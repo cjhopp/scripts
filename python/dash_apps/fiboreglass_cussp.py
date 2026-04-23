@@ -115,4 +115,4 @@ class Fiboreglass(pn.viewable.Viewer):
 
 fbg = Fiboreglass()
 app = pn.template.VanillaTemplate(
-    title='DTS Data Viewer', logo='/home/chopp/CUSSP.png', main=fbg).servable()
+    title='DTS Data Viewer', logo='/CUSSP.png', main=fbg).servable()
