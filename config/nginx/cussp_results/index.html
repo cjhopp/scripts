@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CUSSP Results</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      width: 100%;
+      max-width: 1200px;
+      margin-bottom: 0.5rem;
+    }
+
+    header img.logo {
+      height: 40px;
+      width: auto;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .back {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: #58a6ff;
+      text-decoration: none;
+    }
+    .back:hover { text-decoration: underline; }
+
+    .subtitle {
+      width: 100%;
+      max-width: 1200px;
+      color: #8b949e;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      padding-left: 0;
+    }
+
+    .images {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 1200px;
+    }
+
+    .image-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 1.5rem;
+      flex: 1 1 480px;
+      max-width: 580px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .image-card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .image-card img {
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .image-card .missing {
+      color: #8b949e;
+      font-size: 0.85rem;
+      font-style: italic;
+      padding: 2rem 0;
+      text-align: center;
+    }
+
+    footer {
+      margin-top: 3rem;
+      color: #484f58;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img class="logo" src="/CUSSP.png" alt="CUSSP" />
+    <h1>CUSSP — Experiment Results</h1>
+    <a class="back" href="/">← Dashboard</a>
+  </header>
+
+  <p class="subtitle">
+    Fault characterization and ML workflow outputs from the CUSSP experiment.
+  </p>
+
+  <div class="images">
+    <div class="image-card">
+      <h2>ML Tomography</h2>
+      <img src="/result-images/ML_tomo.png" alt="ML Tomography"
+           onerror="this.outerHTML='<p class=\'missing\'>Image not yet available (ML_tomo.png)</p>'" />
+    </div>
+    <div class="image-card">
+      <h2>ML Trajectory</h2>
+      <img src="/result-images/ML_trajectory.png" alt="ML Trajectory"
+           onerror="this.outerHTML='<p class=\'missing\'>Image not yet available (ML_trajectory.png)</p>'" />
+    </div>
+  </div>
+
+  <footer>
+    Lawrence Berkeley National Laboratory &nbsp;·&nbsp; CUSSP
+  </footer>
+</body>
+</html>
