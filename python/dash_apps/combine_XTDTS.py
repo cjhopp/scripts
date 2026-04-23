@@ -83,7 +83,8 @@ def read_XTDTS(path, no_cols):
 def make_dataset(parsed, no_cols):
     """Build an xr.Dataset from a parsed XTDTS tuple."""
     dto, measures, ref, p1, p2 = parsed
-    times = np.array([np.datetime64(dto)])
+    # Explicit nanosecond dtype avoids xarray's non-nanosecond conversion warning
+    times = np.array([dto], dtype="datetime64[ns]")
     return xr.Dataset(
         {
             "temperature": xr.DataArray(
