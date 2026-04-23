@@ -30,8 +30,8 @@ WELLBORE_DIR = Path("/data/chet-cussp/wellbores")
 HULL_FILE = Path("/data/chet-cussp/seismicity/drift_hull.npy")
 
 # HMC axis limits (matches plot_4100)
-HMC_XLIM = [1205, 1275]   # Easting [HMC m]
-HMC_YLIM = [-915, -845]   # Northing [HMC m]
+HMC_XLIM = [1195, 1275]   # Easting [HMC m]  (+10 m West)
+HMC_YLIM = [-935, -845]   # Northing [HMC m]  (+20 m South)
 HMC_ZLIM = [295, 365]     # Elevation [HMC m]
 
 # HMC z of the Earth surface above the 4100L volume (metres).
@@ -355,6 +355,68 @@ def build_figure(cat_df, wellbores, hull_verts, hull_faces, last_updated):
     return fig
 
 
+def build_magnitude_figure(cat_df):
+    """Magnitude vs time scatter plot."""
+    fig = go.Figure()
+    if len(cat_df) > 0:
+        times = pd.to_datetime(cat_df["time"])
+        mag = cat_df["mag"].fillna(float("nan"))
+        fig.add_trace(go.Scatter(
+            x=times,
+            y=mag,
+            mode="markers",
+            marker=dict(
+                size=6,
+                color=mag,
+                colorscale="Plasma",
+                cmin=-5,
+                cmax=0,
+                showscale=False,
+            ),
+            hovertemplate="%{x|%Y-%m-%d %H:%M}<br>M%{y:.2f}<extra></extra>",
+            name="Magnitude",
+        ))
+    fig.update_layout(
+        height=220,
+        margin=dict(l=60, r=20, t=30, b=40),
+        template="plotly_white",
+        title=dict(text="Magnitude", font=dict(size=12)),
+        yaxis=dict(title="M", range=[-5, 0]),
+        xaxis=dict(title=""),
+        uirevision="mag",
+    )
+    return fig
+
+
+def build_injection_figure(inj_df=None):
+    """Injection parameters vs time.  Placeholder until data is provided."""
+    fig = go.Figure()
+    if inj_df is not None and len(inj_df) > 0:
+        for col in [c for c in inj_df.columns if c != "time"]:
+            fig.add_trace(go.Scatter(
+                x=pd.to_datetime(inj_df["time"]),
+                y=inj_df[col],
+                mode="lines",
+                name=col,
+            ))
+    else:
+        fig.add_annotation(
+            text="Injection data not yet available",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=13, color="gray"),
+        )
+    fig.update_layout(
+        height=220,
+        margin=dict(l=60, r=20, t=30, b=40),
+        template="plotly_white",
+        title=dict(text="Injection Parameters", font=dict(size=12)),
+        xaxis=dict(title="Time"),
+        uirevision="inj",
+    )
+    return fig
+
+
 # ---------------------------------------------------------------------------
 # Panel app
 # ---------------------------------------------------------------------------
@@ -373,6 +435,14 @@ class SeismicityDashboard(pn.viewable.Viewer):
             build_figure(cat_df, self._wellbores, self._hull_verts, self._hull_faces, last_updated),
             sizing_mode="stretch_width",
             height=750,
+        )
+        self._mag_plot = pn.pane.Plotly(
+            build_magnitude_figure(cat_df),
+            sizing_mode="stretch_width",
+        )
+        self._inj_plot = pn.pane.Plotly(
+            build_injection_figure(),
+            sizing_mode="stretch_width",
         )
         pn.state.add_periodic_callback(self._refresh, period=REFRESH_MS)
 
@@ -396,12 +466,15 @@ class SeismicityDashboard(pn.viewable.Viewer):
         self._plot.object = build_figure(
             cat_df, self._wellbores, self._hull_verts, self._hull_faces, last_updated
         )
+        self._mag_plot.object = build_magnitude_figure(cat_df)
 
     def __panel__(self):
         return pn.Column(
             self._header,
             self._plot,
-            sizing_mode="stretch_both",
+            self._mag_plot,
+            self._inj_plot,
+            sizing_mode="stretch_width",
         )
 
 
