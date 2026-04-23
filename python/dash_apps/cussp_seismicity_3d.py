@@ -9,6 +9,8 @@ import pandas as pd
 import panel as pn
 import plotly.graph_objects as go
 
+pn.extension("plotly")
+
 from obspy import read_events
 
 # HMC coordinate converter (same library used on the mine server)
@@ -411,8 +413,6 @@ class SeismicityDashboard(pn.viewable.Viewer):
             sizing_mode="stretch_both",
         )
 
-
-pn.extension("plotly")
 
 app = SeismicityDashboard()
 pn.template.VanillaTemplate(
