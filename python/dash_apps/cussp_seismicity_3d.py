@@ -253,15 +253,6 @@ def load_hull(path):
             faces = np.array(obj.faces, dtype=int)
 
         log.info("Loaded drift hull: %d vertices, %d faces", len(vertices), len(faces))
-
-        # Decimate to a browser-friendly size.  1M faces → huge WebSocket payload
-        # → browser disconnects before Plotly renders.  50k faces is visually identical.
-        max_faces = 50_000
-        if len(faces) > max_faces:
-            step = len(faces) // max_faces
-            faces = faces[::step]
-            log.info("Decimated hull to %d faces (step=%d)", len(faces), step)
-
         return vertices, faces
     except Exception as exc:
         log.warning("Failed to load hull %s: %s", path, exc)
@@ -380,8 +371,8 @@ class SeismicityDashboard(pn.viewable.Viewer):
         )
         self._plot = pn.pane.Plotly(
             build_figure(cat_df, self._wellbores, self._hull_verts, self._hull_faces, last_updated),
-            sizing_mode="stretch_both",
-            min_height=700,
+            sizing_mode="stretch_width",
+            height=750,
         )
         pn.state.add_periodic_callback(self._refresh, period=REFRESH_MS)
 
