@@ -14,7 +14,7 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name www.cussp.lbl.gov;
+    server_name www.cussp.lbl.gov cussp.lbl.gov;
     return 301 https://$host$request_uri;
 }
 
@@ -22,7 +22,7 @@ server {
     listen 443 ssl default_server;
     listen [::]:443 ssl;
 
-    server_name www.cussp.lbl.gov;
+    server_name www.cussp.lbl.gov cussp.lbl.gov;
 
     ssl_certificate     /opt/cussp_lbl_gov_cert.cer;
     ssl_certificate_key /opt/cussp.key;
