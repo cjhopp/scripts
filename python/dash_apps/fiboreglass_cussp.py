@@ -38,7 +38,11 @@ def get_data(variable, well, direction, length):
     start = get_start(direction, well)
     end = get_end(direction, well)
     no, unit = length.split()
-    timedelta = np.timedelta64(int(no), unit)
+    no = int(no)
+    if unit == 'M':
+        timedelta = np.timedelta64(no * 30, 'D')
+    else:
+        timedelta = np.timedelta64(no, unit)
     time_end = _DS.time[-1].values
     da = _DS['temperature'].sel(depth=slice(start, end), time=slice(time_end - timedelta, None))
     da = da.assign_coords(depth=da['depth'] - da['depth'][0])
@@ -52,7 +56,7 @@ def get_data(variable, well, direction, length):
 class Fiboreglass(pn.viewable.Viewer):
     variable = param.Selector(objects=['temperature', 'deltaT'], default='temperature')
     color_selector = param.Range((17, 28), bounds=(-10, 40), step=1)
-    length_selector = param.Selector(objects=['12 h', '1 D', '2 D', '1 W', '3 W'], default='2 D')
+    length_selector = param.Selector(objects=['12 h', '1 D', '2 D', '1 W', '3 W', '1 M', '2 M'], default='2 D')
     well_selector = param.Selector(objects=buttons, default='Whole fiber')
     direction_selector = param.Selector(objects=['Downgoing', 'Upgoing'], default='Downgoing')
 
