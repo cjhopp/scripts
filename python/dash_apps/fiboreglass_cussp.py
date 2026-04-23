@@ -31,7 +31,11 @@ def get_end(direction, well):
         return chan_map_4100[well] + fiber_depth_4100[well]
 
 
-_DS = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={}, engine='zarr')
+_MAX_WINDOW = np.timedelta64(60, 'D')
+_raw = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={}, engine='zarr')
+_time_end = _raw.time[-1].values
+_DS = _raw.sel(time=slice(_time_end - _MAX_WINDOW, None)).load()
+del _raw
 
 
 def get_data(variable, well, direction, length):
