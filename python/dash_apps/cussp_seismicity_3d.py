@@ -25,7 +25,7 @@ except Exception:
 CATALOG_FILE = Path("/data/chet-cussp/seismicity/catalog.quakeml")
 WELLBORE_DIR = Path("/data/chet-cussp/wellbores")
 # Trimesh hull JSON for the 4100L drift (set to None to disable)
-HULL_FILE = Path("/data/chet-cussp/seismicity/drift_hull.json")
+HULL_FILE = Path("/data/chet-cussp/seismicity/drift_hull.npy")
 
 # HMC axis limits (matches plot_4100)
 HMC_XLIM = [1215, 1265]   # Easting [HMC m]
@@ -103,17 +103,23 @@ def load_catalog(path):
 
 
 def load_wellbores(directory):
-    """Load *.csv wellbore trajectories from directory.
+    """Load wellbore trajectories from directory.
 
-    Accepted HMC column sets (case-insensitive):
-      • easting_m, northing_m, elevation_m
-      • easting, northing, elevation
-      • x_m, y_m, z_m
+    Accepts two formats:
 
-    Well names starting with 'T' are coloured steelblue; all others black
-    (matching the plot_4100 convention).
+    1. One_foot_<WELLNAME>_*.csv  (raw SURF as-built files, HMC feet)
+       Positional: col 2 = depth(ft), col 3 = easting(ft),
+                   col 4 = northing(ft), col 5 = elevation(ft)
+       Converted to metres automatically.
 
-    Returns a dict {name: DataFrame(x, y, z)}.
+    2. Any other *.csv with named HMC columns (already in metres):
+       • easting_m, northing_m, elevation_m
+       • easting,   northing,   elevation
+       • x_m, y_m, z_m
+       • longitude, latitude  (+ optional depth_m or elevation_m)
+
+    Well name = filename stem (or embedded name from One_foot files).
+    T-prefix wells → steelblue; all others → black.
     """
     wellbores = {}
     wdir = Path(directory)
@@ -123,63 +129,127 @@ def load_wellbores(directory):
 
     for csv_file in sorted(wdir.glob("*.csv")):
         try:
-            df = pd.read_csv(csv_file)
-            df.columns = [c.strip().lower() for c in df.columns]
+            stem = csv_file.stem
             wdf = None
 
-            if {"easting_m", "northing_m", "elevation_m"}.issubset(df.columns):
-                wdf = df.rename(
-                    columns={"easting_m": "x", "northing_m": "y", "elevation_m": "z"}
-                )[["x", "y", "z"]]
-            elif {"easting", "northing", "elevation"}.issubset(df.columns):
-                wdf = df.rename(
-                    columns={"easting": "x", "northing": "y", "elevation": "z"}
-                )[["x", "y", "z"]]
-            elif {"x_m", "y_m", "z_m"}.issubset(df.columns):
-                wdf = df.rename(
-                    columns={"x_m": "x", "y_m": "y", "z_m": "z"}
-                )[["x", "y", "z"]]
-            elif {"longitude", "latitude"}.issubset(df.columns) and _SURF is not None:
-                # lat/lon input — convert horizontals with SURF_converter.
-                # Vertical: use 'elevation_m' if present, else depth (positive down).
-                rows = []
-                for _, row in df.iterrows():
-                    ex, ey, _ = _SURF.to_HMC((row["longitude"], row["latitude"], 0.0))
-                    if "elevation_m" in df.columns:
-                        ez = SURF_SURFACE_HMC_Z_M - (SURF_SURFACE_HMC_Z_M - row["elevation_m"])
-                        # elevation_m is already absolute, map to HMC z via offset
-                        # HMC z ≈ elevation_m - (known_abs_elev_at_surf - SURF_SURFACE_HMC_Z_M)
-                        # Simplification: pass elevation_m directly (same units)
-                        ez = row["elevation_m"]
-                    elif "depth_m" in df.columns:
-                        ez = SURF_SURFACE_HMC_Z_M - row["depth_m"]
-                    else:
-                        ez = np.nan
-                    rows.append({"x": ex, "y": ey, "z": ez})
-                wdf = pd.DataFrame(rows)
+            if stem.startswith("One_foot"):
+                # Raw SURF 1-ft trajectory: col 2=depth, 3=east, 4=north, 5=elev (feet)
+                arr = np.loadtxt(csv_file, delimiter=',', skiprows=1, usecols=[2, 3, 4, 5])
+                # reorder to [easting, northing, elevation, depth] then convert ft→m
+                arr = arr[:, [1, 2, 3, 0]]
+                arr[:, :3] *= 0.3048
+                wdf = pd.DataFrame(arr[:, :3], columns=["x", "y", "z"])
+                # Extract well name the same way make_4100_boreholes does
+                parts = stem.split("_")
+                well_name = parts[-3] if len(parts) >= 3 else stem
             else:
-                log.warning("Unrecognised columns in %s: %s", csv_file.name, list(df.columns))
-                continue
+                df = pd.read_csv(csv_file)
+                df.columns = [c.strip().lower() for c in df.columns]
+                well_name = stem
+
+                if {"easting_m", "northing_m", "elevation_m"}.issubset(df.columns):
+                    wdf = df.rename(columns={"easting_m": "x", "northing_m": "y",
+                                             "elevation_m": "z"})[["x", "y", "z"]]
+                elif {"easting", "northing", "elevation"}.issubset(df.columns):
+                    wdf = df.rename(columns={"easting": "x", "northing": "y",
+                                             "elevation": "z"})[["x", "y", "z"]]
+                elif {"x_m", "y_m", "z_m"}.issubset(df.columns):
+                    wdf = df.rename(columns={"x_m": "x", "y_m": "y",
+                                             "z_m": "z"})[["x", "y", "z"]]
+                elif {"longitude", "latitude"}.issubset(df.columns) and _SURF is not None:
+                    rows = []
+                    for _, row in df.iterrows():
+                        ex, ey, _ = _SURF.to_HMC((row["longitude"], row["latitude"], 0.0))
+                        if "elevation_m" in df.columns:
+                            ez = row["elevation_m"]
+                        elif "depth_m" in df.columns:
+                            ez = SURF_SURFACE_HMC_Z_M - row["depth_m"]
+                        else:
+                            ez = np.nan
+                        rows.append({"x": ex, "y": ey, "z": ez})
+                    wdf = pd.DataFrame(rows)
+                else:
+                    log.warning("Unrecognised columns in %s: %s",
+                                csv_file.name, list(df.columns))
+                    continue
 
             if wdf is not None:
-                wellbores[csv_file.stem] = wdf
+                wellbores[well_name] = wdf
+
         except Exception as exc:
             log.error("Failed to load wellbore CSV %s: %s", csv_file.name, exc)
 
     log.info("Loaded %d wellbore(s) from %s", len(wellbores), wdir)
     return wellbores
 
+    log.info("Loaded %d wellbore(s) from %s", len(wellbores), wdir)
+    return wellbores
+
 
 def load_hull(path):
-    """Load trimesh JSON hull.  Returns (vertices ndarray, faces ndarray) or (None, None)."""
+    """Load drift hull mesh.  Returns (vertices ndarray, faces ndarray) or (None, None).
+
+    Supported formats (detected by extension):
+
+    • .npy   — numpy archive saved as np.save('hull.npy', {'vertices': V, 'faces': F})
+               or a (N,6) array with columns [x,y,z, i,j,k] (vertices + face indices)
+    • .csv   — two sections: vertex rows (3 cols x,y,z) then face rows (3 cols i,j,k),
+               separated by a blank line; OR a single file with a 'section' column
+    • .json  — trimesh-exported JSON with 'vertices' and 'faces' keys
+    • .stl/.ply/.obj/.glb/.off — any format supported by trimesh (must be installed)
+
+    Fastest to load at runtime: .npy  ~instant, .stl ~1 s, .json ~10 s for 80 MB.
+    To convert the 80 MB JSON once:
+        import trimesh, numpy as np
+        m = trimesh.load('4100_TriMesh.json')
+        np.save('drift_hull.npy', {'vertices': m.vertices, 'faces': m.faces})
+        # or: m.export('drift_hull.stl')
+    """
     p = Path(path)
     if not p.exists():
         return None, None
     try:
-        with open(p, "r") as f:
-            data = json.load(f)
-        vertices = np.array(data["vertices"], dtype=float)
-        faces = np.array(data["faces"], dtype=int)
+        suffix = p.suffix.lower()
+
+        if suffix == ".npy":
+            data = np.load(p, allow_pickle=True).item()
+            vertices = np.array(data["vertices"], dtype=float)
+            faces = np.array(data["faces"], dtype=int)
+
+        elif suffix == ".csv":
+            # Expect two sections separated by a blank line: vertices then faces
+            text = p.read_text()
+            sections = [s.strip() for s in text.split("\n\n") if s.strip()]
+            if len(sections) == 2:
+                vertices = np.loadtxt(sections[0].splitlines(), delimiter=",")
+                faces = np.loadtxt(sections[1].splitlines(), delimiter=",", dtype=int)
+            else:
+                # Single CSV: x,y,z,i,j,k per row
+                arr = np.loadtxt(p, delimiter=",", skiprows=1)
+                vertices = arr[:, :3]
+                faces = arr[:, 3:].astype(int)
+
+        elif suffix == ".json":
+            import base64 as _b64
+            with open(p, "r") as f:
+                data = json.load(f)
+            def _decode(sub):
+                if isinstance(sub, dict) and "base64" in sub:
+                    return np.frombuffer(_b64.b64decode(sub["base64"]),
+                                         dtype=sub["dtype"]).reshape(sub["shape"])
+                return np.array(sub)
+            vertices = _decode(data["vertices"]).astype(float)
+            faces = _decode(data["faces"]).astype(int)
+
+        else:
+            # trimesh handles STL, PLY, OBJ, GLB, OFF, etc.
+            import trimesh as _trimesh
+            obj = _trimesh.load(str(p), force="mesh")
+            if hasattr(obj, "geometry"):
+                obj = max(obj.geometry.values(), key=lambda m: len(m.faces))
+            vertices = np.array(obj.vertices, dtype=float)
+            faces = np.array(obj.faces, dtype=int)
+
         log.info("Loaded drift hull: %d vertices, %d faces", len(vertices), len(faces))
         return vertices, faces
     except Exception as exc:
