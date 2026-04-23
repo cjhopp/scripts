@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CUSSP — EGS Collab Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #f0f6fc;
+    }
+
+    header p {
+      margin-top: 0.5rem;
+      color: #8b949e;
+      font-size: 1rem;
+    }
+
+    .cards {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 2rem 1.75rem;
+      width: 260px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .card:hover {
+      border-color: #58a6ff;
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    .card-icon {
+      font-size: 2.25rem;
+      line-height: 1;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .card-desc {
+      font-size: 0.875rem;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+
+    footer {
+      margin-top: 3rem;
+      color: #484f58;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CUSSP — EGS Collab</h1>
+    <p>Real-time monitoring dashboard — Experiment 1 (4100 Level)</p>
+  </header>
+
+  <div class="cards">
+    <a class="card" href="/dts/">
+      <div class="card-icon">🌡️</div>
+      <div class="card-title">DTS Temperature</div>
+      <div class="card-desc">
+        Distributed temperature sensing along the fiber-optic cable.
+        Real-time and historical profiles.
+      </div>
+    </a>
+
+    <a class="card" href="/results/">
+      <div class="card-icon">📊</div>
+      <div class="card-title">Experiment Results</div>
+      <div class="card-desc">
+        Fault-plane raypath and ML trajectory visualizations
+        from the latest analysis run.
+      </div>
+    </a>
+
+    <a class="card" href="/seismicity/">
+      <div class="card-icon">🔵</div>
+      <div class="card-title">Seismicity</div>
+      <div class="card-desc">
+        3D interactive seismicity catalog with wellbore traces.
+        Auto-refreshes every 5 minutes.
+      </div>
+    </a>
+  </div>
+
+  <footer>
+    Lawrence Berkeley National Laboratory &nbsp;·&nbsp; EGS Collab Project
+  </footer>
+</body>
+</html>

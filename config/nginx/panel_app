@@ -37,9 +37,10 @@ server {
     add_header X-Frame-Options           SAMEORIGIN always;
     add_header X-XSS-Protection          "1; mode=block" always;
 
-    # Root → DTS app
+    # Root → landing page
+    root /var/www/cussp;
     location = / {
-        return 301 /dts/;
+        try_files /index.html =404;
     }
 
     # --- Shared proxy settings (duplicated per block; NGINX doesn't allow

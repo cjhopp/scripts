@@ -20,11 +20,33 @@ ZARR_PATH = Path("/data/chet-cussp/DTS/DTS_all.zarr")
 NO_COLS = 6
 QUEUE_TIMEOUT = 1
 RETRY_ATTEMPTS = 3
+# Delete each raw XML after successful Zarr ingest to reclaim disk space.
+# WARNING: Only enable this after confirming the Zarr store is backed up to the
+# cluster. If True, the Zarr becomes the sole copy on this VM.
+DELETE_AFTER_INGEST = False
 
 # Write time as integer seconds since epoch so xarray can decode without cftime.
 # Sub-second precision in the reference timestamp (e.g. 'days since 2024-07-11
 # 20:02:01.165000') causes a ValueError in the standard decoder.
 TIME_ENCODING = {"time": {"units": "seconds since 1970-01-01 00:00:00", "dtype": "int64"}}
+
+
+def _filename_timestamp(filename):
+    """
+    Extract an approximate np.datetime64 from a filename like:
+      'channel 1_20240711195701593.xml'  (17-digit YYYYMMDDHHMMSSmmm)
+    Returns None if the pattern doesn't match.
+    """
+    import re
+    m = re.search(r'_(\d{17})\.xml$', filename, re.IGNORECASE)
+    if m:
+        s = m.group(1)          # YYYYMMDDHHMMSSmmm
+        try:
+            dt = datetime.strptime(s[:14], "%Y%m%d%H%M%S")
+            return np.array([dt], dtype="datetime64[ns]")[0]
+        except ValueError:
+            pass
+    return None
 
 
 def normalize_event_path(raw_path):
@@ -193,6 +215,11 @@ class Worker(threading.Thread):
         self._write_dataset(ds)
         self.known_timestamps.add(timestamp)
         logging.info("Ingested %s (%s)", path.name, parsed[0].isoformat())
+        if DELETE_AFTER_INGEST:
+            try:
+                path.unlink()
+            except OSError as exc:
+                logging.warning("Could not delete %s after ingest: %s", path.name, exc)
 
     def _write_dataset(self, dataset):
         for attempt in range(1, RETRY_ATTEMPTS + 1):
@@ -300,16 +327,34 @@ class Watcher:
             self.worker.join(timeout=5)
 
     def _startup_catchup(self):
+        # Use max known timestamp as a fast-skip threshold so that on restart
+        # after a full backfill we don't re-parse 88K files just to discard them.
+        known = self.worker.known_timestamps
+        max_known = max(known) if known else None
+
         seen = set()
-        count = 0
+        queued = 0
+        skipped = 0
         for raw_path in sorted(self.directory_to_watch.iterdir()):
             path = normalize_event_path(raw_path)
             if path.suffix.lower() != ".xml" or not path.exists() or path in seen:
                 continue
             seen.add(path)
+            # Fast path: if the filename encodes a timestamp that is already
+            # before (or equal to) the latest ingested timestamp, skip without
+            # opening the file.
+            if max_known is not None:
+                fn_ts = _filename_timestamp(path.name)
+                if fn_ts is not None and fn_ts <= max_known:
+                    skipped += 1
+                    continue
             self.file_queue.put(path)
-            count += 1
-        logging.info("Startup catchup: queued %s XML file(s)", count)
+            queued += 1
+        logging.info(
+            "Startup catchup: queued %s XML file(s), skipped %s already-ingested",
+            queued,
+            skipped,
+        )
 
     def _schedule_observer(self):
         self.observer.schedule(
