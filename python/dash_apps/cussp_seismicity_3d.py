@@ -251,6 +251,15 @@ def load_hull(path):
             faces = np.array(obj.faces, dtype=int)
 
         log.info("Loaded drift hull: %d vertices, %d faces", len(vertices), len(faces))
+
+        # Decimate to a browser-friendly size.  1M faces → huge WebSocket payload
+        # → browser disconnects before Plotly renders.  50k faces is visually identical.
+        max_faces = 50_000
+        if len(faces) > max_faces:
+            step = len(faces) // max_faces
+            faces = faces[::step]
+            log.info("Decimated hull to %d faces (step=%d)", len(faces), step)
+
         return vertices, faces
     except Exception as exc:
         log.warning("Failed to load hull %s: %s", path, exc)
