@@ -131,7 +131,7 @@ def inspect_store(zarr_path):
         logging.warning("Treating unreadable Zarr store as broken: %s", exc)
         return set(), False
 
-    if "time" not in ds.dims or ds.dims["time"] == 0:
+    if "time" not in ds.sizes or ds.sizes["time"] == 0:
         logging.warning(
             "Zarr store at %s has empty or missing 'time' dimension – will overwrite on first good write",
             zarr_path,
