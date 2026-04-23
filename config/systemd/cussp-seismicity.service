@@ -12,6 +12,7 @@ ExecStart=/usr/bin/python3 -m panel serve \
     --port 5008 \
     --prefix /seismicity \
     --allow-websocket-origin www.cussp.lbl.gov \
+    --allow-websocket-origin cussp.lbl.gov \
     --num-procs 1
 Restart=on-failure
 RestartSec=5
