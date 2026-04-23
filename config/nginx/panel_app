@@ -43,6 +43,12 @@ server {
         try_files /index.html =404;
     }
 
+    # Static assets (logo, etc.) served from web root
+    location ~* \.(png|jpg|jpeg|gif|ico|svg|css|js|woff2?)$ {
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
     # --- Shared proxy settings (duplicated per block; NGINX doesn't allow
     #     include inside location in all versions, and map{} needs http{} scope) ---
 

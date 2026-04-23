@@ -12,7 +12,7 @@ def image_column(caption, path):
     if path.exists():
         return pn.Column(
             pn.pane.Markdown(f"### {caption}"),
-            pn.pane.PNG(str(path), sizing_mode="scale_width"),
+            pn.pane.Image(str(path), sizing_mode="scale_width"),
             sizing_mode="stretch_width",
         )
     return pn.Column(
