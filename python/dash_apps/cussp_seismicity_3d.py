@@ -377,7 +377,7 @@ def build_magnitude_figure(cat_df):
             name="Magnitude",
         ))
     fig.update_layout(
-        height=220,
+        height=440,
         margin=dict(l=60, r=20, t=30, b=40),
         template="plotly_white",
         title=dict(text="Magnitude", font=dict(size=12)),
@@ -407,7 +407,7 @@ def build_injection_figure(inj_df=None):
             font=dict(size=13, color="gray"),
         )
     fig.update_layout(
-        height=220,
+        height=440,
         margin=dict(l=60, r=20, t=30, b=40),
         template="plotly_white",
         title=dict(text="Injection Parameters", font=dict(size=12)),

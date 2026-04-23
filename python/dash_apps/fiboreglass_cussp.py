@@ -55,7 +55,7 @@ class Fiboreglass(pn.viewable.Viewer):
     def __init__(self, **params):
         super().__init__(**params)
         self.da = get_data(self.variable, self.well_selector, self.direction_selector, self.length_selector)
-        self._plot_pane = self._update_plot
+        self._plot_pane = pn.panel(self._update_plot)
         self._layout = pn.Column(
             pn.Row(
                 self.param.variable,
