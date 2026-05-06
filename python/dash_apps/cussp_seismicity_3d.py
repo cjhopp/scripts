@@ -485,7 +485,7 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
             mag = mag_raw.fillna(float(mag_raw.min()))
         else:
             mag = mag_raw.fillna(0.0)
-        sizes = np.clip(0.6 * (mag - mag.min()) ** 2 + 1.5, 1.5, 8).values
+        sizes = np.clip(0.9 * (mag - mag.min()) ** 2 + 2.2, 2.2, 11).values
 
         t_datetimes = pd.to_datetime(cat_df["time"])
         t_min_dt = t_datetimes.min()
