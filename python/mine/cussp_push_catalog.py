@@ -61,7 +61,7 @@ log = logging.getLogger(__name__)
 # Defaults — override via CLI flags or the systemd service ExecStart line
 # ---------------------------------------------------------------------------
 DEFAULT_FDSN_URL = "http://localhost:8080"
-DEFAULT_DAYS = 365
+DEFAULT_DAYS = 30
 DEFAULT_OUTPUT = "/tmp/cussp_catalog.quakeml"
 DEFAULT_RSYNC_TARGET = "chopp@cussp-vm.lbl.gov:/data/chet-cussp/seismicity/catalog.quakeml"
 DEFAULT_SSH_KEY = str(Path.home() / ".ssh" / "id_cussp_vm")

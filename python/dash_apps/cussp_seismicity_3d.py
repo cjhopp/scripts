@@ -2,7 +2,7 @@ import json
 import logging
 import math
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -479,9 +479,17 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
         mag = cat_df["mag"].fillna(0.0)
         sizes = np.clip((mag - mag.min()) ** 2 + 4, 4, 20).values
 
-        t_sec = (
-            pd.to_datetime(cat_df["time"]) - pd.to_datetime(cat_df["time"]).min()
-        ).dt.total_seconds().values
+        t_datetimes = pd.to_datetime(cat_df["time"])
+        t_min_dt = t_datetimes.min()
+        t_sec = (t_datetimes - t_min_dt).dt.total_seconds().values
+        t_max_sec = float(t_sec.max()) if t_sec.max() > 0 else 1.0
+
+        n_ticks = 5
+        tick_sec_vals = np.linspace(0.0, t_max_sec, n_ticks)
+        tick_labels = [
+            (t_min_dt + pd.Timedelta(seconds=float(ts))).strftime("%Y-%m-%d\n%H:%M UTC")
+            for ts in tick_sec_vals
+        ]
 
         fig.add_trace(
             go.Scatter3d(
@@ -496,7 +504,16 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
                         [0.0, "rgb(135,135,135)"],
                         [1.0, "rgb(20,20,20)"],
                     ],
-                    colorbar=dict(title="Time →", len=0.45, thickness=12, x=1.0),
+                    cmin=0.0,
+                    cmax=t_max_sec,
+                    colorbar=dict(
+                        title="",
+                        len=0.45,
+                        thickness=12,
+                        x=1.0,
+                        tickvals=tick_sec_vals.tolist(),
+                        ticktext=tick_labels,
+                    ),
                     opacity=0.75,
                 ),
                 text=cat_df["hover"].values,
@@ -552,7 +569,7 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
     return fig
 
 
-def build_magnitude_figure(cat_df):
+def build_magnitude_figure(cat_df, date_range=None):
     """Magnitude vs time scatter plot."""
     fig = go.Figure()
     if len(cat_df) > 0:
@@ -573,13 +590,16 @@ def build_magnitude_figure(cat_df):
             hovertemplate="%{x|%Y-%m-%d %H:%M}<br>M%{y:.2f}<extra></extra>",
             name="Magnitude",
         ))
+    xaxis_cfg = dict(title="")
+    if date_range is not None:
+        xaxis_cfg["range"] = [pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])]
     fig.update_layout(
         height=440,
         margin=dict(l=60, r=20, t=30, b=40),
         template="plotly_white",
         title=dict(text="Magnitude", font=dict(size=12)),
         yaxis=dict(title="M", range=[-5, 0]),
-        xaxis=dict(title=""),
+        xaxis=xaxis_cfg,
         uirevision="mag",
     )
     return fig
@@ -634,13 +654,26 @@ class SeismicityDashboard(pn.viewable.Viewer):
             self._stations = snap_stations_to_wellbores(self._stations, self._wellbores)
         self._hull_verts, self._hull_faces = load_hull(HULL_FILE)
         cat_df, last_updated = self._fetch()
+        self._cat_df_full = cat_df
+
+        min_t, max_t = self._catalog_time_bounds(cat_df)
+        self._date_slider = pn.widgets.DateRangeSlider(
+            name="Date range filter",
+            start=min_t,
+            end=max_t,
+            value=(min_t, max_t),
+            sizing_mode="stretch_width",
+        )
+        self._date_slider.param.watch(self._on_slider_change, "value")
+
+        cat_filtered = self._apply_date_filter(cat_df)
         self._header = pn.pane.Markdown(
-            self._header_md(len(cat_df), last_updated),
+            self._header_md(len(cat_filtered), last_updated, n_total=len(cat_df)),
             sizing_mode="stretch_width",
         )
         self._plot = pn.pane.Plotly(
             build_figure(
-                cat_df,
+                cat_filtered,
                 self._stations,
                 self._wellbores,
                 self._hull_verts,
@@ -651,7 +684,7 @@ class SeismicityDashboard(pn.viewable.Viewer):
             height=750,
         )
         self._mag_plot = pn.pane.Plotly(
-            build_magnitude_figure(cat_df),
+            build_magnitude_figure(cat_filtered, date_range=self._date_slider.value),
             sizing_mode="stretch_width",
         )
         self._inj_plot = pn.pane.Plotly(
@@ -667,29 +700,76 @@ class SeismicityDashboard(pn.viewable.Viewer):
         return cat_df, last_updated
 
     @staticmethod
-    def _header_md(n, last_updated):
+    def _header_md(n_visible, last_updated, n_total=None):
+        if n_total is not None and n_total != n_visible:
+            count_str = f"{n_visible} of {n_total} event{'s' if n_total != 1 else ''}"
+        else:
+            count_str = f"{n_visible} event{'s' if n_visible != 1 else ''}"
         return (
             f"**CUSSP 4100L Seismicity** &nbsp;|&nbsp; "
-            f"{n} event{'s' if n != 1 else ''} &nbsp;|&nbsp; "
+            f"{count_str} &nbsp;|&nbsp; "
             f"Last updated: {last_updated} &nbsp;*(auto-refreshes every {REFRESH_LABEL})*"
         )
 
+    @staticmethod
+    def _catalog_time_bounds(df):
+        """Return (min_datetime, max_datetime) as naive Python datetimes for slider bounds."""
+        if len(df) == 0:
+            now = datetime.utcnow()
+            return now - timedelta(days=30), now
+        t = pd.to_datetime(df["time"])
+        if t.dt.tz is not None:
+            t = t.dt.tz_convert(None)
+        return t.min().to_pydatetime(), t.max().to_pydatetime()
+
+    def _apply_date_filter(self, df):
+        """Filter df to the current date slider selection."""
+        if len(df) == 0:
+            return df
+        start, end = self._date_slider.value
+        t = pd.to_datetime(df["time"])
+        if t.dt.tz is not None:
+            t = t.dt.tz_convert(None)
+        mask = (t >= pd.Timestamp(start)) & (t <= pd.Timestamp(end))
+        return df[mask].reset_index(drop=True)
+
+    def _on_slider_change(self, event):
+        cat_filtered = self._apply_date_filter(self._cat_df_full)
+        self._plot.object = build_figure(
+            cat_filtered,
+            self._stations,
+            self._wellbores,
+            self._hull_verts,
+            self._hull_faces,
+            None,
+        )
+        self._mag_plot.object = build_magnitude_figure(cat_filtered, date_range=self._date_slider.value)
+
     def _refresh(self):
         cat_df, last_updated = self._fetch()
-        self._header.object = self._header_md(len(cat_df), last_updated)
+        self._cat_df_full = cat_df
+        # Expand slider bounds if new events fall outside the current range
+        new_min, new_max = self._catalog_time_bounds(cat_df)
+        if new_min < self._date_slider.start:
+            self._date_slider.start = new_min
+        if new_max > self._date_slider.end:
+            self._date_slider.end = new_max
+        cat_filtered = self._apply_date_filter(cat_df)
+        self._header.object = self._header_md(len(cat_filtered), last_updated, n_total=len(cat_df))
         self._plot.object = build_figure(
-            cat_df,
+            cat_filtered,
             self._stations,
             self._wellbores,
             self._hull_verts,
             self._hull_faces,
             last_updated,
         )
-        self._mag_plot.object = build_magnitude_figure(cat_df)
+        self._mag_plot.object = build_magnitude_figure(cat_filtered, date_range=self._date_slider.value)
 
     def __panel__(self):
         return pn.Column(
             self._header,
+            self._date_slider,
             self._plot,
             self._mag_plot,
             self._inj_plot,
