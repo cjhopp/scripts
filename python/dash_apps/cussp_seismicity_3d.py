@@ -392,7 +392,7 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
                 z=station_df["z"].values,
                 mode="markers",
                 marker=dict(
-                    symbol="triangle-down",
+                    symbol="diamond",
                     color="red",
                     size=6,
                     opacity=0.95,
