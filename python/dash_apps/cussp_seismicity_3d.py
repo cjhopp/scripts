@@ -476,8 +476,16 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
 
     # Seismicity scatter — coloured by time, sized by magnitude
     if n_events > 0:
-        mag = cat_df["mag"].fillna(0.0)
-        sizes = np.clip((mag - mag.min()) ** 2 + 4, 4, 20).values
+        mag_raw = cat_df["mag"]
+        has_mag = mag_raw.notna()
+        # Fill NaN with the minimum real magnitude so unknown events get the
+        # *smallest* marker; without this, NaN→0 sits above all negative real
+        # magnitudes and gets the maximum size (backwards).
+        if has_mag.any():
+            mag = mag_raw.fillna(float(mag_raw.min()))
+        else:
+            mag = mag_raw.fillna(0.0)
+        sizes = np.clip(0.6 * (mag - mag.min()) ** 2 + 1.5, 1.5, 8).values
 
         t_datetimes = pd.to_datetime(cat_df["time"])
         t_min_dt = t_datetimes.min()
@@ -598,7 +606,7 @@ def build_magnitude_figure(cat_df, date_range=None):
         margin=dict(l=60, r=20, t=30, b=40),
         template="plotly_white",
         title=dict(text="Magnitude", font=dict(size=12)),
-        yaxis=dict(title="M", range=[-5, 0]),
+        yaxis=dict(title="M", autorange=True),
         xaxis=xaxis_cfg,
         uirevision="mag",
     )
