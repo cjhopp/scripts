@@ -657,14 +657,16 @@ class SeismicityDashboard(pn.viewable.Viewer):
         self._cat_df_full = cat_df
 
         min_t, max_t = self._catalog_time_bounds(cat_df)
-        self._date_slider = pn.widgets.DateRangeSlider(
-            name="Date range filter",
-            start=min_t,
-            end=max_t,
-            value=(min_t, max_t),
-            sizing_mode="stretch_width",
+        self._date_start = pn.widgets.DatePicker(
+            name="Start date",
+            value=min_t.date(),
         )
-        self._date_slider.param.watch(self._on_slider_change, "value")
+        self._date_end = pn.widgets.DatePicker(
+            name="End date",
+            value=max_t.date(),
+        )
+        self._date_start.param.watch(self._on_slider_change, "value")
+        self._date_end.param.watch(self._on_slider_change, "value")
 
         cat_filtered = self._apply_date_filter(cat_df)
         self._header = pn.pane.Markdown(
@@ -684,7 +686,7 @@ class SeismicityDashboard(pn.viewable.Viewer):
             height=750,
         )
         self._mag_plot = pn.pane.Plotly(
-            build_magnitude_figure(cat_filtered, date_range=self._date_slider.value),
+            build_magnitude_figure(cat_filtered, date_range=self._date_range()),
             sizing_mode="stretch_width",
         )
         self._inj_plot = pn.pane.Plotly(
@@ -722,15 +724,22 @@ class SeismicityDashboard(pn.viewable.Viewer):
             t = t.dt.tz_convert(None)
         return t.min().to_pydatetime(), t.max().to_pydatetime()
 
+    def _date_range(self):
+        """Return (start, end) as Timestamps from the two DatePicker widgets."""
+        start = pd.Timestamp(self._date_start.value)
+        # Include the full end day
+        end = pd.Timestamp(self._date_end.value) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        return start, end
+
     def _apply_date_filter(self, df):
-        """Filter df to the current date slider selection."""
+        """Filter df to the current picker selection."""
         if len(df) == 0:
             return df
-        start, end = self._date_slider.value
+        start, end = self._date_range()
         t = pd.to_datetime(df["time"])
         if t.dt.tz is not None:
             t = t.dt.tz_convert(None)
-        mask = (t >= pd.Timestamp(start)) & (t <= pd.Timestamp(end))
+        mask = (t >= start) & (t <= end)
         return df[mask].reset_index(drop=True)
 
     def _on_slider_change(self, event):
@@ -743,17 +752,11 @@ class SeismicityDashboard(pn.viewable.Viewer):
             self._hull_faces,
             None,
         )
-        self._mag_plot.object = build_magnitude_figure(cat_filtered, date_range=self._date_slider.value)
+        self._mag_plot.object = build_magnitude_figure(cat_filtered, date_range=self._date_range())
 
     def _refresh(self):
         cat_df, last_updated = self._fetch()
         self._cat_df_full = cat_df
-        # Expand slider bounds if new events fall outside the current range
-        new_min, new_max = self._catalog_time_bounds(cat_df)
-        if new_min < self._date_slider.start:
-            self._date_slider.start = new_min
-        if new_max > self._date_slider.end:
-            self._date_slider.end = new_max
         cat_filtered = self._apply_date_filter(cat_df)
         self._header.object = self._header_md(len(cat_filtered), last_updated, n_total=len(cat_df))
         self._plot.object = build_figure(
@@ -764,12 +767,17 @@ class SeismicityDashboard(pn.viewable.Viewer):
             self._hull_faces,
             last_updated,
         )
-        self._mag_plot.object = build_magnitude_figure(cat_filtered, date_range=self._date_slider.value)
+        self._mag_plot.object = build_magnitude_figure(cat_filtered, date_range=self._date_range())
 
     def __panel__(self):
+        date_row = pn.Row(
+            pn.pane.Markdown("**Filter dates:**", margin=(8, 8, 0, 0)),
+            self._date_start,
+            self._date_end,
+        )
         return pn.Column(
             self._header,
-            self._date_slider,
+            date_row,
             self._plot,
             self._mag_plot,
             self._inj_plot,
