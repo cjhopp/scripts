@@ -485,7 +485,7 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
             mag = mag_raw.fillna(float(mag_raw.min()))
         else:
             mag = mag_raw.fillna(0.0)
-        sizes = np.clip(0.9 * (mag - mag.min()) ** 2 + 2.2, 2.2, 11).values
+        sizes = np.clip(1.0 * (mag - mag.min()) ** 2 + 2.8, 2.8, 13).values
 
         t_datetimes = pd.to_datetime(cat_df["time"])
         t_min_dt = t_datetimes.min()
@@ -581,23 +581,35 @@ def build_magnitude_figure(cat_df, date_range=None):
     """Magnitude vs time scatter plot."""
     fig = go.Figure()
     if len(cat_df) > 0:
-        times = pd.to_datetime(cat_df["time"])
-        mag = cat_df["mag"].fillna(float("nan"))
-        fig.add_trace(go.Scatter(
-            x=times,
-            y=mag,
-            mode="markers",
-            marker=dict(
-                size=6,
-                color=mag,
-                colorscale="Plasma",
-                cmin=-5,
-                cmax=0,
-                showscale=False,
-            ),
-            hovertemplate="%{x|%Y-%m-%d %H:%M}<br>M%{y:.2f}<extra></extra>",
-            name="Magnitude",
-        ))
+        mag_df = cat_df[cat_df["mag"].notna()].copy()
+        if len(mag_df) > 0:
+            times = pd.to_datetime(mag_df["time"])
+            mag = mag_df["mag"].astype(float)
+            fig.add_trace(go.Scatter(
+                x=times,
+                y=mag,
+                mode="markers",
+                marker=dict(
+                    size=10,
+                    color=mag,
+                    colorscale="Plasma",
+                    cmin=float(mag.min()),
+                    cmax=float(mag.max()) if float(mag.max()) > float(mag.min()) else float(mag.min()) + 1.0,
+                    showscale=False,
+                    opacity=0.95,
+                    line=dict(color="rgba(20,20,20,0.7)", width=0.8),
+                ),
+                hovertemplate="%{x|%Y-%m-%d %H:%M:%S}<br>M%{y:.2f}<extra></extra>",
+                name="Magnitude",
+                showlegend=False,
+            ))
+        else:
+            fig.add_annotation(
+                text="No preferred magnitudes in selected time window",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=12, color="gray"),
+            )
     xaxis_cfg = dict(title="")
     if date_range is not None:
         xaxis_cfg["range"] = [pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])]
@@ -606,7 +618,7 @@ def build_magnitude_figure(cat_df, date_range=None):
         margin=dict(l=60, r=20, t=30, b=40),
         template="plotly_white",
         title=dict(text="Magnitude", font=dict(size=12)),
-        yaxis=dict(title="M", autorange=True),
+        yaxis=dict(title="M", autorange=True, showgrid=True, zeroline=True),
         xaxis=xaxis_cfg,
         uirevision="mag",
     )
@@ -673,8 +685,20 @@ class SeismicityDashboard(pn.viewable.Viewer):
             name="End date",
             value=max_t.date(),
         )
+        self._time_start = pn.widgets.TextInput(
+            name="Start time (UTC)",
+            value=min_t.strftime("%H:%M"),
+            width=120,
+        )
+        self._time_end = pn.widgets.TextInput(
+            name="End time (UTC)",
+            value=max_t.strftime("%H:%M"),
+            width=120,
+        )
         self._date_start.param.watch(self._on_slider_change, "value")
         self._date_end.param.watch(self._on_slider_change, "value")
+        self._time_start.param.watch(self._on_slider_change, "value")
+        self._time_end.param.watch(self._on_slider_change, "value")
 
         cat_filtered = self._apply_date_filter(cat_df)
         self._header = pn.pane.Markdown(
@@ -732,11 +756,23 @@ class SeismicityDashboard(pn.viewable.Viewer):
             t = t.dt.tz_convert(None)
         return t.min().to_pydatetime(), t.max().to_pydatetime()
 
+    @staticmethod
+    def _parse_time_text(value, default_time):
+        text = (value or "").strip()
+        try:
+            parsed = datetime.strptime(text, "%H:%M")
+            return parsed.strftime("%H:%M")
+        except ValueError:
+            return default_time
+
     def _date_range(self):
-        """Return (start, end) as Timestamps from the two DatePicker widgets."""
-        start = pd.Timestamp(self._date_start.value)
-        # Include the full end day
-        end = pd.Timestamp(self._date_end.value) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        """Return (start, end) as Timestamps from date and time filter widgets."""
+        start_time = self._parse_time_text(self._time_start.value, "00:00")
+        end_time = self._parse_time_text(self._time_end.value, "23:59")
+        start = pd.Timestamp(f"{self._date_start.value} {start_time}")
+        end = pd.Timestamp(f"{self._date_end.value} {end_time}")
+        if end < start:
+            start, end = end, start
         return start, end
 
     def _apply_date_filter(self, df):
@@ -752,6 +788,7 @@ class SeismicityDashboard(pn.viewable.Viewer):
 
     def _on_slider_change(self, event):
         cat_filtered = self._apply_date_filter(self._cat_df_full)
+        self._header.object = self._header_md(len(cat_filtered), datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"), n_total=len(self._cat_df_full))
         self._plot.object = build_figure(
             cat_filtered,
             self._stations,
@@ -779,9 +816,11 @@ class SeismicityDashboard(pn.viewable.Viewer):
 
     def __panel__(self):
         date_row = pn.Row(
-            pn.pane.Markdown("**Filter dates:**", margin=(8, 8, 0, 0)),
+            pn.pane.Markdown("**Filter time window (UTC):**", margin=(8, 8, 0, 0)),
             self._date_start,
+            self._time_start,
             self._date_end,
+            self._time_end,
         )
         return pn.Column(
             self._header,
