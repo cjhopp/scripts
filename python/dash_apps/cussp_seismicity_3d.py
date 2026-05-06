@@ -141,6 +141,15 @@ def load_catalog(path):
         log.error("Failed to read catalog %s: %s", path, exc)
         return empty
 
+    def _extract_event_magnitude(event):
+        mag_obj = event.preferred_magnitude()
+        if mag_obj is not None and getattr(mag_obj, "mag", None) is not None:
+            return float(mag_obj.mag)
+        for candidate in getattr(event, "magnitudes", []) or []:
+            if getattr(candidate, "mag", None) is not None:
+                return float(candidate.mag)
+        return np.nan
+
     rows = []
     for ev in cat:
         try:
@@ -159,8 +168,7 @@ def load_catalog(path):
             else:
                 log.debug("No HMC attributes and no SURF_converter — skipping event")
                 continue
-            mag_obj = ev.preferred_magnitude()
-            mag = mag_obj.mag if mag_obj else np.nan
+            mag = _extract_event_magnitude(ev)
             rows.append(dict(x=x, y=y, z=z, time=orig.time.datetime, mag=mag))
         except (AttributeError, KeyError, TypeError) as exc:
             log.debug("Skipping event: %s", exc)
@@ -485,7 +493,7 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
             mag = mag_raw.fillna(float(mag_raw.min()))
         else:
             mag = mag_raw.fillna(0.0)
-        sizes = np.clip(1.0 * (mag - mag.min()) ** 2 + 2.8, 2.8, 13).values
+        sizes = np.clip(1.05 * (mag - mag.min()) ** 2 + 3.1, 3.1, 14).values
 
         t_datetimes = pd.to_datetime(cat_df["time"])
         t_min_dt = t_datetimes.min()
@@ -580,10 +588,14 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
 def build_magnitude_figure(cat_df, date_range=None):
     """Magnitude vs time scatter plot."""
     fig = go.Figure()
+    xaxis_cfg = dict(title="")
     if len(cat_df) > 0:
         mag_df = cat_df[cat_df["mag"].notna()].copy()
         if len(mag_df) > 0:
             times = pd.to_datetime(mag_df["time"])
+            mag = mag_df["mag"].astype(float)
+            mag_df = mag_df.assign(time_dt=times).sort_values("time_dt")
+            times = mag_df["time_dt"]
             mag = mag_df["mag"].astype(float)
             fig.add_trace(go.Scatter(
                 x=times,
@@ -603,15 +615,25 @@ def build_magnitude_figure(cat_df, date_range=None):
                 name="Magnitude",
                 showlegend=False,
             ))
+
+            # Zoom to the actual span of events with magnitudes inside the
+            # selected filter window; otherwise a 30-day window compresses a
+            # 90-minute cluster into a nearly invisible sliver.
+            t0 = pd.Timestamp(times.min())
+            t1 = pd.Timestamp(times.max())
+            if t1 <= t0:
+                pad = pd.Timedelta(minutes=10)
+            else:
+                pad = max((t1 - t0) * 0.08, pd.Timedelta(minutes=5))
+            xaxis_cfg["range"] = [t0 - pad, t1 + pad]
         else:
             fig.add_annotation(
-                text="No preferred magnitudes in selected time window",
+                text="No magnitudes in selected time window",
                 xref="paper", yref="paper",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(size=12, color="gray"),
             )
-    xaxis_cfg = dict(title="")
-    if date_range is not None:
+    if date_range is not None and "range" not in xaxis_cfg:
         xaxis_cfg["range"] = [pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])]
     fig.update_layout(
         height=440,
@@ -748,13 +770,13 @@ class SeismicityDashboard(pn.viewable.Viewer):
     @staticmethod
     def _catalog_time_bounds(df):
         """Return (min_datetime, max_datetime) as naive Python datetimes for slider bounds."""
+        now = datetime.utcnow()
         if len(df) == 0:
-            now = datetime.utcnow()
             return now - timedelta(days=30), now
         t = pd.to_datetime(df["time"])
         if t.dt.tz is not None:
             t = t.dt.tz_convert(None)
-        return t.min().to_pydatetime(), t.max().to_pydatetime()
+        return t.min().to_pydatetime(), max(t.max().to_pydatetime(), now)
 
     @staticmethod
     def _parse_time_text(value, default_time):
