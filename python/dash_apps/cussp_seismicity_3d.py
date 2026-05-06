@@ -492,7 +492,10 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
                 marker=dict(
                     size=sizes,
                     color=t_sec,
-                    colorscale="Plasma",
+                    colorscale=[
+                        [0.0, "rgb(135,135,135)"],
+                        [1.0, "rgb(20,20,20)"],
+                    ],
                     colorbar=dict(title="Time →", len=0.45, thickness=12, x=1.0),
                     opacity=0.75,
                 ),
@@ -516,8 +519,8 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
                 marker=dict(
                     symbol="diamond",
                     color="red",
-                    size=6,
-                    opacity=0.95,
+                    size=3,
+                    opacity=0.5,
                 ),
                 text=station_df["label"].values,
                 hovertemplate=(
