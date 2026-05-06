@@ -616,16 +616,6 @@ def build_magnitude_figure(cat_df, date_range=None):
                 showlegend=False,
             ))
 
-            # Zoom to the actual span of events with magnitudes inside the
-            # selected filter window; otherwise a 30-day window compresses a
-            # 90-minute cluster into a nearly invisible sliver.
-            t0 = pd.Timestamp(times.min())
-            t1 = pd.Timestamp(times.max())
-            if t1 <= t0:
-                pad = pd.Timedelta(minutes=10)
-            else:
-                pad = max((t1 - t0) * 0.08, pd.Timedelta(minutes=5))
-            xaxis_cfg["range"] = [t0 - pad, t1 + pad]
         else:
             fig.add_annotation(
                 text="No magnitudes in selected time window",
@@ -633,7 +623,7 @@ def build_magnitude_figure(cat_df, date_range=None):
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(size=12, color="gray"),
             )
-    if date_range is not None and "range" not in xaxis_cfg:
+    if date_range is not None:
         xaxis_cfg["range"] = [pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])]
     fig.update_layout(
         height=440,
