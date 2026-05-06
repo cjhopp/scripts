@@ -25,6 +25,7 @@ except Exception:
 # Configuration
 # ---------------------------------------------------------------------------
 CATALOG_FILE = Path("/data/chet-cussp/seismicity/catalog.quakeml")
+STATION_FILE = Path("/data/chet-cussp/seismicity/stations_hmc.csv")
 WELLBORE_DIR = Path("/data/chet-cussp/wellbores")
 # Trimesh hull JSON for the 4100L drift (set to None to disable)
 HULL_FILE = Path("/data/chet-cussp/seismicity/drift_hull.npy")
@@ -40,7 +41,8 @@ HMC_ZLIM = [295, 365]     # Elevation [HMC m]
 SURF_SURFACE_HMC_Z_M = 1605.0
 
 # Auto-refresh interval (milliseconds)
-REFRESH_MS = 5 * 60 * 1000   # 5 minutes
+REFRESH_MS = 1 * 60 * 1000   # 1 minute
+REFRESH_LABEL = "1 min"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -184,8 +186,55 @@ def load_wellbores(directory):
     log.info("Loaded %d wellbore(s) from %s", len(wellbores), wdir)
     return wellbores
 
-    log.info("Loaded %d wellbore(s) from %s", len(wellbores), wdir)
-    return wellbores
+
+def load_stations(path):
+    """Load station/channel HMC CSV exported by cussp_push_catalog.py."""
+    p = Path(path)
+    empty = pd.DataFrame(columns=["x", "y", "z", "label"])
+
+    if not p.exists():
+        log.warning("Station CSV not found: %s", p)
+        return empty
+
+    try:
+        df = pd.read_csv(p)
+    except Exception as exc:
+        log.error("Failed to read station CSV %s: %s", p, exc)
+        return empty
+
+    required = {"hmc_east_m", "hmc_north_m"}
+    if not required.issubset(df.columns):
+        log.warning("Station CSV missing required columns: %s", sorted(required))
+        return empty
+
+    z_col = "hmc_z_minus_depth_m" if "hmc_z_minus_depth_m" in df.columns else "hmc_z_m_asl"
+    if z_col not in df.columns:
+        log.warning("Station CSV missing Z column (hmc_z_minus_depth_m or hmc_z_m_asl)")
+        return empty
+
+    out = pd.DataFrame(
+        {
+            "x": pd.to_numeric(df["hmc_east_m"], errors="coerce"),
+            "y": pd.to_numeric(df["hmc_north_m"], errors="coerce"),
+            "z": pd.to_numeric(df[z_col], errors="coerce"),
+            "network": df.get("network", ""),
+            "station": df.get("station", ""),
+            "channel": df.get("channel", ""),
+        }
+    ).dropna(subset=["x", "y", "z"])
+
+    out["label"] = (
+        out["network"].astype(str)
+        + "."
+        + out["station"].astype(str)
+        + "."
+        + out["channel"].astype(str)
+    )
+
+    # Plot one point per station to avoid dense per-channel overlap.
+    out = out.sort_values(["label"]).drop_duplicates(subset=["network", "station"], keep="first")
+    log.info("Loaded %d station point(s) from %s", len(out), p)
+    return out[["x", "y", "z", "label"]]
 
 
 def load_hull(path):
@@ -263,7 +312,7 @@ def load_hull(path):
 # Figure builder
 # ---------------------------------------------------------------------------
 
-def build_figure(cat_df, wellbores, hull_verts, hull_faces, last_updated):
+def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_updated):
     n_events = len(cat_df)
     fig = go.Figure()
 
@@ -331,6 +380,29 @@ def build_figure(cat_df, wellbores, hull_verts, hull_faces, last_updated):
                     "E=%{x:.1f} m, N=%{y:.1f} m, Elev=%{z:.1f} m<extra></extra>"
                 ),
                 name=f"Seismicity ({n_events})",
+            )
+        )
+
+    # Station markers from SeisComP inventory export
+    if len(station_df) > 0:
+        fig.add_trace(
+            go.Scatter3d(
+                x=station_df["x"].values,
+                y=station_df["y"].values,
+                z=station_df["z"].values,
+                mode="markers",
+                marker=dict(
+                    symbol="triangle-down",
+                    color="red",
+                    size=6,
+                    opacity=0.95,
+                ),
+                text=station_df["label"].values,
+                hovertemplate=(
+                    "<b>%{text}</b><br>"
+                    "E=%{x:.1f} m, N=%{y:.1f} m, Elev=%{z:.1f} m<extra></extra>"
+                ),
+                name=f"Stations ({len(station_df)})",
             )
         )
 
@@ -424,6 +496,7 @@ def build_injection_figure(inj_df=None):
 class SeismicityDashboard(pn.viewable.Viewer):
     def __init__(self, **params):
         super().__init__(**params)
+        self._stations = load_stations(STATION_FILE)
         self._wellbores = load_wellbores(WELLBORE_DIR)
         self._hull_verts, self._hull_faces = load_hull(HULL_FILE)
         cat_df, last_updated = self._fetch()
@@ -432,7 +505,14 @@ class SeismicityDashboard(pn.viewable.Viewer):
             sizing_mode="stretch_width",
         )
         self._plot = pn.pane.Plotly(
-            build_figure(cat_df, self._wellbores, self._hull_verts, self._hull_faces, last_updated),
+            build_figure(
+                cat_df,
+                self._stations,
+                self._wellbores,
+                self._hull_verts,
+                self._hull_faces,
+                last_updated,
+            ),
             sizing_mode="stretch_width",
             height=750,
         )
@@ -457,14 +537,19 @@ class SeismicityDashboard(pn.viewable.Viewer):
         return (
             f"**CUSSP 4100L Seismicity** &nbsp;|&nbsp; "
             f"{n} event{'s' if n != 1 else ''} &nbsp;|&nbsp; "
-            f"Last updated: {last_updated} &nbsp;*(auto-refreshes every 5 min)*"
+            f"Last updated: {last_updated} &nbsp;*(auto-refreshes every {REFRESH_LABEL})*"
         )
 
     def _refresh(self):
         cat_df, last_updated = self._fetch()
         self._header.object = self._header_md(len(cat_df), last_updated)
         self._plot.object = build_figure(
-            cat_df, self._wellbores, self._hull_verts, self._hull_faces, last_updated
+            cat_df,
+            self._stations,
+            self._wellbores,
+            self._hull_verts,
+            self._hull_faces,
+            last_updated,
         )
         self._mag_plot.object = build_magnitude_figure(cat_df)
 

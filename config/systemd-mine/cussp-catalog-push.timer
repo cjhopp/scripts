@@ -1,10 +1,10 @@
 [Unit]
-Description=CUSSP seismicity catalog push — every 5 minutes
+Description=CUSSP seismicity catalog push — every 1 minute
 Requires=cussp-catalog-push.service
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=5min
+OnUnitActiveSec=1min
 AccuracySec=30s
 Persistent=true
 
