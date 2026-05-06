@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -8,6 +9,7 @@ import numpy as np
 import pandas as pd
 import panel as pn
 import plotly.graph_objects as go
+from pyproj import Proj, Transformer
 
 pn.extension("plotly")
 
@@ -29,6 +31,17 @@ STATION_FILE = Path("/data/chet-cussp/seismicity/stations_hmc.csv")
 WELLBORE_DIR = Path("/data/chet-cussp/wellbores")
 # Trimesh hull JSON for the 4100L drift (set to None to disable)
 HULL_FILE = Path("/data/chet-cussp/seismicity/drift_hull.npy")
+SNAP_STATIONS_TO_WELLS = True
+
+# Canonical plotting frame for seismicity/stations exported by push pipeline.
+CANONICAL_FRAME = "hmc-grid-nad27-utm13"
+# Set source frame for engineering products.
+# Use "hmc-true-north" only if survey metadata explicitly says true-north axes.
+WELLBORE_SOURCE_FRAME = "hmc-grid-nad27-utm13"
+HULL_SOURCE_FRAME = "hmc-grid-nad27-utm13"
+# Reference point used to compute meridian convergence of the UTM grid.
+FRAME_REF_LAT_WGS84 = 44.35105719
+FRAME_REF_LON_WGS84 = -103.75035647
 
 # HMC axis limits (matches plot_4100)
 HMC_XLIM = [1195, 1275]   # Easting [HMC m]  (+10 m West)
@@ -46,6 +59,63 @@ REFRESH_LABEL = "1 min"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
+
+
+def _grid_convergence_deg(lon_wgs84, lat_wgs84):
+    """Return UTM13 meridian convergence (degrees) at a WGS84 location.
+
+    This is a deterministic projection property that maps true north to grid north.
+    """
+    wgs84_to_nad27 = Transformer.from_crs("EPSG:4326", "EPSG:4267", always_xy=True)
+    lon27, lat27 = wgs84_to_nad27.transform(float(lon_wgs84), float(lat_wgs84))
+    proj = Proj("EPSG:26713")
+    factors = proj.get_factors(lon27, lat27)
+    return float(factors.meridian_convergence)
+
+
+GRID_CONVERGENCE_DEG = _grid_convergence_deg(FRAME_REF_LON_WGS84, FRAME_REF_LAT_WGS84)
+_WGS84_TO_NAD27_GEO = Transformer.from_crs("EPSG:4326", "EPSG:4267", always_xy=True)
+
+
+def _rotate_xy(x, y, angle_deg):
+    theta = math.radians(float(angle_deg))
+    ct = math.cos(theta)
+    st = math.sin(theta)
+    xr = ct * x - st * y
+    yr = st * x + ct * y
+    return xr, yr
+
+
+def _transform_xy_to_canonical(x, y, source_frame):
+    """Map source XY into CANONICAL_FRAME using projection-derived math only."""
+    if source_frame == CANONICAL_FRAME:
+        return x, y
+
+    if source_frame == "hmc-true-north" and CANONICAL_FRAME == "hmc-grid-nad27-utm13":
+        # True-north frame -> UTM grid frame: rotate by +meridian convergence.
+        return _rotate_xy(x, y, GRID_CONVERGENCE_DEG)
+
+    raise ValueError(f"Unsupported frame conversion: {source_frame} -> {CANONICAL_FRAME}")
+
+
+def _transform_df_xy_to_canonical(df, source_frame):
+    if len(df) == 0:
+        return df
+    x, y = _transform_xy_to_canonical(df["x"].to_numpy(float), df["y"].to_numpy(float), source_frame)
+    out = df.copy()
+    out["x"] = x
+    out["y"] = y
+    return out
+
+
+def _transform_vertices_xy_to_canonical(vertices, source_frame):
+    if vertices is None or len(vertices) == 0:
+        return vertices
+    x, y = _transform_xy_to_canonical(vertices[:, 0], vertices[:, 1], source_frame)
+    out = np.array(vertices, copy=True)
+    out[:, 0] = x
+    out[:, 1] = y
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +153,8 @@ def load_catalog(path):
             elif _SURF is not None:
                 # Fallback: convert lat/lon via SURF_converter; z from depth.
                 # origin.depth is metres positive-downward (ObsPy / QuakeML convention).
-                x, y, _ = _SURF.to_HMC((orig.longitude, orig.latitude, 0.0))
+                lon27, lat27 = _WGS84_TO_NAD27_GEO.transform(orig.longitude, orig.latitude)
+                x, y, _ = _SURF.to_HMC((lon27, lat27, 0.0))
                 z = SURF_SURFACE_HMC_Z_M - orig.depth
             else:
                 log.debug("No HMC attributes and no SURF_converter — skipping event")
@@ -163,7 +234,10 @@ def load_wellbores(directory):
                 elif {"longitude", "latitude"}.issubset(df.columns) and _SURF is not None:
                     rows = []
                     for _, row in df.iterrows():
-                        ex, ey, _ = _SURF.to_HMC((row["longitude"], row["latitude"], 0.0))
+                        lon27, lat27 = _WGS84_TO_NAD27_GEO.transform(
+                            float(row["longitude"]), float(row["latitude"])
+                        )
+                        ex, ey, _ = _SURF.to_HMC((lon27, lat27, 0.0))
                         if "elevation_m" in df.columns:
                             ez = row["elevation_m"]
                         elif "depth_m" in df.columns:
@@ -178,6 +252,7 @@ def load_wellbores(directory):
                     continue
 
             if wdf is not None:
+                wdf = _transform_df_xy_to_canonical(wdf, WELLBORE_SOURCE_FRAME)
                 wellbores[well_name] = wdf
 
         except Exception as exc:
@@ -235,6 +310,52 @@ def load_stations(path):
     out = out.sort_values(["label"]).drop_duplicates(subset=["network", "station"], keep="first")
     log.info("Loaded %d station point(s) from %s", len(out), p)
     return out[["x", "y", "z", "label"]]
+
+
+def snap_stations_to_wellbores(station_df, wellbores):
+    """Snap each station point to its nearest borehole sample point.
+
+    This is an empirical display alignment step used when exact visual overlap
+    with borehole trajectories is required.
+    """
+    if len(station_df) == 0 or not wellbores:
+        return station_df
+
+    wells = []
+    for name, wdf in wellbores.items():
+        if len(wdf) == 0:
+            continue
+        arr = wdf[["x", "y", "z"]].to_numpy(float)
+        wells.append((name, arr))
+
+    if not wells:
+        return station_df
+
+    rows = []
+    for _, sta in station_df.iterrows():
+        s = np.array([float(sta["x"]), float(sta["y"]), float(sta["z"])])
+        best_d = np.inf
+        best_p = None
+        best_name = ""
+        for name, warr in wells:
+            d = np.sqrt(((warr - s) ** 2).sum(axis=1))
+            i = int(np.argmin(d))
+            if d[i] < best_d:
+                best_d = float(d[i])
+                best_p = warr[i]
+                best_name = name
+        rows.append(
+            {
+                "x": float(best_p[0]),
+                "y": float(best_p[1]),
+                "z": float(best_p[2]),
+                "label": f"{sta['label']} [snapped:{best_name}]",
+            }
+        )
+
+    snapped = pd.DataFrame(rows)
+    log.info("Snapped %d station(s) to nearest well points", len(snapped))
+    return snapped
 
 
 def load_hull(path):
@@ -301,6 +422,7 @@ def load_hull(path):
             vertices = np.array(obj.vertices, dtype=float)
             faces = np.array(obj.faces, dtype=int)
 
+        vertices = _transform_vertices_xy_to_canonical(vertices, HULL_SOURCE_FRAME)
         log.info("Loaded drift hull: %d vertices, %d faces", len(vertices), len(faces))
         return vertices, faces
     except Exception as exc:
@@ -496,8 +618,17 @@ def build_injection_figure(inj_df=None):
 class SeismicityDashboard(pn.viewable.Viewer):
     def __init__(self, **params):
         super().__init__(**params)
-        self._stations = load_stations(STATION_FILE)
+        log.info(
+            "Frame setup: canonical=%s, wellbores=%s, hull=%s, grid convergence=%.6f deg",
+            CANONICAL_FRAME,
+            WELLBORE_SOURCE_FRAME,
+            HULL_SOURCE_FRAME,
+            GRID_CONVERGENCE_DEG,
+        )
         self._wellbores = load_wellbores(WELLBORE_DIR)
+        self._stations = load_stations(STATION_FILE)
+        if SNAP_STATIONS_TO_WELLS:
+            self._stations = snap_stations_to_wellbores(self._stations, self._wellbores)
         self._hull_verts, self._hull_faces = load_hull(HULL_FILE)
         cat_df, last_updated = self._fetch()
         self._header = pn.pane.Markdown(

@@ -71,7 +71,8 @@ DEFAULT_SSH_CONNECT_TIMEOUT = 10
 DEFAULT_LAT = 44.3517
 DEFAULT_LON = -103.7508
 DEFAULT_RADIUS_DEG = 0.5    # degrees (~55 km); tighten once site coordinates confirmed
-DEFAULT_HMC_MODE = "surf-datum-aware"
+DEFAULT_HMC_MODE = "linear-wellhead"
+DEFAULT_STATION_HMC_MODE = "linear-wellhead"
 DEFAULT_STATION_OUTPUT = "/tmp/cussp_stations_hmc.csv"
 DEFAULT_STATION_RSYNC_TARGET = "chopp@cussp-vm.lbl.gov:/data/chet-cussp/seismicity/stations_hmc.csv"
 
@@ -108,6 +109,7 @@ def _depth_to_hmc_elev(depth_m):
 
 def _lonlat_to_hmc_xy(lon, lat, hmc_mode):
     """Convert lon/lat to HMC easting/northing for the selected conversion mode."""
+
     if hmc_mode == "linear-wellhead":
         east = WH_HMC_E + (float(lon) - WH_LON) * LON_SCALE
         north = WH_HMC_N + (float(lat) - WH_LAT) * LAT_SCALE
@@ -408,15 +410,24 @@ def main():
         default=DEFAULT_HMC_MODE,
         choices=["surf-datum-aware", "linear-wellhead", "surf-nad27"],
         help=(
-            "HMC conversion mode: 'surf-datum-aware' (default) applies "
-            "WGS84->NAD27 before HMC conversion; 'surf-nad27' uses raw "
-            "SURF_converter; 'linear-wellhead' matches /tmp/plot_hypocenters.py"
+            "HMC conversion mode: 'linear-wellhead' (default, borehole-aligned); "
+            "'surf-datum-aware' applies WGS84->NAD27 before HMC conversion; "
+            "'surf-nad27' uses raw SURF_converter"
         ),
     )
     parser.add_argument(
         "--station-output",
         default=DEFAULT_STATION_OUTPUT,
         help=f"Local station CSV output path (default: {DEFAULT_STATION_OUTPUT})",
+    )
+    parser.add_argument(
+        "--station-hmc-mode",
+        default=DEFAULT_STATION_HMC_MODE,
+        choices=["surf-datum-aware", "linear-wellhead", "surf-nad27"],
+        help=(
+            "HMC conversion mode for station CSV export; defaults to "
+            f"{DEFAULT_STATION_HMC_MODE} to match borehole plotting coordinates"
+        ),
     )
     parser.add_argument(
         "--station-rsync-target",
@@ -443,7 +454,8 @@ def main():
         args.ssh_connect_timeout,
     )
 
-    station_rows = fetch_stations_hmc(args.fdsn_url, args.hmc_mode)
+    log.info("Using station HMC conversion mode: %s", args.station_hmc_mode)
+    station_rows = fetch_stations_hmc(args.fdsn_url, args.station_hmc_mode)
     if station_rows:
         write_station_csv(station_rows, args.station_output)
         push_to_vm(
