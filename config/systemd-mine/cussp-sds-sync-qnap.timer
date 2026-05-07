@@ -1,0 +1,12 @@
+[Unit]
+Description=CUSSP SDS sync to QNAP every 15 minutes
+Requires=cussp-sds-sync-qnap.service
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

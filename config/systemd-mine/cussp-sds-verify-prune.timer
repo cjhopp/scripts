@@ -1,0 +1,11 @@
+[Unit]
+Description=CUSSP SDS verify/prune daily
+Requires=cussp-sds-verify-prune.service
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+AccuracySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

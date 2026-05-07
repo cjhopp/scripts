@@ -1,0 +1,12 @@
+[Unit]
+Description=CUSSP SDS verify on QNAP and guarded local prune
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=-/home/gmf/.config/cussp-sds-backup.env
+ExecStart=/usr/bin/env bash /home/gmf/scripts/bash/cussp_verify_and_prune_local_sds.sh
+StandardOutput=journal
+StandardError=journal
