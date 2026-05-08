@@ -195,7 +195,15 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR, pressure_col='PT 503', flow_
         log.warning("No injection data file found at %s", data_path)
         return None, None
 
-    metadata_path = _resolve_metadata_path(data_path) if filename.endswith('_data.csv') else None
+    # For the 1-min downsampled file, point at the raw metadata alias directly.
+    # _resolve_metadata_path() does a naive 'data'->'metadata' replace that would
+    # corrupt '_1min' filenames, and the file doesn't end with '_data.csv' anyway.
+    if filename == 'latest_INJ_data_1min.csv':
+        metadata_path = live_dir / 'latest_INJ_metadata.csv'
+    elif filename.endswith('_data.csv'):
+        metadata_path = _resolve_metadata_path(data_path)
+    else:
+        metadata_path = None
 
     # Read file and strip trailing commas to handle malformed CSVs
     try:
@@ -335,15 +343,21 @@ class Fiboreglass(pn.viewable.Viewer):
             self._inj_mtime = None
             return
 
-        mtime = data_path.stat().st_mtime
-        if self._inj_data_path == data_path and self._inj_mtime == mtime:
+        # Use the mtime of the 1-min downsampled file for staleness detection,
+        # because that is the file actually served to the dashboard. The raw alias
+        # (latest_INJ_data.csv) may be unchanged even when the pull script regenerates
+        # the downsampled version from newly synced files.
+        oneminfile = INJ_LIVE_DIR / 'latest_INJ_data_1min.csv'
+        watch_path = oneminfile if oneminfile.exists() else data_path
+        mtime = watch_path.stat().st_mtime
+        if self._inj_data_path == watch_path and self._inj_mtime == mtime:
             return
 
         # Load 1-min downsampled version to get full data across all time windows
         df, labels = load_injection_dataframe(INJ_LIVE_DIR, filename='latest_INJ_data_1min.csv')
         self.injection = df
         self.injection_labels = labels
-        self._inj_data_path = data_path
+        self._inj_data_path = watch_path
         self._inj_mtime = mtime
         if df is None or labels is None:
             log.warning("Injection load failed for %s", data_path)
@@ -421,9 +435,13 @@ class Fiboreglass(pn.viewable.Viewer):
             flow_col,
             label=f'{flow_col} [{flow_unit}]',
         ).opts(color='steelblue')
+        # shared_axes=True here is intentional: it enables multi_y dual-y layout
+        # between pressure and flow within this same panel.
+        # xlim is intentionally NOT set here: the RangeX stream callback already
+        # re-renders the plot with filtered data for the current view window.
+        # Setting xlim on top of the stream-driven render fights Bokeh's live
+        # Range1d and causes jitter / incorrect range snapping.
         plot = (pressure * flow).opts(multi_y=True, responsive=True, shared_axes=True)
-        if time_start is not None and time_end is not None:
-            plot = plot.opts(xlim=(time_start, time_end))
         return plot
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
@@ -462,7 +480,11 @@ class Fiboreglass(pn.viewable.Viewer):
         # Link injection panel to current x-range of the main heatmap.
         x_range_stream = hv.streams.RangeX(source=main_plot)
         injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
-        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True)
+        # Do NOT add shared_axes=True here: the GridSpec-level shared_axes would
+        # cause Bokeh to merge the injection panel's depth y-axis with the heatmap,
+        # breaking the multi_y dual-y layout. X-range linkage is handled entirely
+        # by the RangeX stream above.
+        gspec[2, 1:4] = injection_dmap.opts(show_grid=True)
         return gspec
 
     def tap_timeseries(self, x, y):

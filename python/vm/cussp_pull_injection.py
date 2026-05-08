@@ -202,21 +202,26 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
             return False
         
         dfs = []
-        usecols = ["Time", "PT 503", "Net Flow"]
+        required_cols = ["Time", "PT 503", "Net Flow"]
         for data_path in data_files:
             try:
-                # Read only required columns and skip malformed rows.
+                # Read all columns first so BOM stripping can happen before column selection.
+                # Passing usecols before stripping BOM causes a ValueError when the first
+                # column header is '\ufeffTime', silently skipping every file.
                 df = pd.read_csv(
                     data_path,
                     skiprows=[1, 2],
-                    usecols=usecols,
                     engine="python",
                     on_bad_lines="skip",
                 )
                 df.columns = [str(c).strip().replace('\ufeff', '') for c in df.columns]
-                if any(c not in df.columns for c in usecols):
-                    log.warning("Skipping %s: missing required columns", data_path.name)
+                if any(c not in df.columns for c in required_cols):
+                    log.warning(
+                        "Skipping %s: missing required columns %s (found: %s)",
+                        data_path.name, required_cols, list(df.columns),
+                    )
                     continue
+                df = df[required_cols]
                 
                 # Parse Time column with robust fallbacks (string, fractional-day, excel serial).
                 df['Time'] = _parse_injection_time_column(df['Time'], data_path)
