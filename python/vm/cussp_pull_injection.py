@@ -197,16 +197,18 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
         df_combined.set_index('Time', inplace=True)
         df_combined.index = pd.DatetimeIndex(df_combined.index)
         
-        # Resample required series to 1-min mean.
+        # Resample required series to 1-min mean, then drop NaN to keep only actual data periods
         df_resampled = df_combined.resample(resample_freq).agg({
             'PT 503': 'mean',
             'Net Flow': 'mean',
         })
+        # Drop rows where both columns are NaN (no data in that minute)
+        df_resampled = df_resampled.dropna(how='all')
         df_resampled.reset_index(inplace=True)
         
         # Write resampled data
         df_resampled.to_csv(output_path, index=False)
-        log.info("Resampled complete injection history to %s: %d -> %d rows", resample_freq, len(df_combined), len(df_resampled))
+        log.info("Resampled complete injection history to %s: %d -> %d rows (after dropping empty periods)", resample_freq, len(df_combined), len(df_resampled))
         return True
     except Exception as e:
         log.warning("Failed to resample injection data: %s", e)

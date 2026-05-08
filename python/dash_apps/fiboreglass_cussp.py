@@ -317,7 +317,7 @@ class Fiboreglass(pn.viewable.Viewer):
         if self._inj_data_path == data_path and self._inj_mtime == mtime:
             return
 
-        # Always load 1-min downsampled version to get full data across all time windows
+        # Load 1-min downsampled version to get full data across all time windows
         df, labels = load_injection_dataframe(INJ_LIVE_DIR, filename='latest_INJ_data_1min.csv')
         self.injection = df
         self.injection_labels = labels
