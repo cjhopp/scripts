@@ -463,7 +463,13 @@ class Fiboreglass(pn.viewable.Viewer):
         # x_range=None so _build_injection_plot falls back to the DTS extent.
         x_range_stream = hv.streams.RangeX(source=main_plot)
         injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
-        gspec[2, 1:4] = injection_dmap.opts(show_grid=True)
+        # shared_axes=True links the injection panel's x-axis Range1d natively to
+        # main_plot and tsec (all three share a datetime x-dimension), giving
+        # synchronous mouse-wheel zoom without a Python round-trip.
+        # y-axis sharing is safe: injection y-dims ('PT 503', 'Net Flow') differ
+        # from heatmap ('depth') and timeseries ('temperature'/'deltaT'), so
+        # HoloViews only links matching dimension names on x.
+        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True)
         return gspec
 
     def tap_timeseries(self, x, y):
