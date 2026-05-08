@@ -211,6 +211,19 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
         return False
 
 
+def needs_resample(staging_dir, output_path):
+    """Return True when output is missing or older than any staging INJ data file."""
+    data_files = list(staging_dir.glob("*INJ_data.csv"))
+    if not data_files:
+        return False
+    if not output_path.exists():
+        return True
+
+    latest_input_mtime = max(p.stat().st_mtime for p in data_files)
+    output_mtime = output_path.stat().st_mtime
+    return latest_input_mtime > output_mtime
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Pull and publish CUSSP injection CSV files")
     parser.add_argument(
@@ -270,10 +283,14 @@ def main():
     sync_from_drive(args.remote_folder, staging_dir, drive_shared_with_me=args.drive_shared_with_me)
     ok = publish_latest(staging_dir, live_dir)
     
-    # After publishing, create downsampled version from ALL historical data
+    # After publishing, create/update downsampled version from ALL historical data.
+    # Only rebuild when there are newer inputs than the current output.
     if ok:
         resampled_data = live_dir / "latest_INJ_data_1min.csv"
-        resample_injection_data(staging_dir, resampled_data, resample_freq='1min')
+        if needs_resample(staging_dir, resampled_data):
+            resample_injection_data(staging_dir, resampled_data, resample_freq='1min')
+        else:
+            log.info("Skipping resample: %s is up to date", resampled_data)
     
     return 0 if ok else 1
 
