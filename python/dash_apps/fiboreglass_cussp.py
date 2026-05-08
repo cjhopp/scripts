@@ -162,9 +162,10 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
 
     # Prefer expected schema first: header row + units row + blank row.
     # Fall back to flexible parsing only if the strict parse quality is poor.
+    # Use engine='python' and on_bad_lines='skip' to handle trailing commas and malformed rows.
     attempts = [
-        ("strict-skiprows", dict(skiprows=[1, 2], low_memory=False)),
-        ("flexible", dict(low_memory=False)),
+        ("strict-skiprows", dict(skiprows=[1, 2], low_memory=False, engine='python', on_bad_lines='skip')),
+        ("flexible", dict(low_memory=False, engine='python', on_bad_lines='skip')),
     ]
 
     chosen_df = None
