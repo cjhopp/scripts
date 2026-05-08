@@ -45,6 +45,28 @@ del _raw
 INJ_LIVE_DIR = Path('/data/chet-cussp/injection/live')
 
 
+def _coerce_plot_time(value):
+    """Convert stream/range values into pandas.Timestamp.
+
+    HoloViews/Bokeh range streams may provide datetime axis values as
+    milliseconds since epoch (float). Normalize all variants here.
+    """
+    if value is None:
+        return None
+    if isinstance(value, pd.Timestamp):
+        return value
+    if isinstance(value, np.datetime64):
+        return pd.Timestamp(value)
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        if pd.isna(value):
+            return None
+        return pd.to_datetime(value, unit='ms', errors='coerce')
+    try:
+        return pd.Timestamp(value)
+    except Exception:
+        return None
+
+
 def _resolve_metadata_path(data_path):
     return data_path.with_name(data_path.name.replace('data', 'metadata'))
 
@@ -353,17 +375,32 @@ class Fiboreglass(pn.viewable.Viewer):
         time_start = None
         time_end = None
         if x_range is not None and len(x_range) == 2:
-            time_start, time_end = x_range
+            time_start = _coerce_plot_time(x_range[0])
+            time_end = _coerce_plot_time(x_range[1])
         elif hasattr(self, 'da') and self.da.time.size:
             time_start = pd.Timestamp(self.da.time.values[0])
             time_end = pd.Timestamp(self.da.time.values[-1])
 
+        if time_start is not None and time_end is not None and time_start > time_end:
+            time_start, time_end = time_end, time_start
+
         df_filtered = self.injection
+        inj_min = df_filtered['Time'].min() if not df_filtered.empty else None
+        inj_max = df_filtered['Time'].max() if not df_filtered.empty else None
         if time_start is not None and time_end is not None:
             df_filtered = df_filtered[
-                (df_filtered['Time'] >= pd.Timestamp(time_start)) &
-                (df_filtered['Time'] <= pd.Timestamp(time_end))
+                (df_filtered['Time'] >= time_start) &
+                (df_filtered['Time'] <= time_end)
             ]
+            log.info(
+                "Injection range filter: selected_start=%s selected_end=%s injection_min=%s injection_max=%s filtered_rows=%d total_rows=%d",
+                time_start,
+                time_end,
+                inj_min,
+                inj_max,
+                len(df_filtered),
+                len(self.injection),
+            )
         
         if df_filtered.empty:
             return hv.Text(0.5, 0.5, 'No injection data in selected time range').opts(
@@ -386,7 +423,7 @@ class Fiboreglass(pn.viewable.Viewer):
         ).opts(color='steelblue')
         plot = (pressure * flow).opts(multi_y=True, responsive=True, shared_axes=True)
         if time_start is not None and time_end is not None:
-            plot = plot.opts(xlim=(pd.Timestamp(time_start), pd.Timestamp(time_end)))
+            plot = plot.opts(xlim=(time_start, time_end))
         return plot
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',

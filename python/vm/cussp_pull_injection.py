@@ -20,6 +20,10 @@ import pandas as pd
 
 log = logging.getLogger("cussp_pull_injection")
 
+# Restrict pipeline to campaign files expected by the CUSSP dashboard.
+INJ_DATA_PATTERN = "CUSSP*.INJ_data.csv"
+INJ_META_PATTERN = "CUSSP*.INJ_metadata.csv"
+
 
 def is_root_remote(remote_folder):
     """Return True when remote points at top-level root (e.g. 'name:')."""
@@ -56,8 +60,53 @@ def _date_key_from_name(path):
     return int(m.group(1)), int(m.group(2)), int(m.group(3))
 
 
+def _parse_injection_time_column(series, data_path):
+    """Parse injection time values using robust fallbacks.
+
+    Handles:
+    - MM/DD/YY HH:MM:SS strings
+    - Fractional day offsets (0-2) relative to filename date
+    - Excel serial day numbers
+    - Generic datetime strings
+    """
+    s = series.astype(str).str.strip()
+
+    # 1) Expected string format in CUSSP files.
+    parsed = pd.to_datetime(s, format="%m/%d/%y %H:%M:%S", errors="coerce")
+    if parsed.notna().mean() >= 0.80:
+        return parsed
+
+    # 2) Numeric fallback for files that encode time as numbers.
+    numeric = pd.to_numeric(s, errors="coerce")
+    numeric_valid = numeric.notna().mean()
+    if numeric_valid >= 0.80:
+        base_date_key = _date_key_from_name(data_path)
+        if base_date_key is not None:
+            y, m, d = base_date_key
+            base = pd.Timestamp(year=y, month=m, day=d)
+        else:
+            base = pd.Timestamp("1970-01-01")
+
+        # Fractional day in [0, 2] -> offset from file date.
+        num_nonan = numeric.dropna()
+        if not num_nonan.empty and ((num_nonan >= 0) & (num_nonan <= 2)).mean() >= 0.80:
+            parsed_num = base + pd.to_timedelta(numeric, unit="D")
+            if parsed_num.notna().mean() >= 0.80:
+                return parsed_num
+
+        # Excel serial date numbers.
+        if not num_nonan.empty and (num_nonan > 20000).mean() >= 0.80:
+            parsed_num = pd.to_datetime(numeric, unit="D", origin="1899-12-30", errors="coerce")
+            if parsed_num.notna().mean() >= 0.80:
+                return parsed_num
+
+    # 3) Generic parser for remaining string-like values.
+    parsed = pd.to_datetime(s, errors="coerce")
+    return parsed
+
+
 def find_latest_pair(staging_dir):
-    data_files = sorted(staging_dir.glob("*INJ_data.csv"))
+    data_files = sorted(staging_dir.glob(INJ_DATA_PATTERN))
     if not data_files:
         return None, None
 
@@ -102,9 +151,9 @@ def sync_from_drive(remote_folder, staging_dir, drive_shared_with_me=False):
         remote_folder,
         str(staging_dir),
         "--include",
-        "*INJ_data.csv",
+        INJ_DATA_PATTERN,
         "--include",
-        "*INJ_metadata.csv",
+        INJ_META_PATTERN,
         "--checkers",
         "4",
         "--transfers",
@@ -147,9 +196,9 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
     Falls back silently if any step fails (this is not fatal).
     """
     try:
-        data_files = sorted(staging_dir.glob("*INJ_data.csv"))
+        data_files = sorted(staging_dir.glob(INJ_DATA_PATTERN))
         if not data_files:
-            log.warning("No INJ_data.csv files found in staging for resampling")
+            log.warning("No %s files found in staging for resampling", INJ_DATA_PATTERN)
             return False
         
         dfs = []
@@ -169,11 +218,8 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
                     log.warning("Skipping %s: missing required columns", data_path.name)
                     continue
                 
-                # Parse Time column
-                try:
-                    df['Time'] = pd.to_datetime(df['Time'], format='%m/%d/%y %H:%M:%S', errors='raise')
-                except (ValueError, TypeError):
-                    df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
+                # Parse Time column with robust fallbacks (string, fractional-day, excel serial).
+                df['Time'] = _parse_injection_time_column(df['Time'], data_path)
                 
                 df['PT 503'] = pd.to_numeric(df['PT 503'], errors='coerce')
                 df['Net Flow'] = pd.to_numeric(df['Net Flow'], errors='coerce')
@@ -217,7 +263,7 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
 
 def needs_resample(staging_dir, output_path):
     """Return True when output is missing or older than any staging INJ data file."""
-    data_files = list(staging_dir.glob("*INJ_data.csv"))
+    data_files = list(staging_dir.glob(INJ_DATA_PATTERN))
     if not data_files:
         return False
     if not output_path.exists():
