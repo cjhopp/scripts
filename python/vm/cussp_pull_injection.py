@@ -18,6 +18,14 @@ from pathlib import Path
 log = logging.getLogger("cussp_pull_injection")
 
 
+def is_root_remote(remote_folder):
+    """Return True when remote points at top-level root (e.g. 'name:')."""
+    if ":" not in remote_folder:
+        return False
+    remote, path = remote_folder.split(":", 1)
+    return bool(remote) and path.strip() == ""
+
+
 def run_cmd(cmd):
     log.info("Running: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -58,7 +66,7 @@ def atomic_copy(src, dst):
     os.replace(tmp, dst)
 
 
-def sync_from_drive(remote_folder, staging_dir):
+def sync_from_drive(remote_folder, staging_dir, drive_shared_with_me=False):
     staging_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         "rclone",
@@ -74,6 +82,8 @@ def sync_from_drive(remote_folder, staging_dir):
         "--transfers",
         "2",
     ]
+    if drive_shared_with_me:
+        cmd.append("--drive-shared-with-me")
     run_cmd(cmd)
 
 
@@ -123,6 +133,16 @@ def parse_args():
         action="store_true",
         help="Enable debug logging",
     )
+    parser.add_argument(
+        "--allow-root-remote",
+        action="store_true",
+        help="Allow syncing from remote root (disabled by default as a safety guard)",
+    )
+    parser.add_argument(
+        "--drive-shared-with-me",
+        action="store_true",
+        help="Enable rclone Google Drive shared-with-me listing mode",
+    )
     return parser.parse_args()
 
 
@@ -137,7 +157,17 @@ def main():
     staging_dir = Path(args.staging_dir)
     live_dir = Path(args.live_dir)
 
-    sync_from_drive(args.remote_folder, staging_dir)
+    if is_root_remote(args.remote_folder) and not args.allow_root_remote:
+        log.error(
+            "Refusing to sync from remote root '%s'. Set --remote-folder to a specific folder path.",
+            args.remote_folder,
+        )
+        log.error(
+            "Example: --remote-folder shared_cussp_inj:chet-cussp/CUSSP_Data/Pressure_Flow_Data"
+        )
+        return 2
+
+    sync_from_drive(args.remote_folder, staging_dir, drive_shared_with_me=args.drive_shared_with_me)
     ok = publish_latest(staging_dir, live_dir)
     return 0 if ok else 1
 
