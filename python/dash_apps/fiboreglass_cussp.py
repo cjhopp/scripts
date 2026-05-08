@@ -153,6 +153,8 @@ def _choose_time_column(df, data_path):
 
 def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
     """Load latest injection CSV pair and return dataframe + labels."""
+    import io
+    
     data_path, metadata_path = _find_latest_injection_pair(live_dir)
     if data_path is None:
         log.warning("No injection data file found in %s", live_dir)
@@ -160,12 +162,20 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
 
     flow_candidates = ['Triplex Flow', 'TV Flow', 'Net Flow', 'Quizix Flow']
 
+    # Read file and strip trailing commas to handle malformed CSVs
+    try:
+        with open(data_path, 'r') as f:
+            lines = [line.rstrip('\r\n').rstrip(',') + '\n' for line in f]
+        csv_text = ''.join(lines)
+    except Exception as exc:
+        log.warning("Failed to read injection file %s: %s", data_path, exc)
+        return None, None
+
     # Prefer expected schema first: header row + units row + blank row.
     # Fall back to flexible parsing only if the strict parse quality is poor.
-    # Use engine='python' and on_bad_lines='skip' to handle trailing commas and malformed rows.
     attempts = [
-        ("strict-skiprows", dict(skiprows=[1, 2], engine='python', on_bad_lines='skip')),
-        ("flexible", dict(engine='python', on_bad_lines='skip')),
+        ("strict-skiprows", dict(skiprows=[1, 2], low_memory=False)),
+        ("flexible", dict(low_memory=False)),
     ]
 
     chosen_df = None
@@ -175,7 +185,7 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
 
     for mode, kwargs in attempts:
         try:
-            df_try = pd.read_csv(data_path, **kwargs)
+            df_try = pd.read_csv(io.StringIO(csv_text), **kwargs)
         except Exception as exc:
             log.warning("Injection read mode %s failed for %s: %s", mode, data_path, exc)
             continue
