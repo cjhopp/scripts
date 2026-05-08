@@ -267,8 +267,7 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                 continue
             for ev in catalog:
                 ev.origins.sort(key=lambda o: o.time)  # Sort origins by time to ensure consistent selection of preferred origin
-                # o = ev.preferred_origin()
-                o = ev.origins[-1]
+                o = ev.preferred_origin()
                 if o is None:
                     try:
                         o = ev.origins[0]
