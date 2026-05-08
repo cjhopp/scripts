@@ -441,7 +441,7 @@ class Fiboreglass(pn.viewable.Viewer):
         # wires the Bokeh Range1d natively via shared_axes=True.
         x_range_stream = hv.streams.RangeX(source=main_plot)
         injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
-        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True, height=250)
+        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True)
         return gspec
 
     def tap_timeseries(self, x, y):
