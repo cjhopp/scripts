@@ -9,6 +9,7 @@ Requires rclone configured with a remote (e.g. gdrive:).
 import argparse
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -45,12 +46,37 @@ def resolve_metadata_path(data_path):
     return data_path.with_name(data_path.name.replace("data", "metadata"))
 
 
+def _date_key_from_name(path):
+    """Extract YYYY_MM_DD from CUSSPYYYY_MM_DD.INJ_data.csv names."""
+    m = re.search(r"(\d{4})_(\d{2})_(\d{2})", path.name)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+
 def find_latest_pair(staging_dir):
     data_files = sorted(staging_dir.glob("*INJ_data.csv"))
     if not data_files:
         return None, None
 
-    candidates = sorted(data_files, key=lambda p: p.stat().st_mtime, reverse=True)
+    # Prefer newest by date encoded in filename; fall back to mtime.
+    dated = []
+    undated = []
+    for p in data_files:
+        dk = _date_key_from_name(p)
+        if dk is None:
+            undated.append(p)
+        else:
+            dated.append((dk, p.stat().st_mtime, p))
+
+    candidates = []
+    if dated:
+        dated.sort(key=lambda t: (t[0], t[1]), reverse=True)
+        candidates.extend([t[2] for t in dated])
+    if undated:
+        undated.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        candidates.extend(undated)
+
     for data_path in candidates:
         metadata_path = resolve_metadata_path(data_path)
         if metadata_path.exists():

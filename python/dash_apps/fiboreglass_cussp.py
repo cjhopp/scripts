@@ -4,6 +4,7 @@ import holoviews as hv
 import numpy as np
 import pandas as pd
 import logging
+import re
 from pathlib import Path
 
 import param
@@ -82,6 +83,74 @@ def _find_latest_injection_pair(live_dir):
     return latest, metadata
 
 
+def _date_from_injection_filename(data_path):
+    """Extract base date from filenames like CUSSP2026_05_08.INJ_data.csv."""
+    m = re.search(r'(\d{4})_(\d{2})_(\d{2})', data_path.name)
+    if not m:
+        return None
+    try:
+        return pd.Timestamp(year=int(m.group(1)), month=int(m.group(2)), day=int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def _parse_time_series(series, data_path):
+    """Parse a candidate time series with multiple fallbacks."""
+    time_raw = series.astype(str).str.strip()
+    parsed_time = pd.to_datetime(
+        time_raw,
+        format='%m/%d/%y %H:%M:%S',
+        errors='coerce',
+    )
+    if parsed_time.isna().all():
+        parsed_time = pd.to_datetime(time_raw, errors='coerce')
+    if parsed_time.isna().all():
+        serial = pd.to_numeric(time_raw, errors='coerce')
+        parsed_time = pd.Series(pd.NaT, index=series.index, dtype='datetime64[ns]')
+
+        frac_mask = serial.notna() & (serial >= 0) & (serial < 2)
+        file_date = _date_from_injection_filename(data_path)
+        if frac_mask.any() and file_date is not None:
+            parsed_time.loc[frac_mask] = file_date + pd.to_timedelta(serial[frac_mask], unit='D')
+
+        excel_mask = serial.notna() & (serial >= 20000)
+        if excel_mask.any():
+            parsed_time.loc[excel_mask] = pd.Timestamp('1899-12-30') + pd.to_timedelta(
+                serial[excel_mask], unit='D'
+            )
+
+        parsed_time = pd.DatetimeIndex(parsed_time)
+    return pd.Series(parsed_time, index=series.index)
+
+
+def _choose_time_column(df, data_path):
+    """Choose the most likely time column by parse success rate."""
+    candidate_cols = []
+    if 'Time' in df.columns:
+        candidate_cols.append('Time')
+    for col in df.columns:
+        lc = str(col).lower()
+        if col not in candidate_cols and ('time' in lc or lc.startswith('unnamed')):
+            candidate_cols.append(col)
+    if not candidate_cols:
+        candidate_cols = list(df.columns)
+
+    best_col = None
+    best_parsed = None
+    best_score = -1.0
+    for col in candidate_cols:
+        parsed = _parse_time_series(df[col], data_path)
+        score = float(parsed.notna().mean())
+        if score > best_score:
+            best_score = score
+            best_col = col
+            best_parsed = parsed
+
+    if best_col is not None and best_col != 'Time':
+        log.warning("Using '%s' as injection time column (instead of 'Time')", best_col)
+    return best_col, best_parsed
+
+
 def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
     """Load latest injection CSV pair and return dataframe + labels."""
     data_path, metadata_path = _find_latest_injection_pair(live_dir)
@@ -90,23 +159,49 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
         return None, None
 
     flow_candidates = ['Triplex Flow', 'TV Flow', 'Net Flow', 'Quizix Flow']
-    df = pd.read_csv(data_path, skiprows=[1, 2], low_memory=False)
-    df.columns = [str(c).strip().replace('\ufeff', '') for c in df.columns]
 
-    if 'Time' not in df.columns:
-        time_like = [c for c in df.columns if c.lower() == 'time' or c.lower().endswith(' time')]
-        if time_like:
-            df = df.rename(columns={time_like[0]: 'Time'})
+    # Prefer expected schema first: header row + units row + blank row.
+    # Fall back to flexible parsing only if the strict parse quality is poor.
+    attempts = [
+        ("strict-skiprows", dict(skiprows=[1, 2], low_memory=False)),
+        ("flexible", dict(low_memory=False)),
+    ]
 
-    if 'Time' not in df.columns:
-        log.warning("Injection file %s has no Time column", data_path)
+    chosen_df = None
+    chosen_parsed_time = None
+    chosen_mode = None
+    chosen_score = -1.0
+
+    for mode, kwargs in attempts:
+        try:
+            df_try = pd.read_csv(data_path, **kwargs)
+        except Exception as exc:
+            log.warning("Injection read mode %s failed for %s: %s", mode, data_path, exc)
+            continue
+
+        df_try.columns = [str(c).strip().replace('\ufeff', '') for c in df_try.columns]
+        _, parsed_try = _choose_time_column(df_try, data_path)
+        if parsed_try is None:
+            continue
+
+        score = float(parsed_try.notna().mean())
+        if score > chosen_score:
+            chosen_df = df_try
+            chosen_parsed_time = parsed_try
+            chosen_mode = mode
+            chosen_score = score
+
+        # If strict mode already looks good, use it and stop.
+        if mode == "strict-skiprows" and score >= 0.80:
+            break
+
+    if chosen_df is None or chosen_parsed_time is None:
+        log.warning("Injection file %s has no parsable time column", data_path)
         return None, None
 
-    df['Time'] = pd.to_datetime(
-        df['Time'],
-        format='%m/%d/%y %H:%M:%S',
-        errors='coerce',
-    )
+    log.info("Injection CSV parse mode=%s valid_time_fraction=%.3f", chosen_mode, chosen_score)
+    df = chosen_df
+    df['Time'] = chosen_parsed_time
     df = df.dropna(subset=['Time'])
     if df.empty:
         log.warning("Injection file %s has no valid timestamp rows", data_path)
@@ -212,6 +307,18 @@ class Fiboreglass(pn.viewable.Viewer):
         self.injection_labels = labels
         self._inj_data_path = data_path
         self._inj_mtime = mtime
+        if df is None or labels is None:
+            log.warning("Injection load failed for %s", data_path)
+            return
+        log.info(
+            "Loaded injection data from %s rows=%d time_min=%s time_max=%s pressure_col=%s flow_col=%s",
+            data_path,
+            len(df),
+            df['Time'].min(),
+            df['Time'].max(),
+            labels.get('pressure_col'),
+            labels.get('flow_col'),
+        )
 
     def _build_injection_plot(self):
         if self.injection is None or self.injection_labels is None:
