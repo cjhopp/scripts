@@ -208,9 +208,17 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
                 # Read all columns first so BOM stripping can happen before column selection.
                 # Passing usecols before stripping BOM causes a ValueError when the first
                 # column header is '\ufeffTime', silently skipping every file.
+                #
+                # index_col=False is required: CUSSP CSVs have a trailing comma on every
+                # data row, producing one more field than header columns. Without this flag
+                # pandas (C engine) raises "Expected N fields, saw N+1" and the python engine
+                # silently drops every data row via on_bad_lines='skip'.  index_col=False
+                # tells pandas not to promote the spurious empty last field to a row index,
+                # which absorbs the extra field cleanly without dropping any rows.
                 df = pd.read_csv(
                     data_path,
                     skiprows=[1, 2],
+                    index_col=False,
                     engine="python",
                     on_bad_lines="skip",
                 )
