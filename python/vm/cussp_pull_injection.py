@@ -140,50 +140,71 @@ def publish_latest(staging_dir, live_dir):
     return True
 
 
-def resample_injection_data(data_path, output_path, resample_freq='1min'):
-    """Resample injection data to lower frequency for long-timescale visualization.
+def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
+    """Build a complete downsampled injection dataset from all files.
     
-    Reads the data file, sets Time as index, resamples to 1-min mean, and writes to output.
+    Reads ALL *INJ_data.csv files, concatenates them in time order,
+    resamples to 1-min mean, and writes to output.
     Falls back silently if any step fails (this is not fatal).
     """
     try:
-        # Read raw file, stripping trailing commas
-        with open(data_path, 'r') as f:
-            lines = [line.rstrip('\r\n').rstrip(',') + '\n' for line in f]
-        csv_text = ''.join(lines)
-        
-        # Load with skiprows=[1,2] to skip units row
-        df = pd.read_csv(io.StringIO(csv_text), skiprows=[1, 2])
-        df.columns = [str(c).strip().replace('\ufeff', '') for c in df.columns]
-        
-        # Parse Time column; try strict format first, then fallback
-        try:
-            df['Time'] = pd.to_datetime(df['Time'], format='%m/%d/%y %H:%M:%S', errors='raise')
-        except (ValueError, TypeError):
-            df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
-        
-        df = df.dropna(subset=['Time'])
-        if df.empty:
-            log.warning("No valid time rows after parsing; skipping resample")
+        data_files = sorted(staging_dir.glob("*INJ_data.csv"))
+        if not data_files:
+            log.warning("No INJ_data.csv files found in staging for resampling")
             return False
         
-        df.set_index('Time', inplace=True)
-        df.index = pd.DatetimeIndex(df.index)
+        dfs = []
+        for data_path in data_files:
+            try:
+                # Read file, stripping trailing commas
+                with open(data_path, 'r') as f:
+                    lines = [line.rstrip('\r\n').rstrip(',') + '\n' for line in f]
+                csv_text = ''.join(lines)
+                
+                # Load with skiprows=[1,2] to skip units row
+                df = pd.read_csv(io.StringIO(csv_text), skiprows=[1, 2])
+                df.columns = [str(c).strip().replace('\ufeff', '') for c in df.columns]
+                
+                # Parse Time column
+                try:
+                    df['Time'] = pd.to_datetime(df['Time'], format='%m/%d/%y %H:%M:%S', errors='raise')
+                except (ValueError, TypeError):
+                    df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
+                
+                df = df.dropna(subset=['Time'])
+                if not df.empty:
+                    dfs.append(df)
+                    log.debug("Loaded %d rows from %s", len(df), data_path.name)
+            except Exception as e:
+                log.warning("Failed to read %s: %s", data_path.name, e)
+                continue
+        
+        if not dfs:
+            log.warning("No valid injection data found; skipping resample")
+            return False
+        
+        # Concatenate all files
+        df_combined = pd.concat(dfs, ignore_index=True)
+        df_combined = df_combined.drop_duplicates(subset=['Time']).sort_values('Time')
+        log.info("Combined %d files into %d total rows", len(data_files), len(df_combined))
+        
+        df_combined.set_index('Time', inplace=True)
+        df_combined.index = pd.DatetimeIndex(df_combined.index)
         
         # Resample PT 503 and Net Flow to 1-min mean, keep first value of other cols
         agg_dict = {}
-        for col in df.columns:
+        for col in df_combined.columns:
             if col in ['PT 503', 'Net Flow']:
                 agg_dict[col] = 'mean'
             else:
                 agg_dict[col] = 'first'  # Just keep first value for non-numeric cols
         
-        df_resampled = df.resample(resample_freq).agg(agg_dict)
+        df_resampled = df_combined.resample(resample_freq).agg(agg_dict)
         df_resampled.reset_index(inplace=True)
         
         # Write resampled data
         df_resampled.to_csv(output_path, index=False)
-        log.info("Resampled injection data to %s: %d -> %d rows", resample_freq, len(df), len(df_resampled))
+        log.info("Resampled complete injection history to %s: %d -> %d rows", resample_freq, len(df_combined), len(df_resampled))
         return True
     except Exception as e:
         log.warning("Failed to resample injection data: %s", e)
@@ -249,11 +270,10 @@ def main():
     sync_from_drive(args.remote_folder, staging_dir, drive_shared_with_me=args.drive_shared_with_me)
     ok = publish_latest(staging_dir, live_dir)
     
-    # After publishing, create resampled version for long-timescale plots
+    # After publishing, create downsampled version from ALL historical data
     if ok:
-        raw_data = live_dir / "latest_INJ_data.csv"
         resampled_data = live_dir / "latest_INJ_data_1min.csv"
-        resample_injection_data(raw_data, resampled_data, resample_freq='1min')
+        resample_injection_data(staging_dir, resampled_data, resample_freq='1min')
     
     return 0 if ok else 1
 

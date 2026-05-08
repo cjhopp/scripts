@@ -335,16 +335,8 @@ class Fiboreglass(pn.viewable.Viewer):
             labels.get('flow_col'),
         )
 
-    def _build_injection_plot(self, time_start=None, time_end=None):
-        """Build injection plot, optionally filtered to a time range.
-        
-        Args:
-            time_start: numpy datetime64 or None for all data
-            time_end: numpy datetime64 or None for all data
-        
-        Returns:
-            Holoviews plot
-        """
+    def _build_injection_plot(self, x_range=None):
+        """Build injection plot linked to the current main-plot x-range."""
         if self.injection is None or self.injection_labels is None:
             return hv.Text(0.5, 0.5, 'No injection data available').opts(
                 responsive=True,
@@ -357,7 +349,15 @@ class Fiboreglass(pn.viewable.Viewer):
         pressure_unit = self.injection_labels['pressure_unit']
         flow_unit = self.injection_labels['flow_unit']
 
-        # Filter to time range if specified
+        # Filter to the current x-range from the main heatmap.
+        time_start = None
+        time_end = None
+        if x_range is not None and len(x_range) == 2:
+            time_start, time_end = x_range
+        elif hasattr(self, 'da') and self.da.time.size:
+            time_start = pd.Timestamp(self.da.time.values[0])
+            time_end = pd.Timestamp(self.da.time.values[-1])
+
         df_filtered = self.injection
         if time_start is not None and time_end is not None:
             df_filtered = df_filtered[
@@ -384,7 +384,10 @@ class Fiboreglass(pn.viewable.Viewer):
             flow_col,
             label=f'{flow_col} [{flow_unit}]',
         ).opts(color='steelblue')
-        return (pressure * flow).opts(multi_y=True, responsive=True)
+        plot = (pressure * flow).opts(multi_y=True, responsive=True, shared_axes=True)
+        if time_start is not None and time_end is not None:
+            plot = plot.opts(xlim=(pd.Timestamp(time_start), pd.Timestamp(time_end)))
+        return plot
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
                    'length_selector')
@@ -405,13 +408,10 @@ class Fiboreglass(pn.viewable.Viewer):
         tsec = hv.DynamicMap(self.tap_timeseries, streams=[pointer])
         dsec = hv.DynamicMap(self.tap_depth_curve, streams=[pointer])
         
-        # Get time range from self.da for injection plot filtering
-        time_start = self.da.time.values[0]
-        time_end = self.da.time.values[-1]
-        
         # Gridspec
         gspec = pn.GridSpec(max_height=2000)
-        gspec[0, 1:4] = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True)
+        main_plot = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True, shared_axes=True)
+        gspec[0, 1:4] = main_plot
         # Depth section (relim just this panel, since the time series should twin this range)
         if self.variable == 'temperature':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
@@ -420,11 +420,12 @@ class Fiboreglass(pn.viewable.Viewer):
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
                 deltaT=self.color_selector)
         # Time section
-        gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
-        # Injection plot with shared time range
-        gspec[2, 1:4] = self._build_injection_plot(time_start, time_end).opts(
-            show_grid=True
-        )
+        gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True, shared_axes=True)
+
+        # Link injection panel to current x-range of the main heatmap.
+        x_range_stream = hv.streams.RangeX(source=main_plot)
+        injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
+        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True)
         return gspec
 
     def tap_timeseries(self, x, y):
