@@ -206,7 +206,7 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
         df_resampled = df_resampled.dropna(how='all')
         df_resampled.reset_index(inplace=True)
         
-        # Write resampled data
+        # Write resampled data (pandas handles datetime serialization automatically)
         df_resampled.to_csv(output_path, index=False)
         log.info("Resampled complete injection history to %s: %d -> %d rows (after dropping empty periods)", resample_freq, len(df_combined), len(df_resampled))
         return True
