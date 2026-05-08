@@ -371,43 +371,58 @@ class Fiboreglass(pn.viewable.Viewer):
             labels.get('flow_col'),
         )
 
-    def _build_injection_plot(self):
-        """Build the full injection overlay (pressure + flow) as an hv.Overlay.
+    def _build_injection_plot(self, x_range=None):
+        """Build injection overlay linked to the current main-plot x-range.
 
-        This is called once per _update_plot invocation and composed directly
-        into the HoloViews layout using +, so HoloViews wires the shared
-        Bokeh x-axis Range1d before Panel renders the GridSpec cell.
-        No RangeX stream or data filtering is needed — the shared x-axis
-        handles the visible window natively.
+        x_range comes from the RangeX stream (milliseconds since epoch as a
+        2-tuple) when the user pans/zooms the heatmap.  On initial render
+        x_range is None, so we fall back to the DTS data window so the
+        injection plot matches the heatmap time extent on load.
         """
         if self.injection is None or self.injection_labels is None:
             return hv.Curve([], 'Time', 'pressure').opts(
                 title='No injection data available',
-                responsive=True,
-                show_grid=True,
+                responsive=True, show_grid=True,
             )
 
         pressure_col = self.injection_labels['pressure_col']
         flow_col = self.injection_labels['flow_col']
         pressure_unit = self.injection_labels['pressure_unit']
         flow_unit = self.injection_labels['flow_unit']
-        df = self.injection
 
-        log.info("Building injection plot: rows=%d time_min=%s time_max=%s",
-                 len(df), df['Time'].min(), df['Time'].max())
+        # Determine the visible time window.
+        # Priority: (1) live x_range from RangeX stream, (2) DTS data extent.
+        time_start = None
+        time_end = None
+        if x_range is not None and len(x_range) == 2:
+            time_start = _coerce_plot_time(x_range[0])
+            time_end = _coerce_plot_time(x_range[1])
+        if (time_start is None or time_end is None) and hasattr(self, 'da') and self.da.time.size:
+            time_start = pd.Timestamp(self.da.time.values[0])
+            time_end = pd.Timestamp(self.da.time.values[-1])
+        if time_start is not None and time_end is not None and time_start > time_end:
+            time_start, time_end = time_end, time_start
+
+        log.info("Injection plot: x_range=%s -> time_start=%s time_end=%s rows=%d",
+                 x_range, time_start, time_end, len(self.injection))
 
         pressure = hv.Curve(
-            df, 'Time', pressure_col,
+            self.injection, 'Time', pressure_col,
             label=f'{pressure_col} [{pressure_unit}]',
         ).opts(responsive=True, show_grid=True, color='firebrick')
         flow = hv.Curve(
-            df, 'Time', flow_col,
+            self.injection, 'Time', flow_col,
             label=f'{flow_col} [{flow_unit}]',
         ).opts(color='steelblue')
         # multi_y=True gives dual y-axes for pressure and flow within this panel.
-        # shared_axes=True is intentionally omitted here — axis linkage is
-        # handled by composing this plot into an hv.Layout with + below.
-        return (pressure * flow).opts(multi_y=True, responsive=True)
+        # shared_axes is NOT set here to avoid merging y-axes with the heatmap.
+        plot = (pressure * flow).opts(multi_y=True, responsive=True)
+        # Set xlim so the injection panel matches the heatmap extent on load and
+        # after every pan/zoom callback. Bokeh updates the Range1d on the already-
+        # rendered figure; the RangeX stream drives re-renders on subsequent pans.
+        if time_start is not None and time_end is not None:
+            plot = plot.opts(xlim=(time_start, time_end))
+        return plot
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
                    'length_selector')
@@ -428,32 +443,27 @@ class Fiboreglass(pn.viewable.Viewer):
         tsec = hv.DynamicMap(self.tap_timeseries, streams=[pointer])
         dsec = hv.DynamicMap(self.tap_depth_curve, streams=[pointer])
 
-        # Build injection overlay (full dataset, no range filtering).
-        inj_plot = self._build_injection_plot()
-
-        # Compose the three time-axis panels into an hv.Layout with +.
-        # HoloViews wires the shared Bokeh x-Range1d across all three figures
-        # before Panel renders them, giving native synchronous pan/zoom.
-        # The depth curve uses its own y-axis (depth) so it is kept separate
-        # in the GridSpec column 0 and does NOT share the x-axis with these.
-        main_plot = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True)
-        tsec_plot = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
-        inj_plot = inj_plot.opts(show_grid=True)
-
-        # Stack heatmap / tap timeseries / injection vertically with shared x-axis.
-        time_col = (main_plot + tsec_plot + inj_plot).opts(
-            hv.opts.Layout(shared_axes=True)
-        ).cols(1)
-
-        # Gridspec: depth curve left, stacked time panels right.
+        # Gridspec
         gspec = pn.GridSpec(max_height=2000)
+        main_plot = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True, shared_axes=True)
+        gspec[0, 1:4] = main_plot
+        # Depth section
         if self.variable == 'temperature':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
                 temperature=self.color_selector)
         elif self.variable == 'deltaT':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
                 deltaT=self.color_selector)
-        gspec[:, 1:4] = pn.panel(time_col)
+        # Time section shares x-axis with main_plot via shared_axes=True
+        gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True, shared_axes=True)
+
+        # Injection panel: RangeX stream fires _build_injection_plot on every
+        # pan/zoom of the heatmap, re-rendering with the new xlim so the
+        # injection curves track the heatmap viewport.  On initial render
+        # x_range=None so _build_injection_plot falls back to the DTS extent.
+        x_range_stream = hv.streams.RangeX(source=main_plot)
+        injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
+        gspec[2, 1:4] = injection_dmap.opts(show_grid=True)
         return gspec
 
     def tap_timeseries(self, x, y):
