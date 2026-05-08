@@ -371,58 +371,36 @@ class Fiboreglass(pn.viewable.Viewer):
             labels.get('flow_col'),
         )
 
-    def _build_injection_plot(self, x_range=None):
-        """Build injection overlay linked to the current main-plot x-range.
+    def _build_pressure_plot(self, x_range=None):
+        """Pressure curve for the injection panel (plain hv.Curve, no multi_y).
 
-        x_range comes from the RangeX stream (milliseconds since epoch as a
-        2-tuple) when the user pans/zooms the heatmap.  On initial render
-        x_range is None, so we fall back to the DTS data window so the
-        injection plot matches the heatmap time extent on load.
+        Returns an empty curve when no injection data is available so the
+        GridSpec cell still renders (with shared_axes wired) rather than
+        raising an error.
         """
         if self.injection is None or self.injection_labels is None:
-            return hv.Curve([], 'Time', 'pressure').opts(
-                title='No injection data available',
+            return hv.Curve([], kdims=['Time'], vdims=['pressure']).opts(
                 responsive=True, show_grid=True,
             )
-
         pressure_col = self.injection_labels['pressure_col']
-        flow_col = self.injection_labels['flow_col']
         pressure_unit = self.injection_labels['pressure_unit']
-        flow_unit = self.injection_labels['flow_unit']
-
-        # Determine the visible time window.
-        # Priority: (1) live x_range from RangeX stream, (2) DTS data extent.
-        time_start = None
-        time_end = None
-        if x_range is not None and len(x_range) == 2:
-            time_start = _coerce_plot_time(x_range[0])
-            time_end = _coerce_plot_time(x_range[1])
-        if (time_start is None or time_end is None) and hasattr(self, 'da') and self.da.time.size:
-            time_start = pd.Timestamp(self.da.time.values[0])
-            time_end = pd.Timestamp(self.da.time.values[-1])
-        if time_start is not None and time_end is not None and time_start > time_end:
-            time_start, time_end = time_end, time_start
-
-        log.info("Injection plot: x_range=%s -> time_start=%s time_end=%s rows=%d",
-                 x_range, time_start, time_end, len(self.injection))
-
-        pressure = hv.Curve(
+        return hv.Curve(
             self.injection, 'Time', pressure_col,
             label=f'{pressure_col} [{pressure_unit}]',
         ).opts(responsive=True, show_grid=True, color='firebrick')
-        flow = hv.Curve(
+
+    def _build_flow_plot(self, x_range=None):
+        """Flow curve for the injection panel (plain hv.Curve, no multi_y)."""
+        if self.injection is None or self.injection_labels is None:
+            return hv.Curve([], kdims=['Time'], vdims=['flow']).opts(
+                responsive=True, show_grid=True,
+            )
+        flow_col = self.injection_labels['flow_col']
+        flow_unit = self.injection_labels['flow_unit']
+        return hv.Curve(
             self.injection, 'Time', flow_col,
             label=f'{flow_col} [{flow_unit}]',
-        ).opts(color='steelblue')
-        # multi_y=True gives dual y-axes for pressure and flow within this panel.
-        # shared_axes is NOT set here to avoid merging y-axes with the heatmap.
-        plot = (pressure * flow).opts(multi_y=True, responsive=True)
-        # Set xlim so the injection panel matches the heatmap extent on load and
-        # after every pan/zoom callback. Bokeh updates the Range1d on the already-
-        # rendered figure; the RangeX stream drives re-renders on subsequent pans.
-        if time_start is not None and time_end is not None:
-            plot = plot.opts(xlim=(time_start, time_end))
-        return plot
+        ).opts(responsive=True, show_grid=True, color='steelblue')
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
                    'length_selector')
@@ -454,22 +432,19 @@ class Fiboreglass(pn.viewable.Viewer):
         elif self.variable == 'deltaT':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
                 deltaT=self.color_selector)
-        # Time section shares x-axis with main_plot via shared_axes=True
+        # Time section — shares x-axis with main_plot via shared_axes=True
         gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True, shared_axes=True)
 
-        # Injection panel: RangeX stream fires _build_injection_plot on every
-        # pan/zoom of the heatmap, re-rendering with the new xlim so the
-        # injection curves track the heatmap viewport.  On initial render
-        # x_range=None so _build_injection_plot falls back to the DTS extent.
+        # Injection panels — two separate plain hv.Curve rows so HoloViews can
+        # wire their x-axis Range1d natively to main_plot (same as tsec above).
+        # RangeX streams are attached so the curves re-render on pan/zoom, but
+        # the native Bokeh Range1d link (via shared_axes=True) is what gives
+        # smooth synchronous mouse-wheel zoom without a Python round-trip.
         x_range_stream = hv.streams.RangeX(source=main_plot)
-        injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
-        # shared_axes=True links the injection panel's x-axis Range1d natively to
-        # main_plot and tsec (all three share a datetime x-dimension), giving
-        # synchronous mouse-wheel zoom without a Python round-trip.
-        # y-axis sharing is safe: injection y-dims ('PT 503', 'Net Flow') differ
-        # from heatmap ('depth') and timeseries ('temperature'/'deltaT'), so
-        # HoloViews only links matching dimension names on x.
-        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True)
+        pressure_dmap = hv.DynamicMap(self._build_pressure_plot, streams=[x_range_stream])
+        flow_dmap = hv.DynamicMap(self._build_flow_plot, streams=[x_range_stream])
+        gspec[2, 1:4] = pressure_dmap.opts(show_grid=True, shared_axes=True, height=200)
+        gspec[3, 1:4] = flow_dmap.opts(show_grid=True, shared_axes=True, height=200)
         return gspec
 
     def tap_timeseries(self, x, y):
