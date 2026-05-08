@@ -2,6 +2,8 @@ import panel as pn
 import xarray as xr
 import holoviews as hv
 import numpy as np
+import pandas as pd
+from pathlib import Path
 
 import param
 
@@ -37,6 +39,88 @@ _time_end = _raw.time[-1].values
 _DS = _raw.sel(time=slice(_time_end - _MAX_WINDOW, None)).load()
 del _raw
 
+INJ_LIVE_DIR = Path('/data/chet-cussp/injection/live')
+
+
+def _resolve_metadata_path(data_path):
+    return data_path.with_name(data_path.name.replace('data', 'metadata'))
+
+
+def _parse_injection_metadata(metadata_path):
+    """Return a best-effort mapping of column -> unit from metadata CSV."""
+    if not metadata_path.exists():
+        return {}
+    try:
+        meta_df = pd.read_csv(metadata_path, nrows=1, low_memory=False)
+        if meta_df.empty:
+            return {}
+        row = meta_df.iloc[0]
+        units = {}
+        for col, val in row.items():
+            if pd.notna(val) and str(val).strip():
+                units[col] = str(val).strip()
+        return units
+    except Exception:
+        return {}
+
+
+def _find_latest_injection_pair(live_dir):
+    data_files = sorted(live_dir.glob('*INJ_data.csv'))
+    if not data_files:
+        return None, None
+    latest = max(data_files, key=lambda p: p.stat().st_mtime)
+    metadata = _resolve_metadata_path(latest)
+    if not metadata.exists():
+        return latest, None
+    return latest, metadata
+
+
+def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
+    """Load latest injection CSV pair and return dataframe + labels."""
+    data_path, metadata_path = _find_latest_injection_pair(live_dir)
+    if data_path is None:
+        return None, None
+
+    flow_candidates = ['Triplex Flow', 'TV Flow', 'Net Flow']
+    needed_cols = {'Time', 'PT 403', *flow_candidates}
+
+    def _use_col(col_name):
+        return col_name in needed_cols
+
+    df = pd.read_csv(
+        data_path,
+        skiprows=[1, 2],
+        usecols=_use_col,
+        low_memory=False,
+    )
+    df['Time'] = pd.to_datetime(
+        df['Time'],
+        format='%m/%d/%y %H:%M:%S',
+        errors='coerce',
+    )
+    df = df.dropna(subset=['Time'])
+    if df.empty:
+        return None, None
+
+    flow_col = next((c for c in flow_candidates if c in df.columns), None)
+    if flow_col is None:
+        return None, None
+
+    df['PT 403'] = pd.to_numeric(df['PT 403'], errors='coerce')
+    df[flow_col] = pd.to_numeric(df[flow_col], errors='coerce')
+    df = df.dropna(subset=['PT 403', flow_col]).sort_values('Time')
+    if df.empty:
+        return None, None
+
+    units = _parse_injection_metadata(metadata_path) if metadata_path else {}
+    labels = {
+        'pressure_col': 'PT 403',
+        'flow_col': flow_col,
+        'pressure_unit': units.get('PT 403', 'psi'),
+        'flow_unit': units.get(flow_col, 'LPM'),
+    }
+    return df, labels
+
 
 def get_data(variable, well, direction, length):
     start = get_start(direction, well)
@@ -67,6 +151,11 @@ class Fiboreglass(pn.viewable.Viewer):
     def __init__(self, **params):
         super().__init__(**params)
         self.da = get_data(self.variable, self.well_selector, self.direction_selector, self.length_selector)
+        self._inj_data_path = None
+        self._inj_mtime = None
+        self.injection = None
+        self.injection_labels = None
+        self._refresh_injection_data()
         self._plot_pane = pn.panel(self._update_plot)
         self._layout = pn.Column(
             pn.Row(
@@ -81,11 +170,58 @@ class Fiboreglass(pn.viewable.Viewer):
             self._plot_pane
         )
 
+    def _refresh_injection_data(self):
+        data_path, _ = _find_latest_injection_pair(INJ_LIVE_DIR)
+        if data_path is None:
+            self.injection = None
+            self.injection_labels = None
+            self._inj_data_path = None
+            self._inj_mtime = None
+            return
+
+        mtime = data_path.stat().st_mtime
+        if self._inj_data_path == data_path and self._inj_mtime == mtime:
+            return
+
+        df, labels = load_injection_dataframe(INJ_LIVE_DIR)
+        self.injection = df
+        self.injection_labels = labels
+        self._inj_data_path = data_path
+        self._inj_mtime = mtime
+
+    def _build_injection_plot(self):
+        if self.injection is None or self.injection_labels is None:
+            return hv.Text(0.5, 0.5, 'No injection data available').opts(
+                responsive=True,
+                xaxis=None,
+                yaxis=None,
+            )
+
+        pressure_col = self.injection_labels['pressure_col']
+        flow_col = self.injection_labels['flow_col']
+        pressure_unit = self.injection_labels['pressure_unit']
+        flow_unit = self.injection_labels['flow_unit']
+
+        pressure = hv.Curve(
+            self.injection,
+            'Time',
+            pressure_col,
+            label=f'{pressure_col} [{pressure_unit}]',
+        ).opts(responsive=True, show_grid=True, color='firebrick')
+        flow = hv.Curve(
+            self.injection,
+            'Time',
+            flow_col,
+            label=f'{flow_col} [{flow_unit}]',
+        ).opts(color='steelblue')
+        return (pressure * flow).opts(multi_y=True, responsive=True)
+
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
                    'length_selector')
     def _update_plot(self):
         # Any of the selections should produce a new set of plots
         self.da = get_data(self.variable, self.well_selector, self.direction_selector, self.length_selector)
+        self._refresh_injection_data()
         # Reset colorbar values based on variable selection
         if self.variable == 'deltaT':
             self.color_selector = (-2, 2)
@@ -111,8 +247,7 @@ class Fiboreglass(pn.viewable.Viewer):
         # Time section
         gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
         # Accessory plot
-        gspec[2, 1:4] = hv.Scatter([(self.da.time.values[0], 0)], 'time', 'y3', label='Injection params').opts(
-            responsive=True)
+        gspec[2, 1:4] = self._build_injection_plot()
         return gspec
 
     def tap_timeseries(self, x, y):

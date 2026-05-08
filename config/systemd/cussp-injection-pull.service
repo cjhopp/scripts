@@ -1,0 +1,16 @@
+[Unit]
+Description=CUSSP injection CSV pull from Google Drive (one-shot)
+After=network.target
+
+[Service]
+Type=oneshot
+User=chopp
+WorkingDirectory=/home/chopp/scripts
+Environment=PATH=/home/chopp/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 \
+    /home/chopp/scripts/python/vm/cussp_pull_injection.py \
+    --remote-folder shared_cussp_inj: \
+    --staging-dir /data/chet-cussp/injection/staging \
+    --live-dir /data/chet-cussp/injection/live
+StandardOutput=journal
+StandardError=journal
