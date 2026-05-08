@@ -7,7 +7,6 @@ Requires rclone configured with a remote (e.g. gdrive:).
 """
 
 import argparse
-import io
 import logging
 import os
 import re
@@ -154,16 +153,22 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
             return False
         
         dfs = []
+        usecols = ["Time", "PT 503", "Net Flow"]
         for data_path in data_files:
             try:
-                # Read file, stripping trailing commas
-                with open(data_path, 'r') as f:
-                    lines = [line.rstrip('\r\n').rstrip(',') + '\n' for line in f]
-                csv_text = ''.join(lines)
-                
-                # Load with skiprows=[1,2] to skip units row
-                df = pd.read_csv(io.StringIO(csv_text), skiprows=[1, 2])
+                # Read only required columns and skip malformed rows.
+                df = pd.read_csv(
+                    data_path,
+                    skiprows=[1, 2],
+                    usecols=usecols,
+                    engine="python",
+                    on_bad_lines="skip",
+                    low_memory=False,
+                )
                 df.columns = [str(c).strip().replace('\ufeff', '') for c in df.columns]
+                if any(c not in df.columns for c in usecols):
+                    log.warning("Skipping %s: missing required columns", data_path.name)
+                    continue
                 
                 # Parse Time column
                 try:
@@ -171,6 +176,8 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
                 except (ValueError, TypeError):
                     df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
                 
+                df['PT 503'] = pd.to_numeric(df['PT 503'], errors='coerce')
+                df['Net Flow'] = pd.to_numeric(df['Net Flow'], errors='coerce')
                 df = df.dropna(subset=['Time'])
                 if not df.empty:
                     dfs.append(df)
@@ -183,7 +190,7 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
             log.warning("No valid injection data found; skipping resample")
             return False
         
-        # Concatenate all files
+        # Concatenate only the columns required by the dashboard.
         df_combined = pd.concat(dfs, ignore_index=True)
         df_combined = df_combined.drop_duplicates(subset=['Time']).sort_values('Time')
         log.info("Combined %d files into %d total rows", len(data_files), len(df_combined))
@@ -191,15 +198,11 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
         df_combined.set_index('Time', inplace=True)
         df_combined.index = pd.DatetimeIndex(df_combined.index)
         
-        # Resample PT 503 and Net Flow to 1-min mean, keep first value of other cols
-        agg_dict = {}
-        for col in df_combined.columns:
-            if col in ['PT 503', 'Net Flow']:
-                agg_dict[col] = 'mean'
-            else:
-                agg_dict[col] = 'first'  # Just keep first value for non-numeric cols
-        
-        df_resampled = df_combined.resample(resample_freq).agg(agg_dict)
+        # Resample required series to 1-min mean.
+        df_resampled = df_combined.resample(resample_freq).agg({
+            'PT 503': 'mean',
+            'Net Flow': 'mean',
+        })
         df_resampled.reset_index(inplace=True)
         
         # Write resampled data
