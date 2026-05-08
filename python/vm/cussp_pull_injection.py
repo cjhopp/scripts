@@ -163,7 +163,6 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
                     usecols=usecols,
                     engine="python",
                     on_bad_lines="skip",
-                    low_memory=False,
                 )
                 df.columns = [str(c).strip().replace('\ufeff', '') for c in df.columns]
                 if any(c not in df.columns for c in usecols):
