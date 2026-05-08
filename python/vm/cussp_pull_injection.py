@@ -7,6 +7,7 @@ Requires rclone configured with a remote (e.g. gdrive:).
 """
 
 import argparse
+import io
 import logging
 import os
 import re
@@ -14,6 +15,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import pandas as pd
 
 
 log = logging.getLogger("cussp_pull_injection")
@@ -137,6 +140,56 @@ def publish_latest(staging_dir, live_dir):
     return True
 
 
+def resample_injection_data(data_path, output_path, resample_freq='1min'):
+    """Resample injection data to lower frequency for long-timescale visualization.
+    
+    Reads the data file, sets Time as index, resamples to 1-min mean, and writes to output.
+    Falls back silently if any step fails (this is not fatal).
+    """
+    try:
+        # Read raw file, stripping trailing commas
+        with open(data_path, 'r') as f:
+            lines = [line.rstrip('\r\n').rstrip(',') + '\n' for line in f]
+        csv_text = ''.join(lines)
+        
+        # Load with skiprows=[1,2] to skip units row
+        df = pd.read_csv(io.StringIO(csv_text), skiprows=[1, 2])
+        df.columns = [str(c).strip().replace('\ufeff', '') for c in df.columns]
+        
+        # Parse Time column; try strict format first, then fallback
+        try:
+            df['Time'] = pd.to_datetime(df['Time'], format='%m/%d/%y %H:%M:%S', errors='raise')
+        except (ValueError, TypeError):
+            df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
+        
+        df = df.dropna(subset=['Time'])
+        if df.empty:
+            log.warning("No valid time rows after parsing; skipping resample")
+            return False
+        
+        df.set_index('Time', inplace=True)
+        df.index = pd.DatetimeIndex(df.index)
+        
+        # Resample PT 503 and Net Flow to 1-min mean, keep first value of other cols
+        agg_dict = {}
+        for col in df.columns:
+            if col in ['PT 503', 'Net Flow']:
+                agg_dict[col] = 'mean'
+            else:
+                agg_dict[col] = 'first'  # Just keep first value for non-numeric cols
+        
+        df_resampled = df.resample(resample_freq).agg(agg_dict)
+        df_resampled.reset_index(inplace=True)
+        
+        # Write resampled data
+        df_resampled.to_csv(output_path, index=False)
+        log.info("Resampled injection data to %s: %d -> %d rows", resample_freq, len(df), len(df_resampled))
+        return True
+    except Exception as e:
+        log.warning("Failed to resample injection data: %s", e)
+        return False
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Pull and publish CUSSP injection CSV files")
     parser.add_argument(
@@ -195,6 +248,13 @@ def main():
 
     sync_from_drive(args.remote_folder, staging_dir, drive_shared_with_me=args.drive_shared_with_me)
     ok = publish_latest(staging_dir, live_dir)
+    
+    # After publishing, create resampled version for long-timescale plots
+    if ok:
+        raw_data = live_dir / "latest_INJ_data.csv"
+        resampled_data = live_dir / "latest_INJ_data_1min.csv"
+        resample_injection_data(raw_data, resampled_data, resample_freq='1min')
+    
     return 0 if ok else 1
 
 

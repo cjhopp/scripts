@@ -151,20 +151,29 @@ def _choose_time_column(df, data_path):
     return best_col, best_parsed
 
 
-def load_injection_dataframe(live_dir=INJ_LIVE_DIR, pressure_col='PT 503', flow_col='Net Flow'):
-    """Load latest injection CSV pair and return dataframe + labels.
+def load_injection_dataframe(live_dir=INJ_LIVE_DIR, pressure_col='PT 503', flow_col='Net Flow', filename=None):
+    """Load injection CSV pair and return dataframe + labels.
     
     Args:
         live_dir: Directory with injection files
         pressure_col: Column name for pressure (e.g., 'PT 503' for TC interval)
         flow_col: Column name for flow (e.g., 'Net Flow')
+        filename: Optional override filename to load (default: latest_INJ_data.csv)
     """
     import io
     
-    data_path, metadata_path = _find_latest_injection_pair(live_dir)
-    if data_path is None:
-        log.warning("No injection data file found in %s", live_dir)
+    if filename is None:
+        filename = 'latest_INJ_data.csv'
+    
+    data_path = live_dir / filename
+    if not data_path.exists():
+        # Fall back to raw if downsampled doesn't exist
+        if filename != 'latest_INJ_data.csv':
+            return load_injection_dataframe(live_dir, pressure_col, flow_col, 'latest_INJ_data.csv')
+        log.warning("No injection data file found at %s", data_path)
         return None, None
+
+    metadata_path = _resolve_metadata_path(data_path) if filename.endswith('_data.csv') else None
 
     # Read file and strip trailing commas to handle malformed CSVs
     try:
@@ -214,7 +223,7 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR, pressure_col='PT 503', flow_
         log.warning("Injection file %s has no parsable time column", data_path)
         return None, None
 
-    log.info("Injection CSV parse mode=%s valid_time_fraction=%.3f", chosen_mode, chosen_score)
+    log.info("Injection CSV parse mode=%s file=%s valid_time_fraction=%.3f", chosen_mode, filename, chosen_score)
     df = chosen_df
     df['Time'] = chosen_parsed_time
     df = df.dropna(subset=['Time'])
@@ -308,7 +317,8 @@ class Fiboreglass(pn.viewable.Viewer):
         if self._inj_data_path == data_path and self._inj_mtime == mtime:
             return
 
-        df, labels = load_injection_dataframe(INJ_LIVE_DIR)
+        # Always load 1-min downsampled version to get full data across all time windows
+        df, labels = load_injection_dataframe(INJ_LIVE_DIR, filename='latest_INJ_data_1min.csv')
         self.injection = df
         self.injection_labels = labels
         self._inj_data_path = data_path
@@ -317,8 +327,7 @@ class Fiboreglass(pn.viewable.Viewer):
             log.warning("Injection load failed for %s", data_path)
             return
         log.info(
-            "Loaded injection data from %s rows=%d time_min=%s time_max=%s pressure_col=%s flow_col=%s",
-            data_path,
+            "Loaded injection data from 1-min downsampled file: rows=%d time_min=%s time_max=%s pressure_col=%s flow_col=%s",
             len(df),
             df['Time'].min(),
             df['Time'].max(),
