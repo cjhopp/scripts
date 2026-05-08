@@ -3,6 +3,7 @@ import xarray as xr
 import holoviews as hv
 import numpy as np
 import pandas as pd
+import logging
 from pathlib import Path
 
 import param
@@ -10,6 +11,7 @@ import param
 from holoviews.operation.datashader import rasterize
 
 hv.extension('bokeh', config=dict(image_rtol=10000))
+log = logging.getLogger(__name__)
 
 chan_map_4100 = {'AMU': 146.445, 'AML': 282.68, 'DMU': 439.905, 'DML': 560.765, 'Whole fiber': 718.4}
 
@@ -65,6 +67,11 @@ def _parse_injection_metadata(metadata_path):
 
 
 def _find_latest_injection_pair(live_dir):
+    latest_data = live_dir / 'latest_INJ_data.csv'
+    latest_meta = live_dir / 'latest_INJ_metadata.csv'
+    if latest_data.exists() and latest_meta.exists():
+        return latest_data, latest_meta
+
     data_files = sorted(live_dir.glob('*INJ_data.csv'))
     if not data_files:
         return None, None
@@ -79,20 +86,22 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
     """Load latest injection CSV pair and return dataframe + labels."""
     data_path, metadata_path = _find_latest_injection_pair(live_dir)
     if data_path is None:
+        log.warning("No injection data file found in %s", live_dir)
         return None, None
 
-    flow_candidates = ['Triplex Flow', 'TV Flow', 'Net Flow']
-    needed_cols = {'Time', 'PT 403', *flow_candidates}
+    flow_candidates = ['Triplex Flow', 'TV Flow', 'Net Flow', 'Quizix Flow']
+    df = pd.read_csv(data_path, skiprows=[1, 2], low_memory=False)
+    df.columns = [str(c).strip().replace('\ufeff', '') for c in df.columns]
 
-    def _use_col(col_name):
-        return col_name in needed_cols
+    if 'Time' not in df.columns:
+        time_like = [c for c in df.columns if c.lower() == 'time' or c.lower().endswith(' time')]
+        if time_like:
+            df = df.rename(columns={time_like[0]: 'Time'})
 
-    df = pd.read_csv(
-        data_path,
-        skiprows=[1, 2],
-        usecols=_use_col,
-        low_memory=False,
-    )
+    if 'Time' not in df.columns:
+        log.warning("Injection file %s has no Time column", data_path)
+        return None, None
+
     df['Time'] = pd.to_datetime(
         df['Time'],
         format='%m/%d/%y %H:%M:%S',
@@ -100,23 +109,38 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
     )
     df = df.dropna(subset=['Time'])
     if df.empty:
+        log.warning("Injection file %s has no valid timestamp rows", data_path)
         return None, None
+
+    pressure_col = 'PT 403' if 'PT 403' in df.columns else None
+    if pressure_col is None:
+        pt_candidates = [c for c in df.columns if c.upper().startswith('PT ')]
+        pressure_col = pt_candidates[0] if pt_candidates else None
 
     flow_col = next((c for c in flow_candidates if c in df.columns), None)
     if flow_col is None:
+        generic_flows = [c for c in df.columns if 'flow' in c.lower()]
+        flow_col = generic_flows[0] if generic_flows else None
+
+    if pressure_col is None:
+        log.warning("Injection file %s has no pressure column", data_path)
+        return None, None
+    if flow_col is None:
+        log.warning("Injection file %s has no flow column", data_path)
         return None, None
 
-    df['PT 403'] = pd.to_numeric(df['PT 403'], errors='coerce')
+    df[pressure_col] = pd.to_numeric(df[pressure_col], errors='coerce')
     df[flow_col] = pd.to_numeric(df[flow_col], errors='coerce')
-    df = df.dropna(subset=['PT 403', flow_col]).sort_values('Time')
+    df = df.dropna(subset=[pressure_col, flow_col]).sort_values('Time')
     if df.empty:
+        log.warning("Injection file %s has no numeric pressure/flow rows", data_path)
         return None, None
 
     units = _parse_injection_metadata(metadata_path) if metadata_path else {}
     labels = {
-        'pressure_col': 'PT 403',
+        'pressure_col': pressure_col,
         'flow_col': flow_col,
-        'pressure_unit': units.get('PT 403', 'psi'),
+        'pressure_unit': units.get(pressure_col, 'psi'),
         'flow_unit': units.get(flow_col, 'LPM'),
     }
     return df, labels
