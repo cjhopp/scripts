@@ -371,36 +371,37 @@ class Fiboreglass(pn.viewable.Viewer):
             labels.get('flow_col'),
         )
 
-    def _build_pressure_plot(self, x_range=None):
-        """Pressure curve for the injection panel (plain hv.Curve, no multi_y).
+    def _build_injection_plot(self, x_range=None):
+        """Build combined pressure + flow injection panel with multi_y.
 
-        Returns an empty curve when no injection data is available so the
-        GridSpec cell still renders (with shared_axes wired) rather than
-        raising an error.
+        The injection DataFrame's 'Time' column is renamed to 'time' (lowercase)
+        before constructing the hv.Curve objects.  HoloViews dimension matching
+        for shared_axes is case-sensitive: the heatmap x-dimension is 'time'
+        (from the xarray coordinate), so using 'time' here causes HoloViews to
+        wire the Bokeh Range1d objects natively and give synchronous pan/zoom.
         """
         if self.injection is None or self.injection_labels is None:
-            return hv.Curve([], kdims=['Time'], vdims=['pressure']).opts(
+            return hv.Curve([], kdims=['time'], vdims=['pressure']).opts(
                 responsive=True, show_grid=True,
             )
+
         pressure_col = self.injection_labels['pressure_col']
+        flow_col = self.injection_labels['flow_col']
         pressure_unit = self.injection_labels['pressure_unit']
-        return hv.Curve(
-            self.injection, 'Time', pressure_col,
+        flow_unit = self.injection_labels['flow_unit']
+
+        # Rename 'Time' -> 'time' so the x-dimension matches the heatmap kdim.
+        df = self.injection.rename(columns={'Time': 'time'})
+
+        pressure = hv.Curve(
+            df, 'time', pressure_col,
             label=f'{pressure_col} [{pressure_unit}]',
         ).opts(responsive=True, show_grid=True, color='firebrick')
-
-    def _build_flow_plot(self, x_range=None):
-        """Flow curve for the injection panel (plain hv.Curve, no multi_y)."""
-        if self.injection is None or self.injection_labels is None:
-            return hv.Curve([], kdims=['Time'], vdims=['flow']).opts(
-                responsive=True, show_grid=True,
-            )
-        flow_col = self.injection_labels['flow_col']
-        flow_unit = self.injection_labels['flow_unit']
-        return hv.Curve(
-            self.injection, 'Time', flow_col,
+        flow = hv.Curve(
+            df, 'time', flow_col,
             label=f'{flow_col} [{flow_unit}]',
-        ).opts(responsive=True, show_grid=True, color='steelblue')
+        ).opts(color='steelblue')
+        return (pressure * flow).opts(multi_y=True, responsive=True)
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
                    'length_selector')
@@ -435,16 +436,12 @@ class Fiboreglass(pn.viewable.Viewer):
         # Time section — shares x-axis with main_plot via shared_axes=True
         gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True, shared_axes=True)
 
-        # Injection panels — two separate plain hv.Curve rows so HoloViews can
-        # wire their x-axis Range1d natively to main_plot (same as tsec above).
-        # RangeX streams are attached so the curves re-render on pan/zoom, but
-        # the native Bokeh Range1d link (via shared_axes=True) is what gives
-        # smooth synchronous mouse-wheel zoom without a Python round-trip.
+        # Injection panel — combined pressure+flow with multi_y.
+        # 'time' kdim (lowercase) matches the heatmap dimension so HoloViews
+        # wires the Bokeh Range1d natively via shared_axes=True.
         x_range_stream = hv.streams.RangeX(source=main_plot)
-        pressure_dmap = hv.DynamicMap(self._build_pressure_plot, streams=[x_range_stream])
-        flow_dmap = hv.DynamicMap(self._build_flow_plot, streams=[x_range_stream])
-        gspec[2, 1:4] = pressure_dmap.opts(show_grid=True, shared_axes=True, height=200)
-        gspec[3, 1:4] = flow_dmap.opts(show_grid=True, shared_axes=True, height=200)
+        injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
+        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True, height=250)
         return gspec
 
     def tap_timeseries(self, x, y):
