@@ -151,16 +151,20 @@ def _choose_time_column(df, data_path):
     return best_col, best_parsed
 
 
-def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
-    """Load latest injection CSV pair and return dataframe + labels."""
+def load_injection_dataframe(live_dir=INJ_LIVE_DIR, pressure_col='PT 503', flow_col='Net Flow'):
+    """Load latest injection CSV pair and return dataframe + labels.
+    
+    Args:
+        live_dir: Directory with injection files
+        pressure_col: Column name for pressure (e.g., 'PT 503' for TC interval)
+        flow_col: Column name for flow (e.g., 'Net Flow')
+    """
     import io
     
     data_path, metadata_path = _find_latest_injection_pair(live_dir)
     if data_path is None:
         log.warning("No injection data file found in %s", live_dir)
         return None, None
-
-    flow_candidates = ['Triplex Flow', 'TV Flow', 'Net Flow', 'Quizix Flow']
 
     # Read file and strip trailing commas to handle malformed CSVs
     try:
@@ -218,21 +222,12 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
         log.warning("Injection file %s has no valid timestamp rows", data_path)
         return None, None
 
-    pressure_col = 'PT 403' if 'PT 403' in df.columns else None
-    if pressure_col is None:
-        pt_candidates = [c for c in df.columns if c.upper().startswith('PT ')]
-        pressure_col = pt_candidates[0] if pt_candidates else None
-
-    flow_col = next((c for c in flow_candidates if c in df.columns), None)
-    if flow_col is None:
-        generic_flows = [c for c in df.columns if 'flow' in c.lower()]
-        flow_col = generic_flows[0] if generic_flows else None
-
-    if pressure_col is None:
-        log.warning("Injection file %s has no pressure column", data_path)
+    # Verify requested columns exist
+    if pressure_col not in df.columns:
+        log.warning("Injection file %s has no pressure column '%s'", data_path, pressure_col)
         return None, None
-    if flow_col is None:
-        log.warning("Injection file %s has no flow column", data_path)
+    if flow_col not in df.columns:
+        log.warning("Injection file %s has no flow column '%s'", data_path, flow_col)
         return None, None
 
     df[pressure_col] = pd.to_numeric(df[pressure_col], errors='coerce')
@@ -247,7 +242,7 @@ def load_injection_dataframe(live_dir=INJ_LIVE_DIR):
         'pressure_col': pressure_col,
         'flow_col': flow_col,
         'pressure_unit': units.get(pressure_col, 'psi'),
-        'flow_unit': units.get(flow_col, 'LPM'),
+        'flow_unit': units.get(flow_col, 'L/min'),
     }
     return df, labels
 
@@ -331,7 +326,16 @@ class Fiboreglass(pn.viewable.Viewer):
             labels.get('flow_col'),
         )
 
-    def _build_injection_plot(self):
+    def _build_injection_plot(self, time_start=None, time_end=None):
+        """Build injection plot, optionally filtered to a time range.
+        
+        Args:
+            time_start: numpy datetime64 or None for all data
+            time_end: numpy datetime64 or None for all data
+        
+        Returns:
+            Holoviews plot
+        """
         if self.injection is None or self.injection_labels is None:
             return hv.Text(0.5, 0.5, 'No injection data available').opts(
                 responsive=True,
@@ -344,14 +348,29 @@ class Fiboreglass(pn.viewable.Viewer):
         pressure_unit = self.injection_labels['pressure_unit']
         flow_unit = self.injection_labels['flow_unit']
 
+        # Filter to time range if specified
+        df_filtered = self.injection
+        if time_start is not None and time_end is not None:
+            df_filtered = df_filtered[
+                (df_filtered['Time'] >= pd.Timestamp(time_start)) &
+                (df_filtered['Time'] <= pd.Timestamp(time_end))
+            ]
+        
+        if df_filtered.empty:
+            return hv.Text(0.5, 0.5, 'No injection data in selected time range').opts(
+                responsive=True,
+                xaxis=None,
+                yaxis=None,
+            )
+
         pressure = hv.Curve(
-            self.injection,
+            df_filtered,
             'Time',
             pressure_col,
             label=f'{pressure_col} [{pressure_unit}]',
         ).opts(responsive=True, show_grid=True, color='firebrick')
         flow = hv.Curve(
-            self.injection,
+            df_filtered,
             'Time',
             flow_col,
             label=f'{flow_col} [{flow_unit}]',
@@ -376,6 +395,11 @@ class Fiboreglass(pn.viewable.Viewer):
         # Sections
         tsec = hv.DynamicMap(self.tap_timeseries, streams=[pointer])
         dsec = hv.DynamicMap(self.tap_depth_curve, streams=[pointer])
+        
+        # Get time range from self.da for injection plot filtering
+        time_start = self.da.time.values[0]
+        time_end = self.da.time.values[-1]
+        
         # Gridspec
         gspec = pn.GridSpec(max_height=2000)
         gspec[0, 1:4] = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True)
@@ -388,8 +412,10 @@ class Fiboreglass(pn.viewable.Viewer):
                 deltaT=self.color_selector)
         # Time section
         gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
-        # Accessory plot
-        gspec[2, 1:4] = self._build_injection_plot()
+        # Injection plot with shared time range
+        gspec[2, 1:4] = self._build_injection_plot(time_start, time_end).opts(
+            show_grid=True
+        )
         return gspec
 
     def tap_timeseries(self, x, y):
