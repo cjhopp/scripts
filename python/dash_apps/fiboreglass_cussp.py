@@ -385,39 +385,21 @@ class Fiboreglass(pn.viewable.Viewer):
         pressure_unit = self.injection_labels['pressure_unit']
         flow_unit = self.injection_labels['flow_unit']
 
-        # Filter to the current x-range from the main heatmap.
-        time_start = None
-        time_end = None
-        if x_range is not None and len(x_range) == 2:
-            time_start = _coerce_plot_time(x_range[0])
-            time_end = _coerce_plot_time(x_range[1])
-        elif hasattr(self, 'da') and self.da.time.size:
-            time_start = pd.Timestamp(self.da.time.values[0])
-            time_end = pd.Timestamp(self.da.time.values[-1])
-
-        if time_start is not None and time_end is not None and time_start > time_end:
-            time_start, time_end = time_end, time_start
-
+        # x_range is None on initial render (RangeX hasn't fired yet).
+        # In that case show all injection data; Bokeh's native shared x-axis
+        # (shared_axes=True on injection_dmap below) will keep it in sync once
+        # the user interacts.  Do NOT fall back to the DTS window here — that
+        # would hide injection data outside the current DTS time selection.
         df_filtered = self.injection
-        inj_min = df_filtered['Time'].min() if not df_filtered.empty else None
-        inj_max = df_filtered['Time'].max() if not df_filtered.empty else None
-        if time_start is not None and time_end is not None:
-            df_filtered = df_filtered[
-                (df_filtered['Time'] >= time_start) &
-                (df_filtered['Time'] <= time_end)
-            ]
-            log.info(
-                "Injection range filter: selected_start=%s selected_end=%s injection_min=%s injection_max=%s filtered_rows=%d total_rows=%d",
-                time_start,
-                time_end,
-                inj_min,
-                inj_max,
-                len(df_filtered),
-                len(self.injection),
-            )
-        
+
+        log.info(
+            "Injection plot: x_range=%s total_rows=%d",
+            x_range,
+            len(df_filtered),
+        )
+
         if df_filtered.empty:
-            return hv.Text(0.5, 0.5, 'No injection data in selected time range').opts(
+            return hv.Text(0.5, 0.5, 'No injection data available').opts(
                 responsive=True,
                 xaxis=None,
                 yaxis=None,
@@ -435,13 +417,12 @@ class Fiboreglass(pn.viewable.Viewer):
             flow_col,
             label=f'{flow_col} [{flow_unit}]',
         ).opts(color='steelblue')
-        # shared_axes=True here is intentional: it enables multi_y dual-y layout
-        # between pressure and flow within this same panel.
-        # xlim is intentionally NOT set here: the RangeX stream callback already
-        # re-renders the plot with filtered data for the current view window.
-        # Setting xlim on top of the stream-driven render fights Bokeh's live
-        # Range1d and causes jitter / incorrect range snapping.
-        plot = (pressure * flow).opts(multi_y=True, responsive=True, shared_axes=True)
+        # multi_y=True creates dual y-axes for pressure and flow.
+        # Do NOT add shared_axes=True here: that would attempt to merge
+        # this panel's y-axes with the heatmap's depth axis at the Bokeh
+        # document level, breaking both plots. shared_axes on the DynamicMap
+        # wrapper (in _update_plot) handles x-axis linkage only.
+        plot = (pressure * flow).opts(multi_y=True, responsive=True)
         return plot
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
@@ -477,14 +458,16 @@ class Fiboreglass(pn.viewable.Viewer):
         # Time section
         gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True, shared_axes=True)
 
-        # Link injection panel to current x-range of the main heatmap.
+        # Link injection panel x-axis natively to the heatmap via shared_axes=True.
+        # This uses Bokeh's Range1d sharing (smooth, synchronous pan/zoom).
+        # The RangeX stream is kept so _build_injection_plot can log diagnostics,
+        # but data filtering inside it is removed — all injection data is always
+        # passed to hv.Curve and Bokeh's shared range handles the visible window.
+        # shared_axes=True is safe here because _build_injection_plot no longer
+        # sets shared_axes=True on the inner Overlay, preventing y-axis merging.
         x_range_stream = hv.streams.RangeX(source=main_plot)
         injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
-        # Do NOT add shared_axes=True here: the GridSpec-level shared_axes would
-        # cause Bokeh to merge the injection panel's depth y-axis with the heatmap,
-        # breaking the multi_y dual-y layout. X-range linkage is handled entirely
-        # by the RangeX stream above.
-        gspec[2, 1:4] = injection_dmap.opts(show_grid=True)
+        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True)
         return gspec
 
     def tap_timeseries(self, x, y):
