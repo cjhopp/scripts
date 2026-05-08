@@ -371,59 +371,43 @@ class Fiboreglass(pn.viewable.Viewer):
             labels.get('flow_col'),
         )
 
-    def _build_injection_plot(self, x_range=None):
-        """Build injection plot linked to the current main-plot x-range."""
+    def _build_injection_plot(self):
+        """Build the full injection overlay (pressure + flow) as an hv.Overlay.
+
+        This is called once per _update_plot invocation and composed directly
+        into the HoloViews layout using +, so HoloViews wires the shared
+        Bokeh x-axis Range1d before Panel renders the GridSpec cell.
+        No RangeX stream or data filtering is needed — the shared x-axis
+        handles the visible window natively.
+        """
         if self.injection is None or self.injection_labels is None:
-            return hv.Text(0.5, 0.5, 'No injection data available').opts(
+            return hv.Curve([], 'Time', 'pressure').opts(
+                title='No injection data available',
                 responsive=True,
-                xaxis=None,
-                yaxis=None,
+                show_grid=True,
             )
 
         pressure_col = self.injection_labels['pressure_col']
         flow_col = self.injection_labels['flow_col']
         pressure_unit = self.injection_labels['pressure_unit']
         flow_unit = self.injection_labels['flow_unit']
+        df = self.injection
 
-        # x_range is None on initial render (RangeX hasn't fired yet).
-        # In that case show all injection data; Bokeh's native shared x-axis
-        # (shared_axes=True on injection_dmap below) will keep it in sync once
-        # the user interacts.  Do NOT fall back to the DTS window here — that
-        # would hide injection data outside the current DTS time selection.
-        df_filtered = self.injection
-
-        log.info(
-            "Injection plot: x_range=%s total_rows=%d",
-            x_range,
-            len(df_filtered),
-        )
-
-        if df_filtered.empty:
-            return hv.Text(0.5, 0.5, 'No injection data available').opts(
-                responsive=True,
-                xaxis=None,
-                yaxis=None,
-            )
+        log.info("Building injection plot: rows=%d time_min=%s time_max=%s",
+                 len(df), df['Time'].min(), df['Time'].max())
 
         pressure = hv.Curve(
-            df_filtered,
-            'Time',
-            pressure_col,
+            df, 'Time', pressure_col,
             label=f'{pressure_col} [{pressure_unit}]',
         ).opts(responsive=True, show_grid=True, color='firebrick')
         flow = hv.Curve(
-            df_filtered,
-            'Time',
-            flow_col,
+            df, 'Time', flow_col,
             label=f'{flow_col} [{flow_unit}]',
         ).opts(color='steelblue')
-        # multi_y=True creates dual y-axes for pressure and flow.
-        # Do NOT add shared_axes=True here: that would attempt to merge
-        # this panel's y-axes with the heatmap's depth axis at the Bokeh
-        # document level, breaking both plots. shared_axes on the DynamicMap
-        # wrapper (in _update_plot) handles x-axis linkage only.
-        plot = (pressure * flow).opts(multi_y=True, responsive=True)
-        return plot
+        # multi_y=True gives dual y-axes for pressure and flow within this panel.
+        # shared_axes=True is intentionally omitted here — axis linkage is
+        # handled by composing this plot into an hv.Layout with + below.
+        return (pressure * flow).opts(multi_y=True, responsive=True)
 
     @param.depends('variable', 'color_selector', 'well_selector', 'direction_selector',
                    'length_selector')
@@ -443,31 +427,33 @@ class Fiboreglass(pn.viewable.Viewer):
         # Sections
         tsec = hv.DynamicMap(self.tap_timeseries, streams=[pointer])
         dsec = hv.DynamicMap(self.tap_depth_curve, streams=[pointer])
-        
-        # Gridspec
+
+        # Build injection overlay (full dataset, no range filtering).
+        inj_plot = self._build_injection_plot()
+
+        # Compose the three time-axis panels into an hv.Layout with +.
+        # HoloViews wires the shared Bokeh x-Range1d across all three figures
+        # before Panel renders them, giving native synchronous pan/zoom.
+        # The depth curve uses its own y-axis (depth) so it is kept separate
+        # in the GridSpec column 0 and does NOT share the x-axis with these.
+        main_plot = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True)
+        tsec_plot = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True)
+        inj_plot = inj_plot.opts(show_grid=True)
+
+        # Stack heatmap / tap timeseries / injection vertically with shared x-axis.
+        time_col = (main_plot + tsec_plot + inj_plot).opts(
+            hv.opts.Layout(shared_axes=True)
+        ).cols(1)
+
+        # Gridspec: depth curve left, stacked time panels right.
         gspec = pn.GridSpec(max_height=2000)
-        main_plot = dmap.opts(tools=['hover'], responsive=True, colorbar=True, invert_yaxis=True, shared_axes=True)
-        gspec[0, 1:4] = main_plot
-        # Depth section (relim just this panel, since the time series should twin this range)
         if self.variable == 'temperature':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
                 temperature=self.color_selector)
         elif self.variable == 'deltaT':
             gspec[:, 0] = dsec.opts(responsive=True, invert_axes=True, show_grid=True).redim.range(
                 deltaT=self.color_selector)
-        # Time section
-        gspec[1, 1:4] = tsec.opts(responsive=True, ylim=self.color_selector, show_grid=True, shared_axes=True)
-
-        # Link injection panel x-axis natively to the heatmap via shared_axes=True.
-        # This uses Bokeh's Range1d sharing (smooth, synchronous pan/zoom).
-        # The RangeX stream is kept so _build_injection_plot can log diagnostics,
-        # but data filtering inside it is removed — all injection data is always
-        # passed to hv.Curve and Bokeh's shared range handles the visible window.
-        # shared_axes=True is safe here because _build_injection_plot no longer
-        # sets shared_axes=True on the inner Overlay, preventing y-axis merging.
-        x_range_stream = hv.streams.RangeX(source=main_plot)
-        injection_dmap = hv.DynamicMap(self._build_injection_plot, streams=[x_range_stream])
-        gspec[2, 1:4] = injection_dmap.opts(show_grid=True, shared_axes=True)
+        gspec[:, 1:4] = pn.panel(time_col)
         return gspec
 
     def tap_timeseries(self, x, y):
