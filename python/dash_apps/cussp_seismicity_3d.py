@@ -1,6 +1,8 @@
 import json
 import logging
 import math
+import io
+import re
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -9,6 +11,7 @@ import numpy as np
 import pandas as pd
 import panel as pn
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from pyproj import Proj, Transformer
 
 pn.extension("plotly")
@@ -31,6 +34,7 @@ STATION_FILE = Path("/data/chet-cussp/seismicity/stations_hmc.csv")
 WELLBORE_DIR = Path("/data/chet-cussp/wellbores")
 # Trimesh hull JSON for the 4100L drift (set to None to disable)
 HULL_FILE = Path("/data/chet-cussp/seismicity/drift_hull.npy")
+INJ_LIVE_DIR = Path('/data/chet-cussp/injection/live')
 SNAP_STATIONS_TO_WELLS = True
 
 # Canonical plotting frame for seismicity/stations exported by push pipeline.
@@ -411,19 +415,22 @@ def load_hull(path):
 
         elif suffix == ".json":
             import base64 as _b64
+
             with open(p, "r") as f:
                 data = json.load(f)
+
             def _decode(sub):
                 if isinstance(sub, dict) and "base64" in sub:
-                    return np.frombuffer(_b64.b64decode(sub["base64"]),
-                                         dtype=sub["dtype"]).reshape(sub["shape"])
+                    return np.frombuffer(_b64.b64decode(sub["base64"]), dtype=sub["dtype"]).reshape(sub["shape"])
                 return np.array(sub)
+
             vertices = _decode(data["vertices"]).astype(float)
             faces = _decode(data["faces"]).astype(int)
 
         else:
             # trimesh handles STL, PLY, OBJ, GLB, OFF, etc.
             import trimesh as _trimesh
+
             obj = _trimesh.load(str(p), force="mesh")
             if hasattr(obj, "geometry"):
                 obj = max(obj.geometry.values(), key=lambda m: len(m.faces))
@@ -436,6 +443,220 @@ def load_hull(path):
     except Exception as exc:
         log.warning("Failed to load hull %s: %s", path, exc)
         return None, None
+
+
+def _resolve_metadata_path(data_path):
+    return data_path.with_name(data_path.name.replace('data', 'metadata'))
+
+
+def _parse_injection_metadata(metadata_path):
+    """Return a best-effort mapping of column -> unit from metadata CSV."""
+    if metadata_path is None or not metadata_path.exists():
+        return {}
+    try:
+        meta_df = pd.read_csv(metadata_path, nrows=1, low_memory=False)
+        if meta_df.empty:
+            return {}
+        row = meta_df.iloc[0]
+        units = {}
+        for col, val in row.items():
+            if pd.notna(val) and str(val).strip():
+                units[col] = str(val).strip()
+        return units
+    except Exception:
+        return {}
+
+
+def _find_latest_injection_pair(live_dir):
+    latest_data = live_dir / 'latest_INJ_data.csv'
+    latest_meta = live_dir / 'latest_INJ_metadata.csv'
+    if latest_data.exists() and latest_meta.exists():
+        return latest_data, latest_meta
+
+    data_files = sorted(live_dir.glob('*INJ_data.csv'))
+    if not data_files:
+        return None, None
+    latest = max(data_files, key=lambda p: p.stat().st_mtime)
+    metadata = _resolve_metadata_path(latest)
+    if not metadata.exists():
+        return latest, None
+    return latest, metadata
+
+
+def _date_from_injection_filename(data_path):
+    """Extract base date from filenames like CUSSP2026_05_08.INJ_data.csv."""
+    m = re.search(r'(\d{4})_(\d{2})_(\d{2})', data_path.name)
+    if not m:
+        return None
+    try:
+        return pd.Timestamp(year=int(m.group(1)), month=int(m.group(2)), day=int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def _parse_time_series(series, data_path):
+    """Parse a candidate time series with multiple fallbacks."""
+    time_raw = series.astype(str).str.strip()
+    parsed_time = pd.to_datetime(
+        time_raw,
+        format='%m/%d/%y %H:%M:%S',
+        errors='coerce',
+    )
+    if parsed_time.isna().all():
+        parsed_time = pd.to_datetime(time_raw, errors='coerce')
+    if parsed_time.isna().all():
+        serial = pd.to_numeric(time_raw, errors='coerce')
+        parsed_time = pd.Series(pd.NaT, index=series.index, dtype='datetime64[ns]')
+
+        frac_mask = serial.notna() & (serial >= 0) & (serial < 2)
+        file_date = _date_from_injection_filename(data_path)
+        if frac_mask.any() and file_date is not None:
+            parsed_time.loc[frac_mask] = file_date + pd.to_timedelta(serial[frac_mask], unit='D')
+
+        excel_mask = serial.notna() & (serial >= 20000)
+        if excel_mask.any():
+            parsed_time.loc[excel_mask] = pd.Timestamp('1899-12-30') + pd.to_timedelta(
+                serial[excel_mask], unit='D'
+            )
+
+        parsed_time = pd.DatetimeIndex(parsed_time)
+    return pd.Series(parsed_time, index=series.index)
+
+
+def _choose_time_column(df, data_path):
+    """Choose the most likely time column by parse success rate."""
+    candidate_cols = []
+    if 'Time' in df.columns:
+        candidate_cols.append('Time')
+    for col in df.columns:
+        lc = str(col).lower()
+        if col not in candidate_cols and ('time' in lc or lc.startswith('unnamed')):
+            candidate_cols.append(col)
+    if not candidate_cols:
+        candidate_cols = list(df.columns)
+
+    best_col = None
+    best_parsed = None
+    best_score = -1.0
+    for col in candidate_cols:
+        parsed = _parse_time_series(df[col], data_path)
+        score = float(parsed.notna().mean())
+        if score > best_score:
+            best_score = score
+            best_col = col
+            best_parsed = parsed
+
+    if best_col is not None and best_col != 'Time':
+        log.warning("Using '%s' as injection time column (instead of 'Time')", best_col)
+    return best_col, best_parsed
+
+
+def load_injection_dataframe(
+    live_dir=INJ_LIVE_DIR,
+    pressure_col='PT 503',
+    flow_col='Net Flow',
+    filename='latest_INJ_data_1min.csv',
+):
+    """Load injection CSV pair and return dataframe + labels."""
+    data_path = live_dir / filename
+    if not data_path.exists():
+        if filename != 'latest_INJ_data.csv':
+            return load_injection_dataframe(
+                live_dir=live_dir,
+                pressure_col=pressure_col,
+                flow_col=flow_col,
+                filename='latest_INJ_data.csv',
+            )
+        log.warning("No injection data file found at %s", data_path)
+        return None, None
+
+    if filename == 'latest_INJ_data_1min.csv':
+        metadata_path = live_dir / 'latest_INJ_metadata.csv'
+    elif filename.endswith('_data.csv'):
+        metadata_path = _resolve_metadata_path(data_path)
+    else:
+        metadata_path = None
+
+    try:
+        with open(data_path, 'r') as f:
+            lines = [line.rstrip('\r\n').rstrip(',') + '\n' for line in f]
+        csv_text = ''.join(lines)
+    except Exception as exc:
+        log.warning("Failed to read injection file %s: %s", data_path, exc)
+        return None, None
+
+    attempts = [
+        ('strict-skiprows', dict(skiprows=[1, 2], low_memory=False)),
+        ('flexible', dict(low_memory=False)),
+    ]
+
+    chosen_df = None
+    chosen_parsed_time = None
+    chosen_mode = None
+    chosen_score = -1.0
+
+    for mode, kwargs in attempts:
+        try:
+            df_try = pd.read_csv(io.StringIO(csv_text), **kwargs)
+        except Exception as exc:
+            log.warning("Injection read mode %s failed for %s: %s", mode, data_path, exc)
+            continue
+
+        df_try.columns = [str(c).strip().replace('\ufeff', '') for c in df_try.columns]
+        _, parsed_try = _choose_time_column(df_try, data_path)
+        if parsed_try is None:
+            continue
+
+        score = float(parsed_try.notna().mean())
+        if score > chosen_score:
+            chosen_df = df_try
+            chosen_parsed_time = parsed_try
+            chosen_mode = mode
+            chosen_score = score
+
+        if mode == 'strict-skiprows' and score >= 0.80:
+            break
+
+    if chosen_df is None or chosen_parsed_time is None:
+        log.warning("Injection file %s has no parsable time column", data_path)
+        return None, None
+
+    log.info(
+        'Injection CSV parse mode=%s file=%s valid_time_fraction=%.3f',
+        chosen_mode,
+        filename,
+        chosen_score,
+    )
+
+    df = chosen_df
+    df['Time'] = chosen_parsed_time
+    df = df.dropna(subset=['Time'])
+    if df.empty:
+        log.warning("Injection file %s has no valid timestamp rows", data_path)
+        return None, None
+
+    if pressure_col not in df.columns:
+        log.warning("Injection file %s has no pressure column '%s'", data_path, pressure_col)
+        return None, None
+    if flow_col not in df.columns:
+        log.warning("Injection file %s has no flow column '%s'", data_path, flow_col)
+        return None, None
+
+    df[pressure_col] = pd.to_numeric(df[pressure_col], errors='coerce')
+    df[flow_col] = pd.to_numeric(df[flow_col], errors='coerce')
+    df = df.dropna(subset=[pressure_col, flow_col]).sort_values('Time')
+    if df.empty:
+        log.warning("Injection file %s has no numeric pressure/flow rows", data_path)
+        return None, None
+
+    units = _parse_injection_metadata(metadata_path) if metadata_path else {}
+    labels = {
+        'pressure_col': pressure_col,
+        'flow_col': flow_col,
+        'pressure_unit': units.get(pressure_col, 'psi'),
+        'flow_unit': units.get(flow_col, 'L/min'),
+    }
+    return df, labels
 
 
 # ---------------------------------------------------------------------------
@@ -585,19 +806,29 @@ def build_figure(cat_df, station_df, wellbores, hull_verts, hull_faces, last_upd
     return fig
 
 
-def build_magnitude_figure(cat_df, date_range=None):
-    """Magnitude vs time scatter plot."""
-    fig = go.Figure()
-    xaxis_cfg = dict(title="")
-    if len(cat_df) > 0:
-        mag_df = cat_df[cat_df["mag"].notna()].copy()
-        if len(mag_df) > 0:
-            times = pd.to_datetime(mag_df["time"])
-            mag = mag_df["mag"].astype(float)
-            mag_df = mag_df.assign(time_dt=times).sort_values("time_dt")
-            times = mag_df["time_dt"]
-            mag = mag_df["mag"].astype(float)
-            fig.add_trace(go.Scatter(
+def build_time_panels_figure(cat_df, inj_df=None, inj_labels=None, date_range=None):
+    """Build combined magnitude + injection panels with shared x-axis."""
+    # Keep these in one Plotly figure so x-axis pan/zoom is natively linked,
+    # mirroring the paired time-panel behavior used in fiboreglass.
+    fig = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        specs=[[{}], [{"secondary_y": True}]],
+        subplot_titles=("Magnitude", "Injection Parameters"),
+    )
+
+    # Top row: magnitude scatter
+    mag_df = cat_df[cat_df["mag"].notna()].copy() if len(cat_df) > 0 else pd.DataFrame()
+    if len(mag_df) > 0:
+        times = pd.to_datetime(mag_df["time"])
+        mag = mag_df["mag"].astype(float)
+        mag_df = mag_df.assign(time_dt=times).sort_values("time_dt")
+        times = mag_df["time_dt"]
+        mag = mag_df["mag"].astype(float)
+        fig.add_trace(
+            go.Scatter(
                 x=times,
                 y=mag,
                 mode="markers",
@@ -614,55 +845,102 @@ def build_magnitude_figure(cat_df, date_range=None):
                 hovertemplate="%{x|%Y-%m-%d %H:%M:%S}<br>M%{y:.2f}<extra></extra>",
                 name="Magnitude",
                 showlegend=False,
-            ))
+            ),
+            row=1,
+            col=1,
+        )
+    else:
+        fig.add_annotation(
+            text="No magnitudes in selected time window",
+            xref="x domain",
+            yref="y domain",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=dict(size=12, color="gray"),
+            row=1,
+            col=1,
+        )
 
+    # Bottom row: injection pressure + flow (multi y)
+    if inj_df is not None and inj_labels is not None and len(inj_df) > 0:
+        pressure_col = inj_labels["pressure_col"]
+        flow_col = inj_labels["flow_col"]
+        pressure_unit = inj_labels["pressure_unit"]
+        flow_unit = inj_labels["flow_unit"]
+
+        df = inj_df.copy()
+        times = pd.to_datetime(df["Time"])
+        if date_range is not None:
+            start, end = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
+            mask = (times >= start) & (times <= end)
+            df = df.loc[mask]
+            times = times.loc[mask]
+
+        if len(df) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=times,
+                    y=df[pressure_col],
+                    mode="lines",
+                    name=f"{pressure_col} [{pressure_unit}]",
+                    line=dict(color="firebrick", width=2),
+                    hovertemplate="%{x|%Y-%m-%d %H:%M:%S}<br>Pressure=%{y:.2f}<extra></extra>",
+                ),
+                row=2,
+                col=1,
+                secondary_y=False,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=times,
+                    y=df[flow_col],
+                    mode="lines",
+                    name=f"{flow_col} [{flow_unit}]",
+                    line=dict(color="steelblue", width=2),
+                    hovertemplate="%{x|%Y-%m-%d %H:%M:%S}<br>Flow=%{y:.2f}<extra></extra>",
+                ),
+                row=2,
+                col=1,
+                secondary_y=True,
+            )
         else:
             fig.add_annotation(
-                text="No magnitudes in selected time window",
-                xref="paper", yref="paper",
-                x=0.5, y=0.5, showarrow=False,
-                font=dict(size=12, color="gray"),
+                text="No injection data in selected time window",
+                xref="x2 domain",
+                yref="y2 domain",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font=dict(size=13, color="gray"),
             )
-    if date_range is not None:
-        xaxis_cfg["range"] = [pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])]
-    fig.update_layout(
-        height=440,
-        margin=dict(l=60, r=20, t=30, b=40),
-        template="plotly_white",
-        title=dict(text="Magnitude", font=dict(size=12)),
-        yaxis=dict(title="M", autorange=True, showgrid=True, zeroline=True),
-        xaxis=xaxis_cfg,
-        uirevision="mag",
-    )
-    return fig
-
-
-def build_injection_figure(inj_df=None):
-    """Injection parameters vs time.  Placeholder until data is provided."""
-    fig = go.Figure()
-    if inj_df is not None and len(inj_df) > 0:
-        for col in [c for c in inj_df.columns if c != "time"]:
-            fig.add_trace(go.Scatter(
-                x=pd.to_datetime(inj_df["time"]),
-                y=inj_df[col],
-                mode="lines",
-                name=col,
-            ))
     else:
         fig.add_annotation(
             text="Injection data not yet available",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
+            xref="x2 domain",
+            yref="y2 domain",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
             font=dict(size=13, color="gray"),
         )
+
+    if date_range is not None:
+        fig.update_xaxes(range=[pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])], row=1, col=1)
+        fig.update_xaxes(range=[pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])], row=2, col=1)
+
     fig.update_layout(
-        height=440,
-        margin=dict(l=60, r=20, t=30, b=40),
+        height=900,
+        margin=dict(l=60, r=60, t=40, b=40),
         template="plotly_white",
-        title=dict(text="Injection Parameters", font=dict(size=12)),
-        xaxis=dict(title="Time"),
-        uirevision="inj",
+        legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0),
+        uirevision="time-panels",
     )
+    fig.update_xaxes(title="Time", row=2, col=1)
+    fig.update_yaxes(title="M", autorange=True, showgrid=True, zeroline=True, row=1, col=1)
+    if inj_labels is not None:
+        fig.update_yaxes(title_text=f"Pressure [{inj_labels['pressure_unit']}]", row=2, col=1, secondary_y=False)
+        fig.update_yaxes(title_text=f"Flow [{inj_labels['flow_unit']}]", row=2, col=1, secondary_y=True)
     return fig
 
 
@@ -685,6 +963,11 @@ class SeismicityDashboard(pn.viewable.Viewer):
         if SNAP_STATIONS_TO_WELLS:
             self._stations = snap_stations_to_wellbores(self._stations, self._wellbores)
         self._hull_verts, self._hull_faces = load_hull(HULL_FILE)
+        self._inj_data_path = None
+        self._inj_mtime = None
+        self._inj_df = None
+        self._inj_labels = None
+        self._refresh_injection_data()
         cat_df, last_updated = self._fetch()
         self._cat_df_full = cat_df
 
@@ -730,11 +1013,7 @@ class SeismicityDashboard(pn.viewable.Viewer):
             height=750,
         )
         self._mag_plot = pn.pane.Plotly(
-            build_magnitude_figure(cat_filtered, date_range=self._date_range()),
-            sizing_mode="stretch_width",
-        )
-        self._inj_plot = pn.pane.Plotly(
-            build_injection_figure(),
+            build_time_panels_figure(cat_filtered, self._inj_df, self._inj_labels, date_range=self._date_range()),
             sizing_mode="stretch_width",
         )
         pn.state.add_periodic_callback(self._refresh, period=REFRESH_MS)
@@ -809,10 +1088,30 @@ class SeismicityDashboard(pn.viewable.Viewer):
             self._hull_faces,
             None,
         )
-        self._mag_plot.object = build_magnitude_figure(cat_filtered, date_range=self._date_range())
+        self._mag_plot.object = build_time_panels_figure(cat_filtered, self._inj_df, self._inj_labels, date_range=self._date_range())
+
+    def _refresh_injection_data(self):
+        data_path, _ = _find_latest_injection_pair(INJ_LIVE_DIR)
+        if data_path is None:
+            self._inj_df = None
+            self._inj_labels = None
+            self._inj_data_path = None
+            self._inj_mtime = None
+            return
+
+        oneminfile = INJ_LIVE_DIR / 'latest_INJ_data_1min.csv'
+        watch_path = oneminfile if oneminfile.exists() else data_path
+        mtime = watch_path.stat().st_mtime
+        if self._inj_data_path == watch_path and self._inj_mtime == mtime:
+            return
+
+        self._inj_df, self._inj_labels = load_injection_dataframe(INJ_LIVE_DIR, filename='latest_INJ_data_1min.csv')
+        self._inj_data_path = watch_path
+        self._inj_mtime = mtime
 
     def _refresh(self):
         cat_df, last_updated = self._fetch()
+        self._refresh_injection_data()
         self._cat_df_full = cat_df
         cat_filtered = self._apply_date_filter(cat_df)
         self._header.object = self._header_md(len(cat_filtered), last_updated, n_total=len(cat_df))
@@ -824,7 +1123,7 @@ class SeismicityDashboard(pn.viewable.Viewer):
             self._hull_faces,
             last_updated,
         )
-        self._mag_plot.object = build_magnitude_figure(cat_filtered, date_range=self._date_range())
+        self._mag_plot.object = build_time_panels_figure(cat_filtered, self._inj_df, self._inj_labels, date_range=self._date_range())
 
     def __panel__(self):
         date_row = pn.Row(
@@ -839,7 +1138,6 @@ class SeismicityDashboard(pn.viewable.Viewer):
             date_row,
             self._plot,
             self._mag_plot,
-            self._inj_plot,
             sizing_mode="stretch_width",
         )
 
