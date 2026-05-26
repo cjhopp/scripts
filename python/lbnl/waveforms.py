@@ -417,7 +417,7 @@ def decode_CASSM_channel(trace, threshold=0.5, plot=False):
     return ba2int(channel)
 
 
-def read_cassm_seg2(file, mapping, inventory=None, cassm_channel=None, plot_picks=False):
+def read_cassm_seg2(file, mapping, inventory=None, cassm_channel=None, plot_picks=False, plot_spectra=False):
     """
     Read seg-2 from CASSM and correctly assign the headers from a provided
     mapping dictionary {CASSM chan: Sta name}
@@ -428,6 +428,10 @@ def read_cassm_seg2(file, mapping, inventory=None, cassm_channel=None, plot_pick
     rmtrs = []
     aics = {}
     tts = {}
+    ## Hacky just for SURF as of 5-22-2026
+    st.taper(0.05)
+    st.filter('highpass', freq=200.)
+    st.trim(starttime=st[0].stats.starttime + 0.002)
     for tr in st:
         try:
             stachan = mapping[tr.stats.seg2['CHANNEL_NUMBER']]
@@ -464,6 +468,10 @@ def read_cassm_seg2(file, mapping, inventory=None, cassm_channel=None, plot_pick
                 pass
     for rt in rmtrs:
         st.traces.remove(rt)
+    if plot_picks or plot_spectra:
+        import matplotlib
+        _cur_backend = matplotlib.get_backend()
+        plt.switch_backend('Agg')
     if plot_picks:
         fig = st.plot(show=False, equal_scale=False, transparent=True)
         for i, ax in enumerate(fig.axes):
@@ -473,6 +481,39 @@ def read_cassm_seg2(file, mapping, inventory=None, cassm_channel=None, plot_pick
             ax.twinx().plot(tr.times("matplotlib"), aics['.'.join(seed)],
                             color='darkgray', alpha=0.5)
         fig.savefig(file.replace('.dat', '.png'))
+        plt.close(fig)
+    if plot_spectra:
+        monitor_stations = {'MON', 'TRIG', 'ENC', 'PPS', 'CMON', 'CTRIG', 'CENC'}
+        in_path = Path(file)
+        for tr in st:
+            if tr.stats.station.upper() in monitor_stations:
+                continue
+            fig_sp, ax = plt.subplots(1, 1, figsize=(8, 3))
+            n_signal = int(0.05 * tr.stats.sampling_rate)
+            n_signal = min(max(n_signal, 1), tr.stats.npts)
+            signal = tr.data[:n_signal]
+            noise = tr.data[n_signal:]
+            f_sig = np.fft.rfftfreq(signal.size, d=tr.stats.delta)
+            a_sig = np.abs(np.fft.rfft(signal))
+            ax.semilogy(f_sig, a_sig, color='tab:blue', label='Signal (first 0.05 s)')
+            if noise.size > 1:
+                f_noise = np.fft.rfftfreq(noise.size, d=tr.stats.delta)
+                a_noise = np.abs(np.fft.rfft(noise))
+                ax.semilogy(f_noise, a_noise, color='tab:orange', alpha=0.8,
+                            label='Noise (remainder)')
+            ax.legend(loc='upper right', fontsize='x-small')
+            ax.set_xlabel('Frequency [Hz]')
+            ax.set_ylabel('Amplitude')
+            trace_id = '{}.{}'.format(tr.stats.station, tr.stats.channel)
+            ax.set_title(trace_id)
+            fig_sp.tight_layout()
+            chan = tr.stats.channel if tr.stats.channel else 'NA'
+            out_path = in_path.with_name('{}_{}_{}_spectra.png'.format(
+                in_path.stem, tr.stats.station, chan))
+            fig_sp.savefig(str(out_path))
+            plt.close(fig_sp)
+    if plot_picks or plot_spectra:
+        plt.switch_backend(_cur_backend)
     return st, tts
 
 

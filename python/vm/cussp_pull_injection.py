@@ -1,4 +1,4 @@
-a#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Pull CUSSP injection CSV files from Google Drive and atomically publish the
 latest data+metadata pair into a live directory for dashboards.

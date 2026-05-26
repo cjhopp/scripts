@@ -4,6 +4,7 @@ import sys
 import glob
 import os
 import re
+import json
 import plotly
 import pyproj
 import fileinput
@@ -42,10 +43,10 @@ datasets = {
     'DAC': {'wells': '/media/chopp/HDD1/chet-amplify/spatial_data/wells/DAC/Offset_Wells_Surveys_DAC.csv'},
     'TM': [],
     'Cape': {'Topography': '{}/DEM/Cape-modern_Lidar_downsample.tif'.format(data_directory),
-             'Frisco-1': '{}/Cape_share/Frisco-1_trajectory.csv'.format(data_directory),
-             'Frisco-2': '{}/Cape_share/Frisco-2_trajectory.csv'.format(data_directory),
-             'Frisco-3': '{}/Cape_share/Frisco-3_trajectory.csv'.format(data_directory),
-             'Frisco-4': '{}/Cape_share/Frisco-4_trajectory.csv'.format(data_directory),
+             'Frisco-1': '{}/vector/boreholes/Frisco-1_trajectory.csv'.format(data_directory),
+             'Frisco-2': '{}/vector/boreholes/Frisco-2_trajectory.csv'.format(data_directory),
+             'Frisco-3': '{}/vector/boreholes/Frisco-3_trajectory.csv'.format(data_directory),
+             'Frisco-4': '{}/vector/boreholes/Frisco-4_trajectory.csv'.format(data_directory),
              'Basement': '{}/vmods/ToB_50m_grid_3-1-24.nc'.format(data_directory),
              'Bearskin-1IA': '{}/vector/boreholes/Bearskin_1IA_trajectory.csv'.format(data_directory),
              'Bearskin-2IB': '{}/vector/boreholes/Bearskin_2IB_trajectory.csv'.format(data_directory),
@@ -178,6 +179,122 @@ def expand_catalog_paths(catalog_args):
     return paths, labels
 
 
+def read_trajectory_csv(path):
+    """Read trajectory CSV with or without a header row."""
+    arr = np.genfromtxt(path, delimiter=',')
+    if arr.ndim == 1:
+        arr = np.atleast_2d(arr)
+    # Drop non-numeric rows (e.g., header rows parsed as NaN).
+    arr = arr[~np.isnan(arr).any(axis=1)]
+    if arr.shape[1] < 3:
+        raise ValueError('Trajectory CSV must have at least 3 numeric columns: {}'.format(path))
+    return arr[:, :3]
+
+
+def _get_linestring_coords(geometry):
+    gtype = geometry.get('type')
+    coords = geometry.get('coordinates', [])
+    if gtype == 'LineString':
+        return coords
+    if gtype == 'MultiLineString' and len(coords) > 0:
+        return coords[0]
+    return []
+
+
+def _is_plausible_cape_utm(east, north):
+    """Basic plausibility bounds for Cape UTM coordinates (EPSG:26912)."""
+    if len(east) == 0 or len(north) == 0:
+        return False
+    med_e = float(np.nanmedian(east))
+    med_n = float(np.nanmedian(north))
+    return 300000.0 <= med_e <= 400000.0 and 4200000.0 <= med_n <= 4300000.0
+
+
+def load_cape_geojson_xy(label, trajectory_path):
+    """Load Cape well XY from GeoJSON when available.
+
+    This avoids mixed export offsets in some trajectory CSV products.
+    """
+    stem = os.path.basename(trajectory_path).replace('_trajectory.csv', '')
+    aliases = {
+        'Bearskin-6IB': 'Bearskin_6IA',
+        'Bearskin_6IB': 'Bearskin_6IA',
+    }
+    candidates = []
+    for key in {label, label.replace('-', '_'), stem, aliases.get(label), aliases.get(stem)}:
+        if key is None:
+            continue
+        candidates.append('{}/vector/{}.geojson'.format(data_directory, key))
+        candidates.append('{}/vector/{}_latlon.geojson'.format(data_directory, key))
+    for path in candidates:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                gj = json.load(f)
+            features = gj.get('features', [])
+            if len(features) == 0:
+                continue
+            coords = _get_linestring_coords(features[0].get('geometry', {}))
+            if len(coords) == 0:
+                continue
+            xy = np.array(coords, dtype=float)
+            x = xy[:, 0]
+            y = xy[:, 1]
+            # GeoJSON products here are lon/lat, so convert to Cape UTM if needed.
+            if np.nanmax(np.abs(x)) <= 180 and np.nanmax(np.abs(y)) <= 90:
+                transformer = pyproj.Transformer.from_crs('EPSG:4326', 'EPSG:26912', always_xy=True)
+                x, y = transformer.transform(x, y)
+            x = np.array(x)
+            y = np.array(y)
+            if not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)):
+                logging.warning('Skipping non-finite GeoJSON XY for %s from %s', label, path)
+                continue
+            if not _is_plausible_cape_utm(x, y):
+                logging.warning('Skipping implausible Cape GeoJSON XY for %s from %s', label, path)
+                continue
+            return x, y
+        except Exception as e:
+            logging.warning('Failed to parse well GeoJSON %s: %s', path, e)
+    return None, None
+
+
+def estimate_cape_shared_offset(datasets):
+    """Estimate shared (dE, dN) offset between trustworthy GeoJSON XY and CSV XY.
+
+    Uses robust median per well, then averages offsets with meaningful magnitude.
+    """
+    offsets = []
+    for label, data in datasets.items():
+        if data.endswith(('tif', 'nc')) or data.endswith('JV.csv'):
+            continue
+        try:
+            traj = read_trajectory_csv(data)
+        except Exception:
+            continue
+        geo_east, geo_north = load_cape_geojson_xy(label, data)
+        if geo_east is None or geo_north is None:
+            continue
+        n = min(len(traj), len(geo_east), len(geo_north))
+        if n < 2:
+            continue
+        de = np.nanmedian(geo_east[:n] - traj[:n, 0])
+        dn = np.nanmedian(geo_north[:n] - traj[:n, 1])
+        if np.isfinite(de) and np.isfinite(dn):
+            offsets.append((de, dn, label))
+
+    if len(offsets) == 0:
+        return 0.0, 0.0
+
+    # Prefer non-trivial offsets so Frisco-like ~0 shifts do not dilute Gold/Bearskin correction.
+    nontrivial = [(de, dn) for de, dn, _ in offsets if np.hypot(de, dn) > 50.0]
+    pool = nontrivial if len(nontrivial) > 0 else [(de, dn) for de, dn, _ in offsets]
+    dE = float(np.nanmean([de for de, _ in pool]))
+    dN = float(np.nanmean([dn for _, dn in pool]))
+    logging.info('Estimated Cape shared CSV offset from %d wells: dE=%.3f dN=%.3f', len(pool), dE, dN)
+    return dE, dN
+
+
 def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True):
     """
     Make plotly html of selected earthquakes
@@ -188,11 +305,39 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
     :return:
     """
     objects = []
+    well_x = []
+    well_y = []
+    well_z = []
+    data_xmin, data_xmax = np.inf, -np.inf
+    data_ymin, data_ymax = np.inf, -np.inf
+    data_zmin, data_zmax = np.inf, -np.inf
+
+    def update_bounds(x, y, z):
+        nonlocal data_xmin, data_xmax, data_ymin, data_ymax, data_zmin, data_zmax
+        x = np.asarray(x)
+        y = np.asarray(y)
+        z = np.asarray(z)
+        good = np.isfinite(x) & np.isfinite(y) & np.isfinite(z)
+        if not np.any(good):
+            return
+        xg = x[good]
+        yg = y[good]
+        zg = z[good]
+        data_xmin = min(data_xmin, float(np.min(xg)))
+        data_xmax = max(data_xmax, float(np.max(xg)))
+        data_ymin = min(data_ymin, float(np.min(yg)))
+        data_ymax = max(data_ymax, float(np.max(yg)))
+        data_zmin = min(data_zmin, float(np.min(zg)))
+        data_zmax = max(data_zmax, float(np.max(zg)))
 
     try:
         utm = projections[field.lower()]
     except KeyError:
         return
+    cape_offset_e = 0.0
+    cape_offset_n = 0.0
+    if field.lower() == 'cape':
+        cape_offset_e, cape_offset_n = estimate_cape_shared_offset(datasets)
     for label, data in datasets.items():
         if not data.endswith(('tif', 'nc')):
             if data.endswith('JV.csv'):
@@ -216,12 +361,27 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                                                 line=dict(color=col, width=6),
                                                 hoverinfo='skip'),
                                     )
+                    well_x.append(np.asarray(east))
+                    well_y.append(np.asarray(north))
+                    well_z.append(np.asarray(dep_m))
+                    update_bounds(east, north, dep_m)
             else:
                 # Add objects
-                wellpath = np.loadtxt(data, delimiter=',', skiprows=1)
+                wellpath = read_trajectory_csv(data)
                 east = wellpath[:, 0]
                 north = wellpath[:, 1]
                 dep_m = wellpath[:, 2]
+                if field.lower() == 'cape':
+                    geo_east, geo_north = load_cape_geojson_xy(label, data)
+                    if geo_east is not None and geo_north is not None:
+                        npts = min(len(dep_m), len(geo_east), len(geo_north))
+                        east = geo_east[:npts]
+                        north = geo_north[:npts]
+                        dep_m = dep_m[:npts]
+                    else:
+                        # Fallback for wells without trustworthy GeoJSON: apply shared Cape offset.
+                        east = east + cape_offset_e
+                        north = north + cape_offset_n
                 objects.append(go.Scatter3d(x=east,
                                             y=north,
                                             z=dep_m,
@@ -230,6 +390,10 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                                             line=dict(color='black', width=6),
                                             hoverinfo='skip'),
                                             )
+                well_x.append(np.asarray(east))
+                well_y.append(np.asarray(north))
+                well_z.append(np.asarray(dep_m))
+                update_bounds(east, north, dep_m)
         elif data.endswith('tif'):
             topo = gdal.Open(data, gdal.GA_ReadOnly)
             x, y, band = get_pixel_coords(topo)
@@ -240,6 +404,7 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                                   opacity=0.3, delaunayaxis='z', showlegend=True,
                                   hoverinfo='skip')
             objects.append(topo_mesh)
+            update_bounds(X.flatten(), Y.flatten(), raster_values.flatten())
         elif data.endswith('nc'):
             tob = xr.load_dataarray(data)
             tob = tob.interp(easting=tob.easting[::10], northing=tob.northing[::10])
@@ -249,6 +414,7 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                                  name=label, color='gray', opacity=0.5, delaunayaxis='z', showlegend=True,
                                  hoverinfo='skip')
             objects.append(tob_mesh)
+            update_bounds(X.flatten(), Y.flatten(), Z)
     mfact = 2.5  # Magnitude scaling factor
     # Add arrays to the plotly objects
     if not catalog_labels:
@@ -322,26 +488,58 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                                 text=np.array(id),
                                 marker=marker)
         objects.append(scat_obj)
+        update_bounds(ev_east, ev_north, depth)
     # Start figure
     fig = go.Figure(data=objects)
+    x_range = None
+    y_range = None
+    z_range = None
+    if len(well_x) > 0 and len(well_y) > 0 and len(well_z) > 0:
+        all_x = np.concatenate(well_x)
+        all_y = np.concatenate(well_y)
+        all_z = np.concatenate(well_z)
+        cx = float(np.nanmean(all_x))
+        cy = float(np.nanmean(all_y))
+        cz = float(np.nanmean(all_z))
+        # Keep center at wells, but span full plotted data (wells + seismicity + surfaces).
+        if np.isfinite(data_xmin) and np.isfinite(data_xmax):
+            half_span = max(
+                cx - data_xmin, data_xmax - cx,
+                cy - data_ymin, data_ymax - cy,
+                cz - data_zmin, data_zmax - cz,
+                1.
+            ) * 1.02
+            x_range = [cx - half_span, cx + half_span]
+            y_range = [cy - half_span, cy + half_span]
+            z_range = [cz - half_span, cz + half_span]
     xax = go.layout.scene.XAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
                                 zerolinewidth=2, title='Easting (m)',
                                 showline=True, mirror=True,
-                                linecolor='black', linewidth=2.)
+                                linecolor='black', linewidth=2.,
+                                range=x_range)
     yax = go.layout.scene.YAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
                                 zerolinewidth=2, title='Northing (m)',
                                 showline=True, mirror=True,
-                                linecolor='black', linewidth=2.)
+                                linecolor='black', linewidth=2.,
+                                range=y_range)
     zax = go.layout.scene.ZAxis(nticks=10, gridcolor='rgb(200, 200, 200)',
                                 gridwidth=2, zerolinecolor='rgb(200, 200, 200)',
-                                zerolinewidth=2, title='Elevation (m)')
+                                zerolinewidth=2, title='Elevation (m)',
+                                range=z_range)
+    aspectratio = dict(x=1, y=1, z=1)
+    if x_range is not None and y_range is not None and z_range is not None:
+        x_span = max(float(x_range[1] - x_range[0]), 1.)
+        y_span = max(float(y_range[1] - y_range[0]), 1.)
+        z_span = max(float(z_range[1] - z_range[0]), 1.)
+        scale = max(x_span, y_span, z_span)
+        aspectratio = dict(x=x_span / scale, y=y_span / scale, z=z_span / scale)
     layout = go.Layout(scene=dict(xaxis=xax, yaxis=yax, zaxis=zax,
                                   xaxis_showspikes=False,
                                   yaxis_showspikes=False,
-                                  aspectmode='data',
-                                  aspectratio=dict(x=1, y=1, z=1.),
+                                  aspectmode='manual',
+                                  aspectratio=aspectratio,
                                   bgcolor="rgb(244, 244, 248)"),
                        # autosize=True,
                        title='3D Seismicity',

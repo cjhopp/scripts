@@ -39,6 +39,171 @@ def read_array(path):
     return arr
 
 
+def read_segy_velocity_to_xarray(
+    segy_path,
+    datum_asl_m=2000.0,
+    sample_interval_m=5.0,
+    velocity_name='Vp',
+    fill_value=np.nan,
+    infer_xy_from_corners=False,
+    sw_corner=(632800.0, 4839600.0),
+    bin_size_m=10.0,
+    iline_origin=941,
+    xline_origin=941,
+):
+    """
+    Read a 3D depth-domain SEG-Y velocity volume into an xarray Dataset.
+
+    Parameters
+    ----------
+    segy_path : str or pathlib.Path
+        Input SEG-Y file path.
+    datum_asl_m : float
+        Elevation datum in meters ASL; depth is positive downward from this datum.
+    sample_interval_m : float
+        Depth sample interval in meters.
+    velocity_name : str
+        Name of the output data variable.
+    fill_value : float
+        Fill value used for missing traces in the output cube.
+    infer_xy_from_corners : bool
+        If True, derive easting/northing from inline/xline and supplied corner/bin metadata.
+        This is useful when CDP_X/CDP_Y headers are not populated.
+    sw_corner : tuple(float, float)
+        SW corner easting/northing in meters for inferred coordinates.
+    bin_size_m : float
+        Bin spacing in meters used for inferred coordinates.
+    iline_origin : int
+        Inline index at the SW corner reference.
+    xline_origin : int
+        Crossline index at the SW corner reference.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing velocity_name(iline, xline, depth_m) plus coordinates.
+    """
+    import importlib
+
+    try:
+        segyio = importlib.import_module('segyio')
+    except ImportError as exc:
+        raise ImportError('read_segy_velocity_to_xarray requires segyio to be installed') from exc
+
+    with segyio.open(str(segy_path), mode='r', ignore_geometry=True) as segy:
+        segy.mmap()
+
+        ilines = segy.attributes(segyio.TraceField.INLINE_3D)[:].astype(np.int32)
+        xlines = segy.attributes(segyio.TraceField.CROSSLINE_3D)[:].astype(np.int32)
+
+        traces = segyio.tools.collect(segy.trace[:]).astype(np.float32)
+
+        scalco = None
+        try:
+            scalco = segy.attributes(segyio.TraceField.SourceGroupScalar)[:].astype(np.int32)
+        except Exception:
+            pass
+
+        cdp_x = None
+        cdp_y = None
+        try:
+            cdp_x = segy.attributes(segyio.TraceField.CDP_X)[:].astype(np.float64)
+            cdp_y = segy.attributes(segyio.TraceField.CDP_Y)[:].astype(np.float64)
+        except Exception:
+            pass
+
+        sample_interval_us = None
+        try:
+            sample_interval_us = int(segy.bin[segyio.BinField.Interval])
+        except Exception:
+            pass
+
+    n_traces, n_samples = traces.shape
+    if n_traces == 0:
+        raise ValueError(f'No traces found in SEG-Y: {segy_path}')
+
+    u_il = np.unique(ilines)
+    u_xl = np.unique(xlines)
+
+    il_idx = np.searchsorted(u_il, ilines)
+    xl_idx = np.searchsorted(u_xl, xlines)
+
+    cube = np.full((u_il.size, u_xl.size, n_samples), fill_value, dtype=np.float32)
+    cube[il_idx, xl_idx, :] = traces
+
+    depth_m = np.arange(n_samples, dtype=np.float64) * float(sample_interval_m)
+    elevation_m = float(datum_asl_m) - depth_m
+
+    ds = xr.Dataset(
+        data_vars={velocity_name: (('iline', 'xline', 'depth_m'), cube)},
+        coords={
+            'iline': u_il,
+            'xline': u_xl,
+            'depth_m': depth_m,
+            'elevation_m': ('depth_m', elevation_m),
+        },
+        attrs={
+            'segy_path': str(segy_path),
+            'datum_asl_m': float(datum_asl_m),
+            'sample_interval_m': float(sample_interval_m),
+        },
+    )
+
+    if cdp_x is not None and cdp_y is not None and scalco is not None and scalco.size == cdp_x.size:
+        scalco_f = scalco.astype(np.float64)
+        factors = np.ones_like(scalco_f)
+        pos = scalco_f > 0
+        neg = scalco_f < 0
+        factors[pos] = scalco_f[pos]
+        factors[neg] = 1.0 / np.abs(scalco_f[neg])
+        cdp_x = cdp_x * factors
+        cdp_y = cdp_y * factors
+
+    has_header_xy = (
+        cdp_x is not None and cdp_y is not None and
+        np.any(np.isfinite(cdp_x)) and np.any(np.isfinite(cdp_y))
+    )
+    if has_header_xy:
+        xg = np.full((u_il.size, u_xl.size), np.nan, dtype=np.float64)
+        yg = np.full((u_il.size, u_xl.size), np.nan, dtype=np.float64)
+        xg[il_idx, xl_idx] = cdp_x
+        yg[il_idx, xl_idx] = cdp_y
+        ds = ds.assign_coords(
+            easting=(('iline', 'xline'), xg),
+            northing=(('iline', 'xline'), yg),
+        )
+    elif infer_xy_from_corners:
+        e0, n0 = sw_corner
+        easting_1d = e0 + (u_xl - int(xline_origin)) * float(bin_size_m)
+        northing_1d = n0 + (u_il - int(iline_origin)) * float(bin_size_m)
+        xg, yg = np.meshgrid(easting_1d, northing_1d)
+        ds = ds.assign_coords(
+            easting=(('iline', 'xline'), xg),
+            northing=(('iline', 'xline'), yg),
+        )
+
+    il_diffs = np.diff(u_il.astype(np.float64))
+    xl_diffs = np.diff(u_xl.astype(np.float64))
+    ds.attrs['n_traces'] = int(n_traces)
+    ds.attrs['n_samples'] = int(n_samples)
+    ds.attrs['iline_min'] = int(u_il.min())
+    ds.attrs['iline_max'] = int(u_il.max())
+    ds.attrs['xline_min'] = int(u_xl.min())
+    ds.attrs['xline_max'] = int(u_xl.max())
+    if il_diffs.size:
+        ds.attrs['iline_spacing_median'] = float(np.median(il_diffs))
+    if xl_diffs.size:
+        ds.attrs['xline_spacing_median'] = float(np.median(xl_diffs))
+    if sample_interval_us is not None:
+        ds.attrs['sample_interval_us'] = sample_interval_us
+    if scalco is not None and scalco.size:
+        unique_scalco = np.unique(scalco)
+        ds.attrs['coord_scalar_unique'] = ','.join(str(int(v)) for v in unique_scalco[:10])
+    ds.attrs['has_header_xy'] = bool(has_header_xy)
+
+    return ds
+
+
 def basin_gradient_p(depth):
     # Vp gradient model for Cape Modern basin sediments
     return 1.47 * np.log(7.0 * depth + 0.9, out=np.zeros_like(depth) - 0.107, where=(depth > 0.)) + 0.89

@@ -2182,9 +2182,9 @@ if __name__ == "__main__":
     logger.info("Logging to %s", LOG_FILE)
 
 
-    PARTY_PATH = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/All_detections_HITP-HITP2_MAD20_w-magnitudes.tgz"
-    PARTY_OUTPUT = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/All_detections_HITP-HITP2_MAD20_detection-magnitudes.tgz"
-    RESULTS_CSV = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/magnitudes.csv"
+    PARTY_PATH = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/All_detections_HITP-HITP2_MAD12_w-magnitudes.tgz"
+    PARTY_OUTPUT = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/All_detections_HITP-HITP2_MAD12_detection-magnitudes.tgz"
+    RESULTS_CSV = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/magnitudes_MAD12.csv"
     CLIENT_URL = 'http://131.243.224.19:8085'
 
     READ_DETECTION_CATALOG = False
@@ -2196,14 +2196,14 @@ if __name__ == "__main__":
     XCORR_SHIFT_LEN_S = 0.1
     PLOTVAR = True
     STACHAN_WORKERS = 1
-    PLOT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/magnitude_plots"
+    PLOT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/magnitude_plots_MAD12"
     DAY_WAVEFORM_CACHE = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/waveform_cache"
     DENOISE_ENABLED = False
     SPIKE_TEMPLATE_PATH = [
         "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt",
         "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/GK1_spikes/spiketemplate_GK1.txt",
     ]
-    DENOISE_PLOT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/denoiser_plots"
+    DENOISE_PLOT_DIR = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/denoiser_plots_MAD12"
     DENOISE_CHUNK_S = 3600.0
     DENOISE_GEOPHONE_CHANS = ["GPZ"]
     DEBUG_PLOTS = True
@@ -2214,7 +2214,7 @@ if __name__ == "__main__":
     ML_MW_M = 1 / 0.791   # ≈ 1.2642
     ML_MW_C = -0.851 / 0.791   # ≈ -1.0758
     # Set to a file path to enable resume-from-checkpoint; set to None to disable.
-    CHECKPOINT_FILE = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/relative_moments_checkpoint.pkl"
+    CHECKPOINT_FILE = "/media/chopp/HDD1/chet-meq/cape_modern/matched_filter/HITP_detect/denoised_data_1hr/relative_moments_checkpoint_MAD12.pkl"
 
     # --- --plots-only shortcut: read CSV → regenerate plots → exit ---
     if _args.plots_only:

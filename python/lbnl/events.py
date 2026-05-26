@@ -964,6 +964,188 @@ def fervo_to_cat(path):
     return cat
 
 
+def fervo_compiled_to_cat(path, epsg='EPSG:26912'):
+    """
+    Read compiled Fervo CSV catalogs already in Easting/Northing/Depth (meters)
+    and convert to an ObsPy Catalog.
+
+    Handles both naming styles used in current Cape files, e.g.
+    - EASTINGM/NORTHINGM/DEPTHM/ORIGINDATETIME/MOMMAG/WELLNAME/STAGENUMBER
+    - Easting(m)/Northing(m)/Depth(m)/OriginDateTime/MomMag/Well Name/Stage Number
+    """
+    df = pd.read_csv(path, skipinitialspace=True)
+    df.columns = df.columns.str.strip()
+
+    # Column aliases seen in compiled Fervo catalogs
+    aliases = {
+        'east': ['EASTINGM', 'Easting(m)', 'Easting (m)', 'easting_m'],
+        'north': ['NORTHINGM', 'Northing(m)', 'Northing (m)', 'northing_m'],
+        'depth': ['DEPTHM', 'Depth(m)', 'Depth (m)', 'depth_m'],
+        'time': ['ORIGINDATETIME', 'OriginDateTime', 'Origin Datetime'],
+        'mag': ['MOMMAG', 'MomMag', 'Magnitude'],
+        'well': ['WELLNAME', 'Well Name', 'Well'],
+        'stage': ['STAGENUMBER', 'Stage Number', 'Stage'],
+        'source': ['EVENTSOURCETYPE', 'event source type', 'Event Source Type'],
+        'pgv': ['PGV', 'Pgv'],
+    }
+
+    def _pick_col(candidates):
+        for candidate in candidates:
+            if candidate in df.columns:
+                return candidate
+        return None
+
+    east_col = _pick_col(aliases['east'])
+    north_col = _pick_col(aliases['north'])
+    depth_col = _pick_col(aliases['depth'])
+    time_col = _pick_col(aliases['time'])
+    mag_col = _pick_col(aliases['mag'])
+    well_col = _pick_col(aliases['well'])
+    stage_col = _pick_col(aliases['stage'])
+    source_col = _pick_col(aliases['source'])
+    pgv_col = _pick_col(aliases['pgv'])
+
+    required = {
+        'easting': east_col,
+        'northing': north_col,
+        'depth': depth_col,
+        'origin_time': time_col,
+    }
+    missing = [name for name, col in required.items() if col is None]
+    if missing:
+        raise ValueError(f'Missing required compiled Fervo columns: {missing} in {path}')
+
+    df['__east'] = pd.to_numeric(df[east_col], errors='coerce')
+    df['__north'] = pd.to_numeric(df[north_col], errors='coerce')
+    df['__depth'] = pd.to_numeric(df[depth_col], errors='coerce')
+    df['__ot'] = pd.to_datetime(df[time_col], errors='coerce')
+    if mag_col is not None:
+        df['__mag'] = pd.to_numeric(df[mag_col], errors='coerce')
+    else:
+        df['__mag'] = 1.0
+
+    valid = df.dropna(subset=['__east', '__north', '__depth', '__ot']).copy()
+    if len(valid) == 0:
+        return Catalog()
+
+    transformer = pyproj.Transformer.from_crs(epsg, 'EPSG:4326', always_xy=True)
+    lon, lat = transformer.transform(valid['__east'].to_numpy(), valid['__north'].to_numpy())
+    valid['__lon'] = lon
+    valid['__lat'] = lat
+
+    cat = Catalog()
+    for i, row in valid.iterrows():
+        ot = UTCDateTime(row['__ot'].to_pydatetime())
+        # Compiled files store depth-like values as negative elevation in meters.
+        depth_m = float(-1.0 * row['__depth'])
+        o = Origin(
+            time=ot,
+            longitude=float(row['__lon']),
+            latitude=float(row['__lat']),
+            depth=depth_m
+        )
+        mag = row['__mag'] if np.isfinite(row['__mag']) else 1.0
+        m = Magnitude(mag=float(mag))
+        ev = Event(origins=[o], magnitudes=[m],
+                   resource_id=ResourceIdentifier(id=f'fervo_compiled_{ot.strftime("%Y%m%d%H%M%S%f")}_{i}'))
+        ev.preferred_origin_id = o.resource_id.id
+
+        extra = {
+            'easting_m': {'value': float(row['__east']), 'namespace': 'smi:local/fervo'},
+            'northing_m': {'value': float(row['__north']), 'namespace': 'smi:local/fervo'},
+            'depth_input_m': {'value': float(row['__depth']), 'namespace': 'smi:local/fervo'},
+        }
+        if well_col is not None and pd.notna(row[well_col]):
+            extra['well_name'] = {'value': str(row[well_col]), 'namespace': 'smi:local/fervo'}
+        if stage_col is not None and pd.notna(row[stage_col]):
+            extra['stage_number'] = {'value': str(row[stage_col]), 'namespace': 'smi:local/fervo'}
+        if source_col is not None and pd.notna(row[source_col]):
+            extra['event_source_type'] = {'value': str(row[source_col]), 'namespace': 'smi:local/fervo'}
+        if pgv_col is not None and pd.notna(row[pgv_col]):
+            extra['pgv'] = {'value': float(row[pgv_col]), 'namespace': 'smi:local/fervo'}
+        o.extra = AttribDict(extra)
+
+        cat.events.append(ev)
+    return cat
+
+
+def fervo_csv_to_cat(path):
+    """Auto-detect Fervo CSV flavor and call the appropriate reader."""
+    df = pd.read_csv(path, nrows=1, skipinitialspace=True)
+    df.columns = [c.strip() for c in df.columns]
+    if ('X' in df.columns and 'Y' in df.columns and 'Origin Date' in df.columns
+            and 'Origin Time' in df.columns):
+        return fervo_to_cat(path)
+    if ({'EASTINGM', 'NORTHINGM', 'DEPTHM'} <= set(df.columns)
+            or {'Easting(m)', 'Northing(m)', 'Depth(m)'} <= set(df.columns)):
+        return fervo_compiled_to_cat(path)
+    raise ValueError(f'Unrecognized Fervo CSV schema for {path}: {list(df.columns)}')
+
+
+def fervo_compiled_dir_to_cat(directory, pattern='*.csv', deduplicate=True,
+                              dedup_round=3, verbose=True):
+    """
+    Merge all compiled Fervo CSV catalogs in a directory into one ObsPy Catalog.
+
+    This scans only the provided directory (non-recursive) and attempts to read
+    each matching CSV with fervo_compiled_to_cat. Files that do not match the
+    compiled schema are skipped.
+
+    :param directory: Directory containing compiled Fervo CSV files.
+    :param pattern: Glob pattern for candidate files (default '*.csv').
+    :param deduplicate: If True, deduplicate events by rounded
+        (origin time, lon, lat, depth).
+    :param dedup_round: Decimal places used for lon/lat/depth in dedup key.
+    :param verbose: Print progress summary.
+    :return: Combined ObsPy Catalog.
+    """
+    paths = sorted(glob(os.path.join(directory, pattern)))
+    combined = Catalog()
+    if len(paths) == 0:
+        return combined
+
+    loaded_files = []
+    skipped_files = []
+    for path in paths:
+        try:
+            part = fervo_compiled_to_cat(path)
+            combined.events.extend(part.events)
+            loaded_files.append((path, len(part)))
+        except Exception:
+            skipped_files.append(path)
+
+    if deduplicate and len(combined) > 0:
+        unique_events = []
+        seen = set()
+        for ev in combined:
+            origin = ev.preferred_origin() or (ev.origins[0] if ev.origins else None)
+            if origin is None:
+                unique_events.append(ev)
+                continue
+            key = (
+                str(origin.time),
+                round(float(origin.longitude), dedup_round),
+                round(float(origin.latitude), dedup_round),
+                round(float(origin.depth), dedup_round),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_events.append(ev)
+        combined.events = unique_events
+
+    if verbose:
+        print(f'Loaded {len(loaded_files)} compiled files from {directory}')
+        for path, count in loaded_files:
+            print(f'  {os.path.basename(path)}: {count} events')
+        if skipped_files:
+            print(f'Skipped {len(skipped_files)} non-compiled or unreadable files')
+            for path in skipped_files:
+                print(f'  {os.path.basename(path)}')
+        print(f'Combined catalog events: {len(combined)}')
+    return combined
+
+
 def parse_pyrocko_markers(marker_file):
     """Parse picks in Pyrocko markers format"""
     picks = []
