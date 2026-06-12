@@ -1,0 +1,27 @@
+[Unit]
+Description=CUSSP CASSM headless processing pipeline
+After=network.target
+
+[Service]
+Type=simple
+User=chopp
+WorkingDirectory=/home/chopp/scripts
+Environment=PATH=/home/chopp/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 \
+    /home/chopp/scripts/python/vm/cussp_cassm_process.py \
+    --data-dir /data/chet-cussp/cassm/CASSMdata \
+    --cache-file /data/chet-cussp/cassm/live/cassm_tempgather.npz \
+    --bundle-file /data/chet-cussp/cassm/live/cassm_dashboard_bundle.npz \
+    --manifest-file /data/chet-cussp/cassm/live/cassm_dashboard_manifest.json \
+    --inversion-dir /data/chet-cussp/cassm/inversion/live \
+    --inversion-url-prefix /cassm-inversion \
+    --watch \
+    --period-s 60
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,57 @@
+# CASSM result plotting configuration
+# Run with:
+#   python cussp_cassm_plot_results.py --config cussp_cassm_plot_config.yaml
+
+# Required: input metrics bundle from cussp_cassm_process.py
+bundle_file: /home/chopp/cassm_local/live/cassm_dashboard_bundle_full.npz
+
+# Required: output multi-page summary PDF
+output_pdf: /home/chopp/cassm_local/live/cassm_results.pdf
+
+# Legacy (no-op): absolute dt clipping is disabled in plotting.
+# Spike handling now happens in processing-time denoising.
+dt_max_us: 150.0
+
+# Y-axis limits for dt time series plots (microseconds)
+dt_ylim_us: 50.0
+
+# Rolling median window (epochs) for smoothed time series
+smooth_window: 12
+
+# Legacy (no-op): plotting-time despike is disabled.
+despike_mad_thresh: 5.0
+
+# Percentile for heatmap color scaling
+vmax_pct: 95.0
+
+# Source boreholes in source index order (0-based source index)
+source_boreholes:
+  - AML
+  - AML
+  - AML
+  - AML
+  - AMU
+  - AMU
+  - AMU
+  - AMU
+  - DML
+  - DML
+  - DML
+  - DML
+  - DMU
+  - DMU
+  - DMU
+  - DMU
+
+# Optional: geometry CSVs to enable 3-D coverage/sensitivity pages
+sources_csv: /home/chopp/cassm_local/inversion/input/sources_hmc.csv
+receivers_csv: /home/chopp/cassm_local/inversion/input/receivers_hmc.csv
+
+# Optional: per-pair PDF output (one page per active pair)
+per_pair_output_pdf: /home/chopp/cassm_local/live/cassm_pair_timeseries_utc.pdf
+
+# Optional: injection time-series CSV to overlay on every per-pair page.
+# Expected columns: Time, PT 503, Net Flow.
+# Example live file produced by cussp_pull_injection.py:
+#   /media/chopp/HDD1/chet-cussp/raw-injection/live/latest_INJ_data_1min.csv
+injection_csv: /media/chopp/HDD1/chet-cussp/raw-injection/live/latest_INJ_data_1min.csv

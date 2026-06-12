@@ -3,6 +3,8 @@ import argparse
 import json
 import logging
 import os
+import re
+from glob import glob
 from functools import lru_cache
 import numpy as np
 import pandas as pd
@@ -12,7 +14,8 @@ import pyproj
 import plotly.graph_objs as go
 
 from dash import dcc, html
-from obspy import read_events
+from obspy import read_events, UTCDateTime
+from obspy.core.event import Catalog, Event, Origin, Magnitude, ResourceIdentifier
 from osgeo import gdal
 from datetime import datetime
 from shapely.geometry import Polygon
@@ -35,16 +38,17 @@ site_polygons = {
 }
 
 datasets = {
-    'Newberry': [
-        f'{data_directory}/newberry/vector/boreholes/Deviation_corrected.csv',
-        f'{data_directory}/newberry/DEM/USGS_13_merged_epsg-26910_just_edifice_very-coarse.tif'
-    ],
-    'JV': [
-        f'{data_directory}/JV/vector/boreholes/Offset_Wells_Surveys_JV.csv',
-    ],
-    'DAC': [
-        f'{data_directory}/DAC/vector/boreholes/Offset_Wells_Surveys_DAC.csv'
-    ],
+    'Newberry': {
+        '55-29': f'{data_directory}/newberry/boreholes/55-29/GDR_submission/Deviation_corrected_with-depth_w-TD.csv',
+        '55A-29': f'{data_directory}/newberry/boreholes/55A-29/55A-29_trajectory.csv',
+        'DEM': f'{data_directory}/newberry/DEMs/USGS_13_merged_epsg-26910_just_edifice_very-coarse.tif',
+    },
+    'JV': {
+        'Offset Wells': f'{data_directory}/JV/vector/boreholes/Offset_Wells_Surveys_JV.csv',
+    },
+    'DAC': {
+        'Offset Wells': f'{data_directory}/DAC/vector/boreholes/Offset_Wells_Surveys_DAC.csv',
+    },
     'Cape': {
         'Topography': f'{data_directory}/cape_modern/spatial_data/DEM/Cape-modern_Lidar_downsample.tif',
         'Basement': f'{data_directory}/cape_modern/spatial_data/vmods/ToB_50m_grid_3-1-24.nc',
@@ -108,11 +112,215 @@ catalog_colors = [
     "#17becf",  # cyan
 ]
 
+
+def is_nlloc_loc_catalog_path(path):
+    """Return True for NLLoc location hypothesis files (.loc.hyp variants)."""
+    p = str(path).lower()
+    return p.endswith('.loc.hyp')
+
+
+def is_halliburton_catalog_path(path):
+    """Return True for Halliburton catalog inputs that should plot in black."""
+    p = os.path.basename(str(path)).lower()
+    return 'halliburton' in p
+
+
+def catalog_color_by_group(index, catalog_paths):
+    """Assign categorical colors per catalog/event input."""
+    if catalog_paths and index < len(catalog_paths) and is_halliburton_catalog_path(catalog_paths[index]):
+        return 'black'
+    return catalog_colors[index % len(catalog_colors)]
+
 stage_colors = {
     'Frisco': '#f28e2b',
     'Bearskin': '#59a14f',
     'Gold': '#edc948',
 }
+
+newberry_stations = {
+    'NN07': (634844.640, 4845632.818),
+    'NN09': (634284.865, 4843588.322),
+    'NN17': (634718.817, 4842218.195),
+    'NN18': (636725.806, 4844127.781),
+    'NN24': (636195.156, 4843503.594),
+    'NN32': (634759.129, 4840340.145),
+    'NNVM': (638819.167, 4841236.633),
+    'NN19': (636380.039, 4841978.593),
+    'NN21': (637721.337, 4843658.363),
+}
+
+# Wellhead location and surface elevation (UTM Zone 10N)
+NEWBERRY_WH_LOC = np.array([635642.0, 4842835.0])
+NEWBERRY_WH_ELEV = 1770.0
+NEWBERRY_DAS_NLLOC_CFG = '/home/chopp/NLLoc/Newberry_DAS/run/locate_newberry_DAS.nlloc'
+
+# Stage depths from Newberry_comparison.py (feet → metres)
+STAGES_55_29 = np.array([9320., 9427., 9452., 9522.5, 9606., 9636., 9769.5, 9851.875]) * 0.3048
+STAGES_55_29_JUL25 = np.array([9415., 9486.]) * 0.3048
+STAGES_55A_29 = np.array([9575., 9625., 9660., 9750., 9850., 9980., 10064.]) * 0.3048
+
+newberry_stage_sets = {
+    '55-29': [
+        {'label': '55-29 stages (2025)',     'color': '#e67e22', 'stages': STAGES_55_29},
+        {'label': '55-29 stages (Jul 2025)', 'color': '#87CEFA', 'stages': STAGES_55_29_JUL25},
+    ],
+    '55A-29': [
+        {'label': '55A-29 stages (2025)', 'color': '#16a085', 'stages': STAGES_55A_29},
+    ],
+}
+
+# Lithology units: depth intervals in MD_m from wellhead (55-29 only)
+# Top elevation ASL = NEWBERRY_WH_ELEV - depth_m
+newberry_lith = {
+    'Welded Tuff':  {'depths': [1966, 2057], 'color': 'darkkhaki'},
+    'Tuff':         {'depths': [2057, 2439], 'color': 'khaki'},
+    'Basalt':       {'depths': [2439, 2634], 'color': 'darkgray'},
+    'Granodiorite': {'depths': [2634, 2908], 'color': 'bisque'},
+    'Basalt (deep)':{'depths': [2908, 3067], 'color': 'darkgray'},
+}
+
+
+def add_newberry_station_markers(objects):
+    """Add surface seismic stations as inverted triangles (UTM Zone 10N)."""
+    east = [v[0] for v in newberry_stations.values()]
+    north = [v[1] for v in newberry_stations.values()]
+    # Station elevations are not in the dict; place markers at z=1770 (approx wellhead ASL)
+    elev = [1770.0] * len(east)
+    objects.append(go.Scatter3d(
+        x=east, y=north, z=elev,
+        mode='markers+text',
+        name='Stations',
+        marker=dict(size=6, color='darkgray', symbol='diamond', opacity=0.8,
+                    line=dict(color='black', width=0.5)),
+        text=list(newberry_stations.keys()),
+        textposition='top center',
+        textfont=dict(size=9, color='darkgray'),
+        hoverinfo='text',
+    ))
+
+
+@lru_cache(maxsize=1)
+def load_newberry_das_channels(cfg_path=NEWBERRY_DAS_NLLOC_CFG):
+    """Load DAS channels with Grid2Time grids from GTSRCE lines in a .nlloc config.
+
+    Both active and commented-out GTSRCE lines are included — active lines are
+    channels queued for a new Grid2Time run; commented lines (``# GTSRCE …``)
+    are channels whose travel-time grids already exist.  All of them can be
+    used by NLLoc for location.
+    """
+    if not os.path.exists(cfg_path):
+        return None
+    channels = []
+    with open(cfg_path, 'r', encoding='utf-8', errors='ignore') as fobj:
+        for line in fobj:
+            line = line.strip()
+            if not line:
+                continue
+            # Strip leading comment marker(s) so we can parse commented GTSRCE lines
+            stripped = line.lstrip('# ').strip()
+            if not stripped.startswith('GTSRCE'):
+                continue
+            parts = stripped.split()
+            # Expected: GTSRCE <id> LATLON <lat> <lon> <depth_km> <elev>
+            if len(parts) < 7:
+                continue
+            try:
+                chan = parts[1]
+                lat = float(parts[3])
+                lon = float(parts[4])
+                depth_km = float(parts[5])
+            except (ValueError, IndexError):
+                continue
+            channels.append((chan, lat, lon, depth_km))
+    if len(channels) == 0:
+        return None
+    utm = projections['newberry']
+    lon = np.array([c[2] for c in channels], dtype=float)
+    lat = np.array([c[1] for c in channels], dtype=float)
+    east, north = utm(lon, lat)
+    elev = -1000.0 * np.array([c[3] for c in channels], dtype=float)
+    chan = [c[0] for c in channels]
+    return chan, np.asarray(east), np.asarray(north), elev
+
+
+def add_newberry_das_channel_markers(objects):
+    """Add blue markers for DAS channels included in the NLLoc source list."""
+    loaded = load_newberry_das_channels()
+    if loaded is None:
+        return None
+    chan, east, north, elev = loaded
+    objects.append(go.Scatter3d(
+        x=east, y=north, z=elev,
+        mode='markers',
+        name='DAS channels (used)',
+        marker=dict(size=3, color='royalblue', symbol='circle', opacity=0.85,
+                    line=dict(color='midnightblue', width=0.5)),
+        hovertext=[f'CHAN {c}' for c in chan],
+        hoverinfo='text',
+    ))
+    return east, north, elev
+
+
+def add_newberry_stage_markers(objects, datasets):
+    """Interpolate stage positions along each borehole and add as Scatter3d markers.
+
+    Uses column 4 (MD_m for 55-29, TVD metres for 55A-29) as the depth axis for
+    interpolation — same convention as Newberry_comparison.py build_wellpath_overlays.
+    """
+    for well_label, stage_sets in newberry_stage_sets.items():
+        wp_path = datasets.get(well_label)
+        if not wp_path or not os.path.exists(wp_path):
+            continue
+        try:
+            raw = np.loadtxt(wp_path, delimiter=',', skiprows=1)
+        except Exception as e:
+            logging.warning('Could not read %s for stage markers: %s', wp_path, e)
+            continue
+        md = raw[:, 4]
+        east = raw[:, 0]
+        north = raw[:, 1]
+        elev = raw[:, 2]
+        order = np.argsort(md)
+        md, east, north, elev = md[order], east[order], north[order], elev[order]
+        for stage_set in stage_sets:
+            depths = stage_set['stages']
+            se = np.interp(depths, md, east,  left=np.nan, right=np.nan)
+            sn = np.interp(depths, md, north, left=np.nan, right=np.nan)
+            sz = np.interp(depths, md, elev,  left=np.nan, right=np.nan)
+            valid = np.isfinite(se) & np.isfinite(sn) & np.isfinite(sz)
+            if not np.any(valid):
+                continue
+            objects.append(go.Scatter3d(
+                x=se[valid], y=sn[valid], z=sz[valid],
+                mode='markers',
+                name=stage_set['label'],
+                marker=dict(size=8, color=stage_set['color'], symbol='circle',
+                            line=dict(color='black', width=0.8)),
+                hovertext=[f"{stage_set['label']}: MD {v:.0f} m" for v in depths[valid]],
+                hoverinfo='text',
+            ))
+
+
+def add_newberry_lithology_planes(objects):
+    """Add semi-transparent horizontal planes marking the top of each lithology unit.
+
+    Planes are 1 × 1 km squares centred on the wellhead (±500 m) at the ASL
+    elevation of each unit top (NEWBERRY_WH_ELEV − depth_m), matching the
+    HSpan bands in Newberry_comparison.py / Newberry_daily_report.py.
+    """
+    wh_e, wh_n = NEWBERRY_WH_LOC
+    hw = 500.0  # half-width of plane in metres
+    xc = [wh_e - hw, wh_e + hw, wh_e + hw, wh_e - hw]
+    yc = [wh_n - hw, wh_n - hw, wh_n + hw, wh_n + hw]
+    for unit, cfg in newberry_lith.items():
+        top_elev = NEWBERRY_WH_ELEV - cfg['depths'][0]
+        objects.append(go.Mesh3d(
+            x=xc, y=yc, z=[top_elev] * 4,
+            i=[0, 0], j=[1, 2], k=[2, 3],
+            name=unit, color=cfg['color'],
+            opacity=0.12, showlegend=True, hoverinfo='name',
+        ))
+
 
 def get_pixel_coords(dataset):
     band = dataset.GetRasterBand(1)
@@ -157,6 +365,8 @@ def read_trajectory_csv(path):
                 if len(coords) > 0:
                     return coords[:, :3]
         named_columns = [
+            ('easting', 'northing', 'elevation'),
+            ('Map Easting', 'Map Northing', 'Elevation'),
             ('easting_meters', 'northing_meters', 'elevation_meters'),
             ('utm_e_m', 'utm_n_m', 'elevation_meters'),
             ('UTM x (m)', 'UTM y (m)', 'elev z (m)'),
@@ -409,7 +619,7 @@ def add_cape_stage_markers(objects, bounds):
         ))
         update_bounds(group['x_m'], group['y_m'], group['z_m'])
 
-def plot_datasets_3d(datasets, field='cape'):
+def plot_datasets_3d(datasets, field='cape', show_lith=False):
     objects = []
     well_x = []
     well_y = []
@@ -439,6 +649,13 @@ def plot_datasets_3d(datasets, field='cape'):
     cape_offset_n = 0.0
     if field == 'cape':
         cape_offset_e, cape_offset_n = estimate_cape_shared_offset(datasets)
+    if field == 'newberry':
+        add_newberry_station_markers(objects)
+        das_xyz = add_newberry_das_channel_markers(objects)
+        if das_xyz is not None:
+            update_bounds(das_xyz[0], das_xyz[1], das_xyz[2])
+        if show_lith:
+            add_newberry_lithology_planes(objects)
     for label, data in datasets.items():
         if not data.endswith(('tif', 'nc')):
             wellpath = read_trajectory_csv(data)
@@ -491,6 +708,9 @@ def plot_datasets_3d(datasets, field='cape'):
             objects.append(tob_mesh)
             update_bounds(X.flatten(), Y.flatten(), Z)
 
+    if field == 'newberry':
+        add_newberry_stage_markers(objects, datasets)
+
     bounds = dict(
         xmin=data_xmin, xmax=data_xmax,
         ymin=data_ymin, ymax=data_ymax,
@@ -520,10 +740,16 @@ def get_catalog_params(catalog, utm):
     depth = np.array(depth) * -1
     return id, t, lat, lon, depth, m, ev_east, ev_north
 
-def make_3d_figure(catalogs, catalog_names, datasets, field='cape', scale_by_magnitude=False, color_by_time=False, apply_cape_correction=False):
-    objects, well_x, well_y, well_z, bounds = plot_datasets_3d(datasets, field=field)
+def make_3d_figure(catalogs, catalog_names, datasets, field='cape', scale_by_magnitude=False, color_by_time=False, apply_cape_correction=False, show_lith=False, show_scat=False, catalog_paths=None):
+    objects, well_x, well_y, well_z, bounds = plot_datasets_3d(datasets, field=field, show_lith=show_lith)
     mfact = 2.5
     utm = projections[field]
+
+    def dynamic_base_marker_size(n_events):
+        """Auto-size markers: larger for sparse catalogs, ~2 for ~10k events."""
+        n = max(int(n_events), 1)
+        # n=10 -> ~6.5, n=100 -> ~5, n=1000 -> ~3.5, n=10000 -> ~2
+        return float(np.clip(8.0 - 1.5 * np.log10(n), 2.0, 10.0))
 
     cape_offset_e = 0.0
     cape_offset_n = 0.0
@@ -559,10 +785,13 @@ def make_3d_figure(catalogs, catalog_names, datasets, field='cape', scale_by_mag
             ev_north = ev_north + cape_offset_n
         tickvals = np.linspace(min(t), max(t), 10)
         ticktext = [datetime.fromtimestamp(int(tv)).strftime('%d %b %Y: %H:%M') for tv in tickvals]
+        base_size = dynamic_base_marker_size(len(m))
         if scale_by_magnitude:
-            marker_size = (mfact * np.array(m)) ** 2
+            # Keep relative magnitude scaling, but adapt absolute size to event density.
+            density_scale = base_size / 2.0
+            marker_size = np.maximum((mfact * np.array(m)) ** 2 * density_scale, base_size)
         else:
-            marker_size = np.full_like(m, 2.)
+            marker_size = np.full_like(m, base_size, dtype=float)
         if color_by_time:
             marker_color = t
             marker_dict = dict(
@@ -582,7 +811,7 @@ def make_3d_figure(catalogs, catalog_names, datasets, field='cape', scale_by_mag
                 opacity=0.5
             )
         else:
-            marker_color = catalog_colors[i % len(catalog_colors)]
+            marker_color = catalog_color_by_group(i, catalog_paths)
             marker_dict = dict(
                 color=marker_color,
                 size=marker_size,
@@ -600,6 +829,28 @@ def make_3d_figure(catalogs, catalog_names, datasets, field='cape', scale_by_mag
         )
         objects.append(scat_obj)
         update_bounds(ev_east, ev_north, depth)
+
+        if catalog_paths and i < len(catalog_paths):
+            cloud = load_nlloc_cloud_for_hyp(catalog_paths[i], field)
+            if cloud is not None:
+                cloud_e, cloud_n, cloud_z, cloud_w = cloud
+                if cloud_e.size > 8000:
+                    idx = np.argsort(cloud_w)[-8000:]
+                    cloud_e = cloud_e[idx]
+                    cloud_n = cloud_n[idx]
+                    cloud_z = cloud_z[idx]
+                    cloud_w = cloud_w[idx]
+                w_max = float(np.nanmax(cloud_w)) if cloud_w.size > 0 else 0.0
+                w_norm = cloud_w / w_max if w_max > 0 else np.ones_like(cloud_w)
+                cloud_obj = go.Scatter3d(
+                    x=cloud_e, y=cloud_n, z=cloud_z,
+                    mode='markers',
+                    name=f'{catalog_names[i]} cloud',
+                    visible=True if show_scat else 'legendonly',
+                    marker=dict(size=2, color=w_norm, colorscale='Viridis', opacity=0.25)
+                )
+                objects.append(cloud_obj)
+                update_bounds(cloud_e, cloud_n, cloud_z)
 
     x_range = None
     y_range = None
@@ -645,7 +896,7 @@ def make_3d_figure(catalogs, catalog_names, datasets, field='cape', scale_by_mag
     )
     return fig
 
-def make_cumulative_figure(catalogs, catalog_names):
+def make_cumulative_figure(catalogs, catalog_names, catalog_paths=None):
     curves = []
     pick_curves = []
     for i, catalog in enumerate(catalogs):
@@ -659,7 +910,7 @@ def make_cumulative_figure(catalogs, catalog_names):
             mode='lines+markers',
             name=f'{catalog_names[i]} Events',
             yaxis='y1',
-            line=dict(color=catalog_colors[i % len(catalog_colors)])
+            line=dict(color=catalog_color_by_group(i, catalog_paths))
         ))
         # Cumulative picks
         pick_times = []
@@ -678,7 +929,7 @@ def make_cumulative_figure(catalogs, catalog_names):
                 mode='lines',
                 name=f'{catalog_names[i]} Picks',
                 yaxis='y2',
-                line=dict(dash='dot', color=catalog_colors[i % len(catalog_colors)])
+                line=dict(dash='dot', color=catalog_color_by_group(i, catalog_paths))
             ))
     fig = go.Figure(data=curves + pick_curves)
     fig.update_layout(
@@ -691,7 +942,7 @@ def make_cumulative_figure(catalogs, catalog_names):
     )
     return fig
 
-def make_arrivals_histogram(catalogs, catalog_names):
+def make_arrivals_histogram(catalogs, catalog_names, catalog_paths=None):
     hists = []
     for i, catalog in enumerate(catalogs):
         seed_ids = []
@@ -708,7 +959,7 @@ def make_arrivals_histogram(catalogs, catalog_names):
         hists.append(go.Bar(
             x=s, y=counts,
             name=catalog_names[i],
-            marker=dict(color=catalog_colors[i % len(catalog_colors)])
+            marker=dict(color=catalog_color_by_group(i, catalog_paths))
         ))
     fig = go.Figure(data=hists)
     fig.update_layout(
@@ -773,6 +1024,168 @@ def normalize_field(field_name):
     return dataset_key, projection_key
 
 
+def nlloc_event_key(path):
+    """Return a stable key that collapses summary/full NLLoc .hyp variants."""
+    name = os.path.basename(path)
+    if not name.endswith('.hyp'):
+        return os.path.splitext(name)[0]
+    stem = name[:-4]
+    stem = re.sub(r'\.sum(?=\.grid\d+\.loc$)', '', stem)
+    stem = re.sub(r'\.\d{8}\.\d{6}(?=\.grid\d+\.loc$)', '', stem)
+    return stem
+
+
+def dedupe_catalog_paths(catalog_paths):
+    """Keep one .hyp per event key, preferring .sum and dropping redundant .last."""
+    chosen = {}
+    order = []
+    removed_last = 0
+    for path in catalog_paths:
+        name = os.path.basename(str(path)).lower()
+        if name.endswith('.hyp') and '.last.' in name:
+            removed_last += 1
+            continue
+        key = nlloc_event_key(path)
+        if key not in chosen:
+            chosen[key] = path
+            order.append(key)
+            continue
+        old_path = chosen[key]
+        old_is_sum = '.sum.grid' in os.path.basename(old_path)
+        new_is_sum = '.sum.grid' in os.path.basename(path)
+        if new_is_sum and not old_is_sum:
+            chosen[key] = path
+    deduped = [chosen[key] for key in order]
+    removed_dupes = len(catalog_paths) - len(deduped) - removed_last
+    if removed_dupes > 0:
+        logging.info('Removed %d duplicate NLLoc .hyp inputs (summary/full duplicates).', removed_dupes)
+    if removed_last > 0:
+        logging.info('Removed %d redundant NLLoc .last catalogs.', removed_last)
+    return deduped
+
+
+def parse_nlloc_hdr(hdr_path):
+    """Parse NLLoc .hdr grid and SIMPLE transform metadata."""
+    if not os.path.exists(hdr_path):
+        return None
+    with open(hdr_path, 'r', encoding='utf-8', errors='ignore') as fobj:
+        lines = fobj.readlines()
+    if len(lines) < 2:
+        return None
+
+    parts = lines[0].split()
+    if len(parts) < 9:
+        return None
+    nx, ny, nz = int(parts[0]), int(parts[1]), int(parts[2])
+    x0, y0, z0 = float(parts[3]), float(parts[4]), float(parts[5])
+    dx, dy, dz = float(parts[6]), float(parts[7]), float(parts[8])
+
+    match = re.search(r'LatOrig\s+([-\d.]+)\s+LongOrig\s+([-\d.]+)', lines[1])
+    if not match:
+        return None
+    lat0 = float(match.group(1))
+    lon0 = float(match.group(2))
+    return {
+        'nx': nx, 'ny': ny, 'nz': nz,
+        'x0': x0, 'y0': y0, 'z0': z0,
+        'dx': dx, 'dy': dy, 'dz': dz,
+        'lat0': lat0, 'lon0': lon0,
+    }
+
+
+def find_scat_for_hyp(hyp_path):
+    """Find matching .scat path for a .hyp file when available."""
+    direct = hyp_path[:-4] + '.scat'
+    if os.path.exists(direct):
+        return direct
+    folder = os.path.dirname(hyp_path)
+    stem = os.path.basename(hyp_path)[:-4]
+    # Build a stable event root that matches both summary and full/timestamped outputs.
+    root = re.sub(r'\.sum(?=\.grid\d+\.loc$)', '', stem)
+    root = re.sub(r'\.\d{8}\.\d{6}(?=\.grid\d+\.loc$)', '', root)
+    root = re.sub(r'\.grid\d+\.loc$', '', root)
+    candidates = sorted(glob(os.path.join(folder, f'{root}*.grid*.loc.scat')))
+    return candidates[0] if candidates else None
+
+
+def read_nlloc_scat_points(scat_path, hdr_meta):
+    """Read NLLoc .scat binary as float32 quadruples with offset auto-detection."""
+    raw = np.fromfile(scat_path, dtype=np.uint8)
+    if raw.size < 32:
+        return None
+
+    xmin = hdr_meta['x0'] - hdr_meta['dx']
+    xmax = hdr_meta['x0'] + (hdr_meta['nx'] - 1) * hdr_meta['dx'] + hdr_meta['dx']
+    ymin = hdr_meta['y0'] - hdr_meta['dy']
+    ymax = hdr_meta['y0'] + (hdr_meta['ny'] - 1) * hdr_meta['dy'] + hdr_meta['dy']
+    zmin = hdr_meta['z0'] - hdr_meta['dz']
+    zmax = hdr_meta['z0'] + (hdr_meta['nz'] - 1) * hdr_meta['dz'] + hdr_meta['dz']
+
+    best_rows = None
+    best_valid = None
+    best_score = -1
+
+    for offset in (0, 4, 8, 12):
+        if raw.size <= offset + 16:
+            continue
+        arr = np.frombuffer(raw[offset:], dtype='<f4')
+        n4 = (arr.size // 4) * 4
+        if n4 < 16:
+            continue
+        rows = arr[:n4].reshape(-1, 4)
+        x_vals, y_vals, z_vals, w_vals = rows[:, 0], rows[:, 1], rows[:, 2], rows[:, 3]
+        valid = (
+            np.isfinite(x_vals) & np.isfinite(y_vals) & np.isfinite(z_vals) & np.isfinite(w_vals)
+            & (w_vals > 0.0)
+            & (x_vals >= xmin) & (x_vals <= xmax)
+            & (y_vals >= ymin) & (y_vals <= ymax)
+            & (z_vals >= zmin) & (z_vals <= zmax)
+        )
+        score = int(np.sum(valid))
+        if score > best_score:
+            best_score = score
+            best_rows = rows
+            best_valid = valid
+
+    if best_rows is None or best_score <= 0:
+        return None
+    picked = best_rows[best_valid]
+    return picked[:, 0], picked[:, 1], picked[:, 2], picked[:, 3]
+
+
+@lru_cache(maxsize=256)
+def load_nlloc_cloud_for_hyp(hyp_path, field):
+    """Return cloud arrays (east, north, elev, weight) for a .hyp, if available."""
+    scat_path = find_scat_for_hyp(hyp_path)
+    if not scat_path:
+        return None
+
+    hdr_path = scat_path[:-5] + '.hdr'
+    hdr_meta = parse_nlloc_hdr(hdr_path)
+    if hdr_meta is None:
+        return None
+
+    parsed = read_nlloc_scat_points(scat_path, hdr_meta)
+    if parsed is None:
+        return None
+
+    # NLLoc SIMPLE coordinates are local Cartesian (km) around (LatOrig, LongOrig),
+    # not native UTM metres. Convert x/y km -> lat/lon first, then project to UTM.
+    x_km, y_km, z_km, weight = parsed
+    lat0 = hdr_meta['lat0']
+    lon0 = hdr_meta['lon0']
+    deg_per_km = 1.0 / 111.111
+    lat = lat0 + y_km * deg_per_km
+    cos_lat0 = np.cos(np.deg2rad(lat0))
+    if np.abs(cos_lat0) < 1e-8:
+        return None
+    lon = lon0 + x_km * (deg_per_km / cos_lat0)
+    utm = projections[field]
+    east, north = utm(lon, lat)
+    elev = -z_km * 1000.0
+    return east, north, elev, weight
+
+
 def parse_cli_args():
     parser = argparse.ArgumentParser(
         description='Catalog comparison dashboard with 3D borehole context.'
@@ -826,15 +1239,137 @@ def parse_cli_args():
     dataset_key, projection_key = normalize_field(field)
     return args, catalog_paths, catalog_names, dataset_key, projection_key
 
+
+def _safe_float(value):
+    try:
+        return float(value)
+    except Exception:
+        return np.nan
+
+
+def load_catalog_from_csv(path):
+    """Load CSV with event rows into an ObsPy Catalog for plotting compatibility."""
+    frame = pd.read_csv(path)
+    basename = os.path.basename(path).lower()
+    latlon_authoritative_csv = 'mazama newberry microseismic catalog with distance from perfs halliburton.csv'
+    time_mask = pd.Series(True, index=frame.index)
+
+    if 'date_time_UTC' in frame.columns:
+        times = pd.to_datetime(frame['date_time_UTC'], errors='coerce', utc=True)
+    elif all(col in frame.columns for col in ['Origin Date (Local)', 'Origin Time (Local)', 'Time Zone Offset']):
+        times = pd.to_datetime(
+            frame['Origin Date (Local)'].astype(str) + ' '
+            + frame['Origin Time (Local)'].astype(str) + ' '
+            + frame['Time Zone Offset'].astype(str),
+            errors='coerce', utc=True,
+        )
+    else:
+        raise ValueError(f'CSV has no usable timestamp columns: {path}')
+
+    if basename == latlon_authoritative_csv:
+        # Keep only January events for this catalog.
+        time_mask = times.dt.month.eq(1)
+        logging.info(
+            'CSV %s: keeping January events only (%d of %d rows)',
+            os.path.basename(path),
+            int(time_mask.fillna(False).sum()),
+            int(len(frame)),
+        )
+
+    if basename == latlon_authoritative_csv:
+        lat = pd.to_numeric(frame.get('Latitude', np.nan), errors='coerce')
+        lon = pd.to_numeric(frame.get('Longitude', np.nan), errors='coerce')
+        valid_en = pd.Series(True, index=frame.index)
+        if not (lat.notna() & lon.notna()).any():
+            raise ValueError(f'CSV requires valid Latitude/Longitude rows for {path}')
+        logging.info('CSV %s: using Latitude/Longitude as authoritative plotting coordinates', os.path.basename(path))
+    else:
+        required_spatial_cols = ['Easting ft (Abs)', 'Northing ft (Abs)']
+        missing_spatial_cols = [col for col in required_spatial_cols if col not in frame.columns]
+        if missing_spatial_cols:
+            raise ValueError(
+                f'CSV requires projected columns {required_spatial_cols} for strict UTM parsing; '
+                f'missing {missing_spatial_cols}: {path}'
+            )
+
+        east = pd.to_numeric(frame['Easting ft (Abs)'], errors='coerce')
+        north = pd.to_numeric(frame['Northing ft (Abs)'], errors='coerce')
+        valid_en = east.notna() & north.notna()
+        if not valid_en.any():
+            raise ValueError(f'CSV has no valid projected E/N rows in required columns {required_spatial_cols}: {path}')
+
+        src_epsg = 26910
+        try:
+            transformer = pyproj.Transformer.from_crs(f'EPSG:{src_epsg}', 'EPSG:4326', always_xy=True)
+            lon_vals, lat_vals = transformer.transform(
+                east.to_numpy(dtype=float),
+                north.to_numpy(dtype=float),
+            )
+        except Exception as exc:
+            raise ValueError(
+                f'Failed strict UTM->lat/lon transform from EPSG:{src_epsg} for {path}: {exc}'
+            ) from exc
+
+        lon = pd.Series(lon_vals, index=frame.index)
+        lat = pd.Series(lat_vals, index=frame.index)
+
+    if 'Depth ft (TVDSS)' in frame.columns:
+        depth_m = -pd.to_numeric(frame['Depth ft (TVDSS)'], errors='coerce') * 0.3048
+    elif 'Depth ft (TVD)' in frame.columns:
+        depth_m = pd.to_numeric(frame['Depth ft (TVD)'], errors='coerce') * 0.3048
+    else:
+        depth_m = pd.Series(np.nan, index=frame.index)
+
+    mag = pd.to_numeric(frame.get('Magnitude', np.nan), errors='coerce')
+    evid = frame.get('Event Number', pd.Series(frame.index + 1)).astype(str)
+
+    good = times.notna() & lat.notna() & lon.notna() & valid_en & time_mask
+    if not np.any(good):
+        return Catalog(events=[])
+
+    cat = Catalog(events=[])
+    for idx in np.where(good.to_numpy())[0]:
+        tstamp = UTCDateTime(times.iloc[idx].to_pydatetime())
+        origin = Origin(
+            time=tstamp,
+            latitude=float(lat.iloc[idx]),
+            longitude=float(lon.iloc[idx]),
+            depth=_safe_float(depth_m.iloc[idx]) if np.isfinite(_safe_float(depth_m.iloc[idx])) else 0.0,
+            resource_id=ResourceIdentifier(f'{os.path.basename(path)}#origin-{idx+1}')
+        )
+        event = Event(resource_id=ResourceIdentifier(f'{os.path.basename(path)}#event-{evid.iloc[idx]}'))
+        event.origins = [origin]
+        event.preferred_origin_id = origin.resource_id
+        mval = _safe_float(mag.iloc[idx])
+        if np.isfinite(mval):
+            magnitude = Magnitude(
+                mag=float(mval),
+                resource_id=ResourceIdentifier(f'{os.path.basename(path)}#mag-{idx+1}')
+            )
+            event.magnitudes = [magnitude]
+            event.preferred_magnitude_id = magnitude.resource_id
+        cat.events.append(event)
+    return cat
+
+
+def load_catalog_input(path):
+    """Load either standard event files (ObsPy) or CSV event tables."""
+    if str(path).lower().endswith('.csv'):
+        return load_catalog_from_csv(path)
+    return read_events(path)
+
 # --- MAIN DASH APP ---
 
 cli_args, catalog_paths, catalog_names, dataset_key, projection_key = parse_cli_args()
+catalog_paths = dedupe_catalog_paths(catalog_paths)
+catalog_names = [os.path.splitext(os.path.basename(path))[0] for path in catalog_paths]
 datas = datasets[dataset_key]
-catalogs = [read_events(path) for path in catalog_paths]
+catalogs = [load_catalog_input(path) for path in catalog_paths]
 
 app_state = {
     'catalogs': catalogs,
     'catalog_names': catalog_names,
+    'catalog_paths': catalog_paths,
     'datas': datas,
     'field': projection_key,
 }
@@ -888,10 +1423,30 @@ app.layout = html.Div([
         value='no',
         inline=True
     ),
+    html.Label("Show Newberry lithology planes:"),
+    dcc.RadioItems(
+        id='show-lith-toggle',
+        options=[
+            {'label': 'Off', 'value': 'no'},
+            {'label': 'On',  'value': 'yes'}
+        ],
+        value='no',
+        inline=True
+    ),
+    html.Label("Show NLLoc scatter clouds:"),
+    dcc.RadioItems(
+        id='show-scat-toggle',
+        options=[
+            {'label': 'Off', 'value': 'no'},
+            {'label': 'On', 'value': 'yes'}
+        ],
+        value='no',
+        inline=True
+    ),
     dcc.Store(id='camera-store', data=None),
-    dcc.Graph(id='3d-plot', figure=make_3d_figure(app_state['catalogs'], app_state['catalog_names'], app_state['datas'], field=app_state['field']), config={'scrollZoom': True, 'displaylogo': False}),
-    dcc.Graph(id='cumulative-plot', figure=make_cumulative_figure(app_state['catalogs'], app_state['catalog_names']), config={'displaylogo': False}),
-    dcc.Graph(id='arrivals-hist', figure=make_arrivals_histogram(app_state['catalogs'], app_state['catalog_names']), config={'displaylogo': False}),
+    dcc.Graph(id='3d-plot', figure=make_3d_figure(app_state['catalogs'], app_state['catalog_names'], app_state['datas'], field=app_state['field'], catalog_paths=app_state['catalog_paths']), config={'scrollZoom': True, 'displaylogo': False}),
+    dcc.Graph(id='cumulative-plot', figure=make_cumulative_figure(app_state['catalogs'], app_state['catalog_names'], app_state['catalog_paths']), config={'displaylogo': False}),
+    dcc.Graph(id='arrivals-hist', figure=make_arrivals_histogram(app_state['catalogs'], app_state['catalog_names'], app_state['catalog_paths']), config={'displaylogo': False}),
 ])
 
 
@@ -933,22 +1488,29 @@ app.clientside_callback(
         dash.dependencies.Input('scale-mag-toggle', 'value'),
         dash.dependencies.Input('color-by-time-toggle', 'value'),
         dash.dependencies.Input('apply-correction-toggle', 'value'),
+        dash.dependencies.Input('show-lith-toggle', 'value'),
+        dash.dependencies.Input('show-scat-toggle', 'value'),
         dash.dependencies.Input('date-range-picker', 'start_date'),
         dash.dependencies.Input('date-range-picker', 'end_date'),
     ],
     [dash.dependencies.State('camera-store', 'data')],
     prevent_initial_call=True,
 )
-def update_3d_plot(scale_mag_value, color_by_time_value, apply_correction_value, start_date, end_date, camera_data):
+def update_3d_plot(scale_mag_value, color_by_time_value, apply_correction_value, show_lith_value, show_scat_value, start_date, end_date, camera_data):
     scale_by_magnitude = (scale_mag_value == 'yes')
     color_by_time = (color_by_time_value == 'yes')
     apply_cape_correction = (apply_correction_value == 'yes')
+    show_lith = (show_lith_value == 'yes')
+    show_scat = (show_scat_value == 'yes')
     cats = filter_catalogs_by_date(app_state['catalogs'], start_date, end_date) if (start_date and end_date) else app_state['catalogs']
     fig = make_3d_figure(
         cats, app_state['catalog_names'], app_state['datas'], field=app_state['field'],
         scale_by_magnitude=scale_by_magnitude,
         color_by_time=color_by_time,
-        apply_cape_correction=apply_cape_correction
+        apply_cape_correction=apply_cape_correction,
+        show_lith=show_lith,
+        show_scat=show_scat,
+        catalog_paths=app_state['catalog_paths'],
     )
     if camera_data:
         fig.update_layout(scene_camera=camera_data)
@@ -965,7 +1527,7 @@ def update_3d_plot(scale_mag_value, color_by_time_value, apply_correction_value,
 )
 def update_cumulative_plot(start_date, end_date):
     cats = filter_catalogs_by_date(app_state['catalogs'], start_date, end_date) if (start_date and end_date) else app_state['catalogs']
-    return make_cumulative_figure(cats, app_state['catalog_names'])
+    return make_cumulative_figure(cats, app_state['catalog_names'], app_state['catalog_paths'])
 
 
 @app.callback(
@@ -978,7 +1540,7 @@ def update_cumulative_plot(start_date, end_date):
 )
 def update_arrivals_hist(start_date, end_date):
     cats = filter_catalogs_by_date(app_state['catalogs'], start_date, end_date) if (start_date and end_date) else app_state['catalogs']
-    return make_arrivals_histogram(cats, app_state['catalog_names'])
+    return make_arrivals_histogram(cats, app_state['catalog_names'], app_state['catalog_paths'])
 
 
 @app.callback(
@@ -997,9 +1559,9 @@ def update_event_count(start_date, end_date):
 
 if __name__ == '__main__':
     if cli_args.export_html:
-        _fig3d  = make_3d_figure(app_state['catalogs'], app_state['catalog_names'], app_state['datas'], field=app_state['field'])
-        _figcum = make_cumulative_figure(app_state['catalogs'], app_state['catalog_names'])
-        _fighist = make_arrivals_histogram(app_state['catalogs'], app_state['catalog_names'])
+        _fig3d  = make_3d_figure(app_state['catalogs'], app_state['catalog_names'], app_state['datas'], field=app_state['field'], catalog_paths=app_state['catalog_paths'])
+        _figcum = make_cumulative_figure(app_state['catalogs'], app_state['catalog_names'], app_state['catalog_paths'])
+        _fighist = make_arrivals_histogram(app_state['catalogs'], app_state['catalog_names'], app_state['catalog_paths'])
         _html_parts = [
             '<!DOCTYPE html><html><head><meta charset="utf-8">',
             f'<title>Seismic Catalog Comparison – {dataset_key}</title></head><body>',

@@ -1,0 +1,24 @@
+[Unit]
+Description=CUSSP CASSM Panel visualization dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=chopp
+WorkingDirectory=/home/chopp/scripts/python/dash_apps
+Environment=PATH=/home/chopp/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 -m panel serve \
+    /home/chopp/scripts/python/dash_apps/cussp_cassm_viz.py \
+    --port 5010 \
+    --prefix /cassm \
+    --allow-websocket-origin www.cussp.lbl.gov \
+    --allow-websocket-origin cussp.lbl.gov \
+    --num-procs 1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

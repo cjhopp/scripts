@@ -1,0 +1,285 @@
+# CUSSP CASSM inversion settings (site-portable defaults)
+# Uses the same station geometry source schema as dash_apps/cussp_seismicity_3d.py.
+
+# ---------------------------------------------------------------------------
+# Array configuration catalog
+# ---------------------------------------------------------------------------
+#
+# Receiver channel count = (n_accelerometers * 3) + n_hydrophones
+#   - 16 3-component accelerometers always present
+#   - 24-channel hydrophone array is in the TS well; removed during flow tests
+#   - 4 TS-well sources present during EGS Collab initial experiment only
+#
+# Variable dimensions across experiments / phases:
+#
+#   Experiment     Phase          n_sources  n_acc  n_hydro  n_receivers  n_pairs
+#   EGS_Collab     initial            20       16      24        72        1440
+#   EGS_Collab     flow_test          16       16       0        48         768
+#   DEMO_FTES      initial            16       16      24        72        1152
+#   DEMO_FTES      flow_test          16       16       0        48         768
+#   CUSSP          (single)           16       16      24        72        1152
+#
+# NOTE: Early Python processing runs used --n-receivers 44, which was mistakenly
+# carried over from FSC MATLAB code for a different array.  All processing for
+# CUSSP must use n_receivers=72.  Caches built with 44 receivers are invalid.
+
+acquisition:
+  known_configurations:
+
+    egs_collab_initial:
+      experiment: EGS_Collab
+      phase: initial
+      description: "Full array — TS-well sources and TS-well hydrophone array both installed"
+      hydrophone_preamp_lowpass_hz: 2000
+      hydrophone_band_note: "Hydrophone channels were hardware low-pass filtered at 2 kHz"
+      n_sources: 20             # 16 standard + 4 TS-well borehole sources
+      n_accelerometers: 16      # 3-component; each contributes 3 channels
+      n_hydrophones: 24         # TS-well hydrophone string
+      n_receivers: 72           # = 16*3 + 24
+      n_pairs: 1440             # = 20 * 72
+
+    egs_collab_flow_test:
+      experiment: EGS_Collab
+      phase: flow_test
+      description: "TS-well sources and hydrophone array removed for flow test"
+      n_sources: 16
+      n_accelerometers: 16
+      n_hydrophones: 0          # TS-well hydrophone array not installed
+      n_receivers: 48           # = 16*3
+      n_pairs: 768              # = 16 * 48
+
+    demo_ftes_initial:
+      experiment: DEMO_FTES
+      phase: initial
+      description: "TS-well hydrophone array installed; TS-well sources not installed"
+      n_sources: 16
+      n_accelerometers: 16
+      n_hydrophones: 24
+      n_receivers: 72           # = 16*3 + 24
+      n_pairs: 1152             # = 16 * 72
+
+    demo_ftes_flow_test:
+      experiment: DEMO_FTES
+      phase: flow_test
+      description: "TS-well hydrophone array removed for flow test"
+      n_sources: 16
+      n_accelerometers: 16
+      n_hydrophones: 0
+      n_receivers: 48           # = 16*3
+      n_pairs: 768              # = 16 * 48
+
+    cussp:
+      experiment: CUSSP
+      phase: only
+      description: "Single configuration throughout — TS-well sources never installed, hydrophone array present"
+      n_sources: 16
+      n_accelerometers: 16
+      n_hydrophones: 24
+      n_receivers: 72           # = 16*3 + 24
+      n_pairs: 1152             # = 16 * 72
+
+  # Active configuration for this processing run.
+  # Processing scripts should read n_sources and n_receivers from here
+  # rather than relying on CLI defaults.
+  active: cussp
+
+  # Source channel map — maps 0-based source index (= .dat file sort order) to borehole and depth.
+  # Channels 17-20 (WMW/TS-well) are EGS Collab only; not present in CUSSP.
+  source_channel_map:
+    - {source_index:  0, channel:  1, borehole: AML, depth_m: 14.518}
+    - {source_index:  1, channel:  2, borehole: AML, depth_m: 28.310}
+    - {source_index:  2, channel:  3, borehole: AML, depth_m: 42.072}
+    - {source_index:  3, channel:  4, borehole: AML, depth_m: 55.788}
+    - {source_index:  4, channel:  5, borehole: AMU, depth_m: 14.435}
+    - {source_index:  5, channel:  6, borehole: AMU, depth_m: 28.212}
+    - {source_index:  6, channel:  7, borehole: AMU, depth_m: 41.989}
+    - {source_index:  7, channel:  8, borehole: AMU, depth_m: 55.736}
+    - {source_index:  8, channel:  9, borehole: DML, depth_m: 13.862}
+    - {source_index:  9, channel: 10, borehole: DML, depth_m: 26.115}
+    - {source_index: 10, channel: 11, borehole: DML, depth_m: 38.307}
+    - {source_index: 11, channel: 12, borehole: DML, depth_m: 50.530}
+    - {source_index: 12, channel: 13, borehole: DMU, depth_m: 13.945}
+    - {source_index: 13, channel: 14, borehole: DMU, depth_m: 26.137}
+    - {source_index: 14, channel: 15, borehole: DMU, depth_m: 38.420}
+    - {source_index: 15, channel: 16, borehole: DMU, depth_m: 50.642}
+
+  # Configuration history with date constraints.
+  # Use exact ISO dates where known; otherwise keep null and record bounds/notes.
+  configuration_periods:
+    - configuration: egs_collab_initial
+      start_date: "2022-04-01"
+      end_date: "2022-09-14"
+      notes: "Full array for entire EGS Collab dataset; no observed flow_test phase in this archive"
+
+    - configuration: demo_ftes_initial
+      start_date: null
+      start_date_after: "2024-10-31"
+      end_date: "2025-03-05"
+      notes: "Hydrophone string installed until removal on 2025-03-06"
+
+    - configuration: demo_ftes_flow_test
+      start_date: "2025-03-06"
+      end_date: null
+      notes: "Hydrophone string removed"
+
+    - configuration: cussp
+      start_date: "2026-05-11"
+      end_date: null
+      notes: "Single-configuration run with hydrophones present; start date set from earliest archived epoch (20260511224620)"
+
+  # ---------------------------------------------------------------------------
+  # Physical channel map — fixed for all experiments on this Geode system.
+  # Each .dat file always contains exactly 76 channels:
+  #   channels  1-48  : 16 three-component accelerometers (always present)
+  #   channels 49-72  : 24 TS-well hydrophones (present only in full config)
+  #   channels 73-76  : system channels (Clock, Encoding, Monitor, Trigger)
+  #                     — these are NOT seismic data and must always be excluded.
+  #                       The n_receivers <= 72 filter in the loader handles this.
+  #
+  # Channel 72 (TS01) is permanently flagged bad (see known_bad_receiver_channels).
+  # ---------------------------------------------------------------------------
+  n_channels_per_file: 76
+  system_channels: [73, 74, 75, 76]   # Clock, Encoding, Monitor, Trigger
+
+  # Known bad receiver channels (1-based Geode channel numbers).
+  # These channels are zeroed at ingest and excluded from picking/metrics.
+  # The processor emits a WARNING for each one on first encounter.
+  known_bad_receiver_channels:
+    - channel: 72
+      sensor: TS01
+      component: XDH
+      borehole: TS01
+      depth_m: null        # depth unknown / BAD label in source table
+      reason: "BAD — flagged in original channel map; do not use"
+
+  channel_map:
+    # Accelerometers — channels 1-48, always present
+    - {channel:  1, sensor: ACC1,  component: XNZ, borehole: AML1, depth_m: 23.128}
+    - {channel:  2, sensor: ACC1,  component: XNX, borehole: AML1, depth_m: 23.128}
+    - {channel:  3, sensor: ACC1,  component: XNY, borehole: AML1, depth_m: 23.128}
+    - {channel:  4, sensor: ACC2,  component: XNZ, borehole: AML2, depth_m: 35.335, status: BAD, reason: "Dead — Z component"}
+    - {channel:  5, sensor: ACC2,  component: XNX, borehole: AML2, depth_m: 35.335}
+    - {channel:  6, sensor: ACC2,  component: XNY, borehole: AML2, depth_m: 35.335}
+    - {channel:  7, sensor: ACC3,  component: XNZ, borehole: AML3, depth_m: 47.588}
+    - {channel:  8, sensor: ACC3,  component: XNX, borehole: AML3, depth_m: 47.588}
+    - {channel:  9, sensor: ACC3,  component: XNY, borehole: AML3, depth_m: 47.588}
+    - {channel: 10, sensor: ACC4,  component: XNZ, borehole: AML4, depth_m: 59.826, status: BAD, reason: "Dead — Z component"}
+    - {channel: 11, sensor: ACC4,  component: XNX, borehole: AML4, depth_m: 59.826, status: BAD, reason: "Dead — X component"}
+    - {channel: 12, sensor: ACC4,  component: XNY, borehole: AML4, depth_m: 59.826}
+    - {channel: 13, sensor: ACC5,  component: XNZ, borehole: AMU1, depth_m: 23.000}
+    - {channel: 14, sensor: ACC5,  component: XNX, borehole: AMU1, depth_m: 23.000}
+    - {channel: 15, sensor: ACC5,  component: XNY, borehole: AMU1, depth_m: 23.000}
+    - {channel: 16, sensor: ACC6,  component: XNZ, borehole: AMU2, depth_m: 35.238}
+    - {channel: 17, sensor: ACC6,  component: XNX, borehole: AMU2, depth_m: 35.238}
+    - {channel: 18, sensor: ACC6,  component: XNY, borehole: AMU2, depth_m: 35.238}
+    - {channel: 19, sensor: ACC7,  component: XNZ, borehole: AMU3, depth_m: 47.491}
+    - {channel: 20, sensor: ACC7,  component: XNX, borehole: AMU3, depth_m: 47.491}
+    - {channel: 21, sensor: ACC7,  component: XNY, borehole: AMU3, depth_m: 47.491}
+    - {channel: 22, sensor: ACC8,  component: XNZ, borehole: AMU4, depth_m: 59.729}
+    - {channel: 23, sensor: ACC8,  component: XNX, borehole: AMU4, depth_m: 59.729}
+    - {channel: 24, sensor: ACC8,  component: XNY, borehole: AMU4, depth_m: 59.729}
+    - {channel: 25, sensor: ACC9,  component: XNZ, borehole: DML1, depth_m: 17.855}
+    - {channel: 26, sensor: ACC9,  component: XNX, borehole: DML1, depth_m: 17.855, status: BAD, reason: "Dead — X component"}
+    - {channel: 27, sensor: ACC9,  component: XNY, borehole: DML1, depth_m: 17.855}
+    - {channel: 28, sensor: ACC10, component: XNZ, borehole: DML2, depth_m: 30.062}
+    - {channel: 29, sensor: ACC10, component: XNX, borehole: DML2, depth_m: 30.062, status: BAD, reason: "Dead — X component (uncertain)"}
+    - {channel: 30, sensor: ACC10, component: XNY, borehole: DML2, depth_m: 30.062}
+    - {channel: 31, sensor: ACC11, component: XNZ, borehole: DML3, depth_m: 42.254}
+    - {channel: 32, sensor: ACC11, component: XNX, borehole: DML3, depth_m: 42.254}
+    - {channel: 33, sensor: ACC11, component: XNY, borehole: DML3, depth_m: 42.254}
+    - {channel: 34, sensor: ACC12, component: XNZ, borehole: DML4, depth_m: 54.538, status: BAD, reason: "Dead — Z component"}
+    - {channel: 35, sensor: ACC12, component: XNX, borehole: DML4, depth_m: 54.538, status: BAD, reason: "Dead — X component"}
+    - {channel: 36, sensor: ACC12, component: XNY, borehole: DML4, depth_m: 54.538, status: BAD, reason: "Dead — Y component"}
+    - {channel: 37, sensor: ACC13, component: XNZ, borehole: DMU1, depth_m: 17.907}
+    - {channel: 38, sensor: ACC13, component: XNX, borehole: DMU1, depth_m: 17.907}
+    - {channel: 39, sensor: ACC13, component: XNY, borehole: DMU1, depth_m: 17.907}
+    - {channel: 40, sensor: ACC14, component: XNZ, borehole: DMU2, depth_m: 30.160, status: BAD, reason: "Dead — Z component"}
+    - {channel: 41, sensor: ACC14, component: XNX, borehole: DMU2, depth_m: 30.160, status: BAD, reason: "Dead — X component"}
+    - {channel: 42, sensor: ACC14, component: XNY, borehole: DMU2, depth_m: 30.160, status: BAD, reason: "Dead — Y component"}
+    - {channel: 43, sensor: ACC15, component: XNZ, borehole: DMU3, depth_m: 42.352, status: BAD, reason: "Dead — Z component (uncertain)"}
+    - {channel: 44, sensor: ACC15, component: XNX, borehole: DMU3, depth_m: 42.352}
+    - {channel: 45, sensor: ACC15, component: XNY, borehole: DMU3, depth_m: 42.352}
+    - {channel: 46, sensor: ACC16, component: XNZ, borehole: DMU4, depth_m: 54.544}
+    - {channel: 47, sensor: ACC16, component: XNX, borehole: DMU4, depth_m: 54.544, status: BAD, reason: "Dead — X component"}
+    - {channel: 48, sensor: ACC16, component: XNY, borehole: DMU4, depth_m: 54.544, status: BAD, reason: "Dead — Y component"}
+    # TS-well hydrophones — channels 49-72, present only in full-array config
+    - {channel: 49, sensor: TS24,  component: XDH, borehole: TS24, depth_m: 80.537}
+    - {channel: 50, sensor: TS23,  component: XDH, borehole: TS23, depth_m: 77.712}
+    - {channel: 51, sensor: TS22,  component: XDH, borehole: TS22, depth_m: 75.215}
+    - {channel: 52, sensor: TS21,  component: XDH, borehole: TS21, depth_m: 72.716}
+    - {channel: 53, sensor: TS20,  component: XDH, borehole: TS20, depth_m: 70.202}
+    - {channel: 54, sensor: TS19,  component: XDH, borehole: TS19, depth_m: 67.700}
+    - {channel: 55, sensor: TS18,  component: XDH, borehole: TS18, depth_m: 65.172}
+    - {channel: 56, sensor: TS17,  component: XDH, borehole: TS17, depth_m: 62.676}
+    - {channel: 57, sensor: TS16,  component: XDH, borehole: TS16, depth_m: 60.168}
+    - {channel: 58, sensor: TS15,  component: XDH, borehole: TS15, depth_m: 57.665}
+    - {channel: 59, sensor: TS14,  component: XDH, borehole: TS14, depth_m: 55.163}
+    - {channel: 60, sensor: TS13,  component: XDH, borehole: TS13, depth_m: 52.642}
+    - {channel: 61, sensor: TS12,  component: XDH, borehole: TS12, depth_m: 50.140}
+    - {channel: 62, sensor: TS11,  component: XDH, borehole: TS11, depth_m: 47.646}
+    - {channel: 63, sensor: TS10,  component: XDH, borehole: TS10, depth_m: 45.150}
+    - {channel: 64, sensor: TS09,  component: XDH, borehole: TS09, depth_m: 42.642}
+    - {channel: 65, sensor: TS08,  component: XDH, borehole: TS08, depth_m: 40.127}
+    - {channel: 66, sensor: TS07,  component: XDH, borehole: TS07, depth_m: 37.625}
+    - {channel: 67, sensor: TS06,  component: XDH, borehole: TS06, depth_m: 35.122}
+    - {channel: 68, sensor: TS05,  component: XDH, borehole: TS05, depth_m: 32.620}
+    - {channel: 69, sensor: TS04,  component: XDH, borehole: TS04, depth_m: 30.120}
+    - {channel: 70, sensor: TS03,  component: XDH, borehole: TS03, depth_m: 27.606}
+    - {channel: 71, sensor: TS02,  component: XDH, borehole: TS02, depth_m: 25.116}
+    - {channel: 72, sensor: TS01,  component: XDH, borehole: TS01, depth_m: null,
+       status: BAD, reason: "Unknown / flagged in original channel map"}
+    # System channels — always present in .dat files, never loaded as seismic data
+    - {channel: 73, type: system, label: Clock}
+    - {channel: 74, type: system, label: Encoding}
+    - {channel: 75, type: system, label: Monitor}
+    - {channel: 76, type: system, label: Trigger}
+
+# ---------------------------------------------------------------------------
+
+site:
+  name: CUSSP_new_site
+  coordinate_frame: hmc-grid-nad27-utm13
+
+geometry:
+  station_file: /home/chopp/stations_hmc.csv
+  station_xyz_columns: [hmc_east_m, hmc_north_m, hmc_z_minus_depth_m]
+  station_fallback_z_column: hmc_z_m_asl
+
+  # Source geometry should be provided as CSV with columns:
+  # source_id,x,y,z
+  source_file: /data/chet-cussp/cassm/sources_hmc.csv
+  source_xyz_columns: [x, y, z]
+
+  # Optional pair-level exclusions for known bad channels/sources.
+  # Leave null/empty for new site commissioning.
+  reject_pairs_file: null
+
+velocity:
+  vp_background_mps: 6900.0
+  slowness_background_s_per_m: auto_from_vp
+
+grid:
+  spacing_m: [0.5, 0.5, 0.5]
+  # auto bounds = min/max over sources+receivers padded by margin_m
+  margin_m: 0.5
+  explicit_bounds: null
+  # explicit_bounds format (if provided):
+  # [xmin, xmax, ymin, ymax, zmin, zmax]
+
+regularization:
+  kap_xyz: [1.0, 1.0, 1.0]
+  reg_xyz: [1.0, 1.0, 1.0]
+  max_iter: 10
+  rel_step: 0.2
+  nl_residual: 1.0e-6
+
+prior_mask:
+  # IMPORTANT: for the new site, do not localize to a fault zone.
+  mode: full_domain
+  default_weight: 1.0
+
+qc:
+  # Keep strict assumptions off for commissioning. Enable only after baseline QC.
+  drop_known_bad_sources: []
+  variance_reject_fraction: 0.0
+  min_snr_db: null

@@ -34,7 +34,12 @@ while IFS= read -r -d '' f; do
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "DRY RUN: would delete $f"
     else
-        rm -- "$f" && (( DELETED++ )) || { echo "ERROR deleting $f"; (( ERRORS++ )); }
+        if rm -- "$f"; then
+            DELETED=$((DELETED + 1))
+        else
+            echo "ERROR deleting $f"
+            ERRORS=$((ERRORS + 1))
+        fi
     fi
 done < <(find "$XML_DIR" -name "*.xml" -mtime "+${MIN_AGE_DAYS}" -print0)
 

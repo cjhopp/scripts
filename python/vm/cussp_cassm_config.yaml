@@ -1,0 +1,333 @@
+# CUSSP CASSM Processing Configuration
+# This file centralizes all processing parameters. Edit as needed, then run:
+#   cussp_cassm_process.py --config cussp_cassm_config.yaml
+
+# ============================================================================
+# DATA PATHS
+# ============================================================================
+data:
+  # Raw epoch folder root (SEG2 .dat files or NPZ archives)
+  data_dir: /media/chopp/HDD1/chet-cussp/wavs/cassm/sigmav_archive
+  
+  # HDF5 cache file (preferred over NPZ; holds full-resolution waveforms)
+  cache_file: /home/chopp/cassm_local/live/cassm_tempgather_full.h5
+  
+  # Output bundle (compact metrics for visualization)
+  bundle_file: /home/chopp/cassm_local/live/cassm_dashboard_bundle_full.npz
+  
+  # Manifest JSON (metadata and update time)
+  manifest_file: /home/chopp/cassm_local/live/cassm_dashboard_manifest.json
+  
+  # QC plots and statistics directory
+  qc_dir: /home/chopp/cassm_local/live/processing_qc
+  
+  # URL prefix for QC plot links in manifest
+  qc_url_prefix: /cassm-processing
+  
+  # Inversion results directory (for publication in manifest)
+  inversion_dir: /data/chet-cussp/cassm/inversion/live
+  
+  # URL prefix for inversion plot links
+  inversion_url_prefix: /cassm-inversion
+
+# ============================================================================
+# ARRAY GEOMETRY
+# ============================================================================
+# CUSSP 'cussp' configuration: 16 sources, 16 accelerometers × 3 + 24 hydrophones
+geometry:
+  n_sources: 16
+  n_receivers: 72  # 48 accel (ch 1-48) + 24 hydro (ch 49-72)
+  sample_count: 3840
+  sample_rate_hz: 48000.0
+
+# ============================================================================
+# CHANNEL CONFIGURATION & QUALITY CONTROL
+# ============================================================================
+channels:
+  # Comma-separated 1-based Geode channel numbers to zero at ingest.
+  # Channel 72 (TS01, XDH) is permanently bad per the channel map.
+  known_bad_channels: "72"
+  
+  # Comma-separated 1-based channel numbers to KEEP. All others are zeroed.
+  # Leave empty to keep all channels. Use to select one component per 3-C accelerometer.
+  # Example for one-per-sensor (Z preferred, fallback where Z is dead):
+  #   "1,5,7,12,13,16,19,22,25,28,31,37,44,46,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71"
+  active_channels: "1,5,7,12,13,16,19,22,25,28,31,37,44,46,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71"
+  
+  # Comma-separated borehole well names for each source (0-based source index order).
+  # Same-well pairs (source and receiver in same borehole) are excluded from inversion.
+  # CUSSP 16-source example:
+  #   "AML,AML,AML,AML,AMU,AMU,AMU,AMU,DML,DML,DML,DML,DMU,DMU,DMU,DMU"
+  source_boreholes: "AML,AML,AML,AML,AMU,AMU,AMU,AMU,DML,DML,DML,DML,DMU,DMU,DMU,DMU"
+
+# ============================================================================
+# WAVEFORM PREPROCESSING
+# ============================================================================
+preprocessing:
+  # Time window for first-break search (seconds)
+  pick_search_s: 0.012
+  
+  # Symmetric xcorr window width (seconds). Ignored when both
+  # window_pre_pick_ms and window_post_pick_ms are set.
+  window_s: 0.003
+  
+  # Asymmetric xcorr window: pre-pick noise buffer (ms).
+  # Recommended: 0.2–0.5 ms. Overrides window_s when paired with window_post_pick_ms.
+  window_pre_pick_ms: 0.1
+  
+  # Asymmetric xcorr window: post-pick signal region (ms).
+  # Recommended: 1.0–2.0 ms. Overrides window_s when paired with window_pre_pick_ms.
+  window_post_pick_ms: 0.5
+  
+  # Hard zero clip at start of search window (seconds, applies to all channels)
+  clip_first_s: 0.0015
+  
+  # Mute (zero for picking) at start of search window (seconds, applies to all channels)
+  mute_first_s: 0.0015
+  
+  # Hydrophone-specific clip window (seconds). Hydrophones lack the low-frequency
+  # electrical noise that contaminates accelerometers, so this can be set lower.
+  # Set to null to use clip_first_s for all channels.
+  hydro_clip_first_s: 0.001
+  
+  # Hydrophone-specific mute window (seconds). Use 0.001 or 0.0 to allow picks
+  # closer to time-zero on hydrophones. Set to null to use mute_first_s for all channels.
+  hydro_mute_first_s: 0.001
+  
+  # Cosine taper fraction applied at the edge of the search window
+  taper_fraction: 0.01
+
+# ============================================================================
+# BANDPASS FILTERING
+# ============================================================================
+filters:
+  # Global filter bounds (Hz). Set to 0 to disable.
+  low_hz: 0.0
+  high_hz: 0.0
+  order: 4
+  
+  # Accelerometer-specific filter (overrides global when set).
+  # Leave as null to use the global filter for accelerometers.
+  accel_low_hz: 5000.0
+  accel_high_hz: 15000.0
+  
+  # Hydrophone-specific filter (overrides global when set).
+  # Leave as null to use the global filter for hydrophones.
+  hydro_low_hz: 5000.0
+  hydro_high_hz: 15000.0
+
+# ============================================================================
+# PICKING ALGORITHM
+# ============================================================================
+picking:
+  # Picker: 'aic' (Maeda AIC, default, best for sharp P onsets),
+  #         'stalta' (causal STA/LTA energy ratio),
+  #         'gradient' (max absolute gradient, legacy)
+  method: aic
+  
+  # STA window length (seconds, used only for stalta picker)
+  # Default: 0.0002 s = 10 samples at 50 kHz
+  stalta_short_s: 0.0002
+  
+  # LTA window length (seconds, used only for stalta picker)
+  # Default: 0.0015 s = 75 samples at 50 kHz
+  stalta_long_s: 0.0015
+  
+  # STA/LTA trigger threshold (used only for stalta picker)
+  stalta_threshold: 3.0
+  
+  # AIC edge guard: restrict search to [margin, n-margin] within the search segment
+  # Default: 10 samples = 0.2 ms at 50 kHz (used only for aic picker)
+  aic_margin_samples: 10
+  
+  # Minimum SNR to accept an AIC pick (used only for aic picker)
+  # SNR = 0.707 * peak(|x[pick:]|) / RMS(x[margin:pick])
+  # SeisComP default is 3.0; 0 = accept all
+  aic_min_snr: 0.0
+  
+  # ISO-8601 date/datetime (UTC) marking end of baseline period.
+  # Example: "2026-05-06" or "2026-05-06T12:00:00Z"
+  # All epochs with timestamp <= this value count as baseline.
+  # This is the only baseline selector (baseline_n_epochs removed).
+  baseline_end_date: "2026-05-06T12:00:00Z"
+
+# ============================================================================
+# CROSS-CORRELATION & DT MEASUREMENT
+# ============================================================================
+xcorr:
+  # Method: 'xcorr' (default, matches MATLAB dsiCASSMdelaySequenceEstWinPar,
+  #         uses one baseline pick + windowed xcorr per epoch for ±1-5 µs precision),
+  #         'pick' (legacy independent picker per epoch, noisier ±20-100 µs)
+  method: xcorr
+
+  # ---------------------------------------------------------------------------
+  # ENVELOPE-GUIDED XCORR (cycle-skip resistant two-stage correlation)
+  # ---------------------------------------------------------------------------
+  # Stage 1 — Hilbert envelope xcorr over a WIDE lag range:
+  #   Finds the approximate location of the wave-packet energy, free of
+  #   cycle ambiguity.  One broad peak even when the waveform is multi-peaked.
+  # Stage 2 — Waveform xcorr centered on the coarse lag ±fine_half_lag_ms:
+  #   Locks onto the correct cycle with full sub-sample (parabolic) precision.
+  # When envelope_peak_cc < envelope_min_peak_cc the epoch is NaN-rejected
+  # (visible in QC and dashboard pairwise plots) rather than silently using
+  # a potentially cycle-skipped unguided result.
+  # Envelope guidance is applied ONLY to DM*→TS hydrophone pairs (the pair
+  # family that exhibited cycle-skip problems).  All other pairs use standard
+  # unguided xcorr regardless of this flag.
+  envelope_guide: true
+
+  # Coarse search half-width (ms).  0.50 ms = ±24 samples at 48 kHz, which
+  # matches the DTW max_shift and accommodates large injection-induced delays
+  # while remaining cycle-skip-safe with the 4.8-sample cycle period at 10 kHz.
+  envelope_max_lag_ms: 0.50
+
+  # Uniform smoothing half-width applied to the envelope before xcorr.
+  # Suppresses intra-cycle ripple.  5 samples (~0.1 ms at 48 kHz) works well
+  # for 10 kHz wavelets; increase to 8–10 for lower-frequency sources.
+  envelope_smooth_samples: 5
+
+  # Minimum envelope xcorr peak to trust the coarse lag estimate.
+  # Below this the epoch is NaN-rejected.  0.20 is deliberately permissive;
+  # raise to 0.30–0.40 if you see spurious coarse lags on very noisy pairs.
+  envelope_min_peak_cc: 0.20
+
+  # Fine waveform xcorr search half-width (ms), centered on the coarse lag.
+  # Must be < ½ dominant period so the fine search cannot jump a cycle.
+  # At 10 kHz dominant frequency one half-period ≈ 0.05 ms (2.4 samples at
+  # 48 kHz).  4 samples (0.0833 ms) = ±2.0 half-cycles — safely below one full
+  # cycle (4.8 samp) while tolerating coarse lag jitter of ±2.4 samples for
+  # pairs with less stable envelope estimates.
+  # The envelope coarse stage already uses a wide window (±envelope_max_lag_ms)
+  # to locate the energy peak, so the fine search only needs a small refinement
+  # window around that coarse estimate.
+  fine_half_lag_ms: 0.0840
+
+  # Causal running-median window (epochs) applied per-pair to smooth the raw
+  # coarse envelope lag before using it as the fine-search center.
+  # Diagnostic data showed raw coarse lags jumping 100+ µs between adjacent
+  # epochs; the smoothed version tracks slow injection-driven trends while
+  # rejecting transient noise in the envelope estimate.
+  # The raw coarse lag is still stored as envelope_lag_us for QC inspection.
+  # The smoothed version (envelope_smooth_lag_us) is what actually guides the
+  # fine xcorr search center and is also published to the per-pair plots.
+  # Set to 1 to disable smoothing (use raw lag directly as the guide).
+  guide_smooth_epochs: 5
+
+  # Post-xcorr acceptance gate: reject lags outside this bound even if they
+  # are the xcorr maximum.  With envelope-guided mode the fine search is
+  # already narrow (±fine_half_lag_ms), so these guards are a secondary
+  # safety net rather than the primary cycle-skip defence.
+  accept_max_lag_ms: 0.05           # accelerometers (ch 1-48): ±50 µs
+  accept_max_lag_hydro_ms: 0.05     # hydrophones (ch 49-72): ±50 µs
+  accept_max_lag_dm_hydro_ms: 0.15  # DM*→hydro ray paths cross injection zone: ±150 µs
+
+  # Minimum normalized waveform xcorr peak to accept a dt.
+  # This gates the FINE waveform xcorr result, not the envelope.
+  min_peak_cc: 0.2
+
+  # Edge guard: reject peaks this close to the search-window edge.
+  # Keep at 0 with a tight accepted-lag gate to avoid over-rejecting valid lags.
+  edge_guard_samples: 0
+
+  # ---------------------------------------------------------------------------
+  # RESIDUAL NOISE CLEANING
+  # ---------------------------------------------------------------------------
+  # Single-epoch dt despike: masks isolated dt spikes deviating from the local
+  # 3-point median by > despike_mad_thresh × global MAD.  Catches epochs where
+  # even the envelope-guided fine xcorr lands on a noise peak.
+  despike_single_epoch: true
+  despike_mad_thresh: 5.0
+
+  # Short branch-run masking: removes brief multi-epoch excursions that jump
+  # away from a stable dt level and return within short_run_max_len_epochs.
+  # Catches residual toggling between two stable dt levels that survive despiking.
+  mask_short_runs: true
+  short_run_max_len_epochs: 4
+  short_run_min_amp_us: 35.0
+  short_run_neighbor_tol_us: 12.0
+
+# ============================================================================
+# DYNAMIC TIME WARPING (DTW) — DM*→TS PAIR LARGE-LAG RECOVERY
+# ============================================================================
+dtw:
+  # Enable DTW-derived dt estimation for DM*→TS hydrophone pairs.
+  # DTW is cycle-skip-resistant and can recover large lags (>cycle period).
+  # Restricted to DM*→TS pairs only; all other pairs use xcorr as normal.
+  enabled: false
+
+  # Maximum time-warp magnitude (milliseconds). DTW search is constrained to a
+  # Sakoe-Chiba band of ±this width around the diagonal, making it robust to
+  # cycle-skip while avoiding pathological warps.
+  # Phase A diagnostics showed ~200 µs needed for injection-zone rays; using
+  # 0.25 ms (12 samples @ 48 kHz) as conservative starting point.
+  # If diagnostics show saturation or high NaN, increase to 0.5–1.0 ms.
+  max_shift_ms: 0.5
+
+  # Local warp slope limit (di/dj ratio). Constrains the time-axis warping
+  # to physical slowdown/speedup; ~2 allows ±50% slowdown/speedup per sample.
+  strain_limit: 2.0
+
+  # Minimum NCC to accept DTW result. Below this, the epoch is NaN-rejected.
+  min_ncc: 0.2
+
+# ============================================================================
+# FWI-DERIVED DT
+# ============================================================================
+fwi_dt:
+  # Enable FWI-derived dt estimation for supported source-receiver pairs.
+  enabled: false
+
+  # Source and receiver selectors (CSV). Leave empty to use defaults.
+  sources_csv: /home/chopp/cassm_local/inversion/input/sources_hmc.csv
+  receivers_csv: /home/chopp/cassm_local/inversion/input/receivers_hmc.csv
+
+  # Solver backend: 'analytic', 'fd2d', or 'devito'.
+  solver: fd2d
+
+  # Grid spacing and padding for the FWI model.
+  grid_dx_m: 0.5
+  grid_dz_m: 0.5
+  grid_padding_m: 20.0
+  vp_background_mps: 6900.0
+
+# ============================================================================
+# MANUAL PICKS (GUI PICKER OUTPUT)
+# ============================================================================
+manual_picks:
+  # JSON file produced by cussp_cassm_picker.py with format:
+  #   {"pair_index": pick_sample_int, ...}
+  # Leave empty to skip manual picks.
+  file: "/home/chopp/cassm_local/live/manual_picks.json"
+  
+  # If true, only process pairs that have an entry in the manual_picks file.
+  # Pairs without a manual pick are excluded from metric computation.
+  require: true
+
+# ============================================================================
+# OUTPUT & PUBLICATION
+# ============================================================================
+output:
+  # Number of samples in lightweight preview waveforms for remote visualization
+  preview_samples: 400
+  
+  # Maximum number of QC plots to keep in output directory
+  max_qc_items: 20
+  
+  # Maximum number of inversion outputs to keep
+  max_inversion_items: 20
+  
+  # Maximum number of pairs to include in QC heatmaps and plots
+  max_pairs: 60
+  
+  # Number of pairs to show in baseline pick gallery
+  baseline_plot_samples: 60
+
+# ============================================================================
+# WATCH MODE (CONTINUOUS PROCESSING)
+# ============================================================================
+watch:
+  # If true, run continuously and poll for new epochs
+  enabled: false
+  
+  # Poll period in seconds (minimum 5 s)
+  period_s: 300

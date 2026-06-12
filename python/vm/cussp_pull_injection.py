@@ -158,6 +158,10 @@ def sync_from_drive(remote_folder, staging_dir, drive_shared_with_me=False):
         "4",
         "--transfers",
         "2",
+        "--contimeout",
+        "30s",
+        "--timeout",
+        "60s",
     ]
     if drive_shared_with_me:
         cmd.append("--drive-shared-with-me")
