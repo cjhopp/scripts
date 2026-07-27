@@ -46,35 +46,124 @@ from obspy.core.event import (
 )
 from obspy.core.inventory import Inventory
 from obspy.core.stream import Stream
+from obspy.clients.fdsn import Client
 
 # EQcorrscan imports
 from eqcorrscan import Party
+from eqcorrscan.core.match_filter import Family, Template
 from eqcorrscan.utils import catalog_to_dd
+from eqcorrscan.utils.pre_processing import multi_process
+
+# ── Monkey-patch Family._process_streams ──────────────────────────────────────
+# EQcorrscan's _process_streams calls stream.merge() (default method=0) on the
+# pre_processed=True branch, then immediately calls .split().  The default merge
+# fills every gap with a masked array covering the full time span between
+# non-adjacent traces of the same SEED ID.  For a family whose detections span
+# many years this allocates 10s–100s of GB.  Since .split() follows immediately,
+# gap-filling is pointless; method=-1 (remove exact overlaps/duplicates only)
+# produces the same result without the memory bomb.
+_orig_process_streams = Family._process_streams
+
+def _patched_process_streams(self, stream, pre_processed, **kwargs):
+    if pre_processed:
+        return stream.merge(method=-1).split()
+    return _orig_process_streams(self, stream, pre_processed, **kwargs)
+
+Family._process_streams = _patched_process_streams
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Monkey-patch catalog_to_dd._compute_dt_correlations ───────────────────────
+# Bug in installed EQcorrscan: when a master event has no neighbors within
+# MAX_SEP (sub_catalog is empty), _compute_dt_correlations still tries to
+# create a Pool with len(event_ids)=0 when max_workers > 1, raising:
+#   ValueError: Number of processes must be at least 1
+# Guard against the empty-catalog case by returning immediately.
+_orig_compute_dt_correlations = catalog_to_dd._compute_dt_correlations
+
+def _safe_compute_dt_correlations(catalog, master, *args, **kwargs):
+    if not catalog:
+        return []
+    return _orig_compute_dt_correlations(catalog, master, *args, **kwargs)
+
+catalog_to_dd._compute_dt_correlations = _safe_compute_dt_correlations
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Monkey-patch catalog_to_dd.write_station ───────────────────────────────────
+# Deduplicate stations by (code, latitude, longitude) to avoid redundant entries
+# in station.dat when the same station appears in multiple networks or is
+# duplicated in the inventory.
+_orig_write_station = catalog_to_dd.write_station
+
+def _dedup_write_station(inventory, use_elevation=False, filename="station.dat"):
+    """Write station.dat with automatic deduplication."""
+    station_strings = []
+    seen = set()
+    formatter = "{sta:<7s} {lat:>9.5f} {lon:>10.5f}"
+    if use_elevation:
+        formatter = " ".join([formatter, "{elev:>5.0f}"])
+
+    for network in inventory.networks:
+        for station in network.stations:
+            # Deduplicate by code and coordinates rounded to 5 decimals (matching formatter)
+            key = (station.code, round(station.latitude, 5), round(station.longitude, 5))
+            if key in seen:
+                continue
+            seen.add(key)
+            
+            parts = dict(sta=station.code, lat=station.latitude,
+                         lon=station.longitude)
+            if use_elevation:
+                channel_depths = {chan.depth for chan in station.channels}
+                if len(channel_depths) == 0:
+                    depth = 0.0
+                else:
+                    depth = channel_depths.pop()
+                if len(channel_depths) > 1:
+                    pass  # Multiple depths warning omitted to reduce log noise
+                parts.update(dict(elev=station.elevation - depth))
+            station_strings.append(formatter.format(**parts))
+    
+    with open(filename, "w") as f:
+        f.write("\n".join(station_strings))
+
+catalog_to_dd.write_station = _dedup_write_station
+# ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ── CONFIGURATION ──────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Input paths
-PARTY_PATH = (
+PARTY_FILE = (
     "/media/chopp/HDD1/chet-meq/smackover/detections/lawrencium"
-    "/Smackover_analyzed_raw.tgz"
-)
-WAVEFORM_DIR = (
-    "/media/chopp/HDD1/chet-meq/smackover/detections/lawrencium"
-    "/waveforms/smackover_north_analyzed/MAD12_2hr"
+    "/Smackover_analyzed_decluter10.tgz"
 )
 INVENTORY_PATH = (
     "/media/chopp/HDD1/chet-meq/smackover/templates/tribe_analysis"
     "/station_inventory.xml"
 )
 
+# FDSN Client & cache settings for lag_calc raw streams
+FDSN_CLIENT_NAME = "IRIS"
+FDSN_CACHE_DIR = "./fdsn_cache"
+FETCH_BEFORE = 10.0   # seconds before detection time
+FETCH_AFTER = 30.0   # seconds after detection time
+
+# Unified Picking Parameters
+LAG_MIN_CC = 0.4       # Slack correlation threshold for both lag_calc and dt.cc
+LAG_SHIFT_LEN = 0.5   # Shift len for both lag_calc and dt.cc
+
 # Output directory
 OUTPUT_DIR = "./"
 
-MIN_CHANS = 3
+MIN_CHANS = 1
 
 DEFAULT_DEPTH_KM = 5.0  # Default depth for events without depth estimates
+
+# Number of detections to process per lag_calc call within a family.
+# Caps peak memory to: CHUNK_SIZE × n_template_channels × window_length × samp_rate × 4 bytes.
+# E.g. 50 × 2 × 40s × 100sps × 4B ≈ 1.6 MB per chunk stream. Tune up if memory permits.
+LAG_CALC_CHUNK_SIZE = 50
 
 # Quality filters (from plot_smackover_detections.py)
 # Templates to exclude entirely (noise/artefacts)
@@ -111,18 +200,16 @@ SPIKE_DAY_EXCLUSIONS: Dict[str, List[str]] = {
 
 # HypoDD parameters
 MAX_SEP = 25.0          # km, max hypocentral separation to link events
-MIN_LINK = 3           # minimum shared phase observations
-MIN_CC = 0.6           # correlation coefficient threshold
+MIN_LINK = 1           # minimum shared phase observations
 
 # Correlation parameters for dt.cc
 EXTRACT_LEN = 3.0      # seconds around pick
 PRE_PICK = 0.5         # seconds before pick
-SHIFT_LEN = 0.5        # max allowed pick shift (seconds)
-LOWCUT = 1.0           # Hz
-HIGHCUT = 20.0         # Hz
+LOWCUT = 0.5           # Hz
+HIGHCUT = 19.0         # Hz
 
 # Advanced options
-MAX_WORKERS = None     # None = auto; set to limit parallel processing
+MAX_WORKERS = 1     # None = auto; set to limit parallel processing
 USE_ELEVATION = True   # Include elevation in station.dat if available
 PARALLEL_PROCESS = False  # Process streams in parallel (memory intensive)
 WEIGHT_BY_SQUARE = True   # Weight by correlation² vs raw correlation
@@ -145,87 +232,187 @@ log = logging.getLogger(__name__)
 # ── UTILITY FUNCTIONS ──────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
 
-def load_party_as_catalog(party_path: str) -> Catalog:
+def load_party(party_path: str) -> Party:
     """
-    Load Party file and convert detections to a Catalog for HypoDD processing.
-    
-    Each Detection already has an Event object with real picks including proper
-    network/station/channel codes. We use those directly, preserving all the
-    pick information. The no_chans field is preserved via the pick count.
+    Load a EQcorrscan Party object from a tgz/tar file.
     
     Parameters
     ----------
     party_path : str
-        Path to Party .tgz file.
+        Path to party.tgz file.
         
     Returns
     -------
-    Catalog
-        ObsPy Catalog object with events extracted from detections.
+    Party
+        EQcorrscan Party object.
+        
+    Raises
+    ------
+    FileNotFoundError
+        If party file does not exist.
     """
     log.info(f"Loading Party from: {party_path}")
     
     if not os.path.exists(party_path):
         raise FileNotFoundError(f"Party file not found: {party_path}")
     
-    party = Party().read(party_path, read_detection_catalog=False)
-    log.info(f"  Loaded Party with {len(party.families)} families")
+    try:
+        # Load party without the detection catalog to avoid massive memory usage (OOM)
+        # and extremely slow linear lookups in _read_family (O(N*M)).
+        # Since lag_calc immediately overwrites/regenerates all detection events/picks,
+        # loading the catalog.xml from the archive is completely redundant.
+        party = Party().read(party_path, read_detection_catalog=False)
+    except Exception as exc:
+        log.error(f"Failed to read Party: {exc}")
+        raise
     
-    events = []
-    for family in party.families:
-        template_name = family.template.name
+    log.info(f"  Loaded Party with {len(party.families)} families.")
+    total_detections = sum(len(f.detections) for f in party.families)
+    log.info(f"  Total detections: {total_detections}")
+    
+    return party
+
+
+def fix_event_origins(
+    catalog: Catalog, template_map: Dict[str, Template]
+) -> Catalog:
+    """
+    Fix event origins using template coordinates and detection times.
+    
+    For each lag_calc detection event in the catalog:
+    - Extract template name from resource_id
+    - Look up template in template_map (EQcorrscan Template object)
+    - Use template's location (latitude, longitude, depth) for event's origin
+    - Compute origin.time = template_origin.time + (detect_time - t_template_start)
+      This produces travel times (pick.time - origin.time) equal to template travel
+      times adjusted by per-channel lag_calc shifts.
+    
+    Parameters
+    ----------
+    catalog : Catalog
+        Catalog with events from lag_calc.
+    template_map : Dict[str, Template]
+        Mapping of template name -> EQcorrscan Template object.
         
-        for detection in family.detections:
-            # Use the Detection's event directly (it has real picks with proper codes)
-            if detection.event is None:
-                log.warning(f"Detection for {template_name} at {detection.detect_time} has no event, skipping")
-                continue
-            
-            event = detection.event.copy()
-            
-            # Update origin time to match detection time (more accurate)
-            if len(event.origins) > 0:
-                event.origins[0].time = detection.detect_time
-            else:
-                # Fallback: create origin if not present
-                template_origin = family.template.event.origins[0] if family.template.event.origins else None
-                if template_origin:
-                    origin = Origin(
-                        time=detection.detect_time,
-                        latitude=template_origin.latitude,
-                        longitude=template_origin.longitude,
-                        depth=template_origin.depth if template_origin.depth else (DEFAULT_DEPTH_KM * 1000),
-                    )
-                else:
-                    origin = Origin(
-                        time=detection.detect_time,
-                        latitude=0.0,
-                        longitude=0.0,
-                        depth=DEFAULT_DEPTH_KM * 1000,
-                    )
-                event.origins.append(origin)
-            
-            # Update resource_id to include template name and detection time for mapping
-            iso_timestamp = detection.detect_time.isoformat()
-            event.resource_id = f"smi:local/{template_name}_{iso_timestamp}"
-            
-            events.append(event)
+    Returns
+    -------
+    Catalog
+        Updated catalog with origins added/fixed.
+    """
+    log.info(f"Fixing event origins using {len(template_map)} templates...")
     
-    catalog = Catalog(events=events)
-    log.info(f"  Converted to Catalog: {len(catalog)} events")
+    n_fixed = 0
+    n_failed = 0
     
-    # Log pick (no_chans) distribution
-    pick_counts = [len(e.picks) if e.picks else 0 for e in catalog]
-    if pick_counts:
-        log.info(f"  picks per event distribution: min={min(pick_counts)}, max={max(pick_counts)}, median={int(np.median(pick_counts))}")
-        n_with_3plus = sum(1 for c in pick_counts if c >= 3)
-        log.info(f"  Detections with >= 3 picks: {n_with_3plus}/{len(catalog)}")
+    for event in catalog:
+        # Extract resource_id string (format: smi:local/{template_name}_{YYYYMMDD}_{HHMMSSNNNNNN})
+        # or just {template_name}_{YYYYMMDD}_{HHMMSSNNNNNN}
+        event_id_str = str(event.resource_id.id)
+        if "/" in event_id_str:
+            event_id_short = event_id_str.split("/")[1]
+        else:
+            event_id_short = event_id_str
         
-        # Sample a few picks to show they have proper codes
-        if len(catalog) > 0 and len(catalog[0].picks) > 0:
-            sample_pick = catalog[0].picks[0]
-            log.info(f"  Sample pick: {sample_pick.waveform_id.network_code}.{sample_pick.waveform_id.station_code}."
-                    f"{sample_pick.waveform_id.location_code}.{sample_pick.waveform_id.channel_code}")
+        # Parse template name and detection time from resource_id
+        # Format: template_name_YYYYMMDD_HHMMSSNNNNNN
+        # Split on '_' to get [...template_parts, YYYYMMDD, HHMMSSNNNNNN]
+        # Handle template names with underscores by using last two tokens for date/time
+        tokens = event_id_short.split("_")
+        if len(tokens) < 3:
+            log.debug(
+                f"  Malformed resource_id {event.resource_id.id} "
+                f"(expected at least 3 underscore-separated tokens)"
+            )
+            n_failed += 1
+            continue
+        
+        # Last two tokens: YYYYMMDD and HHMMSSNNNNNN
+        datetime_token = tokens[-2]  # YYYYMMDD
+        time_token = tokens[-1]       # HHMMSSNNNNNN (12 digits: HHMMSS + 6-digit microseconds)
+        template_name = "_".join(tokens[:-2])  # Everything before the date
+        
+        # Validate and parse datetime tokens
+        if len(datetime_token) != 8 or len(time_token) != 12:
+            log.debug(
+                f"  Malformed date/time tokens in {event.resource_id.id}: "
+                f"datetime={datetime_token}, time={time_token}"
+            )
+            n_failed += 1
+            continue
+        
+        try:
+            year = int(datetime_token[0:4])
+            month = int(datetime_token[4:6])
+            day = int(datetime_token[6:8])
+            hour = int(time_token[0:2])
+            minute = int(time_token[2:4])
+            second = int(time_token[4:6])
+            microsecond = int(time_token[6:12])
+            detect_time = UTCDateTime(year, month, day, hour, minute, second, microsecond)
+        except (ValueError, IndexError) as exc:
+            log.debug(
+                f"  Failed to parse detection time from {event.resource_id.id}: {exc}"
+            )
+            n_failed += 1
+            continue
+        
+        # Lookup template
+        if template_name not in template_map:
+            log.debug(
+                f"  Template '{template_name}' not in template_map for event {event.resource_id.id}"
+            )
+            n_failed += 1
+            continue
+        
+        template = template_map[template_name]
+        
+        # Get template origin
+        try:
+            template_origin = (
+                template.event.preferred_origin()
+                or template.event.origins[0]
+            )
+        except (IndexError, AttributeError, TypeError):
+            log.warning(f"  Template {template_name} has no valid origin")
+            n_failed += 1
+            continue
+        
+        # Compute template trace start time (minimum starttime across all traces)
+        try:
+            t_template_start = min(tr.stats.starttime for tr in template.st)
+        except (ValueError, AttributeError):
+            log.warning(f"  Template {template_name} has no traces or invalid trace stats")
+            n_failed += 1
+            continue
+        
+        # Compute detection origin time using the formula:
+        # origin_time = template_origin.time + (detect_time - t_template_start)
+        # This makes: tt_detection = pick.time - origin_time
+        #                          = (pick.time - t_template_start + shift)
+        #                          = (template_tt + shift) ✓
+        event_time = template_origin.time + (detect_time - t_template_start)
+        
+        # Create/update origin with template coords and computed detection time
+        new_origin = Origin(
+            time=event_time,
+            latitude=template_origin.latitude,
+            longitude=template_origin.longitude,
+            depth=template_origin.depth,
+            creation_info=CreationInfo(
+                author="generate_hypoDD_inputs.py",
+                creation_time=UTCDateTime.now()
+            )
+        )
+        
+        # Clear existing origins and add new one
+        event.origins = [new_origin]
+        event.preferred_origin_id = new_origin.resource_id
+        
+        n_fixed += 1
+    
+    log.info(f"  Fixed {n_fixed} event origins")
+    if n_failed > 0:
+        log.warning(f"  Failed to fix {n_failed} events")
     
     return catalog
 
@@ -268,98 +455,343 @@ def load_and_validate_inventory(inventory_path: str) -> Inventory:
     return inventory
 
 
-def apply_quality_filters(catalog: Catalog) -> Tuple[Catalog, Catalog]:
+def apply_quality_filters_party(party: Party) -> Party:
     """
-    Apply quality filters to the catalog, matching plot_smackover_detections.py order:
-      1. Remove events from excluded templates (TEMPLATE_EXCLUSIONS)
-      2. Remove events on spike days (SPIKE_DAY_EXCLUSIONS)
-      3. Remove events with fewer than MIN_CHANS picks
+    Apply quality filters to the Party:
+      1. Remove families whose templates are in TEMPLATE_EXCLUSIONS
+      2. Remove individual detections on spike days (SPIKE_DAY_EXCLUSIONS)
+      3. Remove individual detections with fewer than MIN_CHANS template channels
     
     Parameters
     ----------
-    catalog : Catalog
-        Input catalog.
+    party : Party
+        Input Party.
         
     Returns
     -------
-    Tuple[Catalog, Catalog]
-        (filtered_catalog, raw_catalog) where:
-        - raw_catalog: after template/spike-day filters but BEFORE MIN_CHANS
-        - filtered_catalog: after all filters including MIN_CHANS
+    Party
+        Filtered Party (rebuilt with filtered families).
     """
-    log.info("Applying quality filters (matching plot_smackover_detections.py)...")
-    original_len = len(catalog)
-    
-    events = list(catalog.events) if catalog.events else []
-    n_excluded_template = 0
-    n_excluded_spike = 0
+    log.info("Applying quality filters to Party...")
     
     # ── Filter 1: Whole-template exclusions ──────────────────────────────────
-    if TEMPLATE_EXCLUSIONS:
-        n_before = len(events)
-        events = [
-            e for e in events
-            if _extract_template_name(e) not in TEMPLATE_EXCLUSIONS
-        ]
-        n_excluded_template = n_before - len(events)
-        log.info(
-            f"  Template exclusions: dropped {n_excluded_template:,} events "
-            f"for {len(TEMPLATE_EXCLUSIONS)} templates: {TEMPLATE_EXCLUSIONS}"
-        )
-    
-    # ── Filter 2: Spike-day exclusions (applied BEFORE MIN_CHANS filter) ────────
-    if SPIKE_DAY_EXCLUSIONS:
-        n_before = len(events)
-        events_keep = []
-        for event in events:
-            template_name = _extract_template_name(event)
-            
-            # Check if this event is on a spike day for its template
-            if template_name in SPIKE_DAY_EXCLUSIONS and len(event.origins) > 0:
-                origin_time = event.origins[0].time
-                event_date_str = origin_time.datetime.strftime("%Y-%m-%d")
-                
-                if event_date_str in SPIKE_DAY_EXCLUSIONS[template_name]:
-                    continue  # Skip this event
-            
-            events_keep.append(event)
+    n_before_templates = len(party.families)
+    filtered_families = []
+    for family in party.families:
+        if family.template.name in TEMPLATE_EXCLUSIONS:
+            continue
+        filtered_families.append(family)
         
-        n_excluded_spike = n_before - len(events_keep)
-        events = events_keep
+    n_dropped_templates = n_before_templates - len(filtered_families)
+    log.info(
+        f"  Template exclusions: dropped {n_dropped_templates} families "
+        f"for {len(TEMPLATE_EXCLUSIONS)} templates"
+    )
+    
+    # ── Filter 2 & 3: Spike-day and MIN_CHANS ───────────────────────────────
+    final_families = []
+    total_original = 0
+    total_kept = 0
+    
+    for family in filtered_families:
+        template_name = family.template.name
+        spike_dates = SPIKE_DAY_EXCLUSIONS.get(template_name, [])
+        
+        filtered_detections = []
+        for detection in family.detections:
+            total_original += 1
+            
+            # Spike day filter
+            detect_date_str = detection.detect_time.datetime.strftime("%Y-%m-%d")
+            if detect_date_str in spike_dates:
+                continue
+            
+            # MIN_CHANS check (detection.chans is list of (station, channel) tuples)
+            if len(detection.chans) < MIN_CHANS:
+                continue
+                
+            filtered_detections.append(detection)
+            
+        total_kept += len(filtered_detections)
+        
+        # Only keep family if it contains detections after filtering
+        if filtered_detections:
+            # Recreate Family with its template and filtered detections list
+            new_family = Family(
+                template=family.template,
+                detections=filtered_detections
+            )
+            final_families.append(new_family)
+            
+    filtered_party = Party(families=final_families)
+    
+    log.info(f"  Original detections: {total_original:,}")
+    log.info(f"  Final filtered detections: {total_kept:,}")
+    log.info(f"  Detections removed: {total_original - total_kept:,}")
+    
+    return filtered_party
+
+
+def fetch_family_streams(
+    family: Family,
+    client: Client,
+    cache_dir: str,
+    fetch_before: float,
+    fetch_after: float,
+) -> Stream:
+    """
+    Fetch and return a merged stream for the given family.
+    
+    Checks cache_dir first. If cached mseed file exists, reads it and processes it.
+    Otherwise, fetches from FDSN client, saves raw to cache, and processes it.
+    
+    Processes each detection individually, then merges with method=-1 to remove
+    only exact duplicates/overlaps. NEVER use merge() or merge(method=0) — for a
+    family whose detections span many years, they would allocate a masked array
+    covering the entire time range (potentially TBs of RAM) to bridge gaps between
+    short detection windows. lag_calc handles gappy multi-trace streams fine.
+    """
+    os.makedirs(cache_dir, exist_ok=True)
+    family_stream = Stream()
+    
+    # We need the SEED identifiers from the template traces
+    template_seed_ids = []
+    for tr in family.template.st:
+        template_seed_ids.append((
+            tr.stats.network,
+            tr.stats.station,
+            tr.stats.location,
+            tr.stats.channel
+        ))
+        
+    lowcut = getattr(family.template, "lowcut", 1.0)
+    highcut = getattr(family.template, "highcut", 20.0)
+    filt_order = getattr(family.template, "filt_order", 4)
+    samp_rate = getattr(family.template, "samp_rate", 100.0)
+        
+    log.info(
+        f"  Fetching/loading streams for family {family.template.name} "
+        f"({len(family.detections)} detections, {len(template_seed_ids)} template channels)..."
+    )
+    
+    n_cached = 0
+    n_fetched = 0
+    n_failed = 0
+    
+    for detection in family.detections:
+        cache_path = os.path.join(cache_dir, f"{detection.id}_raw.mseed")
+        
+        detect_time = detection.detect_time
+        start_time = detect_time - fetch_before
+        end_time = detect_time + fetch_after
+        
+        # Check cache
+        if os.path.exists(cache_path):
+            try:
+                st = read(cache_path)
+                # Pre-process the cached raw stream immediately using template parameters
+                processed_st = multi_process(
+                    st=st,
+                    lowcut=lowcut,
+                    highcut=highcut,
+                    filt_order=filt_order,
+                    samp_rate=samp_rate,
+                    starttime=start_time,
+                    endtime=end_time,
+                    ignore_length=True,
+                    ignore_bad_data=True
+                )
+                family_stream += processed_st
+                n_cached += 1
+                continue
+            except Exception as exc:
+                log.warning(f"    Failed to read/process cache {cache_path}, will re-fetch: {exc}")
+                
+        # Cache miss - fetch from FDSN
+        bulk_request = []
+        for net, sta, loc, cha in template_seed_ids:
+            bulk_request.append((net, sta, loc, cha, start_time, end_time))
+            
+        try:
+            log.debug(f"    FDSN bulk fetch for detection {detection.id}...")
+            st = client.get_waveforms_bulk(bulk_request)
+            
+            # Simple check: make sure we got some data
+            if len(st) > 0:
+                st.write(cache_path, format="MSEED")
+                # Pre-process the newly fetched raw stream immediately
+                processed_st = multi_process(
+                    st=st,
+                    lowcut=lowcut,
+                    highcut=highcut,
+                    filt_order=filt_order,
+                    samp_rate=samp_rate,
+                    starttime=start_time,
+                    endtime=end_time,
+                    ignore_length=True,
+                    ignore_bad_data=True
+                )
+                family_stream += processed_st
+                n_fetched += 1
+            else:
+                log.warning(f"    No data returned for detection {detection.id}")
+                n_failed += 1
+        except Exception as exc:
+            log.error(f"    Failed fetching FDSN data for detection {detection.id}: {exc}")
+            n_failed += 1
+            
+    log.info(
+        f"  Family stream loading summary: {n_cached} from cache, "
+        f"{n_fetched} fetched, {n_failed} failed. Total traces: {len(family_stream)}"
+    )
+    
+    # Stream will be deduplicated by _process_streams when lag_calc runs.
+    # Do not merge here to avoid gap-filling on multi-year spans.
+    return family_stream
+
+
+def run_lag_calc_all_families(
+    party: Party,
+    client: Client,
+    cache_dir: str,
+    fetch_before: float,
+    fetch_after: float,
+    plot: bool = False,
+    plotdir: Optional[str] = None,
+) -> Catalog:
+    """
+    Run lag_calc on each family in chunks of LAG_CALC_CHUNK_SIZE detections.
+
+    Processing the whole family stream at once can exhaust memory for large families
+    (e.g. 452 detections × 2 channels = 904 traces held simultaneously). Chunking
+    caps peak memory to chunk_size × n_channels × window traces at any one time.
+    """
+    import gc
+    log.info(
+        f"Running lag_calc on {len(party.families)} families with "
+        f"min_cc={LAG_MIN_CC}, shift_len={LAG_SHIFT_LEN}, chunk_size={LAG_CALC_CHUNK_SIZE}..."
+    )
+
+    compiled_catalog = Catalog()
+
+    for family in party.families:
+        detections = family.detections
+        n_det = len(detections)
         log.info(
-            f"  Spike-day exclusions: dropped {n_excluded_spike:,} events "
-            f"({n_before:,} → {len(events):,})"
+            f"Processing family: {family.template.name} "
+            f"({n_det} detections in chunks of {LAG_CALC_CHUNK_SIZE})"
         )
+
+        family_events = 0
+        for chunk_start in range(0, n_det, LAG_CALC_CHUNK_SIZE):
+            chunk = detections[chunk_start: chunk_start + LAG_CALC_CHUNK_SIZE]
+            chunk_end = chunk_start + len(chunk)
+            log.info(
+                f"  Chunk {chunk_start + 1}-{chunk_end} / {n_det} "
+                f"for family {family.template.name}"
+            )
+
+            # Build a temporary sub-Family for just this chunk so that
+            # fetch_family_streams only fetches/loads this chunk's traces.
+            chunk_family = Family(template=family.template, detections=chunk)
+
+            chunk_stream = fetch_family_streams(
+                chunk_family, client, cache_dir, fetch_before, fetch_after
+            )
+
+            if len(chunk_stream) == 0:
+                log.warning(
+                    f"  No streams for chunk {chunk_start + 1}-{chunk_end}, skipping."
+                )
+                del chunk_stream
+                gc.collect()
+                continue
+
+            try:
+                chunk_catalog = chunk_family.lag_calc(
+                    stream=chunk_stream,
+                    pre_processed=True,
+                    shift_len=LAG_SHIFT_LEN,
+                    min_cc=LAG_MIN_CC,
+                    interpolate=True,
+                    use_new_resamp_method=True,
+                    ignore_length=True,
+                    ignore_bad_data=True,
+                    plot=plot,
+                    plotdir=plotdir,
+                )
+                family_events += len(chunk_catalog)
+                compiled_catalog += chunk_catalog
+            except Exception as exc:
+                log.error(
+                    f"  Error in lag_calc chunk {chunk_start + 1}-{chunk_end} "
+                    f"for {family.template.name}: {exc}",
+                    exc_info=True,
+                )
+            finally:
+                del chunk_stream
+                gc.collect()
+
+        log.info(
+            f"  ✓ Family {family.template.name}: "
+            f"{family_events} events from {n_det} detections"
+        )
+
+    # Print picks summary
+    pick_counts = [len(e.picks) if e.picks else 0 for e in compiled_catalog]
+    log.info(f"lag_calc completed: {len(compiled_catalog)} total events with picks.")
+    if pick_counts:
+        log.info(
+            f"  Picks per event: min={min(pick_counts)}, "
+            f"max={max(pick_counts)}, median={int(np.median(pick_counts))}"
+        )
+
+    return compiled_catalog
+
+
+def filter_catalog_by_cc(catalog: Catalog, min_cc: float, min_chans: int) -> Catalog:
+    """
+    Filter picks in a catalog keeping only those with correlation coefficient >= min_cc.
+    If an event has fewer than min_chans picks after filtering, the event is omitted.
+    """
+    filtered_catalog = Catalog()
     
-    # ── Create raw_catalog BEFORE MIN_CHANS filter ────────────────────────────
-    raw_catalog = Catalog(events=events.copy())
-    log.info(f"  Raw catalog (before MIN_CHANS): {len(raw_catalog)} events")
-    
-    # ── Filter 3: Minimum number of channels (picks) ────────────────────────────
-    n_before = len(events)
-    events_filtered = [
-        e for e in events
-        if len(e.picks) >= MIN_CHANS
-    ]
-    n_excluded_minchan = n_before - len(events_filtered)
-    
-    filtered_catalog = Catalog(events=events_filtered)
-    
-    log.info(f"  Original catalog: {original_len} events")
-    log.info(f"  Excluded (templates): {n_excluded_template}")
-    log.info(f"  Excluded (spike days): {n_excluded_spike}")
-    log.info(f"  Excluded (no_chans < {MIN_CHANS}): {n_excluded_minchan}")
-    log.info(f"  Final filtered catalog: {len(filtered_catalog)} events")
-    
-    return filtered_catalog, raw_catalog
+    for event in catalog:
+        # Create a copy of the event (deep pick data copied)
+        event_copy = event.copy()
+        
+        filtered_picks = []
+        for pick in event_copy.picks:
+            # Check comment texts for 'cc_max=<value>'
+            pick_cc = None
+            for comment in pick.comments:
+                if comment.text.startswith("cc_max="):
+                    try:
+                        pick_cc = float(comment.text.split("=")[1])
+                    except (IndexError, ValueError):
+                        pass
+                    break
+            
+            # If we couldn't find/parse the comment, keep it as fallback (assume 1.0)
+            if pick_cc is None:
+                log.debug(f"      No cc_max found in comments for pick {pick.resource_id}, keeping.")
+                filtered_picks.append(pick)
+            elif pick_cc >= min_cc:
+                filtered_picks.append(pick)
+                
+        if len(filtered_picks) >= min_chans:
+            event_copy.picks = filtered_picks
+            filtered_catalog.append(event_copy)
+            
+    return filtered_catalog
 
 
 def _extract_template_name(event: Event) -> str:
     """
     Extract template name from event resource_id.
     
-    Resource_id format: smi:local/{template_name}_{ISO_timestamp}
-    Example: smi:local/tx2024istc_20091007T073702.525000
+    Resource_id format: smi:local/{template_name}_{YYYYMMDD}_{HHMMSSNNNNNN}
+    Example: smi:local/nm60163943_20210306_102345100000
     
     Parameters
     ----------
@@ -380,12 +812,12 @@ def _extract_template_name(event: Event) -> str:
         else:
             event_id_short = event_id_full
         
-        # Split on last underscore to separate template from timestamp
+        # Split on first underscore to get template name
         if "_" not in event_id_short:
             return ""
         
-        parts = event_id_short.rsplit("_", 1)
-        if len(parts) == 2:
+        parts = event_id_short.split("_", 1)
+        if len(parts) >= 1:
             return parts[0]
     except Exception:
         pass
@@ -394,23 +826,20 @@ def _extract_template_name(event: Event) -> str:
 
 
 def build_stream_dict(
-    catalog: Catalog, waveform_dir: str
+    catalog: Catalog, cache_dir: str
 ) -> Tuple[Dict[str, Stream], int, int]:
     """
     Build a dictionary of streams keyed by event resource_id.
     
-    Maps waveforms from {template_name}_{YYYYMMDD}_{HHMMSSNNNNNN}.mseed files to events.
-    resource_id format: {template_name}_{ISO_timestamp}
-    waveform filename format: {template_name}_{YYYYMMDD}_{HHMMSSNNNNNN}.mseed
-    Example: resource_id = tx2024istc_20091007T073702.525000
-             waveform = tx2024istc_20091007_073702525000.mseed
+    Loads, trims, detrends, and bandpass filters cached raw streams to keep
+    memory usage extremely low and bypass slow/redundant filtering loops.
     
     Parameters
     ----------
     catalog : Catalog
         Input catalog.
-    waveform_dir : str
-        Directory containing .mseed waveform files.
+    cache_dir : str
+        FDSN cache directory.
         
     Returns
     -------
@@ -421,154 +850,67 @@ def build_stream_dict(
         - n_missing: number of events with no waveforms
     """
     log.info(f"DEBUG: Entered build_stream_dict()")
-    log.info(f"Building stream dictionary from: {waveform_dir}")
-    
-    if not os.path.isdir(waveform_dir):
-        log.error(f"Waveform directory not found: {waveform_dir}")
-        raise FileNotFoundError(f"Waveform directory not found: {waveform_dir}")
     
     stream_dict = {}
     n_loaded = 0
     n_missing = 0
     
-    # Get all .mseed files in directory
-    waveform_files = sorted(
-        [f for f in os.listdir(waveform_dir) if f.endswith(".mseed")]
-    )
+    if not (cache_dir and os.path.isdir(cache_dir)):
+        log.error("Valid FDSN cache directory does not exist.")
+        raise ValueError("Must provide a valid FDSN cache directory.")
+    
+    log.info(f"Loading, trimming, and pre-filtering streams directly from FDSN cache: {cache_dir}")
     
     for event in catalog:
         event_id_full = str(event.resource_id.id)
         
         # Extract the part after '/' to remove 'smi:local/' prefix
-        # Format: smi:local/{template_name}_{ISO_timestamp}
-        # e.g., smi:local/tx2024istc_20091007T073702.525000
+        # Format: smi:local/{template_name}_{YYYYMMDD}_{HHMMSSNNNNNN}
+        # e.g., smi:local/nm60163943_20210306_102345100000
         if "/" in event_id_full:
             event_id_short = event_id_full.split("/")[1]
         else:
             event_id_short = event_id_full
-        
-        # Parse resource_id format: {template_name}_{ISO_timestamp}
-        # e.g., tx2024istc_20091007T073702.525000
-        if "_" not in event_id_short:
-            log.debug(f"  Cannot parse resource_id: {event_id_short}")
-            n_missing += 1
-            continue
-        
-        # Split on the last underscore to separate template from timestamp
-        parts = event_id_short.rsplit("_", 1)
-        if len(parts) != 2:
-            n_missing += 1
-            continue
-        
-        template_name, iso_timestamp = parts
-        
-        # Parse ISO timestamp to get date/time components
-        # ISO format can be: 2013-09-22T23:48:20.975000 or similar
-        try:
-            if "T" in iso_timestamp:
-                date_part, time_part = iso_timestamp.split("T")
-            else:
-                # Assume format is already date_time
-                date_part, time_part = iso_timestamp.split("_", 1) if "_" in iso_timestamp else (iso_timestamp, "00:00:00")
             
-            # Remove dashes from date
-            date_clean = date_part.replace("-", "")  # YYYY-MM-DD → YYYYMMDD
-            
-            # Handle time with possible colons and microseconds
-            if "." in time_part:
-                time_str, microsecond_str = time_part.split(".")
-            else:
-                time_str = time_part
-                microsecond_str = "000000"
-            
-            # Remove colons from time
-            time_clean = time_str.replace(":", "")  # HH:MM:SS → HHMMSS
-            
-            # Pad/truncate microseconds to 6 digits
-            microseconds = microsecond_str[:6].ljust(6, "0")
-            
-            # Expected format: YYYYMMDD_HHMMSSNNNNNN
-            expected_timestamp = f"{date_clean}_{time_clean}{microseconds}"
-            
-            # Parse for comparison (extract date and time without microseconds)
-            expected_yyyymmdd = date_clean
-            expected_hhmmss = time_clean
-            expected_dt = datetime.strptime(
-                f"{expected_yyyymmdd}_{expected_hhmmss}", "%Y%m%d_%H%M%S"
-            )
-        except Exception as exc:
-            log.debug(f"  Failed to parse ISO timestamp {iso_timestamp}: {exc}")
-            n_missing += 1
-            continue
-        
-        # Build expected filename
-        expected_basename = f"{template_name}_{expected_timestamp}.mseed"
-        
-        # Try exact match first
-        waveform_path = os.path.join(waveform_dir, expected_basename)
-        if os.path.exists(waveform_path):
+        # ISO resource_id timestamp → detection.id filename format
+        # nm60163943_20210306T102345.100000 → nm60163943_20210306_102345100000
+        detection_id = event_id_short.replace('T', '_').replace('.', '')
+        cache_path = os.path.join(cache_dir, f"{detection_id}_raw.mseed")
+        if os.path.exists(cache_path):
             try:
-                st = read(waveform_path)
+                st = read(cache_path)
+                
+                # Trim to a tight window around the picks to save 90% of waveform memory
+                if event.picks:
+                    pick_times = [p.time for p in event.picks]
+                    # Required slicing is typically pick.time - 1.0 to pick.time + 3.0.
+                    # We add a 2.0s buffer on start and a 4.0s buffer on end for safety.
+                    t_start = min(pick_times) - 2.0
+                    t_end = max(pick_times) + 4.0
+                    st.trim(starttime=t_start, endtime=t_end, pad=False)
+                
+                # Pre-apply detrend and bandpass filtering here
+                st.detrend()
+                if LOWCUT is not None and HIGHCUT is not None:
+                    st.filter("bandpass", freqmin=LOWCUT, freqmax=HIGHCUT, corners=4, zerophase=True)
+                elif LOWCUT is None and HIGHCUT is not None:
+                    st.filter("lowpass", freq=HIGHCUT, corners=4, zerophase=True)
+                elif LOWCUT is not None and HIGHCUT is None:
+                    st.filter("highpass", freq=LOWCUT, corners=4, zerophase=True)
+                
+                # Merge segments after filtering
+                st.merge()
+                
                 stream_dict[event_id_full] = st
                 n_loaded += 1
                 continue
             except Exception as exc:
-                log.debug(f"  Failed to read {expected_basename}: {exc}")
-        
-        # Try fuzzy match: same template, close timestamp (within 1 second)
-        waveform_found = False
-        for wf_file in waveform_files:
-            if not wf_file.startswith(f"{template_name}_"):
-                continue
-            
-            # Extract timestamp from filename (format varies)
-            wf_ts_str = wf_file.replace(f"{template_name}_", "").replace(".mseed", "")
-            
-            # Try to parse the waveform filename timestamp
-            # Could be: YYYYMMDD_HHMMSSNNNNNN or YYYY-MM-DD_HH:MM:SSNNNNNN or similar
-            try:
-                # Try to extract and normalize date/time from filename
-                if "_" in wf_ts_str:
-                    wf_date_part, wf_time_part = wf_ts_str.split("_", 1)
-                else:
-                    continue
-                
-                # Clean up date and time
-                wf_date_clean = wf_date_part.replace("-", "")  # Handle YYYY-MM-DD
-                
-                # Extract HHMMSS (first 6 chars of time part, removing colons)
-                wf_time_clean = wf_time_part[:8].replace(":", "")  # Get first ~6 chars and remove colons
-                if len(wf_time_clean) < 6:
-                    continue
-                
-                # Only take HHMMSS (6 chars)
-                wf_hhmmss = wf_time_clean[:6]
-                
-                wf_dt = datetime.strptime(
-                    f"{wf_date_clean}_{wf_hhmmss}", "%Y%m%d_%H%M%S"
-                )
-                
-                # Check if within 1 second
-                time_diff = abs((expected_dt - wf_dt).total_seconds())
-                if time_diff < 1.0:
-                    waveform_path = os.path.join(waveform_dir, wf_file)
-                    try:
-                        st = read(waveform_path)
-                        stream_dict[event_id_full] = st
-                        n_loaded += 1
-                        waveform_found = True
-                        break
-                    except Exception as exc:
-                        log.debug(f"  Failed to read {wf_file}: {exc}")
-                        continue
-            except Exception:
-                continue
-        
-        if not waveform_found:
-            log.debug(f"  No waveform found for {event_id_short}")
-            n_missing += 1
+                log.debug(f"  Failed to read/process cached stream {event_id_short}_raw.mseed: {exc}")
+        log.debug(f"  No cached waveform found in {cache_dir} for {event_id_short}")
+        n_missing += 1
+        continue
     
-    log.info(f"  Loaded waveforms: {n_loaded}")
+    log.info(f"  Loaded and processed waveforms: {n_loaded}")
     log.info(f"  Missing waveforms: {n_missing}")
     
     return stream_dict, n_loaded, n_missing
@@ -579,6 +921,7 @@ def generate_hypodd_files(
     inventory: Inventory,
     stream_dict: Dict[str, Stream],
     output_dir: str,
+    min_cc_val: float,
 ) -> Dict[str, any]:
     """
     Generate all HypoDD input files using eqcorrscan.utils.catalog_to_dd.
@@ -593,6 +936,8 @@ def generate_hypodd_files(
         Dictionary of waveforms by event ID.
     output_dir : str
         Output directory for HypoDD files.
+    min_cc_val : float
+        Min correlation coefficient for cross-correlations.
         
     Returns
     -------
@@ -637,26 +982,30 @@ def generate_hypodd_files(
         # ──────────────────────────────────────────────────────────────────────
         # 2. Generate dt.cc (cross-correlation refined differential times)
         # ──────────────────────────────────────────────────────────────────────
-        log.info("Generating dt.cc (cross-correlation differential times)...")
+        log.info(f"Generating dt.cc (cross-correlation differential times at CC >= {min_cc_val})...")
         if len(stream_dict) > 0:
             try:
+                # Pass lowcut=None and highcut=None because we pre-filter and detrend
+                # streams during build_stream_dict. This avoids creating copy dictionaries
+                # of the wave streams inside write_correlations, drastically reducing memory.
                 event_id_mapper = catalog_to_dd.write_correlations(
                     catalog,
                     stream_dict,
                     extract_len=EXTRACT_LEN,
                     pre_pick=PRE_PICK,
-                    shift_len=SHIFT_LEN,
+                    shift_len=LAG_SHIFT_LEN,
                     event_id_mapper=event_id_mapper,
-                    lowcut=LOWCUT,
-                    highcut=HIGHCUT,
+                    lowcut=None,
+                    highcut=None,
                     max_sep=MAX_SEP,
                     min_link=MIN_LINK,
-                    min_cc=MIN_CC,
-                    interpolate=False,
+                    min_cc=min_cc_val,
+                    interpolate=True,
                     all_horiz=False,
                     max_workers=MAX_WORKERS,
                     parallel_process=PARALLEL_PROCESS,
                     weight_by_square=WEIGHT_BY_SQUARE,
+                    max_trace_workers=35,
                 )
                 if os.path.exists("dt.cc"):
                     size_cc = os.path.getsize("dt.cc")
@@ -733,10 +1082,11 @@ def generate_hypodd_files(
 
 def write_summary_report(
     summary: Dict[str, any],
-    catalog: Catalog,
     filtered_catalog: Catalog,
     stream_dict: Dict[str, Stream],
     output_dir: str,
+    original_detections_count: int,
+    filtered_detections_count: int,
 ) -> None:
     """
     Write a text summary report of the processing.
@@ -745,14 +1095,16 @@ def write_summary_report(
     ----------
     summary : Dict[str, any]
         Summary dictionary from generate_hypodd_files().
-    catalog : Catalog
-        Original catalog.
     filtered_catalog : Catalog
-        Filtered catalog after quality checks.
+        Filtered catalog after quality checks and lag_calc.
     stream_dict : Dict[str, Stream]
         Stream dictionary.
     output_dir : str
         Output directory.
+    original_detections_count : int
+        Original detections count.
+    filtered_detections_count : int
+        Filtered detections count.
     """
     report_path = os.path.join(output_dir, "hypoDD_summary.txt")
     
@@ -767,16 +1119,15 @@ def write_summary_report(
         # Input files
         f.write("INPUT FILES\n")
         f.write("-" * 80 + "\n")
-        f.write(f"Party:        {PARTY_PATH}\n")
-        f.write(f"Waveforms:    {WAVEFORM_DIR}\n")
+        f.write(f"Party File:   {PARTY_FILE}\n")
         f.write(f"Inventory:    {INVENTORY_PATH}\n\n")
         
         # Catalog statistics
-        f.write("CATALOG STATISTICS\n")
+        f.write("DETECTION STATISTICS\n")
         f.write("-" * 80 + "\n")
-        f.write(f"Detections before filtering:  {len(catalog)}\n")
-        f.write(f"Detections after filtering:   {len(filtered_catalog)}\n")
-        f.write(f"Detections removed:           {len(catalog) - len(filtered_catalog)}\n\n")
+        f.write(f"Detections before filtering:  {original_detections_count}\n")
+        f.write(f"Detections after filtering:   {filtered_detections_count}\n")
+        f.write(f"Detections removed:           {original_detections_count - filtered_detections_count}\n\n")
         
         # Waveform statistics
         f.write("WAVEFORM STATISTICS\n")
@@ -791,11 +1142,11 @@ def write_summary_report(
         f.write("-" * 80 + "\n")
         f.write(f"Max hypocentral separation (km):  {MAX_SEP}\n")
         f.write(f"Min linked phases:                 {MIN_LINK}\n")
-        f.write(f"Min correlation coefficient:       {MIN_CC}\n")
+        f.write(f"Min correlation coefficient (picking): {LAG_MIN_CC}\n")
         f.write(f"Default event depth (km):         {DEFAULT_DEPTH_KM}\n")
         f.write(f"Extract length (s):                {EXTRACT_LEN}\n")
         f.write(f"Pre-pick time (s):                 {PRE_PICK}\n")
-        f.write(f"Max pick shift (s):                {SHIFT_LEN}\n")
+        f.write(f"Max pick shift (s):                {LAG_SHIFT_LEN}\n")
         f.write(f"Bandpass filter (Hz):              {LOWCUT} - {HIGHCUT}\n\n")
         
         # Generated files
@@ -827,6 +1178,177 @@ def write_summary_report(
     log.info(f"Summary report written to: {report_path}")
 
 
+def _regenerate_station(args: argparse.Namespace, threshold_list: list) -> int:
+    """
+    Regenerate station.dat files only from the inventory.
+    
+    Loads the station inventory, deduplicates, and writes station.dat for each
+    threshold subdirectory. Skips all correlation and waveform operations.
+    
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments.
+    threshold_list : list
+        List of correlation coefficient thresholds.
+        
+    Returns
+    -------
+    int
+        Exit code (0 = success, 1 = error).
+    """
+    log.info("=" * 80)
+    log.info("Regenerating station.dat files only (--regenerate-station)")
+    log.info("=" * 80)
+    
+    try:
+        inventory = load_and_validate_inventory(args.inventory)
+    except Exception as exc:
+        log.error(f"Failed to load inventory: {exc}")
+        return 1
+    
+    for threshold in threshold_list:
+        sub_output_dir = os.path.join(args.output, f"min_cc_{threshold:.1f}")
+        if not os.path.isdir(sub_output_dir):
+            log.warning(f"Output directory does not exist: {sub_output_dir} — skipping")
+            continue
+        
+        log.info(f"Writing station.dat for min_cc={threshold:.2f} in {sub_output_dir}...")
+        original_cwd = os.getcwd()
+        os.chdir(sub_output_dir)
+        try:
+            catalog_to_dd.write_station(
+                inventory, use_elevation=USE_ELEVATION, filename="station.dat"
+            )
+            if os.path.exists("station.dat"):
+                station_size = os.path.getsize("station.dat")
+                log.info(f"  ✓ station.dat written ({station_size:,} bytes)")
+            else:
+                log.warning("  station.dat was not generated")
+        except Exception as exc:
+            log.error(f"  Error writing station.dat: {exc}", exc_info=True)
+        finally:
+            os.chdir(original_cwd)
+    
+    log.info("=" * 80)
+    log.info("station.dat regeneration complete.")
+    log.info("=" * 80)
+    return 0
+
+
+def _resume_dtcc(args: argparse.Namespace, threshold_list: list) -> int:
+    """
+    Resume dt.ct and dt.cc generation from pre-written catalog XMLs.
+    
+    Skips party loading and lag_calc; loads per-threshold catalogs already
+    written to --output and regenerates both dt.ct (catalog differential times)
+    and dt.cc (cross-correlation differential times) using FDSN-cached waveforms.
+    
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments.
+    threshold_list : list
+        List of correlation coefficient thresholds.
+        
+    Returns
+    -------
+    int
+        Exit code (0 = success, 1 = error).
+    """
+    import gc
+    
+    log.info("=" * 80)
+    log.info("Resuming dt.ct and dt.cc generation (--resume-dtcc)")
+    log.info("=" * 80)
+    
+    for threshold in threshold_list:
+        catalog_xml = os.path.join(args.output, f"catalog_min_cc_{threshold:.1f}.xml")
+        if not os.path.exists(catalog_xml):
+            log.error(f"Catalog XML not found: {catalog_xml} — skipping threshold {threshold:.2f}")
+            continue
+        
+        log.info(f"\n{'=' * 60}")
+        log.info(f"Threshold min_cc = {threshold:.2f}")
+        log.info(f"{'=' * 60}")
+        log.info(f"Loading catalog: {catalog_xml}")
+        
+        try:
+            threshold_catalog = read_events(catalog_xml)
+            log.info(f"  {len(threshold_catalog)} events loaded.")
+        except Exception as exc:
+            log.error(f"Failed to load catalog XML: {exc}")
+            continue
+        
+        stream_dict, n_loaded, n_missing = build_stream_dict(
+            threshold_catalog, cache_dir=args.fdsn_cache_dir
+        )
+        log.info(f"  Waveforms: {n_loaded} loaded, {n_missing} missing.")
+        
+        if n_loaded == 0:
+            log.warning(f"  No waveforms found — skipping dt.cc for threshold {threshold:.2f}")
+            del stream_dict
+            gc.collect()
+            continue
+        
+        sub_output_dir = os.path.join(args.output, f"min_cc_{threshold:.1f}")
+        os.makedirs(sub_output_dir, exist_ok=True)
+        
+        original_cwd = os.getcwd()
+        os.chdir(sub_output_dir)
+        try:
+            # Generate dt.ct (catalog differential times)
+            log.info(f"  Generating dt.ct (catalog differential times) ...")
+            event_id_mapper = catalog_to_dd.write_catalog(
+                threshold_catalog,
+                max_sep=MAX_SEP,
+                min_link=MIN_LINK,
+            )
+            if os.path.exists("dt.ct"):
+                dt_ct_size = os.path.getsize("dt.ct")
+                log.info(f"  ✓ dt.ct written ({dt_ct_size:,} bytes)")
+            else:
+                log.warning("  dt.ct was not generated")
+            
+            # Generate dt.cc (cross-correlation differential times)
+            log.info(f"  Running write_correlations in {sub_output_dir} ...")
+            catalog_to_dd.write_correlations(
+                threshold_catalog,
+                stream_dict,
+                extract_len=EXTRACT_LEN,
+                pre_pick=PRE_PICK,
+                shift_len=LAG_SHIFT_LEN,
+                event_id_mapper=event_id_mapper,
+                lowcut=None,      # already filtered in build_stream_dict
+                highcut=None,
+                max_sep=MAX_SEP,
+                min_link=MIN_LINK,
+                min_cc=threshold,
+                interpolate=True,
+                all_horiz=False,
+                max_workers=MAX_WORKERS,
+                parallel_process=PARALLEL_PROCESS,
+                weight_by_square=WEIGHT_BY_SQUARE,
+                max_trace_workers=35,
+            )
+            if os.path.exists("dt.cc"):
+                dt_cc_size = os.path.getsize("dt.cc")
+                log.info(f"  ✓ dt.cc written ({dt_cc_size:,} bytes)")
+            else:
+                log.warning("  dt.cc was not generated (no event pairs met criteria)")
+        except Exception as exc:
+            log.error(f"  Error generating dt files for min_cc={threshold:.2f}: {exc}", exc_info=True)
+        finally:
+            os.chdir(original_cwd)
+            del stream_dict
+            gc.collect()
+    
+    log.info("=" * 80)
+    log.info("dt.ct and dt.cc resume complete.")
+    log.info("=" * 80)
+    return 0
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ── MAIN EXECUTION ─────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
@@ -852,18 +1374,23 @@ def main(args: Optional[argparse.Namespace] = None) -> int:
         )
         parser.add_argument(
             "--party",
-            default=PARTY_PATH,
-            help=f"Path to Party .tgz file (default: {PARTY_PATH})",
-        )
-        parser.add_argument(
-            "--waveforms",
-            default=WAVEFORM_DIR,
-            help=f"Path to waveform directory (default: {WAVEFORM_DIR})",
+            default=PARTY_FILE,
+            help=f"Path to party (.tgz) (default: {PARTY_FILE})",
         )
         parser.add_argument(
             "--inventory",
             default=INVENTORY_PATH,
             help=f"Path to station inventory XML (default: {INVENTORY_PATH})",
+        )
+        parser.add_argument(
+            "--fdsn-client",
+            default=FDSN_CLIENT_NAME,
+            help=f"FDSN client name (default: {FDSN_CLIENT_NAME})",
+        )
+        parser.add_argument(
+            "--fdsn-cache-dir",
+            default=FDSN_CACHE_DIR,
+            help=f"FDSN raw stream cache directory (default: {FDSN_CACHE_DIR})",
         )
         parser.add_argument(
             "--output",
@@ -883,60 +1410,233 @@ def main(args: Optional[argparse.Namespace] = None) -> int:
             help=f"Min linked phases (default: {MIN_LINK})",
         )
         parser.add_argument(
+            "--cc-thresholds",
+            default="0.4,0.5,0.6,0.7",
+            help="Comma-separated list of correlation coefficient thresholds to generate catalogs and HypoDD inputs for (default: 0.4,0.5,0.6,0.7)",
+        )
+        parser.add_argument(
+            "--plot-lag-calc",
+            action="store_true",
+            help="Enable granular plotting of waveform repicking during lag_calc",
+        )
+        parser.add_argument(
+            "--plotdir",
+            default="./lag_calc_plots",
+            help="Directory to save repick diagnostic plots (default: ./lag_calc_plots)",
+        )
+        parser.add_argument(
+            "--log-level",
+            default="INFO",
+            choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+            help="Logging output level (default: INFO)",
+        )
+        parser.add_argument(
             "--skip-correlation",
             action="store_true",
             help="Skip dt.cc generation (only generate dt.ct)",
         )
+        parser.add_argument(
+            "--resume-dtcc",
+            action="store_true",
+            help=(
+                "Skip party loading and lag_calc. Load per-threshold catalog XMLs "
+                "already written to --output and regenerate dt.ct and dt.cc."
+            ),
+        )
+        parser.add_argument(
+            "--regenerate-station",
+            action="store_true",
+            help="Regenerate station.dat only from inventory (no correlations or waveforms).",
+        )
         args = parser.parse_args()
+    
+    # Parse thresholds list and update config with the lowest threshold for lag_calc
+    try:
+        threshold_list = sorted([float(x.strip()) for x in args.cc_thresholds.split(",")])
+        if not threshold_list:
+            raise ValueError()
+    except Exception as exc:
+        log.error(f"Invalid correlation thresholds list '{args.cc_thresholds}': must be comma-separated floats.")
+        return 1
+        
+    globals()["LAG_MIN_CC"] = min(threshold_list)
+    log.info(f"Using LAG_MIN_CC={LAG_MIN_CC:.2f} for baseline lag_calc picking.")
+    
+    # Configure logging
+    log_level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.getLogger().setLevel(log_level)
+    logging.getLogger("eqcorrscan").setLevel(log_level)
+    
+    # Propagate warnings to help diagnose too-few-points warnings from lag_calc
+    import warnings
+    warnings.filterwarnings("always", category=UserWarning, module="eqcorrscan")
     
     # Update global variables if custom arguments provided
     if args.max_sep != MAX_SEP:
         globals()["MAX_SEP"] = args.max_sep
     if args.min_link != MIN_LINK:
         globals()["MIN_LINK"] = args.min_link
+    if args.party != PARTY_FILE:
+        globals()["PARTY_FILE"] = args.party
+    if args.inventory != INVENTORY_PATH:
+        globals()["INVENTORY_PATH"] = args.inventory
+    if args.fdsn_cache_dir != FDSN_CACHE_DIR:
+        globals()["FDSN_CACHE_DIR"] = args.fdsn_cache_dir
+    
+    if args.resume_dtcc:
+        return _resume_dtcc(args, threshold_list)
+    
+    if args.regenerate_station:
+        return _regenerate_station(args, threshold_list)
     
     log.info("=" * 80)
     log.info("HypoDD Input Files Generation")
     log.info("=" * 80)
     
     try:
-        # Load Party and convert to Catalog
-        catalog = load_party_as_catalog(args.party)
+        # Load the Party object
+        party = load_party(args.party)
         
-        # Load and validate inventory
+        # Check template parameter consistency with configuration
+        template_lowcuts = []
+        template_highcuts = []
+        template_prepicks = []
+        template_lengths = []
+        for family in party.families:
+            if family.template:
+                if getattr(family.template, "lowcut", None) is not None:
+                    template_lowcuts.append(family.template.lowcut)
+                if getattr(family.template, "highcut", None) is not None:
+                    template_highcuts.append(family.template.highcut)
+                if getattr(family.template, "prepick", None) is not None:
+                    template_prepicks.append(family.template.prepick)
+                if family.template.st:
+                    tr = family.template.st[0]
+                    template_lengths.append(tr.stats.npts * tr.stats.delta)
+                    
+        # Log template attributes overview and check for alignment with CONFIGURATION
+        if template_lowcuts:
+            log.info("Template Parameter Summary from Loaded Party:")
+            log.info(f"  Lowcut (Hz):  min={min(template_lowcuts)}, max={max(template_lowcuts)}")
+            log.info(f"  Highcut (Hz): min={min(template_highcuts)}, max={max(template_highcuts)}")
+            log.info(f"  Pre-pick (s): min={min(template_prepicks):.3f}, max={max(template_prepicks):.3f}")
+            log.info(f"  Length (s):   min={min(template_lengths):.3f}, max={max(template_lengths):.3f}")
+            
+            mismatches = []
+            mean_lowcut = float(np.mean(template_lowcuts))
+            mean_highcut = float(np.mean(template_highcuts))
+            mean_prepick = float(np.mean(template_prepicks))
+            mean_length = float(np.mean(template_lengths))
+            
+            if abs(mean_lowcut - LOWCUT) > 0.01:
+                mismatches.append(f"LOWCUT config ({LOWCUT} Hz) vs Template average ({mean_lowcut:.1f} Hz)")
+            if abs(mean_highcut - HIGHCUT) > 0.01:
+                mismatches.append(f"HIGHCUT config ({HIGHCUT} Hz) vs Template average ({mean_highcut:.1f} Hz)")
+            if abs(mean_prepick - PRE_PICK) > 0.01:
+                mismatches.append(f"PRE_PICK config ({PRE_PICK} s) vs Template average ({mean_prepick:.3f} s)")
+            if abs(mean_length - EXTRACT_LEN) > 0.01:
+                mismatches.append(f"EXTRACT_LEN config ({EXTRACT_LEN} s) vs Template average ({mean_length:.3f} s)")
+                
+            if mismatches:
+                log.warning("⚠ CORRELATION PARAMETER MISMATCH DETECTED! To get identical cross-correlations between lag_calc and write_correlations, config parameters should match the templates:")
+                for m in mismatches:
+                    log.warning(f"  - {m}")
+            else:
+                log.info("✓ Correlation parameters are perfectly aligned between configuration and loaded templates.")
+        
+        # Keep track of original detection count for the summary report
+        original_detections_count = sum(len(f.detections) for f in party.families)
+        
+        # Apply quality filtering to the Party
+        filtered_party = apply_quality_filters_party(party)
+        filtered_detections_count = sum(len(f.detections) for f in filtered_party.families)
+        
+        # Load and validate station inventory
         inventory = load_and_validate_inventory(args.inventory)
         
-        # Apply quality filters (returns both filtered and raw catalogs)
-        filtered_catalog, raw_catalog = apply_quality_filters(catalog)
+        # Initialize FDSN Client
+        client = Client(args.fdsn_client)
         
-        # Build stream dictionary (use filtered catalog)
-        log.info(f"DEBUG: args.skip_correlation = {args.skip_correlation}")
-        if not args.skip_correlation:
-            log.info("DEBUG: Calling build_stream_dict...")
-            stream_dict, n_loaded, n_missing = build_stream_dict(
-                filtered_catalog, args.waveforms
+        # Run lag_calc on each family of the filtered Party using raw waveforms
+        filtered_catalog = run_lag_calc_all_families(
+            filtered_party,
+            client=client,
+            cache_dir=args.fdsn_cache_dir,
+            fetch_before=FETCH_BEFORE,
+            fetch_after=FETCH_AFTER,
+            plot=args.plot_lag_calc,
+            plotdir=args.plotdir,
+        )
+        
+        # Build the template mapping from Party families
+        template_map = {f.template.name: f.template for f in filtered_party.families}
+        
+        # Fix event origins on the baseline catalog
+        filtered_catalog = fix_event_origins(filtered_catalog, template_map)
+        
+        # Loop through each target threshold to filter catalog and create HypoDD inputs
+        for threshold in threshold_list:
+            log.info("")
+            log.info("=" * 60)
+            log.info(f"Processing Threshold Option: min_cc = {threshold:.2f}")
+            log.info("=" * 60)
+            
+            # Filter the catalog picks by the threshold, enforcing the same MIN_CHANS filter
+            threshold_catalog = filter_catalog_by_cc(filtered_catalog, min_cc=threshold, min_chans=MIN_CHANS)
+            log.info(f"  Picks filtering completed: {len(threshold_catalog)} events meet criteria.")
+            
+            # Write out catalog XML
+            catalog_xml_path = os.path.join(args.output, f"catalog_min_cc_{threshold:.1f}.xml")
+            try:
+                threshold_catalog.write(catalog_xml_path, format="QUAKEML")
+                log.info(f"  ✓ Saved sub-catalog to {catalog_xml_path}")
+            except Exception as exc:
+                log.error(f"  Failed writing catalog XML for min_cc={threshold:.1f}: {exc}")
+            
+            # Create a threshold-specific subdirectory
+            sub_output_dir = os.path.join(args.output, f"min_cc_{threshold:.1f}")
+            
+            # Build stream dictionary for threshold-specific catalog to avoid OOM
+            if not args.skip_correlation:
+                log.info("Loading workflows for threshold catalog from FDSN cache...")
+                threshold_stream_dict, n_loaded, n_missing = build_stream_dict(
+                    threshold_catalog, cache_dir=args.fdsn_cache_dir
+                )
+            else:
+                threshold_stream_dict = {}
+                
+            # Generate HypoDD input files for this threshold
+            summary = generate_hypodd_files(
+                threshold_catalog,
+                inventory,
+                threshold_stream_dict,
+                sub_output_dir,
+                min_cc_val=threshold,
             )
-            log.info(f"DEBUG: build_stream_dict returned {n_loaded} loaded, {n_missing} missing")
-        else:
-            stream_dict = {}
-            log.info("Skipping waveform loading (--skip-correlation)")
+            
+            # Write summary report inside the subdirectory
+            write_summary_report(
+                summary=summary,
+                filtered_catalog=threshold_catalog,
+                stream_dict=threshold_stream_dict,
+                output_dir=sub_output_dir,
+                original_detections_count=original_detections_count,
+                filtered_detections_count=filtered_detections_count,
+            )
+            
+            log.info(f"  ✓ Subdirectory output generation completed for min_cc={threshold:.1f}")
+            
+            # Garbage collect to free memory
+            del threshold_stream_dict
+            import gc
+            gc.collect()
         
-        # Generate HypoDD files
-        summary = generate_hypodd_files(
-            filtered_catalog,
-            inventory,
-            stream_dict,
-            args.output,
-        )
+        log.info("=" * 80)
+        log.info("Generation complete!")
+        log.info(f"All outputs generated in subdirectories under: {args.output}")
+        log.info("=" * 80)
         
-        # Write summary report
-        write_summary_report(
-            summary,
-            catalog,
-            filtered_catalog,
-            stream_dict,
-            args.output,
-        )
+        return 0
         
         log.info("=" * 80)
         log.info("Generation complete!")
