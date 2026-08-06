@@ -43,6 +43,7 @@ datasets = {
     'DAC': {'wells': '/media/chopp/HDD1/chet-amplify/spatial_data/wells/DAC/Offset_Wells_Surveys_DAC.csv'},
     'TM': [],
     'Cape': {'Topography': '{}/DEM/Cape-modern_Lidar_downsample.tif'.format(data_directory),
+             'Delano': '{}/vector/boreholes/Delano_trajectory.csv'.format(data_directory),
              'Frisco-1': '{}/vector/boreholes/Frisco-1_trajectory.csv'.format(data_directory),
              'Frisco-2': '{}/vector/boreholes/Frisco-2_trajectory.csv'.format(data_directory),
              'Frisco-3': '{}/vector/boreholes/Frisco-3_trajectory.csv'.format(data_directory),
@@ -63,7 +64,8 @@ datasets = {
             #  'Gold-5IA': '{}/vector/boreholes/Gold_5IA_trajectory.csv'.format(data_directory),
              'Gold-6IB': '{}/vector/boreholes/Gold_6IB_trajectory.csv'.format(data_directory),
              'Gold-7PA': '{}/vector/boreholes/Gold_7PA_trajectory.csv'.format(data_directory),
-             'Gold-8PB': '{}/vector/boreholes/Gold_8PB_trajectory.csv'.format(data_directory),}
+             'Gold-8PB': '{}/vector/boreholes/Gold_8PB_trajectory.csv'.format(data_directory),
+             'Kings-1PB': '{}/vector/boreholes/Kings_1PB_trajectory.csv'.format(data_directory),}
 }
 
 
@@ -226,17 +228,28 @@ def load_cape_geojson_xy(label, trajectory_path):
             continue
         candidates.append('{}/vector/{}.geojson'.format(data_directory, key))
         candidates.append('{}/vector/{}_latlon.geojson'.format(data_directory, key))
+    logging.debug('GeoJSON candidates for %s: %s', label, candidates)
     for path in candidates:
         if not os.path.exists(path):
+            logging.debug('GeoJSON not found: %s', path)
             continue
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 gj = json.load(f)
             features = gj.get('features', [])
             if len(features) == 0:
+                logging.debug('GeoJSON has no features: %s', path)
                 continue
-            coords = _get_linestring_coords(features[0].get('geometry', {}))
+            # Support both a single LineString/MultiLineString and a
+            # FeatureCollection of Point features (e.g. survey stations).
+            first_type = features[0].get('geometry', {}).get('type')
+            if first_type == 'Point':
+                coords = [f['geometry']['coordinates'] for f in features
+                          if f.get('geometry', {}).get('type') == 'Point']
+            else:
+                coords = _get_linestring_coords(features[0].get('geometry', {}))
             if len(coords) == 0:
+                logging.debug('GeoJSON has no usable coordinates: %s', path)
                 continue
             xy = np.array(coords, dtype=float)
             x = xy[:, 0]
@@ -253,6 +266,8 @@ def load_cape_geojson_xy(label, trajectory_path):
             if not _is_plausible_cape_utm(x, y):
                 logging.warning('Skipping implausible Cape GeoJSON XY for %s from %s', label, path)
                 continue
+            logging.info('Loaded GeoJSON XY for %s from %s: median E=%.1f N=%.1f',
+                         label, path, float(np.nanmedian(x)), float(np.nanmedian(y)))
             return x, y
         except Exception as e:
             logging.warning('Failed to parse well GeoJSON %s: %s', path, e)
@@ -446,6 +461,7 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                 params.append([ev.resource_id.id, o.time.timestamp, o.latitude, o.longitude, o.depth, m])
             params = np.array(params)
             id, t, lat, lon, depth, m = np.split(params, 6, axis=1)
+            id = id.flatten()
             t = t.astype('f').flatten()
             lat = lat.astype('f').flatten()
             lon = lon.astype('f').flatten()
@@ -457,11 +473,20 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                         for t in tickvals]
         ev_east, ev_north = utm(lon, lat)
         depth = np.array(depth) * -1#000
+        m_arr = np.array(m).astype(float)
+        m_min, m_max = float(np.min(m_arr)), float(np.max(m_arr))
+        if m_min == m_max:
+            marker_size = np.full_like(m_arr, 8.0)
+        else:
+            # Radius is linear in magnitude; plotly size = r^2, so marker area
+            # grows quadratically per magnitude unit and gives clear visual spread.
+            r = np.interp(m_arr, [m_min, m_max], [0.15, 4.])
+            marker_size = r ** 2.5
         if use_time_color:
             marker = dict(color=t,
                           cmin=min(tickvals),
                           cmax=max(tickvals),
-                          size=(mfact * np.array(m)) ** 2,
+                          size=marker_size,
                           symbol='circle',
                           line=dict(color=t,
                                     width=1,
@@ -476,7 +501,7 @@ def plot_3D(datasets, catalogs, field, catalog_labels=None, use_time_color=True)
                           opacity=0.5)
         else:
             marker = dict(color=color,
-                          size=(mfact * np.array(m)) ** 2,
+                          size=marker_size,
                           symbol='circle',
                           line=dict(color=color,
                                     width=1),

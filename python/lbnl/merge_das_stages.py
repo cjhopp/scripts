@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
-Merge per-event SCML files into one XML per stage using scxmlmerge.
+Merge per-event SCML files into one XML per stage.
+
+Uses fast ElementTree splicing by default (--method=fast), which extracts
+the children of <EventParameters> from each file and concatenates them
+into a single SC3ML document without invoking scxmlmerge.  This avoids
+the O(n²) publicID deduplication that makes scxmlmerge prohibitively slow
+on large stages (1000+ files).
+
+Use --method=scxmlmerge to fall back to the original behaviour.
 
 Handles:
   - Combining _P_ttime and _S_ttime files for the same stage
@@ -9,13 +17,12 @@ Handles:
     see NOTE below)
 
 NOTE: BearskinFeb_1IA-13 has three source files (combined + _P + _S).
-All three map to the same stage key, so if they contain the same events
-they will appear multiple times in the merged output.  scxmlmerge does
-NOT deduplicate by publicID.  Check the event count after merging and
-drop the combined .evt file from the input if needed.
+All three map to the same stage key and will appear multiple times in
+the merged output.
 
 Usage:
     python3 merge_das_stages.py [--scml-dir DIR] [--out-dir DIR] [--dry-run]
+                                [--method {fast,scxmlmerge}]
 """
 import argparse
 import re
@@ -23,6 +30,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 DEFAULT_SCML_DIR = (
     "/media/chopp/HDD1/chet-meq/cape_modern/catalogs/fervo/"
@@ -64,6 +72,53 @@ def canonical_stage(stem: str) -> str:
     return s
 
 
+def _merge_fast(files: list, out: Path) -> None:
+    """
+    Merge SC3ML files by splicing <EventParameters> children directly.
+
+    Reads the namespace and schema version from the first file, then
+    appends every child element from every file's <EventParameters>
+    block into a single output document.  O(n) in total pick count —
+    no deduplication, no cross-referencing.
+    """
+    NS   = "http://geofon.gfz-potsdam.de/ns/seiscomp3-schema/0.12"
+    EP   = f"{{{NS}}}EventParameters"
+    ROOT = f"{{{NS}}}seiscomp"
+
+    ET.register_namespace("", NS)
+
+    root_out = None
+    ep_out   = None
+
+    for fpath in files:
+        try:
+            tree = ET.parse(fpath)
+        except ET.ParseError as exc:
+            print(f"    WARN: skipping {fpath.name}: {exc}", file=sys.stderr)
+            continue
+
+        root_in = tree.getroot()
+        ep_in   = root_in.find(EP)
+        if ep_in is None:
+            continue
+
+        if root_out is None:
+            # Initialise output tree from first file
+            root_out = ET.Element(root_in.tag, root_in.attrib)
+            ep_out   = ET.SubElement(root_out, EP)
+
+        for child in ep_in:
+            ep_out.append(child)
+
+    if root_out is None:
+        print(f"    WARN: no valid input for {out.name}", file=sys.stderr)
+        return
+
+    ET.indent(root_out, space="  ")
+    tree_out = ET.ElementTree(root_out)
+    tree_out.write(str(out), encoding="unicode", xml_declaration=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -73,7 +128,10 @@ def main():
                         help="Output directory for merged files "
                              "(default: <scml-dir>/merged)")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Print groupings without running scxmlmerge")
+                        help="Print groupings without merging")
+    parser.add_argument("--method", choices=["fast", "scxmlmerge"], default="fast",
+                        help="Merge method: 'fast' (default) splices XML directly; "
+                             "'scxmlmerge' calls the SeisComP tool")
     args = parser.parse_args()
 
     scml_dir = Path(args.scml_dir)
@@ -92,7 +150,7 @@ def main():
 
     n_files = sum(len(v) for v in groups.values())
     print(f"Found {len(groups)} stages across {n_files} SCML files")
-    print(f"Output directory: {out_dir}\n")
+    print(f"Output directory: {out_dir}  method: {args.method}\n")
 
     if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -102,18 +160,21 @@ def main():
     for stage in sorted(groups):
         files = groups[stage]
         out   = out_dir / f"{stage}.xml"
-        print(f"  {stage:35s}  {len(files):5d} files  →  {out.name}")
+        print(f"  {stage:35s}  {len(files):5d} files  →  {out.name}", flush=True)
 
         if args.dry_run:
             continue
 
-        cmd = ["scxmlmerge"] + [str(f) for f in files]
-        with open(out, "w") as fh:
-            result = subprocess.run(cmd, stdout=fh, stderr=subprocess.PIPE, text=True)
-        if result.returncode != 0:
-            msg = f"scxmlmerge failed for stage '{stage}': {result.stderr.strip()}"
-            print(f"    WARNING: {msg}", file=sys.stderr)
-            errors.append(msg)
+        if args.method == "fast":
+            _merge_fast(files, out)
+        else:
+            cmd = ["scxmlmerge"] + [str(f) for f in files]
+            with open(out, "w") as fh:
+                result = subprocess.run(cmd, stdout=fh, stderr=subprocess.PIPE, text=True)
+            if result.returncode != 0:
+                msg = f"scxmlmerge failed for stage '{stage}': {result.stderr.strip()}"
+                print(f"    WARNING: {msg}", file=sys.stderr)
+                errors.append(msg)
 
     print(f"\nDone. {len(groups) - len(errors)} stages merged successfully.")
     if errors:

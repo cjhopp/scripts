@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+"""
+sac2mseed.py -- SAC float32 millivolts (at ADC input) -> miniSEED int32 counts.
+
+Input is one SAC file per node-channel-day at 1000 Hz, nominally 86400001
+samples, where the final sample is the 00:00:00.000 sample of the *next* day
+and is trimmed unless --keep-extra-sample is given.  Files that start partway
+through a day are handled: the trim is computed from the actual start time, and
+a file whose samples extend more than one sample past midnight is rejected
+unless --allow-crossing is given, because truncating it would silently discard
+data.
+
+Nothing from the SAC identifier fields survives.  network / station / location
+/ channel and the sampling rate are all imposed from station_config; the
+discarded SAC ids are recorded in the manifest so the character-overflow
+question can be answered later without re-reading the data.
+
+Feed the whole volume through a single invocation -- 'sacfiles' accepts '-' to
+read paths from stdin -- so that the in-memory output-collision check covers
+the entire batch.
+
+station_config must provide:
+    COUNTS_NUM, COUNTS_DEN   counts per mV @ADC input as an exact ratio
+                             (2**25 / 10000)
+    SAMPLING_RATE            1000 (int)
+    NETWORK, LOCATION        SEED codes
+    STATION_MAP              {node digits -> station code}
+    CHANNEL_MAP              {SAC channel code -> (SEED channel, ...)}
+"""
+
+import argparse
+import json
+import re
+import sys
+from contextlib import nullcontext
+from pathlib import Path
+
+import numpy as np
+from obspy import UTCDateTime, read
+
+from station_config import (COUNTS_NUM, COUNTS_DEN, SAMPLING_RATE, NETWORK,
+                            LOCATION, STATION_MAP, CHANNEL_MAP)
+
+SCHEMA = 4
+CHUNK = 1 << 22                 # 4 Mi samples ~= 33 MB as float64
+ADC_FULL_SCALE = 1 << 23        # 24-bit signed converter
+
+if int(SAMPLING_RATE) != SAMPLING_RATE:
+    raise ImportError(f"SAMPLING_RATE {SAMPLING_RATE!r} must be an integer")
+NS_PER_SAMPLE, _rem = divmod(1_000_000_000, int(SAMPLING_RATE))
+if _rem:
+    raise ImportError(f"{SAMPLING_RATE} Hz does not divide 1e9 ns evenly; "
+                      "the integer sample-count arithmetic below is invalid")
+
+FNAME = re.compile(r"^(?P<proj>[^.]+)\.(?P<node>\d+)\.(?P<idx>\d+)\."
+                   r"(?P<year>\d{4})\.(?P<jday>\d{3})\."
+                   r"(?P<hh>\d{2})\.(?P<mm>\d{2})\.(?P<ss>\d{2})\."
+                   r"(?P<chan>[A-Z0-9]+)\.sac$")
+
+
+def _round_ns(ns, quantum=1_000_000):
+    """Round an integer nanosecond count to the nearest quantum (default 1 ms),
+    ties away from zero.  Pure integer arithmetic: UTCDateTime.ns for 2024 is
+    ~1.7e18, far past 2**53, so anything routed through float64 can land off a
+    millisecond boundary by a couple hundred nanoseconds."""
+    if ns < 0:
+        return -(((-ns) + quantum // 2) // quantum) * quantum
+    return ((ns + quantum // 2) // quantum) * quantum
+
+
+def read_and_check(path, headonly=False):
+    """Read one SAC file and vet every header field the conversion depends on."""
+    m = FNAME.match(Path(path).name)
+    if not m:
+        raise ValueError("filename does not match expected pattern")
+
+    st = read(path, format="SAC", headonly=headonly)   # fsize check on by default
+    if len(st) != 1:
+        raise ValueError(f"expected 1 trace, got {len(st)}")
+    tr = st[0]
+    sac = tr.stats.sac
+
+    if sac.get("iftype", 1) != 1:
+        raise ValueError(f"iftype={sac.get('iftype')} is not ITIME")
+    if sac.get("leven", 1) != 1:
+        raise ValueError("unevenly sampled")
+    if abs(sac.delta - 1.0 / SAMPLING_RATE) > 1e-9:
+        raise ValueError(f"delta {sac.delta!r} inconsistent with {SAMPLING_RATE} Hz")
+
+    ft = UTCDateTime(year=int(m["year"]), julday=int(m["jday"]),
+                     hour=int(m["hh"]), minute=int(m["mm"]), second=int(m["ss"]))
+    if abs(tr.stats.starttime - ft) > 0.5:
+        raise ValueError(f"header start {tr.stats.starttime} "
+                         f"disagrees with filename {ft}")
+    return tr, m
+
+
+def restat(tr, m):
+    """Replace every identifier and the sample rate.  Returns the discarded
+    SAC identifier tuple."""
+    sac_ids = (tr.stats.network, tr.stats.station,
+               tr.stats.location, tr.stats.channel)
+
+    try:
+        station = STATION_MAP[m["node"]]
+    except KeyError:
+        raise ValueError(f"node {m['node']!r} not in STATION_MAP") from None
+    try:
+        channel = CHANNEL_MAP[m["chan"]][0]
+    except KeyError:
+        raise ValueError(f"channel code {m['chan']!r} not in CHANNEL_MAP") from None
+
+    # The MSEED writer truncates over-long codes rather than refusing them.
+    for label, val, n in (("network", NETWORK, 2), ("station", station, 5),
+                          ("location", LOCATION, 2), ("channel", channel, 3)):
+        if len(val) > n:
+            raise ValueError(f"{label} code {val!r} exceeds {n} characters")
+    if len(channel) != 3:
+        raise ValueError(f"channel code {channel!r} must be exactly 3 characters")
+
+    # sampling_rate is the stored field; delta is derived as 1/sampling_rate and
+    # endtime is refreshed on every assignment, so ordering here is irrelevant.
+    tr.stats.sampling_rate = SAMPLING_RATE          # never 1/delta from SAC
+    tr.stats.starttime = UTCDateTime(ns=_round_ns(tr.stats.starttime.ns))
+    tr.stats.network = NETWORK
+    tr.stats.station = station
+    tr.stats.location = LOCATION
+    tr.stats.channel = channel
+    tr.stats.mseed = {"dataquality": "D"}
+    del tr.stats.sac
+    return sac_ids
+
+
+def plan_trim(tr, keep_extra=False):
+    """Return (n_keep, n_past_midnight).  Call only after restat(), which
+    ms-aligns starttime, so the sample count to midnight is exact in integers."""
+    npts = tr.stats.npts
+    t0 = tr.stats.starttime
+    midnight = UTCDateTime(t0.year, t0.month, t0.day) + 86400.0
+    n_to_midnight = (midnight.ns - t0.ns) // NS_PER_SAMPLE
+    n_past = max(0, npts - n_to_midnight)
+    n_keep = npts if keep_extra else min(npts, n_to_midnight)
+    return int(n_keep), int(n_past)
+
+
+def check_crossing(n_past, keep_extra=False, allow_crossing=False):
+    if n_past > 1 and not (keep_extra or allow_crossing):
+        raise ValueError(
+            f"file extends {n_past} samples past midnight "
+            f"({(n_past - 1) / SAMPLING_RATE:.3f} s of data would be discarded); "
+            f"use --allow-crossing to truncate anyway, or --keep-extra-sample "
+            f"to write it whole")
+
+
+def to_counts(tr, n_keep, strict=False):
+    """float32 mV -> int32 counts, chunked, keeping the first n_keep samples."""
+    npts = tr.stats.npts
+    if n_keep <= 0:
+        raise ValueError("nothing left after trimming")
+
+    x = tr.data
+    counts = np.empty(n_keep, dtype=np.int32)
+    rmax, rsum = 0.0, 0.0
+    for i in range(0, n_keep, CHUNK):
+        j = min(i + CHUNK, n_keep)
+        y = (x[i:j].astype(np.float64) * COUNTS_NUM) / COUNTS_DEN
+        if not np.isfinite(y).all():
+            raise ValueError(f"non-finite sample near index {i}")
+        n = np.rint(y)
+        r = np.abs(y - n)
+        rmax = max(rmax, float(r.max()))
+        rsum += float((r ** 2).sum())
+        if n.min() < -2**31 or n.max() > 2**31 - 1:
+            raise ValueError("int32 overflow")
+        counts[i:j] = n.astype(np.int32)
+    tr.data = counts                  # also refreshes stats.npts and endtime
+    del x, y, n, r                    # release the 345 MB float32 array
+
+    if rmax >= 0.01:
+        raise ValueError(f"not integer counts: max residual {rmax:.3e}")
+    if counts.min() <= -ADC_FULL_SCALE or counts.max() >= ADC_FULL_SCALE - 1:
+        raise ValueError(f"samples at or beyond ADC full scale "
+                         f"(+/-{ADC_FULL_SCALE}) -- clipped, or gain is not 16")
+    if strict:
+        u = np.unique(counts)
+        if u.size >= 2:
+            g = int(np.gcd.reduce(np.diff(u)))
+            if g != 1:
+                raise ValueError(f"coarser lattice present: gcd={g}")
+
+    return dict(schema=SCHEMA, npts_in=int(npts), npts_out=int(n_keep),
+                dropped=int(npts - n_keep), residual_max=rmax,
+                residual_rms=(rsum / n_keep) ** 0.5,
+                count_min=int(counts.min()), count_max=int(counts.max()))
+
+
+def convert(path, keep_extra=False, strict=False, allow_crossing=False):
+    tr, m = read_and_check(path)
+    sac_ids = restat(tr, m)
+    n_keep, n_past = plan_trim(tr, keep_extra)
+    check_crossing(n_past, keep_extra, allow_crossing)
+    rec = to_counts(tr, n_keep, strict)
+    rec.update(source=str(path), node=m["node"], fname_idx=m["idx"],
+               sac_ids_discarded=list(sac_ids), n_past_midnight=n_past)
+    return tr, rec
+
+
+def dest_for(stats, outdir):
+    """Full days keep the canonical NET.STA.LOC.CHA.YEAR.JDAY name; anything
+    starting after midnight gets an HHMMSS suffix so fragments of the same day
+    cannot overwrite each other."""
+    t = stats.starttime
+    stem = (f"{stats.network}.{stats.station}.{stats.location}.{stats.channel}."
+            f"{t.year}.{t.julday:03d}")
+    if t.hour or t.minute or t.second or t.microsecond:
+        stem += f".{t.hour:02d}{t.minute:02d}{t.second:02d}"
+    return outdir / (stem + ".mseed")
+
+
+def iter_paths(argv_paths):
+    if len(argv_paths) == 1 and argv_paths[0] == "-":
+        for line in sys.stdin:
+            line = line.strip()
+            if line:
+                yield line
+    else:
+        yield from argv_paths
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("sacfiles", nargs="+", help="SAC paths, or '-' to read from stdin")
+    ap.add_argument("-o", "--outdir", required=True)
+    ap.add_argument("--manifest", default="conversion_manifest.jsonl")
+    ap.add_argument("--keep-extra-sample", action="store_true",
+                    help="write every sample, including any past midnight")
+    ap.add_argument("--allow-crossing", action="store_true",
+                    help="truncate files that extend past midnight instead of failing")
+    ap.add_argument("--strict", action="store_true",
+                    help="also run the full-array GCD lattice check (slow)")
+    ap.add_argument("--overwrite", action="store_true",
+                    help="replace existing output files instead of failing")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="headers only: parse, vet, report, write nothing")
+    a = ap.parse_args()
+
+    out = Path(a.outdir)
+    if not a.dry_run:
+        out.mkdir(parents=True, exist_ok=True)
+
+    seen, ok_n, fails = {}, 0, 0
+    mf_ctx = nullcontext() if a.dry_run else open(a.manifest, "a")
+    with mf_ctx as mf:
+        for f in iter_paths(a.sacfiles):
+            try:
+                if a.dry_run:
+                    tr, m = read_and_check(f, headonly=True)
+                    restat(tr, m)
+                    n_keep, n_past = plan_trim(tr, a.keep_extra_sample)
+                    check_crossing(n_past, a.keep_extra_sample, a.allow_crossing)
+                    rec = None
+                else:
+                    tr, rec = convert(f, a.keep_extra_sample, a.strict,
+                                      a.allow_crossing)
+                    n_keep, n_past = rec["npts_out"], rec["n_past_midnight"]
+                s = tr.stats
+                dest = dest_for(s, out)
+
+                if dest in seen:
+                    raise ValueError(f"output collides with {seen[dest]}")
+                seen[dest] = f
+                if not a.dry_run and dest.exists() and not a.overwrite:
+                    raise ValueError(f"{dest} exists (use --overwrite)")
+            except Exception as e:
+                print(f"FAIL {f}: {e}", file=sys.stderr)
+                fails += 1
+                continue
+
+            if a.dry_run:
+                print(f"{f}\n  -> {dest.name}  {tr.id}  n={n_keep}  {s.starttime}")
+                ok_n += 1
+                continue
+
+            print(f"{f}\n  -> {dest.name}  n={s.npts}  "
+                  f"{s.starttime} .. {s.endtime}  res={rec['residual_max']:.2e}")
+
+            tr.write(str(dest), format="MSEED", encoding="STEIM2",
+                     reclen=4096, byteorder=">")
+
+            back = read(str(dest), format="MSEED")
+            good = (len(back) == 1
+                    and back[0].id == tr.id
+                    and back[0].stats.npts == s.npts
+                    and back[0].stats.starttime.ns == s.starttime.ns
+                    and abs(back[0].stats.sampling_rate - SAMPLING_RATE) <= 1e-9
+                    and back[0].data.dtype == np.int32
+                    and np.array_equal(back[0].data, tr.data))
+            if not good:
+                dest.unlink(missing_ok=True)
+                print(f"FAIL round-trip {dest} (removed)", file=sys.stderr)
+                fails += 1
+                continue
+
+            rec.update(dest=str(dest), seed_id=tr.id, starttime=str(s.starttime),
+                       endtime=str(s.endtime), sampling_rate=SAMPLING_RATE,
+                       roundtrip="OK", preamp_removed=False,
+                       factor=f"{COUNTS_NUM}/{COUNTS_DEN} counts per mV @ADC input")
+            mf.write(json.dumps(rec) + "\n")
+            mf.flush()
+            ok_n += 1
+
+    print(f"\n{ok_n} ok, {fails} failed", file=sys.stderr)
+    sys.exit(1 if fails else 0)
+
+
+if __name__ == "__main__":
+    main()

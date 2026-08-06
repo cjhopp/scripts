@@ -300,13 +300,13 @@ def read_single_evt_file(pick_file, fiber_ranges, phase_filter=None,
 
     # ── Pre-compute static per-group metadata ──────────────────────────────
     # Convert rec_dfs to index-dicts so coordinate lookup is O(1) per group.
+    # Keys are 1-based row positions — rec file receiver_num values are absolute
+    # fiber channel indices and do NOT match the group numbers in .evt files.
     rec_lookup = {}
     for cn, rdf in rec_dfs.items():
         if not rdf.empty:
-            rec_lookup[cn] = (
-                rdf.set_index("receiver_num")[["Easting(m)", "Northing(m)", "Depth(m)"]]
-                .to_dict("index")
-            )
+            rows = rdf[["Easting(m)", "Northing(m)", "Depth(m)"]].to_dict("records")
+            rec_lookup[cn] = {i + 1: r for i, r in enumerate(rows)}
 
     # Cache timezone objects — ZoneInfo construction is not free.
     _tz     = ZoneInfo(tz_name)
@@ -675,16 +675,17 @@ def build_das_inventory(catalog_or_seen, rec_files=None):
         if (np.isnan(info["easting"]) and cfg_name in rec_dfs
                 and grp_num is not None):
             rec_df  = rec_dfs[cfg_name]
-            # Try global group number first, then local (fiber_ch-derived)
+            # Keys are 1-based row positions (same convention as rec_lookup
+            # in read_single_evt_file).  Try global group number first,
+            # fall back to local fiber index.
             for key in (grp_num, fiber_ch):
-                if key is None:
+                if key is None or not (1 <= key <= len(rec_df)):
                     continue
-                match = rec_df[rec_df["receiver_num"] == key]
-                if not match.empty:
-                    info["easting"]  = match.iloc[0]["Easting(m)"]
-                    info["northing"] = match.iloc[0]["Northing(m)"]
-                    info["depth_m"]  = match.iloc[0]["Depth(m)"]
-                    break
+                row = rec_df.iloc[key - 1]
+                info["easting"]  = row["Easting(m)"]
+                info["northing"] = row["Northing(m)"]
+                info["depth_m"]  = row["Depth(m)"]
+                break
 
     # ── Build Inventory structure ──────────────────────────────────────────
     # Group stations by network code
