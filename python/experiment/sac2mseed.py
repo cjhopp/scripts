@@ -248,6 +248,8 @@ def main():
     out = Path(a.outdir)
     if not a.dry_run:
         out.mkdir(parents=True, exist_ok=True)
+    if a.keep_extra_sample:
+        ap.error("--keep-extra-sample produces overlapping day boundaries under scart")
 
     seen, ok_n, fails = {}, 0, 0
     mf_ctx = nullcontext() if a.dry_run else open(a.manifest, "a")
