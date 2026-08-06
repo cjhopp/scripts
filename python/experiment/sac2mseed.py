@@ -205,17 +205,23 @@ def convert(path, keep_extra=False, strict=False, allow_crossing=False):
     return tr, rec
 
 
-def dest_for(stats, outdir):
-    """Full days keep the canonical NET.STA.LOC.CHA.YEAR.JDAY name; anything
-    starting after midnight gets an HHMMSS suffix so fragments of the same day
-    cannot overwrite each other."""
+def dest_for(stats, outdir, subdir="day"):
+    """Staging path.  Flat filename as before; optional subdirectory so that no
+    single directory accumulates the whole campaign."""
     t = stats.starttime
-    stem = (f"{stats.network}.{stats.station}.{stats.location}.{stats.channel}."
+    name = (f"{stats.network}.{stats.station}.{stats.location}.{stats.channel}."
             f"{t.year}.{t.julday:03d}")
     if t.hour or t.minute or t.second or t.microsecond:
-        stem += f".{t.hour:02d}{t.minute:02d}{t.second:02d}"
-    return outdir / (stem + ".mseed")
+        name += f".{t.hour:02d}{t.minute:02d}{t.second:02d}"
+    name += ".mseed"
 
+    if subdir == "none":
+        return outdir / name
+    if subdir == "day":
+        return outdir / f"{t.year}" / f"{t.julday:03d}" / name
+    if subdir == "station":
+        return outdir / stats.station / f"{t.year}" / name
+    raise ValueError(f"unknown subdir mode {subdir!r}")
 
 def iter_paths(argv_paths):
     if len(argv_paths) == 1 and argv_paths[0] == "-":
