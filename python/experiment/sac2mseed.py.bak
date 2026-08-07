@@ -38,16 +38,8 @@ from pathlib import Path
 import numpy as np
 from obspy import UTCDateTime, read
 
-# ---- deployment configuration (was station_config.py) ----------------------
-COUNTS_NUM, COUNTS_DEN = 33554432.0, 10000.0  # 2**25 / 10000 -> counts per mV
-SAMPLING_RATE = 1000.0                        # asserted against sac.delta below
-
-NETWORK  = "IG"    # <-- FDSN code; "Cape" is 4 chars and will not fit SEED
-LOCATION = ""    # <-- as written in the filename
-
-STATION_MAP = {}   # empty -> node id from the filename, verbatim
-CHANNEL_MAP = {}   # empty -> channel from the filename, verbatim
-# ---------------------------------------------------------------------------
+from station_config import (COUNTS_NUM, COUNTS_DEN, SAMPLING_RATE, NETWORK,
+                            LOCATION, STATION_MAP, CHANNEL_MAP)
 
 SCHEMA = 4
 CHUNK = 1 << 22                 # 4 Mi samples ~= 33 MB as float64
@@ -110,11 +102,11 @@ def restat(tr, m):
                tr.stats.location, tr.stats.channel)
 
     try:
-        station = STATION_MAP.get(m["node"], m["node"])
+        station = STATION_MAP[m["node"]]
     except KeyError:
         raise ValueError(f"node {m['node']!r} not in STATION_MAP") from None
     try:
-        channel = CHANNEL_MAP.get(m["chan"], (m["chan"],))[0]
+        channel = CHANNEL_MAP[m["chan"]][0]
     except KeyError:
         raise ValueError(f"channel code {m['chan']!r} not in CHANNEL_MAP") from None
 
@@ -184,20 +176,8 @@ def to_counts(tr, n_keep, strict=False):
     tr.data = counts                  # also refreshes stats.npts and endtime
     del x, y, n, r                    # release the 345 MB float32 array
 
-    # The SAC files hold exact integer counts expressed in float32 mV, but
-    # float32 has 24 mantissa bits and one count is 1e4/2**25 mV, so counts
-    # above ~2**24/625 (~26.8k) are not exactly representable and come back
-    # off by up to ~count*2**-24.  A fixed tolerance therefore rejects loud
-    # but valid traces.  Scale the per-sample gate with amplitude and let
-    # the RMS do the real work: a wrong COUNTS_NUM/COUNTS_DEN spreads
-    # residuals uniformly over every sample and lands near 0.289, while
-    # float32 quantization stays several orders of magnitude below that.
-    cmax = float(np.abs(counts).max())
-    rrms = (rsum / n_keep) ** 0.5
-    tol = max(0.01, 4.0 * cmax * 2.0 ** -24)
-    if rmax >= tol or rrms >= 0.05:
-        raise ValueError(f"not integer counts: max residual {rmax:.3e} "
-                         f"(tol {tol:.3e}), rms {rrms:.3e}")
+    if rmax >= 0.01:
+        raise ValueError(f"not integer counts: max residual {rmax:.3e}")
     if counts.min() <= -ADC_FULL_SCALE or counts.max() >= ADC_FULL_SCALE - 1:
         raise ValueError(f"samples at or beyond ADC full scale "
                          f"(+/-{ADC_FULL_SCALE}) -- clipped, or gain is not 16")

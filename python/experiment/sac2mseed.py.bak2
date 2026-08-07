@@ -184,20 +184,8 @@ def to_counts(tr, n_keep, strict=False):
     tr.data = counts                  # also refreshes stats.npts and endtime
     del x, y, n, r                    # release the 345 MB float32 array
 
-    # The SAC files hold exact integer counts expressed in float32 mV, but
-    # float32 has 24 mantissa bits and one count is 1e4/2**25 mV, so counts
-    # above ~2**24/625 (~26.8k) are not exactly representable and come back
-    # off by up to ~count*2**-24.  A fixed tolerance therefore rejects loud
-    # but valid traces.  Scale the per-sample gate with amplitude and let
-    # the RMS do the real work: a wrong COUNTS_NUM/COUNTS_DEN spreads
-    # residuals uniformly over every sample and lands near 0.289, while
-    # float32 quantization stays several orders of magnitude below that.
-    cmax = float(np.abs(counts).max())
-    rrms = (rsum / n_keep) ** 0.5
-    tol = max(0.01, 4.0 * cmax * 2.0 ** -24)
-    if rmax >= tol or rrms >= 0.05:
-        raise ValueError(f"not integer counts: max residual {rmax:.3e} "
-                         f"(tol {tol:.3e}), rms {rrms:.3e}")
+    if rmax >= 0.01:
+        raise ValueError(f"not integer counts: max residual {rmax:.3e}")
     if counts.min() <= -ADC_FULL_SCALE or counts.max() >= ADC_FULL_SCALE - 1:
         raise ValueError(f"samples at or beyond ADC full scale "
                          f"(+/-{ADC_FULL_SCALE}) -- clipped, or gain is not 16")
