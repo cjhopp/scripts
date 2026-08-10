@@ -23,8 +23,7 @@ station_config must provide:
     COUNTS_NUM, COUNTS_DEN   counts per mV @ADC input as an exact ratio
                              (2**25 / 10000)
     SAMPLING_RATE            1000 (int)
-    NETWORK                  SEED network code; the location code is
-                             read from the filename, not from config
+    NETWORK, LOCATION        SEED codes
     STATION_MAP              {node digits -> station code}
     CHANNEL_MAP              {SAC channel code -> (SEED channel, ...)}
 """
@@ -44,6 +43,7 @@ COUNTS_NUM, COUNTS_DEN = 33554432.0, 10000.0  # 2**25 / 10000 -> counts per mV
 SAMPLING_RATE = 1000.0                        # asserted against sac.delta below
 
 NETWORK  = "IG"    # <-- FDSN code; "Cape" is 4 chars and will not fit SEED
+LOCATION = ""    # <-- as written in the filename
 
 STATION_MAP = {}   # empty -> node id from the filename, verbatim
 CHANNEL_MAP = {}   # empty -> channel from the filename, verbatim
@@ -60,34 +60,10 @@ if _rem:
     raise ImportError(f"{SAMPLING_RATE} Hz does not divide 1e9 ns evenly; "
                       "the integer sample-count arithmetic below is invalid")
 
-FNAME = re.compile(r"^(?P<proj>[^.]+)\.(?P<node>\d{4})\.(?P<loc>\d{2})\."
+FNAME = re.compile(r"^(?P<proj>[^.]+)\.(?P<node>\d+)\.(?P<idx>\d+)\."
                    r"(?P<year>\d{4})\.(?P<jday>\d{3})\."
                    r"(?P<hh>\d{2})\.(?P<mm>\d{2})\.(?P<ss>\d{2})\."
                    r"(?P<chan>[A-Z0-9]+)\.sac$")
-
-
-# ---- node 0011 deployment overlap -----------------------------------------
-# 0011 ran locations 00 and 10 concurrently from 2024.339 to 2025.020.  The
-# handoff is 2024-12-29 = 2024.364: keep 00 before it, 10 from it onward.
-# These keys are ints because this is an ordering test.  Everywhere else
-# node/loc/jday stay as the strings the regex produced -- "020" != 20.
-OVERLAP_NODE = "0011"
-OVERLAP_FROM, OVERLAP_TO = 2024339, 2025020
-CUTOVER = 2024364
-
-
-def _daykey(m):
-    return int(m["year"]) * 1000 + int(m["jday"])
-
-
-def keep(m):
-    """False for the superseded half of the 0011 overlap, True otherwise."""
-    if m["node"] != OVERLAP_NODE:
-        return True
-    k = _daykey(m)
-    if not OVERLAP_FROM <= k <= OVERLAP_TO:
-        return True                      # outside the window: never drop
-    return m["loc"] == ("10" if k >= CUTOVER else "00")
 
 
 def _round_ns(ns, quantum=1_000_000):
@@ -142,11 +118,9 @@ def restat(tr, m):
     except KeyError:
         raise ValueError(f"channel code {m['chan']!r} not in CHANNEL_MAP") from None
 
-    location = m["loc"]              # filename is authoritative
-
     # The MSEED writer truncates over-long codes rather than refusing them.
     for label, val, n in (("network", NETWORK, 2), ("station", station, 5),
-                          ("location", location, 2), ("channel", channel, 3)):
+                          ("location", LOCATION, 2), ("channel", channel, 3)):
         if len(val) > n:
             raise ValueError(f"{label} code {val!r} exceeds {n} characters")
     if len(channel) != 3:
@@ -158,7 +132,7 @@ def restat(tr, m):
     tr.stats.starttime = UTCDateTime(ns=_round_ns(tr.stats.starttime.ns))
     tr.stats.network = NETWORK
     tr.stats.station = station
-    tr.stats.location = location
+    tr.stats.location = LOCATION
     tr.stats.channel = channel
     tr.stats.mseed = {"dataquality": "D"}
     del tr.stats.sac
@@ -246,7 +220,7 @@ def convert(path, keep_extra=False, strict=False, allow_crossing=False):
     n_keep, n_past = plan_trim(tr, keep_extra)
     check_crossing(n_past, keep_extra, allow_crossing)
     rec = to_counts(tr, n_keep, strict)
-    rec.update(source=str(path), node=m["node"], location=m["loc"],
+    rec.update(source=str(path), node=m["node"], fname_idx=m["idx"],
                sac_ids_discarded=list(sac_ids), n_past_midnight=n_past)
     return tr, rec
 
@@ -303,16 +277,10 @@ def main():
     if a.keep_extra_sample:
         ap.error("--keep-extra-sample produces overlapping day boundaries under scart")
 
-    seen, ok_n, fails, dropped = {}, 0, 0, 0
+    seen, ok_n, fails = {}, 0, 0
     mf_ctx = nullcontext() if a.dry_run else open(a.manifest, "a")
     with mf_ctx as mf:
         for f in iter_paths(a.sacfiles):
-            _m = FNAME.match(Path(f).name)
-            if _m is not None and not keep(_m):
-                dropped += 1
-                print(f"DROP {f}: superseded half of the {OVERLAP_NODE} "
-                      f"{_m['loc']} overlap", file=sys.stderr)
-                continue
             try:
                 if a.dry_run:
                     tr, m = read_and_check(f, headonly=True)
@@ -370,8 +338,7 @@ def main():
             mf.flush()
             ok_n += 1
 
-    print(f"\n{ok_n} ok, {fails} failed, {dropped} dropped",
-          file=sys.stderr)
+    print(f"\n{ok_n} ok, {fails} failed", file=sys.stderr)
     sys.exit(1 if fails else 0)
 
 
