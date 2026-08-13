@@ -37,7 +37,17 @@ def get_end(direction, well):
 
 
 _MAX_WINDOW = np.timedelta64(60, 'D')
-_raw = xr.open_dataset('/data/chet-cussp/DTS/DTS_all.zarr', chunks={}, engine='zarr')
+# Drop probe1_temperature/probe2_temperature/reference_temperature: these are
+# unused by this app, and a partial/interrupted write to the Zarr store (e.g.
+# combine_XTDTS.py killed mid-append) has left probe2_temperature one
+# timestep behind the others, which makes xr.open_dataset raise
+# "conflicting sizes for dimension 'time'" if all variables are merged.
+_raw = xr.open_dataset(
+    '/data/chet-cussp/DTS/DTS_all.zarr',
+    chunks={},
+    engine='zarr',
+    drop_variables=['probe1_temperature', 'probe2_temperature', 'reference_temperature'],
+)
 _time_end = _raw.time[-1].values
 _DS = _raw.sel(time=slice(_time_end - _MAX_WINDOW, None)).load()
 del _raw
