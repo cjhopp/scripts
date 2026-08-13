@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import logging
 import re
+import zarr
+import dask.array as dask_array
 from pathlib import Path
 
 import param
@@ -36,18 +38,76 @@ def get_end(direction, well):
         return chan_map_4100[well] + fiber_depth_4100[well]
 
 
+_DTS_DROP_VARS = ['probe1_temperature', 'probe2_temperature', 'reference_temperature']
+
+
+def _decode_seconds_since(raw_seconds, units):
+    """Decode an int64 'seconds since <epoch>' array into datetime64[ns].
+
+    Mirrors the TIME_ENCODING used to write this store in combine_XTDTS.py
+    ("seconds since 1970-01-01 00:00:00"), without depending on xarray's
+    internal CF-decoding API.
+    """
+    m = re.match(r'seconds since (.+)$', units.strip())
+    epoch = np.datetime64(m.group(1).replace(' ', 'T')) if m else np.datetime64('1970-01-01T00:00:00')
+    return epoch + raw_seconds.astype('timedelta64[s]')
+
+
+def _open_dts_dataset(zarr_path):
+    """Open the DTS Zarr store, tolerating a mismatched trailing timestep.
+
+    combine_XTDTS.py continuously appends to this store. If that ingest
+    process is interrupted mid-write (systemd restart, or resuming after a
+    long outage of the upstream DTS source), the 'time' coordinate and the
+    'temperature' data variable can end up differing in length by a few
+    entries. xr.open_dataset() raises ValueError("conflicting sizes...")
+    in that case with no way to relax the check, so fall back to reading
+    the raw Zarr arrays directly and truncating everything to the
+    shortest common 'time' length.
+    """
+    try:
+        return xr.open_dataset(
+            str(zarr_path), chunks={}, engine='zarr', drop_variables=_DTS_DROP_VARS,
+        )
+    except ValueError as exc:
+        if 'conflicting sizes' not in str(exc):
+            raise
+        log.warning(
+            "DTS Zarr store has conflicting 'time' sizes (%s); "
+            "falling back to truncated read of raw arrays", exc,
+        )
+
+    group = zarr.open_group(str(zarr_path), mode='r')
+    time_arr = group['time']
+    depth_vals = group['depth'][:]
+    temp_arr = group['temperature']
+    temp_dims = list(temp_arr.attrs['_ARRAY_DIMENSIONS'])
+    time_axis = temp_dims.index('time')
+
+    n_time = min(time_arr.shape[0], temp_arr.shape[time_axis])
+    log.warning(
+        "Truncating DTS store to %d common timestep(s) (time=%d, temperature=%d)",
+        n_time, time_arr.shape[0], temp_arr.shape[time_axis],
+    )
+
+    raw_time = time_arr[:n_time]
+    time_units = time_arr.attrs.get('units', 'seconds since 1970-01-01 00:00:00')
+    time_vals = _decode_seconds_since(raw_time, time_units)
+
+    temp_dask = dask_array.from_zarr(str(zarr_path), component='temperature')
+    slicer = [slice(None)] * temp_dask.ndim
+    slicer[time_axis] = slice(0, n_time)
+    temp_dask = temp_dask[tuple(slicer)]
+    temp_attrs = {k: v for k, v in temp_arr.attrs.items() if k != '_ARRAY_DIMENSIONS'}
+
+    return xr.Dataset(
+        {'temperature': (temp_dims, temp_dask, temp_attrs)},
+        coords={'time': time_vals, 'depth': depth_vals},
+    )
+
+
 _MAX_WINDOW = np.timedelta64(60, 'D')
-# Drop probe1_temperature/probe2_temperature/reference_temperature: these are
-# unused by this app, and a partial/interrupted write to the Zarr store (e.g.
-# combine_XTDTS.py killed mid-append) has left probe2_temperature one
-# timestep behind the others, which makes xr.open_dataset raise
-# "conflicting sizes for dimension 'time'" if all variables are merged.
-_raw = xr.open_dataset(
-    '/data/chet-cussp/DTS/DTS_all.zarr',
-    chunks={},
-    engine='zarr',
-    drop_variables=['probe1_temperature', 'probe2_temperature', 'reference_temperature'],
-)
+_raw = _open_dts_dataset('/data/chet-cussp/DTS/DTS_all.zarr')
 _time_end = _raw.time[-1].values
 _DS = _raw.sel(time=slice(_time_end - _MAX_WINDOW, None)).load()
 del _raw
