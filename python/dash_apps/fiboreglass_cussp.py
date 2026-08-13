@@ -108,6 +108,19 @@ def _open_dts_dataset(zarr_path):
 
 _MAX_WINDOW = np.timedelta64(60, 'D')
 _raw = _open_dts_dataset('/data/chet-cussp/DTS/DTS_all.zarr')
+# The store's 'time' coordinate isn't guaranteed to be sorted or unique --
+# e.g. backlog files ingested out of order after a source outage, or a
+# partial/interrupted write leaving a duplicate timestamp. .sel(time=slice(...))
+# requires a monotonic, unique index and raises a bare KeyError otherwise, so
+# normalize here rather than assume the store is already clean. These are
+# cheap index-level checks/ops (only reorder the small 'time' coordinate,
+# not the bulk temperature data), so this is fine to run on every session.
+if not _raw.indexes['time'].is_monotonic_increasing:
+    log.warning("DTS store 'time' index is not sorted; sorting before use")
+    _raw = _raw.sortby('time')
+if _raw.indexes['time'].has_duplicates:
+    log.warning("DTS store 'time' index has duplicate timestamps; keeping the last of each")
+    _raw = _raw.drop_duplicates(dim='time', keep='last')
 _time_end = _raw.time[-1].values
 _DS = _raw.sel(time=slice(_time_end - _MAX_WINDOW, None)).load()
 del _raw
