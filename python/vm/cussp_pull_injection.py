@@ -7,6 +7,7 @@ Requires rclone configured with a remote (e.g. gdrive:).
 """
 
 import argparse
+import json
 import logging
 import os
 import re
@@ -272,23 +273,51 @@ def resample_injection_data(staging_dir, output_path, resample_freq='1min'):
         # Write resampled data (pandas handles datetime serialization automatically)
         df_resampled.to_csv(output_path, index=False)
         log.info("Resampled complete injection history to %s: %d -> %d rows (after dropping empty periods)", resample_freq, len(df_combined), len(df_resampled))
+
+        # Record which inputs produced this output so needs_resample() can detect
+        # future changes without relying on rclone/Drive-influenced mtimes.
+        _write_staging_manifest(staging_dir, _manifest_path(output_path))
         return True
     except Exception as e:
         log.warning("Failed to resample injection data: %s", e)
         return False
 
 
+def _manifest_path(output_path):
+    return output_path.with_name(output_path.stem + ".manifest.json")
+
+
+def _staging_manifest(staging_dir):
+    """Return {filename: size} for all staging INJ data files.
+
+    Used as a deterministic stand-in for mtime, since rclone-preserved
+    Drive modtimes don't reliably advance when a file's content changes.
+    """
+    return {p.name: p.stat().st_size for p in sorted(staging_dir.glob(INJ_DATA_PATTERN))}
+
+
+def _write_staging_manifest(staging_dir, manifest_path):
+    manifest_path.write_text(json.dumps(_staging_manifest(staging_dir)))
+
+
 def needs_resample(staging_dir, output_path):
-    """Return True when output is missing or older than any staging INJ data file."""
+    """Return True when output/manifest is missing or staging files changed."""
     data_files = list(staging_dir.glob(INJ_DATA_PATTERN))
     if not data_files:
         return False
     if not output_path.exists():
         return True
 
-    latest_input_mtime = max(p.stat().st_mtime for p in data_files)
-    output_mtime = output_path.stat().st_mtime
-    return latest_input_mtime > output_mtime
+    manifest_path = _manifest_path(output_path)
+    if not manifest_path.exists():
+        return True
+
+    try:
+        last_manifest = json.loads(manifest_path.read_text())
+    except (OSError, ValueError):
+        return True
+
+    return _staging_manifest(staging_dir) != last_manifest
 
 
 def parse_args():
