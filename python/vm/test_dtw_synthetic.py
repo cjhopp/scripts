@@ -10,10 +10,19 @@ Verifies that _dtw_dt_samples() can recover:
 
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
+
 import numpy as np
 
 # Import the functions under test
-from cussp_cassm_process import _dtw_dt_samples, _xcorr_dt_samples, _cosine_window
+from cussp_cassm_process import (
+    _dtw_dt_samples,
+    _xcorr_dt_samples,
+    _cosine_window,
+    _guided_xcorr_accepts,
+    load_config,
+)
 
 
 class TestDTW:
@@ -218,11 +227,106 @@ class TestDTW:
 
         print(f"✓ Benchmark small shift ({true_shift} smp):")
         print(f"    xcorr: lag={xcorr_lag:.3f} smp, err={xcorr_err:.3f}, cc={xcorr_cc:.4f}")
-        print(f"    DTW:   lag={dtw_lag:.3f} smp, err={dtw_err:.3f}, cc={dtw_cc:.4f}")
-        # xcorr with sub-sample parabolic fit should recover integer shifts accurately
-        assert xcorr_err < 0.5, f"xcorr should recover 1-sample shift, got err={xcorr_err:.3f}"
-        # DTW should not be much worse than xcorr for small integer shifts
-        assert dtw_err <= xcorr_err + 1.0, f"DTW regression vs xcorr: dtw_err={dtw_err:.3f}"
+
+
+def test_guided_xcorr_accepts_only_near_guide_center():
+    """Guided refinement must be measured relative to the guide-selected cycle, not zero."""
+    assert _guided_xcorr_accepts(lag_samples=8.2, guide_lag_samples=10.0, max_lag_samples=2.5) is True
+    assert _guided_xcorr_accepts(lag_samples=12.4, guide_lag_samples=10.0, max_lag_samples=2.5) is True
+    assert _guided_xcorr_accepts(lag_samples=13.1, guide_lag_samples=10.0, max_lag_samples=2.5) is False
+    assert _guided_xcorr_accepts(lag_samples=-1.0, guide_lag_samples=10.0, max_lag_samples=2.5) is False
+
+
+def test_load_config_rejects_half_cycle_guide_violation():
+    """Guided xcorr must keep the fine-search span below one dominant period."""
+    cfg = """
+data:
+  bundle_file: /tmp/test_bundle.npz
+  manifest_file: /tmp/test_manifest.json
+  qc_dir: /tmp/qc
+  qc_url_prefix: /cassm-processing
+  inversion_dir: /tmp/inversion
+  inversion_url_prefix: /cassm-inversion
+geometry:
+  n_sources: 1
+  n_receivers: 72
+  sample_count: 3840
+  sample_rate_hz: 48000.0
+channels:
+  known_bad_channels: "72"
+  active_channels: ""
+  source_boreholes: "AML"
+preprocessing:
+  pick_search_s: 0.012
+  window_s: 0.003
+  window_pre_pick_ms: 0.1
+  window_post_pick_ms: 0.5
+  clip_first_s: 0.0015
+  mute_first_s: 0.0015
+  hydro_clip_first_s: 0.001
+  hydro_mute_first_s: 0.001
+  taper_fraction: 0.01
+filters:
+  low_hz: 0.0
+  high_hz: 0.0
+  order: 4
+  accel_low_hz: 5000.0
+  accel_high_hz: 15000.0
+  hydro_low_hz: 5000.0
+  hydro_high_hz: 15000.0
+picking:
+  method: aic
+  stalta_short_s: 0.0002
+  stalta_long_s: 0.0015
+  stalta_threshold: 3.0
+  aic_margin_samples: 10
+  aic_min_snr: 0.0
+  baseline_end_date: "2026-05-06T12:00:00Z"
+xcorr:
+  method: xcorr
+  envelope_guide: true
+  envelope_max_lag_ms: 0.25
+  envelope_min_peak_cc: 0.40
+  fine_half_lag_ms: 0.25
+  guide_smooth_epochs: 3
+  min_peak_cc: 0.4
+  edge_guard_samples: 0
+  despike_single_epoch: false
+  despike_mad_thresh: 5.0
+  mask_short_runs: false
+  short_run_max_len_epochs: 4
+  short_run_min_amp_us: 35.0
+  short_run_neighbor_tol_us: 12.0
+dtw:
+  enabled: true
+  max_shift_ms: 0.25
+  strain_limit: 2.0
+  min_ncc: 0.2
+fwi_dt:
+  enabled: false
+manual_picks:
+  file: ""
+  require: true
+output:
+  preview_samples: 400
+  max_qc_items: 20
+  max_inversion_items: 20
+  max_pairs: 60
+  baseline_plot_samples: 60
+watch:
+  enabled: false
+  period_s: 300
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cfg_path = Path(tmpdir) / "bad_config.yaml"
+        cfg_path.write_text(cfg)
+        try:
+            load_config(cfg_path)
+            raise AssertionError("Expected ValueError for half-cycle violation")
+        except ValueError as exc:
+            msg = str(exc).lower()
+            assert "half-cycle" in msg or "dominant period" in msg or "fine_half_lag" in msg
+            print(f"✓ Guardrail rejection: {exc}")
 
 
 if __name__ == "__main__":

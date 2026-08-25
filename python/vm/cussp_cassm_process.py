@@ -509,9 +509,6 @@ class MetricConfig:
     #   (±20-100 µs at 50 kHz) but does not require storing baseline waveforms.
     dt_method: str = "xcorr"
     xcorr_max_lag_s: float = 0.001   # ±max xcorr search lag (s)
-    xcorr_accept_max_lag_s: float = 0.001        # accept only |lag| <= this bound (s) — accel channels
-    xcorr_accept_max_lag_hydro_s: float = 0.001  # accept only |lag| <= this bound (s) — hydro channels (ch≥49)
-    xcorr_accept_max_lag_dm_hydro_s: float = 0.0015  # DM* -> hydro override for larger legitimate shifts
     source_boreholes: Optional[Tuple[str, ...]] = None
     xcorr_min_peak_cc: float = 0.0    # reject xcorr peaks below this normalized correlation
     xcorr_edge_guard_samples: int = 1 # reject peaks within this many samples of the lag-window edge
@@ -580,6 +577,61 @@ class MetricConfig:
     dtw_max_shift_ms: float = 0.5  # maximum warp magnitude in milliseconds (~24 samples @ 48 kHz)
     dtw_strain_limit: float = 2.0  # max local warp slope di/dj; ~2 allows ±50% slowdown/speedup
     dtw_min_ncc: float = 0.2  # minimum NCC (after DTW warp) to accept result
+
+
+def _guide_dominant_half_cycle_s(args: argparse.Namespace) -> float:
+    """Return the maximum safe half-cycle span for a guided xcorr search.
+
+    The coarse guide is only safe if the final fine-search span stays within half
+    of the dominant period of the signal.  In practice, use the highest configured
+    band edge as the dominant-frequency proxy and reject values that would admit a
+    two-cycle fine search.
+    """
+    sample_rate_hz = float(getattr(args, "sample_rate_hz", 48000.0))
+    candidates = [
+        getattr(args, "hydro_filter_high_hz", None),
+        getattr(args, "accel_filter_high_hz", None),
+        getattr(args, "filter_high_hz", None),
+        sample_rate_hz / 4.0,
+        10000.0,
+    ]
+    dominant_hz = max(float(v) for v in candidates if v is not None and float(v) > 0.0)
+    return 0.5 / dominant_hz
+
+
+def _guided_xcorr_accepts(
+    lag_samples: float,
+    guide_lag_samples: Optional[float],
+    max_lag_samples: float,
+) -> bool:
+    """Return True if the refined xcorr lag remains within the configured span of the guide.
+
+    The guide-selected cycle is the valid center, so the acceptance distance is measured
+    as |lag - guide_lag|, not |lag| from zero.  When no guide is available, fall back to
+    the raw absolute lag check for standard unguided xcorr.
+    """
+    if guide_lag_samples is None or not np.isfinite(guide_lag_samples):
+        return abs(float(lag_samples)) <= float(max_lag_samples)
+    return abs(float(lag_samples) - float(guide_lag_samples)) <= float(max_lag_samples)
+
+
+def _validate_guided_xcorr_config(args: argparse.Namespace) -> None:
+    """Reject guided xcorr configs whose fine search can cycle-hop the chosen guide."""
+    guide_active = bool(getattr(args, "envelope_guide_xcorr", False)) or bool(getattr(args, "dtw_enabled", False))
+    if not guide_active:
+        return
+
+    fine_half_lag_s = float(getattr(args, "xcorr_fine_half_lag_s", 0.0))
+    span_s = 2.0 * fine_half_lag_s
+    safe_half_cycle_s = _guide_dominant_half_cycle_s(args)
+    if span_s > safe_half_cycle_s:
+        raise ValueError(
+            "Unsafe guided xcorr configuration: the fine search span "
+            f"({span_s * 1e6:.1f} us = 2 * fine_half_lag_s) exceeds the safe half-cycle "
+            f"limit ({safe_half_cycle_s * 1e6:.1f} us). "
+            "Set fine_half_lag_ms so the final xcorr window stays within ±half a dominant cycle; "
+            "for 5–15 kHz data this usually means a sub-20–30 us half-width."
+        )
 
 
 def _aic_pick(x: np.ndarray, margin: int = 10, min_snr: float = 0.0) -> Tuple[int, float]:
@@ -1012,6 +1064,15 @@ class CASSMTempGather:
         ``epoch_idx`` may be an int, a list of ints, or a slice.
         """
         if self._compact_inv is not None:
+            # A compact index is only meaningful against a compact pair axis; applying
+            # it to a full-shaped array silently returns another pair's waveform.
+            if self._valid_pair_indices is None or self.data.shape[1] != len(self._valid_pair_indices):
+                raise RuntimeError(
+                    f"Pair-axis mismatch: _compact_inv is set but data has "
+                    f"{self.data.shape[1]} pair slots (expected "
+                    f"{len(self._valid_pair_indices) if self._valid_pair_indices is not None else 'n/a'}). "
+                    "Clear _compact_inv whenever data is expanded to full pair shape."
+                )
             cidx = int(self._compact_inv[pair_idx])
             if cidx < 0:
                 # This pair was not stored (inactive/same-well) — return zeros.
@@ -1107,7 +1168,7 @@ class CASSMTempGather:
             f"{config.hydro_filter_low_hz}|{config.hydro_filter_high_hz}|"
             f"{config.picker}|{config.stalta_short_s:.6f}|{config.stalta_long_s:.6f}|"
             f"{config.stalta_threshold:.3f}|{config.baseline_n_epochs}|"
-            f"{config.dt_method}|{config.xcorr_max_lag_s:.6f}|{config.xcorr_accept_max_lag_s:.6f}|{config.xcorr_accept_max_lag_hydro_s:.6f}|{config.xcorr_accept_max_lag_dm_hydro_s:.6f}|"
+            f"{config.dt_method}|{config.xcorr_max_lag_s:.6f}|"
             f"{','.join(config.source_boreholes) if config.source_boreholes else ''}|{config.xcorr_min_peak_cc:.4f}|"
             f"{config.xcorr_edge_guard_samples}|{config.window_taper_fraction:.4f}|"
             f"{config.window_pre_pick_s}|{config.window_post_pick_s}|"
@@ -1181,9 +1242,6 @@ class CASSMTempGather:
         n_search = max(int(config.pick_search_s * self.sample_rate_hz), 20)
         n_search = min(n_search, self.sample_count)
         max_lag = max(int(config.xcorr_max_lag_s * self.sample_rate_hz), 1)
-        accept_max_lag_accel = max(int(config.xcorr_accept_max_lag_s * self.sample_rate_hz), 1)
-        accept_max_lag_hydro = max(int(config.xcorr_accept_max_lag_hydro_s * self.sample_rate_hz), 1)
-        accept_max_lag_dm_hydro = max(int(config.xcorr_accept_max_lag_dm_hydro_s * self.sample_rate_hz), 1)
         # Envelope-guided xcorr: pre-compute integer sample counts once
         envelope_max_lag = max(int(config.envelope_max_lag_s * self.sample_rate_hz), 1)
         fine_half_lag = max(int(config.xcorr_fine_half_lag_s * self.sample_rate_hz), 1)
@@ -1208,11 +1266,18 @@ class CASSMTempGather:
         envelope_lag_us = np.full((self.n_pairs, self.n_epochs), np.nan, dtype=np.float32)
         envelope_smooth_lag_us = np.full((self.n_pairs, self.n_epochs), np.nan, dtype=np.float32)
         envelope_peak_cc = np.zeros((self.n_pairs, self.n_epochs), dtype=np.float32)
+        # DTW guide diagnostics: raw lag, smoothed lag, and quality metric similar to envelope.
+        dtw_lag_us = np.full((self.n_pairs, self.n_epochs), np.nan, dtype=np.float32)
+        dtw_smooth_lag_us = np.full((self.n_pairs, self.n_epochs), np.nan, dtype=np.float32)
+        dtw_peak_cc = np.zeros((self.n_pairs, self.n_epochs), dtype=np.float32)
         # Per-pair circular buffer for causal running-median of coarse lags.
-        # Allocated lazily inside the pair loop so only envelope-mode pairs use RAM.
+        # Allocated lazily inside the pair loop so only guided-mode pairs use RAM.
         _env_lag_buf: dict = {}  # pair_index -> np.ndarray of length _env_smooth_w (float32)
         _env_buf_pos: dict = {}  # pair_index -> int (circular insert position)
         _env_buf_cnt: dict = {}  # pair_index -> int (number of valid entries so far)
+        _dtw_lag_buf: dict = {}  # pair_index -> np.ndarray of length _env_smooth_w (float32)
+        _dtw_buf_pos: dict = {}
+        _dtw_buf_cnt: dict = {}
 
         # Baseline picks (one per pair) — cached separately; independent of dt_method.
         baseline_pick_index = self._baseline_picks(
@@ -1336,12 +1401,17 @@ class CASSMTempGather:
                     and not _use_dtw_this_pair  # DTW supersedes envelope when both enabled
                     and not _use_fwi_dt_this_pair  # FWI supersedes envelope when both enabled
                 )
-                if _is_hydro and _is_dm_source:
-                    accept_max_lag = accept_max_lag_dm_hydro
-                elif _is_hydro:
-                    accept_max_lag = accept_max_lag_hydro
+                if _use_envelope_this_pair:
+                    # Final xcorr is restricted to the fine half-window: the guide chooses the
+                    # cycle, and the refinement cannot step to a neighboring cycle.
+                    accept_max_lag = fine_half_lag
+                elif _use_dtw_this_pair:
+                    # DTW selects the coarse cycle; the final xcorr still must remain within
+                    # the same half-cycle safety window used by the guide-driven refinement.
+                    accept_max_lag = fine_half_lag
                 else:
-                    accept_max_lag = accept_max_lag_accel
+                    # Unguided waveform xcorr uses the configured search half-width directly.
+                    accept_max_lag = max_lag
                 if _is_hydro:
                     _flo = config.hydro_filter_low_hz if config.hydro_filter_low_hz is not None and config.hydro_filter_low_hz > 0 else config.filter_low_hz
                     _fhi = config.hydro_filter_high_hz if config.hydro_filter_high_hz is not None and config.hydro_filter_high_hz > 0 else config.filter_high_hz
@@ -1367,6 +1437,10 @@ class CASSMTempGather:
                     _env_lag_buf[p] = np.full(_env_smooth_w, np.nan, dtype=np.float64)
                     _env_buf_pos[p] = 0
                     _env_buf_cnt[p] = 0
+                if _use_dtw_this_pair and _env_smooth_w > 1:
+                    _dtw_lag_buf[p] = np.full(_env_smooth_w, np.nan, dtype=np.float64)
+                    _dtw_buf_pos[p] = 0
+                    _dtw_buf_cnt[p] = 0
                 for e in range(self.n_epochs):
                     tr = _preprocess_waveform(
                         self.get_pair(e, p), self.sample_rate_hz, config,
@@ -1404,14 +1478,29 @@ class CASSMTempGather:
                                 edge_guard_samples=config.xcorr_edge_guard_samples,
                                 signal_end_j=pre_samples + post_samples,
                             )
-                            # Fine xcorr centered on DTW lag for sub-sample phase precision.
-                            # If it edge-hits (fine_half_lag too tight for this epoch's DTW
-                            # estimate), fall back to the integer DTW lag directly rather than
-                            # losing the epoch entirely.
+                            # Raw DTW lag is stored for QC and guided plotting; the smoothed DTW
+                            # lag is used as the fine-search center to prevent cycle-hopping.
+                            dtw_lag_us[p, e] = float(dtw_lag * self.dt * 1e6)
+                            dtw_peak_cc[p, e] = float(dtw_ncc)
+                            if _env_smooth_w > 1:
+                                buf = _dtw_lag_buf[p]
+                                pos = _dtw_buf_pos[p]
+                                buf[pos] = dtw_lag
+                                _dtw_buf_pos[p] = (pos + 1) % _env_smooth_w
+                                _dtw_buf_cnt[p] = min(_dtw_buf_cnt[p] + 1, _env_smooth_w)
+                                valid_buf = buf[~np.isnan(buf)]
+                                smoothed_dtw_lag = float(np.median(valid_buf)) if valid_buf.size else dtw_lag
+                            else:
+                                smoothed_dtw_lag = dtw_lag
+                            dtw_smooth_lag_us[p, e] = float(smoothed_dtw_lag * self.dt * 1e6)
+
+                            # Fine xcorr centered on the smoothed DTW lag for sub-sample precision.
+                            # If it edge-hits (fine_half_lag too tight for this epoch's DTW estimate),
+                            # fall back to the integer DTW lag directly rather than losing the epoch.
                             lag, peak_cc, edge_hit = _xcorr_dt_samples(
                                 bl_win, ep_win, fine_half_lag,
                                 config.xcorr_edge_guard_samples,
-                                center_lag=int(round(dtw_lag)),
+                                center_lag=int(round(smoothed_dtw_lag)),
                             )
                             if edge_hit:
                                 # Fine xcorr misplaced; use DTW lag directly (integer precision).
@@ -1548,22 +1637,34 @@ class CASSMTempGather:
                         centfreq[p, e] = float(np.sum(freqs_inband * spec_inband) / denom / 1000.0)
 
                     # Acceptance gate.
-                    # DTW-guided mode: check DTW quality (min_ncc) and saturation, then fine xcorr.
-                    #   If DTW saturates or has poor NCC, reject explicitly (NaN).
-                    #   Otherwise skip the abs(lag) distance gate and rely on DTW cycle-unambiguity.
-                    # FWI-guided mode: the NCC gate is already applied inside fwi_estimate_dt();
-                    #   edge_hit == rejected flag.  Skip the abs(lag) distance-from-zero gate.
-                    # Envelope-guided mode: skip the abs(lag) gate for the same reason.
-                    # Unguided xcorr mode: keep the original gate.
+                    # DTW- and envelope-guided modes are only valid when the refined lag stays
+                    # close to the guide-selected cycle, not when it simply lands near zero.
+                    # Use the guide center as the valid reference; unguided xcorr remains a raw
+                    # absolute-lag check within its configured search window.
                     if _dtw_guided_this_epoch:
                         # DTW-specific gate: check for saturation and min_ncc violation
                         if _dtw_saturated or _dtw_min_ncc_violated:
                             accept = False
                         else:
-                            # DTW passed; fine xcorr must also pass
-                            accept = peak_cc >= config.xcorr_min_peak_cc and not edge_hit
-                    elif _fwi_guided_this_epoch or _envelope_guided_this_epoch:
-                        accept = peak_cc >= config.xcorr_min_peak_cc and not edge_hit
+                            # DTW passed; fine xcorr must stay within ±fine_half_lag of the
+                            # selected DTW cycle, otherwise it has jumped to a neighboring cycle.
+                            accept = (peak_cc >= config.xcorr_min_peak_cc
+                                      and not edge_hit
+                                      and _guided_xcorr_accepts(
+                                          lag, float(dtw_smooth_lag_us[p, e]) / (self.dt * 1e6),
+                                          accept_max_lag,
+                                      ))
+                    elif _fwi_guided_this_epoch:
+                        accept = (peak_cc >= config.xcorr_min_peak_cc
+                                  and not edge_hit)
+                    elif _envelope_guided_this_epoch:
+                        accept = (peak_cc >= config.xcorr_min_peak_cc
+                                  and not edge_hit
+                                  and _guided_xcorr_accepts(
+                                      lag,
+                                      float(envelope_smooth_lag_us[p, e]) / (self.dt * 1e6),
+                                      accept_max_lag,
+                                  ))
                     else:
                         accept = (peak_cc >= config.xcorr_min_peak_cc
                                   and not edge_hit
@@ -1622,10 +1723,10 @@ class CASSMTempGather:
                     sw = _window_samples(baseline_pick_index[p], pre_samples, post_samples, self.sample_count)
                     w = tr[sw]
                     rms[p, e] = float(np.sqrt(np.mean(np.square(w)))) if w.size else 0.0
-                    spec = np.abs(np.fft.rfft(w, n=win_samples)) ** 2
+                    spec = np.abs(np.fft.rfft(w, n=n_fft_cf)) ** 2
                     denom = float(spec.sum())
                     if denom > 0:
-                        centfreq[p, e] = float(np.sum(freqs_pow * spec) / denom / 1000.0)
+                        centfreq[p, e] = float(np.sum(freqs_cf * spec) / denom / 1000.0)
 
         self._metric_cache[f"{key}:rms"] = rms
         self._metric_cache[f"{key}:centfreq"] = centfreq
@@ -1663,6 +1764,9 @@ class CASSMTempGather:
         self._metric_cache[f"{key}:envelope_lag_us"] = envelope_lag_us
         self._metric_cache[f"{key}:envelope_smooth_lag_us"] = envelope_smooth_lag_us
         self._metric_cache[f"{key}:envelope_peak_cc"] = envelope_peak_cc
+        self._metric_cache[f"{key}:dtw_lag_us"] = dtw_lag_us
+        self._metric_cache[f"{key}:dtw_smooth_lag_us"] = dtw_smooth_lag_us
+        self._metric_cache[f"{key}:dtw_peak_cc"] = dtw_peak_cc
 
         if config.envelope_guide_xcorr:
             n_env_rejected = int(np.sum(
@@ -1689,6 +1793,9 @@ class CASSMTempGather:
             "envelope_lag_us": envelope_lag_us,
             "envelope_smooth_lag_us": envelope_smooth_lag_us,
             "envelope_peak_cc": envelope_peak_cc,
+            "dtw_lag_us": dtw_lag_us,
+            "dtw_smooth_lag_us": dtw_smooth_lag_us,
+            "dtw_peak_cc": dtw_peak_cc,
         }
 
 
@@ -2562,9 +2669,11 @@ def write_processing_qc(
         "picker": config.picker,
         "dt_method": config.dt_method,
         "xcorr_max_lag_s": float(config.xcorr_max_lag_s),
-        "xcorr_accept_max_lag_s": float(config.xcorr_accept_max_lag_s),
-        "xcorr_accept_max_lag_hydro_s": float(config.xcorr_accept_max_lag_hydro_s),
-        "xcorr_accept_max_lag_dm_hydro_s": float(config.xcorr_accept_max_lag_dm_hydro_s),
+        "xcorr_accept_max_lag_derived_unguided_s": float(config.xcorr_max_lag_s),
+        "xcorr_accept_max_lag_derived_envelope_guided_s": float(
+            config.envelope_max_lag_s + config.xcorr_fine_half_lag_s
+        ),
+        "xcorr_accept_max_lag_derived_dtw_s": float(config.dtw_max_shift_ms / 1000.0),
         "xcorr_min_peak_cc": float(config.xcorr_min_peak_cc),
         "xcorr_edge_guard_samples": int(config.xcorr_edge_guard_samples),
         "xcorr_despike_single_epoch": bool(config.xcorr_despike_single_epoch),
@@ -2610,6 +2719,11 @@ def publish_bundle(
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
 
     preview = make_preview(tg.data, target_samples=preview_samples)
+    if tg._valid_pair_indices is not None and preview.shape[1] != tg.n_pairs:
+        # Metrics are indexed by full pair index, so the preview must be too.
+        full = np.zeros((preview.shape[0], tg.n_pairs, preview.shape[2]), dtype=preview.dtype)
+        full[:, tg._valid_pair_indices, :] = preview
+        preview = full
     preview_dt_ms = tg.dt * (tg.sample_count - 1) / max(preview.shape[2] - 1, 1) * 1000.0 if tg.n_epochs else 0.0
 
     tmp_bundle = bundle_path.with_suffix(bundle_path.suffix + ".tmp")
@@ -2620,6 +2734,7 @@ def publish_bundle(
             epoch_times=np.array([t.isoformat() for t in tg.epoch_times], dtype=object),
             rms=metrics["rms"],
             centfreq=metrics["centfreq"],
+            spec_ratio_slope=metrics.get("spec_ratio_slope"),
             dt_us=metrics["dt_us"],
             xcorr_peak_cc=metrics.get("xcorr_peak_cc"),
             xcorr_edge_hit=metrics.get("xcorr_edge_hit"),
@@ -2628,6 +2743,9 @@ def publish_bundle(
             envelope_lag_us=metrics.get("envelope_lag_us"),
             envelope_smooth_lag_us=metrics.get("envelope_smooth_lag_us"),
             envelope_peak_cc=metrics.get("envelope_peak_cc"),
+            dtw_lag_us=metrics.get("dtw_lag_us"),
+            dtw_smooth_lag_us=metrics.get("dtw_smooth_lag_us"),
+            dtw_peak_cc=metrics.get("dtw_peak_cc"),
             gather_preview=preview,
             valid_pair_indices=tg._valid_pair_indices,
             preview_dt_ms=preview_dt_ms,
@@ -2792,16 +2910,20 @@ def _stream_ingest_hdf5(
     # If compact storage was used, expand back to full (n_epochs, n_pairs, n_samples).
     LOG.info("Loading %d epochs from HDF5 into memory...", n_start + n_appended)
     with h5py.File(hdf5_path, "r") as f:
-        compact = f["data"][:].astype(np.float32)
-    if vpi is not None:
-        tg._valid_pair_indices = vpi
-        tg.data = np.zeros(
-            (compact.shape[0], tg.n_pairs, tg.sample_count), dtype=np.float32
-        )
-        tg.data[:, vpi, :] = compact
-        del compact
-    else:
-        tg.data = compact
+        ds = f["data"]
+        n_total = int(ds.shape[0])
+        if vpi is not None:
+            tg._valid_pair_indices = vpi
+            tg.data = np.zeros((n_total, tg.n_pairs, tg.sample_count), dtype=np.float32)
+            # Read in epoch chunks so the compact and expanded arrays are never both resident.
+            chunk = 256
+            for i0 in range(0, n_total, chunk):
+                i1 = min(i0 + chunk, n_total)
+                tg.data[i0:i1, vpi, :] = ds[i0:i1].astype(np.float32)
+        else:
+            tg.data = ds[:].astype(np.float32)
+    # data is now full-shape, so any compact lookup table from the initial load is stale.
+    tg._compact_inv = None
     tg._metric_cache.clear()
     tg._pick_cache.clear()
     return n_appended
@@ -2961,9 +3083,6 @@ def run_once(args) -> int:
         aic_min_snr=args.aic_min_snr,
         dt_method=args.dt_method,
         xcorr_max_lag_s=args.xcorr_max_lag_ms / 1000.0,
-        xcorr_accept_max_lag_s=args.xcorr_accept_max_lag_ms / 1000.0,
-        xcorr_accept_max_lag_hydro_s=args.xcorr_accept_max_lag_hydro_ms / 1000.0,
-        xcorr_accept_max_lag_dm_hydro_s=args.xcorr_accept_max_lag_dm_hydro_ms / 1000.0,
         xcorr_min_peak_cc=args.xcorr_min_peak_cc,
         xcorr_edge_guard_samples=args.xcorr_edge_guard_samples,
         xcorr_despike_single_epoch=args.xcorr_despike_single_epoch,
@@ -3242,9 +3361,6 @@ def load_config(config_file: Path) -> argparse.Namespace:
     xc = cfg.get("xcorr", {})
     args.dt_method = xc.get("method", "xcorr")
     args.xcorr_max_lag_ms = xc.get("max_lag_ms", 1.0)
-    args.xcorr_accept_max_lag_ms = xc.get("accept_max_lag_ms", args.xcorr_max_lag_ms)
-    args.xcorr_accept_max_lag_hydro_ms = xc.get("accept_max_lag_hydro_ms", args.xcorr_accept_max_lag_ms)
-    args.xcorr_accept_max_lag_dm_hydro_ms = xc.get("accept_max_lag_dm_hydro_ms", 0.15)
     args.xcorr_min_peak_cc = xc.get("min_peak_cc", 0.6)
     args.xcorr_edge_guard_samples = xc.get("edge_guard_samples", 1)
     args.xcorr_despike_single_epoch = bool(xc.get("despike_single_epoch", True))
@@ -3304,6 +3420,7 @@ def load_config(config_file: Path) -> argparse.Namespace:
     args.watch = wm.get("enabled", False)
     args.period_s = wm.get("period_s", 300)
     
+    _validate_guided_xcorr_config(args)
     LOG.info("Loaded configuration from %s", config_file)
     return args
 

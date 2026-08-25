@@ -13,10 +13,10 @@ data:
   cache_file: /home/chopp/cassm_local/live/cassm_tempgather_full.h5
   
   # Output bundle (compact metrics for visualization)
-  bundle_file: /home/chopp/cassm_local/live/cassm_dashboard_bundle_full.npz
+  bundle_file: /home/chopp/cassm_local/live/cassm_dashboard_bundle_no-denoise_w-DTW_8-21-26.npz
   
   # Manifest JSON (metadata and update time)
-  manifest_file: /home/chopp/cassm_local/live/cassm_dashboard_manifest.json
+  manifest_file: /home/chopp/cassm_local/live/cassm_dashboard_manifest_no-denoise_w-DTW_8-21-26.json
   
   # QC plots and statistics directory
   qc_dir: /home/chopp/cassm_local/live/processing_qc
@@ -174,12 +174,12 @@ xcorr:
   # Envelope guidance is applied ONLY to DM*→TS hydrophone pairs (the pair
   # family that exhibited cycle-skip problems).  All other pairs use standard
   # unguided xcorr regardless of this flag.
-  envelope_guide: true
+  envelope_guide: false
 
   # Coarse search half-width (ms).  0.50 ms = ±24 samples at 48 kHz, which
   # matches the DTW max_shift and accommodates large injection-induced delays
   # while remaining cycle-skip-safe with the 4.8-sample cycle period at 10 kHz.
-  envelope_max_lag_ms: 0.50
+  envelope_max_lag_ms: 0.25
 
   # Uniform smoothing half-width applied to the envelope before xcorr.
   # Suppresses intra-cycle ripple.  5 samples (~0.1 ms at 48 kHz) works well
@@ -189,18 +189,18 @@ xcorr:
   # Minimum envelope xcorr peak to trust the coarse lag estimate.
   # Below this the epoch is NaN-rejected.  0.20 is deliberately permissive;
   # raise to 0.30–0.40 if you see spurious coarse lags on very noisy pairs.
-  envelope_min_peak_cc: 0.20
+  envelope_min_peak_cc: 0.40
 
   # Fine waveform xcorr search half-width (ms), centered on the coarse lag.
-  # Must be < ½ dominant period so the fine search cannot jump a cycle.
-  # At 10 kHz dominant frequency one half-period ≈ 0.05 ms (2.4 samples at
-  # 48 kHz).  4 samples (0.0833 ms) = ±2.0 half-cycles — safely below one full
-  # cycle (4.8 samp) while tolerating coarse lag jitter of ±2.4 samples for
-  # pairs with less stable envelope estimates.
-  # The envelope coarse stage already uses a wide window (±envelope_max_lag_ms)
-  # to locate the energy peak, so the fine search only needs a small refinement
-  # window around that coarse estimate.
-  fine_half_lag_ms: 0.0840
+  # The constraint is on the SPAN, not the half-width: 2*half must stay below one
+  # dominant period, otherwise the window contains two cc peaks and the fine stage
+  # can silently override the cycle the envelope chose.
+  # T ~ 96 us here, so span must be < 96 us and half-width < 48 us.
+  # Sample quantisation is coarse: int(ms*48) gives 2 samples (+/-41.7 us,
+  # span 0.87 T) for 0.0417-0.0624, but 3 samples (span 1.30 T) from 0.0625 up.
+  # The previous 0.0840 gave 4 samples = span 1.74 T, which allowed cycle hopping
+  # in 4.6% of DM*->TS epochs.
+  fine_half_lag_ms: 0.015
 
   # Causal running-median window (epochs) applied per-pair to smooth the raw
   # coarse envelope lag before using it as the fine-search center.
@@ -211,19 +211,18 @@ xcorr:
   # The smoothed version (envelope_smooth_lag_us) is what actually guides the
   # fine xcorr search center and is also published to the per-pair plots.
   # Set to 1 to disable smoothing (use raw lag directly as the guide).
-  guide_smooth_epochs: 5
+  guide_smooth_epochs: 3
 
-  # Post-xcorr acceptance gate: reject lags outside this bound even if they
-  # are the xcorr maximum.  With envelope-guided mode the fine search is
-  # already narrow (±fine_half_lag_ms), so these guards are a secondary
-  # safety net rather than the primary cycle-skip defence.
-  accept_max_lag_ms: 0.05           # accelerometers (ch 1-48): ±50 µs
-  accept_max_lag_hydro_ms: 0.05     # hydrophones (ch 49-72): ±50 µs
-  accept_max_lag_dm_hydro_ms: 0.15  # DM*→hydro ray paths cross injection zone: ±150 µs
+  # Acceptance bounds are derived from searched windows (no explicit accept_* knobs):
+  # - Unguided xcorr: ±max_lag_ms
+  # - Envelope-guided xcorr: ±(envelope_max_lag_ms + fine_half_lag_ms)
+  # - DTW-guided xcorr: ±dtw.max_shift_ms
 
   # Minimum normalized waveform xcorr peak to accept a dt.
   # This gates the FINE waveform xcorr result, not the envelope.
-  min_peak_cc: 0.2
+  # Cycle hopping concentrates in the weak-correlation tail: among accepted
+  # epochs with cc < 0.4, 19.4% sat more than T/2 from the envelope guide.
+  min_peak_cc: 0.4
 
   # Edge guard: reject peaks this close to the search-window edge.
   # Keep at 0 with a tight accepted-lag gate to avoid over-rejecting valid lags.
@@ -235,13 +234,13 @@ xcorr:
   # Single-epoch dt despike: masks isolated dt spikes deviating from the local
   # 3-point median by > despike_mad_thresh × global MAD.  Catches epochs where
   # even the envelope-guided fine xcorr lands on a noise peak.
-  despike_single_epoch: true
+  despike_single_epoch: false
   despike_mad_thresh: 5.0
 
   # Short branch-run masking: removes brief multi-epoch excursions that jump
   # away from a stable dt level and return within short_run_max_len_epochs.
   # Catches residual toggling between two stable dt levels that survive despiking.
-  mask_short_runs: true
+  mask_short_runs: false
   short_run_max_len_epochs: 4
   short_run_min_amp_us: 35.0
   short_run_neighbor_tol_us: 12.0
@@ -253,7 +252,7 @@ dtw:
   # Enable DTW-derived dt estimation for DM*→TS hydrophone pairs.
   # DTW is cycle-skip-resistant and can recover large lags (>cycle period).
   # Restricted to DM*→TS pairs only; all other pairs use xcorr as normal.
-  enabled: false
+  enabled: true
 
   # Maximum time-warp magnitude (milliseconds). DTW search is constrained to a
   # Sakoe-Chiba band of ±this width around the diagonal, making it robust to
@@ -261,7 +260,7 @@ dtw:
   # Phase A diagnostics showed ~200 µs needed for injection-zone rays; using
   # 0.25 ms (12 samples @ 48 kHz) as conservative starting point.
   # If diagnostics show saturation or high NaN, increase to 0.5–1.0 ms.
-  max_shift_ms: 0.5
+  max_shift_ms: 0.25
 
   # Local warp slope limit (di/dj ratio). Constrains the time-axis warping
   # to physical slowdown/speedup; ~2 allows ±50% slowdown/speedup per sample.

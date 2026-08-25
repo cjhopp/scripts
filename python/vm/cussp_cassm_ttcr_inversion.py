@@ -155,11 +155,11 @@ def _build_active_pair_geometry(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Derive source/receiver 3-D coordinates for all active pairs in the bundle.
 
-    Active pairs are those where at least one epoch has a non-zero dt value.
+    Active pairs are those with at least *min_valid_epochs_per_pair* finite dt values.
     Returns (active_idxs, tx, rx) — parallel arrays of length K.
     """
     min_valid = max(int(min_valid_epochs_per_pair), 1)
-    active_mask = (dt_us != 0).sum(axis=1) >= min_valid
+    active_mask = np.isfinite(dt_us).sum(axis=1) >= min_valid
     active_idxs_candidate = np.where(active_mask)[0]
 
     # --- source coordinates (sorted depth-first per borehole) ---
@@ -461,6 +461,12 @@ def main() -> int:
     bundle = _load_bundle(bundle_file)
     dt_us = np.asarray(bundle["dt_us"], dtype=float)
     n_pairs, n_epochs = dt_us.shape
+    LOG.info(
+        "Bundle dt_us stats: finite=%d/%d (%.1f%%)",
+        int(np.isfinite(dt_us).sum()),
+        int(dt_us.size),
+        100.0 * float(np.isfinite(dt_us).sum()) / max(float(dt_us.size), 1.0),
+    )
 
     if args.sources_csv and args.receivers_csv:
         src_bh_list = [s.strip() for s in args.source_boreholes.split(",")]
@@ -553,12 +559,11 @@ def main() -> int:
     baseline_n = int(args.baseline_n_epochs)
     if baseline_n > 0:
         n_base = min(baseline_n, n_epochs)
-        dt_base_us = np.where(dt_us[:, :n_base] != 0.0, dt_us[:, :n_base], np.nan)
+        dt_base_us = np.where(np.isfinite(dt_us[:, :n_base]), dt_us[:, :n_base], np.nan)
         dt_base_us = np.nanmedian(dt_base_us, axis=1)
-        dt_base_us = np.nan_to_num(dt_base_us, nan=0.0)
         dt_base_s = dt_base_us * 1.0e-6
 
-        valid_b = (dt_base_s != 0.0) & (np.abs(dt_base_s) <= dt_thresh_s)
+        valid_b = np.isfinite(dt_base_s) & (np.abs(dt_base_s) <= dt_thresh_s)
         if dt_nsigma > 0 and valid_b.sum() > 3:
             dt_ok = dt_base_s[valid_b]
             med = np.median(dt_ok)
@@ -566,6 +571,13 @@ def main() -> int:
             sigma_est = mad * 1.4826
             if sigma_est > 0:
                 valid_b &= np.abs(dt_base_s - med) <= dt_nsigma * sigma_est
+
+        LOG.info(
+            "Baseline gating: %d/%d pairs retained (n_base=%d)",
+            int(valid_b.sum()),
+            int(len(valid_b)),
+            int(n_base),
+        )
 
         if valid_b.any():
             ds_base_m, _ = _solve_epoch(
@@ -590,8 +602,8 @@ def main() -> int:
         lbl = str(epoch_labels[e])
         dt_s_full = dt_us[:, e] * 1.0e-6
 
-        # Step 1: hard threshold + zero-pick mask
-        valid_e = (dt_s_full != 0.0) & (np.abs(dt_s_full) <= dt_thresh_s)
+        # Step 1: hard threshold + finite-dt mask
+        valid_e = np.isfinite(dt_s_full) & (np.abs(dt_s_full) <= dt_thresh_s)
 
         # Step 2: per-epoch MAD outlier rejection on the surviving picks
         if dt_nsigma > 0 and valid_e.sum() > 3:
@@ -605,6 +617,15 @@ def main() -> int:
         if not valid_e.any():
             LOG.warning("Epoch %d/%d (%s): no valid pairs, skipping", e + 1, n_epochs, lbl)
             continue
+
+        if (e + 1) % 100 == 0 or e == n_epochs - 1:
+            LOG.info(
+                "Epoch %d/%d gating retained %d/%d pairs",
+                e + 1,
+                n_epochs,
+                int(valid_e.sum()),
+                int(valid_e.size),
+            )
 
         G_e  = Gm[valid_e, :]          # subset to valid pairs and active model cells
         dt_s = dt_s_full[valid_e]

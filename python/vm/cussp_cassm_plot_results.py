@@ -370,7 +370,8 @@ def plot_metric_by_sensor(metric, t_num, pair_is_hydro, smooth_window,
 
 def plot_each_pair_timeseries(dt, cc, cf, t_num, pair_src, pair_rec, pair_src_name, pair_rec_name,
                               dt_ylim_us, pair_index_full, injection=None,
-                              env_cc=None, env_lag_us=None, env_smooth_lag_us=None):
+                              env_cc=None, env_lag_us=None, env_smooth_lag_us=None,
+                              dtw_cc=None, dtw_lag_us=None, dtw_smooth_lag_us=None):
     """Yield one dt-vs-time figure per active pair.
 
     *env_cc*           : (n_pairs, n_epochs) envelope xcorr peak cc — overlaid on the
@@ -380,6 +381,9 @@ def plot_each_pair_timeseries(dt, cc, cf, t_num, pair_src, pair_rec, pair_src_na
     *env_smooth_lag_us*: (n_pairs, n_epochs) causal running-median smoothed coarse lag
                          in µs — overlaid as a heavier dashed line showing what actually
                          guided the fine xcorr search center.
+    *dtw_cc*           : (n_pairs, n_epochs) DTW quality metric, overlaid on the cc panel.
+    *dtw_lag_us*       : raw coarse DTW lag in µs for QC.
+    *dtw_smooth_lag_us*: smoothed DTW lag used to center the fine xcorr search.
     """
     inj_t = None
     inj_p = None
@@ -416,8 +420,18 @@ def plot_each_pair_timeseries(dt, cc, cf, t_num, pair_src, pair_rec, pair_src_na
             esli_plot = np.where(np.isfinite(esli), esli, np.nan)
             ax.plot(t_num, esli_plot, color="#9467bd", lw=1.2, ls="--",
                     alpha=0.85, label="env smooth lag (guide)")
+        if dtw_lag_us is not None:
+            dli = dtw_lag_us[i, :]
+            dli_plot = np.where(np.isfinite(dli), dli, np.nan)
+            ax.plot(t_num, dli_plot, color="#2ca02c", lw=0.5, ls=":",
+                    alpha=0.5, label="dtw coarse lag (raw)")
+        if dtw_smooth_lag_us is not None:
+            dsli = dtw_smooth_lag_us[i, :]
+            dsli_plot = np.where(np.isfinite(dsli), dsli, np.nan)
+            ax.plot(t_num, dsli_plot, color="#2ca02c", lw=1.2, ls="--",
+                    alpha=0.85, label="dtw smooth lag (guide)")
         ax.axhline(0, color="gray", lw=0.7, ls="--")
-        ax.legend(fontsize=7, loc="upper right", ncol=2)
+        ax.legend(fontsize=7, loc="upper right", ncol=3)
 
         dti = dt[i, :]
         # Include envelope lag values in the y-range so neither trace is clipped.
@@ -461,8 +475,13 @@ def plot_each_pair_timeseries(dt, cc, cf, t_num, pair_src, pair_rec, pair_src_na
             env_cci_plot = np.where(np.isfinite(env_cci), env_cci, np.nan)
             ax_cc.plot(t_num, env_cci_plot, color="#9467bd", lw=0.7, ls="--",
                        alpha=0.85, label="envelope cc")
-        if cci is not None or env_cci is not None:
-            ax_cc.legend(fontsize=7, loc="lower right", ncol=2)
+        if dtw_cc is not None:
+            dtw_cci = dtw_cc[i, :]
+            dtw_cci_plot = np.where(np.isfinite(dtw_cci), dtw_cci, np.nan)
+            ax_cc.plot(t_num, dtw_cci_plot, color="#2ca02c", lw=0.7, ls="-.",
+                       alpha=0.85, label="dtw cc")
+        if cci is not None or env_cci is not None or dtw_cc is not None:
+            ax_cc.legend(fontsize=7, loc="lower right", ncol=3)
         ax_cc.set_ylabel("peak cc")
         ax_cc.set_ylim(0.0, 1.0)
         ax_cc.grid(True, alpha=0.2)
@@ -841,6 +860,9 @@ def main():
     env_cc_raw         = b["envelope_peak_cc"].astype(np.float32) if "envelope_peak_cc" in b.files else None
     env_lag_raw        = b["envelope_lag_us"].astype(np.float32) if "envelope_lag_us" in b.files else None
     env_smooth_lag_raw = b["envelope_smooth_lag_us"].astype(np.float32) if "envelope_smooth_lag_us" in b.files else None
+    dtw_cc_raw         = b["dtw_peak_cc"].astype(np.float32) if "dtw_peak_cc" in b.files else None
+    dtw_lag_raw        = b["dtw_lag_us"].astype(np.float32) if "dtw_lag_us" in b.files else None
+    dtw_smooth_lag_raw = b["dtw_smooth_lag_us"].astype(np.float32) if "dtw_smooth_lag_us" in b.files else None
     rms_raw            = b["rms"].astype(np.float32)
     cf_raw      = b["centfreq"].astype(np.float32)
 
@@ -895,6 +917,9 @@ def main():
     env_cc         = env_cc_raw[active_idxs, :].copy() if env_cc_raw is not None else None
     env_lag        = env_lag_raw[active_idxs, :].copy() if env_lag_raw is not None else None
     env_smooth_lag = env_smooth_lag_raw[active_idxs, :].copy() if env_smooth_lag_raw is not None else None
+    dtw_cc         = dtw_cc_raw[active_idxs, :].copy() if dtw_cc_raw is not None else None
+    dtw_lag        = dtw_lag_raw[active_idxs, :].copy() if dtw_lag_raw is not None else None
+    dtw_smooth_lag = dtw_smooth_lag_raw[active_idxs, :].copy() if dtw_smooth_lag_raw is not None else None
     rms            = rms_raw[active_idxs, :].copy(); rms[rms == 0] = np.nan
     cf      = cf_raw[active_idxs, :].copy();  cf[cf == 0]   = np.nan
     if env_cc_raw is not None:
@@ -989,6 +1014,9 @@ def main():
                     env_cc=env_cc,
                     env_lag_us=env_lag,
                     env_smooth_lag_us=env_smooth_lag,
+                    dtw_cc=dtw_cc,
+                    dtw_lag_us=dtw_lag,
+                    dtw_smooth_lag_us=dtw_smooth_lag,
                 ):
                 pdf.savefig(fig, bbox_inches="tight")
                 plt.close(fig)
