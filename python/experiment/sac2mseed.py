@@ -66,30 +66,6 @@ FNAME = re.compile(r"^(?P<proj>[^.]+)\.(?P<node>\d{4})\.(?P<loc>\d{2})\."
                    r"(?P<chan>[A-Z0-9]+)\.sac$")
 
 
-# ---- node 0011 deployment overlap -----------------------------------------
-# 0011 ran locations 00 and 10 concurrently from 2024.339 to 2025.020.  The
-# handoff is 2024-12-29 = 2024.364: keep 00 before it, 10 from it onward.
-# These keys are ints because this is an ordering test.  Everywhere else
-# node/loc/jday stay as the strings the regex produced -- "020" != 20.
-OVERLAP_NODE = "0011"
-OVERLAP_FROM, OVERLAP_TO = 2024339, 2025020
-CUTOVER = 2024364
-
-
-def _daykey(m):
-    return int(m["year"]) * 1000 + int(m["jday"])
-
-
-def keep(m):
-    """False for the superseded half of the 0011 overlap, True otherwise."""
-    if m["node"] != OVERLAP_NODE:
-        return True
-    k = _daykey(m)
-    if not OVERLAP_FROM <= k <= OVERLAP_TO:
-        return True                      # outside the window: never drop
-    return m["loc"] == ("10" if k >= CUTOVER else "00")
-
-
 def _round_ns(ns, quantum=1_000_000):
     """Round an integer nanosecond count to the nearest quantum (default 1 ms),
     ties away from zero.  Pure integer arithmetic: UTCDateTime.ns for 2024 is
@@ -303,16 +279,10 @@ def main():
     if a.keep_extra_sample:
         ap.error("--keep-extra-sample produces overlapping day boundaries under scart")
 
-    seen, ok_n, fails, dropped = {}, 0, 0, 0
+    seen, ok_n, fails = {}, 0, 0
     mf_ctx = nullcontext() if a.dry_run else open(a.manifest, "a")
     with mf_ctx as mf:
         for f in iter_paths(a.sacfiles):
-            _m = FNAME.match(Path(f).name)
-            if _m is not None and not keep(_m):
-                dropped += 1
-                print(f"DROP {f}: superseded half of the {OVERLAP_NODE} "
-                      f"{_m['loc']} overlap", file=sys.stderr)
-                continue
             try:
                 if a.dry_run:
                     tr, m = read_and_check(f, headonly=True)
@@ -370,8 +340,7 @@ def main():
             mf.flush()
             ok_n += 1
 
-    print(f"\n{ok_n} ok, {fails} failed, {dropped} dropped",
-          file=sys.stderr)
+    print(f"\n{ok_n} ok, {fails} failed", file=sys.stderr)
     sys.exit(1 if fails else 0)
 
 
