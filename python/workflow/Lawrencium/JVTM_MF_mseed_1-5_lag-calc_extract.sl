@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J CJH_JVTM_MF_1-5
-#SBATCH --partition=lr3
+#SBATCH --partition=lr5
 #SBATCH --account=pc_seisproc
 #SBATCH --qos=lr_normal
 #SBATCH --time=4:00:00
