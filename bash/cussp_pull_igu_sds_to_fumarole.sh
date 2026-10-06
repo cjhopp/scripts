@@ -10,6 +10,8 @@ STATE_ROOT="${STATE_ROOT:-${HOME:-/tmp}/.cache/cussp_igu_sds_pull}"
 LOG_DIR="${LOG_DIR:-$STATE_ROOT/logs}"
 LOCK_FILE="${LOCK_FILE:-$STATE_ROOT/cussp_igu_sds_pull.lock}"
 SSH_KEY="${SSH_KEY:-}"
+SSH_BATCH_MODE="${SSH_BATCH_MODE:-false}"
+SSH_CONTROL_PATH="${SSH_CONTROL_PATH:-$STATE_ROOT/ssh-%C}"
 BWLIMIT_KBPS="${BWLIMIT_KBPS:-0}"
 DRY_RUN="${DRY_RUN:-true}"
 
@@ -47,6 +49,19 @@ case "$DRY_RUN" in
         ;;
 esac
 
+case "$SSH_BATCH_MODE" in
+    true|1)
+        ssh_batch_mode=true
+        ;;
+    false|0)
+        ssh_batch_mode=false
+        ;;
+    *)
+        echo "SSH_BATCH_MODE must be true, false, 1, or 0 (got: $SSH_BATCH_MODE)" >&2
+        exit 1
+        ;;
+esac
+
 if ! command -v mountpoint >/dev/null 2>&1; then
     echo "mountpoint is required to verify the QNAP mount" >&2
     exit 1
@@ -62,7 +77,10 @@ if ! mountpoint -q "$MOUNT_ROOT"; then
     exit 1
 fi
 
-ssh_args=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new)
+ssh_args=(-o ControlMaster=auto -o ControlPersist=5m -o "ControlPath=$SSH_CONTROL_PATH" -o StrictHostKeyChecking=accept-new)
+if [[ "$ssh_batch_mode" == "true" ]]; then
+    ssh_args+=(-o BatchMode=yes)
+fi
 if [[ -n "$SSH_KEY" ]]; then
     ssh_args=(-i "$SSH_KEY" "${ssh_args[@]}")
 fi
@@ -101,9 +119,13 @@ timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 log_file="$LOG_DIR/pull_${timestamp}.log"
 exec > >(tee -a "$log_file") 2>&1
 
-rsync_ssh_cmd="ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+rsync_ssh_cmd="ssh"
 if [[ -n "$SSH_KEY" ]]; then
-    rsync_ssh_cmd="ssh -i $SSH_KEY -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+    rsync_ssh_cmd+=" -i $SSH_KEY"
+fi
+rsync_ssh_cmd+=" -o ControlMaster=auto -o ControlPersist=5m -o ControlPath=$SSH_CONTROL_PATH -o StrictHostKeyChecking=accept-new"
+if [[ "$ssh_batch_mode" == "true" ]]; then
+    rsync_ssh_cmd+=" -o BatchMode=yes"
 fi
 
 rsync_args=(

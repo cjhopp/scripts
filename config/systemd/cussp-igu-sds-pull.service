@@ -9,6 +9,6 @@ Type=oneshot
 User=chopp
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/etc/default/cussp-igu-sds-pull
-ExecStart=/usr/local/sbin/cussp_pull_igu_sds_to_fumarole.sh
+ExecStart=/usr/bin/env SSH_BATCH_MODE=true /usr/local/sbin/cussp_pull_igu_sds_to_fumarole.sh
 StandardOutput=journal
 StandardError=journal
